@@ -2,7 +2,7 @@ package ch.threema.storage.databaseupdate;
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.TimeZone;
 
 import static ch.threema.storage.databaseupdate.DatabaseUpdateExtensionsKt.fieldExists;
@@ -16,8 +16,8 @@ public class DatabaseUpdateToVersion24 implements DatabaseUpdate {
 
         TimeZone currentTimeZone = TimeZone.getDefault();
         if (currentTimeZone != null) {
-            Date now = new Date();
-            int timezone = currentTimeZone.getOffset(now.getTime());
+            Instant now = Instant.now();
+            int timezone = currentTimeZone.getOffset(now.toEpochMilli());
             this.sqlTimezone = (timezone < 0 ? "+" : "-") + String.valueOf(Math.abs(timezone));
         }
     }

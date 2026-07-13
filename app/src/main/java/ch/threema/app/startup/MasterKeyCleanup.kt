@@ -10,8 +10,8 @@ import org.koin.mp.KoinPlatform
 
 /**
  * Removes every file that might have been encrypted with an old, no longer existing master key.
- * This mainly happens when the setup wizard is aborted and then restarted, as the master key is only persisted at the end of the wizard and
- * therefore all data stored prior to that can no longer be decrypted if the key is never persisted.
+ * This mainly happens when the setup wizard is aborted and then the app is restarted, as the master key is only persisted
+ * at the end of the wizard. Therefore, all data stored prior to that can never be decrypted because the master key will be lost.
  */
 fun deleteOrphanedUserData(context: Context) {
     deleteDatabaseFiles(context)

@@ -1,8 +1,7 @@
 package ch.threema.app.services;
 
 import java.io.File;
-import java.io.IOException;
-import java.util.Date;
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
@@ -15,11 +14,11 @@ import ch.threema.app.profilepicture.ProfilePicture;
 import ch.threema.base.SessionScoped;
 import ch.threema.data.models.ContactModelData;
 import ch.threema.domain.fs.DHSession;
+import ch.threema.domain.models.AcquaintanceLevel;
 import ch.threema.domain.models.IdentityState;
 import ch.threema.domain.models.VerificationLevel;
 import ch.threema.domain.taskmanager.ActiveTaskCodec;
 import ch.threema.domain.taskmanager.TriggerSource;
-import ch.threema.localcrypto.exceptions.MasterKeyLockedException;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.access.AccessModel;
 import java.util.function.Consumer;
@@ -329,31 +328,24 @@ public interface ContactService extends AvatarService<String> {
      */
     void setAcquaintanceLevel(
         @NonNull String identity,
-        @NonNull ContactModel.AcquaintanceLevel acquaintanceLevel
+        @NonNull AcquaintanceLevel acquaintanceLevel
     );
 
     /**
-     * Mark the contact as archived or unarchived. This change is reflected and uses the new contact
-     * model. Listeners are triggered by the contact model repository.
-     * <p>
-     * TODO(ANDR-3721): Use this method with care until the pinned state is moved to the same
-     *  database column as the archived state. This method must only be called with isArchived=true
-     *  when the conversation of this contact is *not* pinned.
+     * Unarchive the contact if it is currently archived. Note that pinned chats won't get unpinned.
      *
      * @param identity      the identity of the contact
-     * @param isArchived    whether the contact should be archived or not
      * @param triggerSource the source that triggered this action
      */
-    void setIsArchived(
+    void unarchive(
         @NonNull String identity,
-        boolean isArchived,
         @NonNull TriggerSource triggerSource
     );
 
     /**
      * Set the `lastUpdate` field of the specified contact to the current date.
      * <p>
-     * This will also save the model and notify listeners.
+     * This will also notify the event bus.
      */
     void bumpLastUpdate(@NonNull String identity);
 
@@ -361,14 +353,14 @@ public interface ContactService extends AvatarService<String> {
      * Get the `lastUpdate` field of the specified contact.
      */
     @Nullable
-    Date getLastUpdate(@NonNull String identity);
+    Instant getLastUpdate(@NonNull String identity);
 
     /**
      * Clear the `lastUpdate` field of the specified contact.
      * <p>
      * This will result in the conversation being removed from the conversation list.
      * <p>
-     * Save the model and notify listeners.
+     * This will also notify the event bus.
      */
     void clearLastUpdate(@NonNull String identity);
 
@@ -382,10 +374,6 @@ public interface ContactService extends AvatarService<String> {
     );
 
     AccessModel getAccess(@Nullable String identity);
-
-    void setIsTyping(@NonNull String identity, boolean isTyping);
-
-    boolean isTyping(String identity);
 
     /**
      * Send a typing indicator if the preferences do not prevent that.
@@ -446,14 +434,12 @@ public interface ContactService extends AvatarService<String> {
      * reflected.
      *
      * @return true if storing the profile picture succeeded
-     * @throws IOException              when the byte array cannot be written to the file
-     * @throws MasterKeyLockedException when the master key is locked
      */
     boolean setUserDefinedProfilePicture(
         @NonNull String identity,
         @Nullable byte[] avatar,
         @NonNull TriggerSource triggerSource
-    ) throws IOException, MasterKeyLockedException;
+    );
 
     /**
      * Remove the user defined profile picture. Depending on the trigger source, the change is also
@@ -477,11 +463,11 @@ public interface ContactService extends AvatarService<String> {
      */
     boolean isContactAllowedToReceiveProfilePicture(@NonNull String identity);
 
-    boolean showBadge(@Nullable String string);
+    boolean showIdentityTypeBadge(@Nullable String identity);
 
-    boolean showBadge(@Nullable ContactModel contactModel);
+    boolean showIdentityTypeBadge(@Nullable ContactModel contactModel);
 
-    boolean showBadge(@NonNull ContactModelData contactModelData);
+    boolean showIdentityTypeBadge(@NonNull ContactModelData contactModelData);
 
     String getAndroidContactLookupUriString(ContactModel contactModel);
 
@@ -520,10 +506,4 @@ public interface ContactService extends AvatarService<String> {
      */
     @NonNull
     Set<String> getRemovedContacts();
-
-    /**
-     * @return A snapshot of the currently typing contacts
-     */
-    @NonNull
-    Set<String> getTypingIdentities();
 }

@@ -36,5 +36,5 @@ fun DbEmojiReaction.toDataType() = EmojiReactionData(
     messageId = this.messageId,
     senderIdentity = this.senderIdentity,
     emojiSequence = this.emojiSequence,
-    reactedAt = this.reactedAt.toInstant(),
+    reactedAt = this.reactedAt,
 )

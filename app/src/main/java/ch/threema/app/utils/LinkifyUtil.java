@@ -51,6 +51,7 @@ import ch.threema.storage.models.AbstractMessageModel;
 import static android.content.Context.CLIPBOARD_SERVICE;
 import static ch.threema.android.ToastKt.showToast;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class LinkifyUtil {
     private static final Logger logger = getThreemaLogger("LinkifyUtil");
@@ -271,7 +272,7 @@ public class LinkifyUtil {
                                 openLink(uri, context, linkifyListener);
                             } else {
                                 String host = uri.getHost();
-                                if (!TestUtil.isEmptyOrNull(host)) {
+                                if (!isNullOrEmpty(host)) {
                                     String idnUrl = null;
                                     try {
                                         idnUrl = IDN.toASCII(host);
@@ -411,7 +412,7 @@ public class LinkifyUtil {
         // handle contact Urls internally but ignore contact Urls with a query such as "text=hello"
         if (BuildConfig.contactActionUrl.equals(uri.getAuthority())) {
             List<String> pathSegments = uri.getPathSegments();
-            return pathSegments.size() == 1 && pathSegments.get(0).length() == ProtocolDefines.IDENTITY_LEN && TestUtil.isEmptyOrNull(uri.getEncodedQuery());
+            return pathSegments.size() == 1 && pathSegments.get(0).length() == ProtocolDefines.IDENTITY_LEN && isNullOrEmpty(uri.getEncodedQuery());
         }
         return false;
     }

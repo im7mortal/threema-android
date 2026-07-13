@@ -7,10 +7,10 @@ import java.util.ArrayList;
 import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.app.services.MessageService;
 import ch.threema.app.utils.MessageUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.utils.TextUtil;
-import ch.threema.base.ThreemaException;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
+
 import ch.threema.domain.protocol.csp.ProtocolDefines;
 
 public class TextMessageSendAction extends SendAction {
@@ -44,15 +44,13 @@ public class TextMessageSendAction extends SendAction {
             return false;
         }
 
-        MessageService messageService;
-        try {
-            messageService = this.getServiceManager().getMessageService();
-        } catch (ThreemaException e) {
-            actionHandler.onError(e.getMessage());
-            return false;
+        MessageService messageService = null;
+        var serviceManager = getServiceManager();
+        if (serviceManager != null) {
+            messageService = serviceManager.getMessageService();
         }
 
-        if (messageService == null || TestUtil.isEmptyOrNull(text)) {
+        if (messageService == null || isNullOrEmpty(text)) {
             actionHandler.onError("Nothing to send");
             return false;
         }

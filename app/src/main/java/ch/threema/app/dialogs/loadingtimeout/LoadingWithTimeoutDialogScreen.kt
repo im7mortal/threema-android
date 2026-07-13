@@ -34,7 +34,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ch.threema.app.R
-import ch.threema.app.compose.preview.PreviewThreemaPhone
+import ch.threema.app.compose.preview.PreviewThreemaPhoneAll
 import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.dimens.ElevationValues
 import ch.threema.app.compose.theme.dimens.GridUnit
@@ -213,7 +213,7 @@ private fun LoadingWithTimeoutDialogContent(
     }
 }
 
-@PreviewThreemaPhone
+@PreviewThreemaPhoneAll
 @Composable
 private fun LoadingWithTimeoutDialogContent_Preview_NoTimeout() {
     ThreemaThemePreview {
@@ -234,7 +234,7 @@ private fun LoadingWithTimeoutDialogContent_Preview_NoTimeout() {
     }
 }
 
-@PreviewThreemaPhone
+@PreviewThreemaPhoneAll
 @Composable
 private fun LoadingWithTimeoutDialogContent_Preview_Timeout() {
     ThreemaThemePreview {

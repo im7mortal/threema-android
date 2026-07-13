@@ -1,6 +1,7 @@
 package ch.threema.app.webclient.services.instance.message.receiver;
 
 import androidx.annotation.AnyThread;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringDef;
 import androidx.annotation.WorkerThread;
@@ -13,16 +14,22 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.Map;
 
+import ch.threema.app.messagereceiver.ContactMessageReceiver;
+import ch.threema.app.messagereceiver.DistributionListMessageReceiver;
+import ch.threema.app.messagereceiver.GroupMessageReceiver;
 import ch.threema.app.services.ConversationService;
+import ch.threema.app.services.DistributionListService;
 import ch.threema.app.webclient.Protocol;
 import ch.threema.app.webclient.converter.Utils;
 import ch.threema.app.webclient.exceptions.ConversionException;
 import ch.threema.app.webclient.services.instance.MessageDispatcher;
 import ch.threema.app.webclient.services.instance.MessageReceiver;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.domain.taskmanager.TriggerSource;
-import ch.threema.storage.models.ConversationModel;
-import ch.threema.storage.models.ConversationTag;
+
+import ch.threema.data.datatypes.ConversationVisibility;
+import ch.threema.data.models.ContactModel;
+import ch.threema.data.models.GroupModel;
+import ch.threema.storage.models.DistributionListModel;
 
 /**
  * Process update/conversation requests from the browser.
@@ -41,14 +48,20 @@ public class ModifyConversationHandler extends MessageReceiver {
     private @interface ErrorCode {
     }
 
+    @NonNull
     private final MessageDispatcher responseDispatcher;
-    private final ConversationService conversationService;
+    @NonNull
+    private final DistributionListService distributionListService;
 
     @AnyThread
-    public ModifyConversationHandler(MessageDispatcher responseDispatcher, ConversationService conversationService) {
+    public ModifyConversationHandler(
+        @NonNull MessageDispatcher responseDispatcher,
+        @NonNull ConversationService conversationService,
+        @NonNull DistributionListService distributionListService
+    ) {
         super(Protocol.SUB_TYPE_CONVERSATION);
         this.responseDispatcher = responseDispatcher;
-        this.conversationService = conversationService;
+        this.distributionListService = distributionListService;
     }
 
     @Override
@@ -77,7 +90,6 @@ public class ModifyConversationHandler extends MessageReceiver {
             this.failed(temporaryId, Protocol.ERROR_INVALID_CONVERSATION);
             return;
         }
-        final ConversationModel conversation = this.conversationService.refresh(receiver);
 
         // Process data
         final Map<String, Value> data = this.getData(message, true);
@@ -93,11 +105,38 @@ public class ModifyConversationHandler extends MessageReceiver {
                 this.failed(temporaryId, Protocol.ERROR_BAD_REQUEST);
                 return;
             }
+
             final boolean isPinned = valueIsPinned.asBooleanValue().getBoolean();
-            if (isPinned) {
-                this.conversationService.tag(conversation, ConversationTag.PINNED, TriggerSource.LOCAL);
-            } else {
-                this.conversationService.untag(conversation, ConversationTag.PINNED, TriggerSource.LOCAL);
+
+            if (receiver instanceof ContactMessageReceiver) {
+                ContactModel contactModel = ((ContactMessageReceiver) receiver).getContactModel();
+                if (contactModel == null) {
+                    this.failed(temporaryId, Protocol.ERROR_INVALID_CONVERSATION);
+                    return;
+                }
+                if (isPinned) {
+                    contactModel.setConversationVisibilityFromLocalOrRemote(ConversationVisibility.PINNED);
+                } else {
+                    contactModel.setConversationVisibilityFromLocalOrRemote(ConversationVisibility.NORMAL);
+                }
+            } else if (receiver instanceof GroupMessageReceiver) {
+                GroupModel groupModel = ((GroupMessageReceiver) receiver).getGroupModel();
+                if (groupModel == null) {
+                    this.failed(temporaryId, Protocol.ERROR_INVALID_CONVERSATION);
+                    return;
+                }
+                if (isPinned) {
+                    groupModel.setConversationVisibilityFromLocalOrRemote(ConversationVisibility.PINNED);
+                } else {
+                    groupModel.setConversationVisibilityFromLocalOrRemote(ConversationVisibility.NORMAL);
+                }
+            } else if (receiver instanceof DistributionListMessageReceiver) {
+                DistributionListModel distributionListModel = ((DistributionListMessageReceiver) receiver).getDistributionList();
+                if (isPinned) {
+                    distributionListService.pin(distributionListModel);
+                } else {
+                    distributionListService.unpin(distributionListModel);
+                }
             }
         }
 

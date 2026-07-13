@@ -410,7 +410,7 @@ class MasterKeyManagerImplTest {
             keyStorageManager = mockk(),
             remoteSecretManager = mockk(),
             storageStateHolder = mockk {
-                every { observeStorageState() } returns storageStateFlow
+                every { watchStorageState() } returns storageStateFlow
             },
             lockStateHolder = mockk {
                 every { masterKeyFlow } returns stateFlowOf(null)

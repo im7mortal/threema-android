@@ -5,34 +5,26 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.FloatRange
 import androidx.annotation.Px
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.annotation.FrequentlyChangingValue
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -52,8 +44,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalViewConfiguration
-import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
@@ -65,19 +55,21 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
+import androidx.compose.ui.tooling.preview.PreviewWrapper
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ch.threema.android.ResolvableString
 import ch.threema.android.ResolvedString
 import ch.threema.app.R
+import ch.threema.app.compose.common.IconInfo
 import ch.threema.app.compose.common.LocalDayOfYear
-import ch.threema.app.compose.common.SpacerHorizontal
-import ch.threema.app.compose.common.ThemedText
 import ch.threema.app.compose.common.buttons.primary.ButtonPrimaryDense
 import ch.threema.app.compose.common.immutables.ImmutableBitmap
 import ch.threema.app.compose.common.list.swipe.ListItemSwipeContainer
 import ch.threema.app.compose.common.list.swipe.ListItemSwipeFeature
 import ch.threema.app.compose.common.list.swipe.ListItemSwipeFeatureState
+import ch.threema.app.compose.common.spacer.SpacerHorizontal
+import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.common.text.conversation.ConversationText
 import ch.threema.app.compose.common.text.conversation.ConversationTextDefaults
 import ch.threema.app.compose.common.text.conversation.ConversationTextUtil
@@ -88,12 +80,12 @@ import ch.threema.app.compose.conversation.models.ConversationNameStyle
 import ch.threema.app.compose.conversation.models.ConversationUiModel
 import ch.threema.app.compose.conversation.models.GroupCallUiModel
 import ch.threema.app.compose.conversation.models.INACTIVE_CONTACT_ALPHA
-import ch.threema.app.compose.conversation.models.IconInfo
 import ch.threema.app.compose.conversation.models.UnreadState
 import ch.threema.app.compose.preview.PreviewData
-import ch.threema.app.compose.theme.ThreemaThemePreview
+import ch.threema.app.compose.theme.ThreemaPreviewWrapper
 import ch.threema.app.compose.theme.color.CustomColors
 import ch.threema.app.compose.theme.dimens.GridUnit
+import ch.threema.app.conversation.MessageViewElementFactory
 import ch.threema.app.preference.service.PreferenceService.Companion.EMOJI_STYLE_ANDROID
 import ch.threema.app.preference.service.PreferenceService.EmojiStyle
 import ch.threema.app.ui.models.MessageViewElement
@@ -102,17 +94,17 @@ import ch.threema.app.utils.MessageUtil
 import ch.threema.app.utils.TextUtil
 import ch.threema.app.voip.groupcall.sfu.CallId
 import ch.threema.common.emptyByteArray
-import ch.threema.common.now
 import ch.threema.common.toHMMSS
+import ch.threema.common.withoutLineBreaks
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.datatypes.ContactNameFormat
+import ch.threema.data.datatypes.ConversationId
+import ch.threema.data.datatypes.DistributionListConversationId
+import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.data.datatypes.LocalGroupId
-import ch.threema.domain.models.ContactReceiverIdentifier
-import ch.threema.domain.models.DistributionListReceiverIdentifier
-import ch.threema.domain.models.GroupReceiverIdentifier
-import ch.threema.domain.models.ReceiverIdentifier
 import ch.threema.domain.types.Identity
-import java.util.Locale
+import java.time.Instant
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 import kotlin.time.Duration
@@ -120,6 +112,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 
 private const val MESSAGE_BODY_PREVIEW_MAX_LENGTH = 100
 
@@ -131,16 +124,16 @@ fun ConversationListItem(
     conversationListItemUiModel: ConversationListItemUiModel,
     avatarIteration: AvatarIteration,
     localDayOfYear: LocalDayOfYear,
-    avatarBitmapProvider: suspend (ReceiverIdentifier) -> ImmutableBitmap?,
+    avatarBitmapProvider: suspend (ConversationId) -> ImmutableBitmap?,
     ownIdentity: Identity,
     @EmojiStyle emojiStyle: Int,
     contactNameFormat: ContactNameFormat,
-    onClick: (ConversationUiModel) -> Unit,
-    onLongClick: (ConversationUiModel) -> Unit,
-    onClickAvatar: (ConversationUiModel) -> Unit,
-    onClickJoinOrOpenGroupCall: (GroupReceiverIdentifier) -> Unit,
-    swipeFeatureStartToEnd: ListItemSwipeFeature.StartToEnd<ConversationUiModel>? = null,
-    swipeFeatureEndToStart: ListItemSwipeFeature.EndToStart<ConversationUiModel>? = null,
+    onClick: (ConversationId) -> Unit,
+    onLongClick: (ConversationId) -> Unit,
+    onClickAvatar: (ConversationId) -> Unit,
+    onClickJoinOrOpenGroupCall: (GroupConversationId) -> Unit,
+    swipeFeatureStartToEnd: ListItemSwipeFeature.StartToEnd<ConversationId>? = null,
+    swipeFeatureEndToStart: ListItemSwipeFeature.EndToStart<ConversationId>? = null,
 ) {
     val conversationUiModel: ConversationUiModel = conversationListItemUiModel.model
 
@@ -170,112 +163,95 @@ fun ConversationListItem(
     @Px
     var listItemWidth: Int by remember { mutableIntStateOf(0) }
 
-    // TODO(ANDR-4579): Remove this workaround once google fixed the drag angle issue
-    val currentViewConfig = LocalViewConfiguration.current
-    val customViewConfig = remember(currentViewConfig) {
-        object : ViewConfiguration by currentViewConfig {
-
-            // Increasing this value fixes the issue that an oblique vertical drag triggers a horizontal gesture in SwipeToDismissBox
-            override val touchSlop: Float
-                get() = currentViewConfig.touchSlop * 5f
-
-            // Effectively disables flings
-            override val maximumFlingVelocity: Float
-                get() = 0.1F
-        }
-    }
-
-    CompositionLocalProvider(LocalViewConfiguration provides customViewConfig) {
-        SwipeToDismissBox(
-            modifier = modifier.onGloballyPositioned(
-                onGloballyPositioned = { layoutCoordinates ->
-                    listItemWidth = layoutCoordinates.size.width
-                },
-            ),
-            state = swipeToDismissBoxState,
-            gesturesEnabled = swipeFeatureStartToEnd?.state?.enabled == true || swipeFeatureEndToStart?.state?.enabled == true,
-            enableDismissFromStartToEnd = swipeFeatureStartToEnd?.state?.enabled == true,
-            enableDismissFromEndToStart = swipeFeatureEndToStart?.state?.enabled == true,
-            backgroundContent = {
-                SwipeToDismissBoxBackgroundContent(
-                    swipeFeatureStartToEnd = swipeFeatureStartToEnd,
-                    swipeFeatureEndToStart = swipeFeatureEndToStart,
-                    swipeToDismissBoxState = swipeToDismissBoxState,
-                    listItemWidth = listItemWidth,
-                    containerColorSettled = listItemContainerColor,
+    SwipeToDismissBox(
+        modifier = modifier.onGloballyPositioned(
+            onGloballyPositioned = { layoutCoordinates ->
+                listItemWidth = layoutCoordinates.size.width
+            },
+        ),
+        state = swipeToDismissBoxState,
+        gesturesEnabled = swipeFeatureStartToEnd?.state?.enabled == true || swipeFeatureEndToStart?.state?.enabled == true,
+        enableDismissFromStartToEnd = swipeFeatureStartToEnd?.state?.enabled == true,
+        enableDismissFromEndToStart = swipeFeatureEndToStart?.state?.enabled == true,
+        backgroundContent = {
+            SwipeToDismissBoxBackgroundContent(
+                swipeFeatureStartToEnd = swipeFeatureStartToEnd,
+                swipeFeatureEndToStart = swipeFeatureEndToStart,
+                swipeToDismissBoxState = swipeToDismissBoxState,
+                listItemWidth = listItemWidth,
+                containerColorSettled = listItemContainerColor,
+            )
+        },
+        onDismiss = { swipeToDismissBoxValue ->
+            when (swipeToDismissBoxValue) {
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    coroutineScope.launch {
+                        swipeToDismissBoxState.snapTo(SwipeToDismissBoxValue.Settled)
+                        swipeFeatureStartToEnd?.hapticFeedback?.let(hapticFeedback::performHapticFeedback)
+                        swipeFeatureStartToEnd?.onSwipe(conversationUiModel.conversationId)
+                    }
+                }
+                SwipeToDismissBoxValue.EndToStart -> {
+                    coroutineScope.launch {
+                        swipeToDismissBoxState.snapTo(SwipeToDismissBoxValue.Settled)
+                        swipeFeatureEndToStart?.hapticFeedback?.let(hapticFeedback::performHapticFeedback)
+                        swipeFeatureEndToStart?.onSwipe(conversationUiModel.conversationId)
+                    }
+                }
+                SwipeToDismissBoxValue.Settled -> {}
+            }
+        },
+    ) {
+        ConversationListItemContent(
+            ownIdentity = ownIdentity,
+            containerColor = listItemContainerColor,
+            avatarContent = {
+                AvatarContent(
+                    conversationListItemUiModel = conversationListItemUiModel,
+                    avatarIteration = avatarIteration,
+                    bitmapProvider = avatarBitmapProvider,
+                    onClick = {
+                        onClickAvatar(conversationUiModel.conversationId)
+                    },
                 )
             },
-            onDismiss = { swipeToDismissBoxValue ->
-                when (swipeToDismissBoxValue) {
-                    SwipeToDismissBoxValue.StartToEnd -> {
-                        coroutineScope.launch {
-                            swipeToDismissBoxState.snapTo(SwipeToDismissBoxValue.Settled)
-                            swipeFeatureStartToEnd?.hapticFeedback?.let(hapticFeedback::performHapticFeedback)
-                            swipeFeatureStartToEnd?.onSwipe(conversationUiModel)
-                        }
-                    }
-                    SwipeToDismissBoxValue.EndToStart -> {
-                        coroutineScope.launch {
-                            swipeToDismissBoxState.snapTo(SwipeToDismissBoxValue.Settled)
-                            swipeFeatureEndToStart?.hapticFeedback?.let(hapticFeedback::performHapticFeedback)
-                            swipeFeatureEndToStart?.onSwipe(conversationUiModel)
-                        }
-                    }
-                    SwipeToDismissBoxValue.Settled -> {}
+            conversationName = conversationUiModel.conversationName,
+            conversationNameStyle = conversationUiModel.conversationNameStyle,
+            latestMessageData = conversationUiModel.latestMessageData,
+            groupMessageSenderName = when (conversationUiModel) {
+                is ConversationUiModel.GroupConversation -> conversationUiModel.latestMessageSenderName
+                else -> null
+            },
+            localDayOfYear = localDayOfYear,
+            unreadState = conversationUiModel.unreadState,
+            isPinned = conversationUiModel.isPinned,
+            isPrivate = conversationUiModel.isPrivate,
+            groupCall = when (conversationUiModel) {
+                is ConversationUiModel.GroupConversation -> conversationUiModel.groupCall
+                else -> null
+            },
+            draftData = conversationUiModel.draftData,
+            conversationIcon = conversationIcon,
+            muteStatusIcon = conversationUiModel.muteStatusIcon,
+            emojiStyle = emojiStyle,
+            contactNameFormat = contactNameFormat,
+            isTyping = when (conversationUiModel) {
+                is ConversationUiModel.ContactConversation -> conversationUiModel.isTyping
+                else -> false
+            },
+            onClick = {
+                onClick(conversationUiModel.conversationId)
+            },
+            onLongClick = {
+                onLongClick(conversationUiModel.conversationId)
+            },
+            onClickJoinOrOpenGroupCall = {
+                val conversationId = conversationUiModel.conversationId
+                if (conversationId is GroupConversationId) {
+                    onClickJoinOrOpenGroupCall(conversationId)
                 }
             },
-        ) {
-            ConversationListItemContent(
-                ownIdentity = ownIdentity,
-                containerColor = listItemContainerColor,
-                avatarContent = {
-                    AvatarContent(
-                        conversationListItemUiModel = conversationListItemUiModel,
-                        avatarIteration = avatarIteration,
-                        bitmapProvider = avatarBitmapProvider,
-                        onClick = {
-                            onClickAvatar(conversationUiModel)
-                        },
-                    )
-                },
-                conversationName = conversationUiModel.conversationName,
-                conversationNameStyle = conversationUiModel.conversationNameStyle,
-                latestMessageData = conversationUiModel.latestMessageData,
-                groupMessageSenderName = when (conversationUiModel) {
-                    is ConversationUiModel.GroupConversation -> conversationUiModel.latestMessageSenderName
-                    else -> null
-                },
-                localDayOfYear = localDayOfYear,
-                unreadState = conversationUiModel.unreadState,
-                isPinned = conversationUiModel.isPinned,
-                isPrivate = conversationUiModel.isPrivate,
-                groupCall = when (conversationUiModel) {
-                    is ConversationUiModel.GroupConversation -> conversationUiModel.groupCall
-                    else -> null
-                },
-                draftData = conversationUiModel.draftData,
-                conversationIcon = conversationIcon,
-                muteStatusIcon = conversationUiModel.muteStatusIcon,
-                emojiStyle = emojiStyle,
-                contactNameFormat = contactNameFormat,
-                isTyping = when (conversationUiModel) {
-                    is ConversationUiModel.ContactConversation -> conversationUiModel.isTyping
-                    else -> false
-                },
-                onClick = {
-                    onClick(conversationUiModel)
-                },
-                onLongClick = {
-                    onLongClick(conversationUiModel)
-                },
-                onClickJoinOrOpenGroupCall = {
-                    val receiverIdentifier = conversationUiModel.receiverIdentifier
-                    if (receiverIdentifier is GroupReceiverIdentifier) {
-                        onClickJoinOrOpenGroupCall(receiverIdentifier)
-                    }
-                },
-            )
-        }
+        )
     }
 }
 
@@ -284,8 +260,8 @@ fun ConversationListItem(
  */
 @Composable
 private fun SwipeToDismissBoxBackgroundContent(
-    swipeFeatureStartToEnd: ListItemSwipeFeature.StartToEnd<ConversationUiModel>?,
-    swipeFeatureEndToStart: ListItemSwipeFeature.EndToStart<ConversationUiModel>?,
+    swipeFeatureStartToEnd: ListItemSwipeFeature.StartToEnd<ConversationId>?,
+    swipeFeatureEndToStart: ListItemSwipeFeature.EndToStart<ConversationId>?,
     swipeToDismissBoxState: SwipeToDismissBoxState,
     listItemWidth: Int,
     containerColorSettled: Color,
@@ -353,28 +329,28 @@ private fun calculateSwipeProgressRounded(
 private fun AvatarContent(
     conversationListItemUiModel: ConversationListItemUiModel,
     avatarIteration: AvatarIteration,
-    bitmapProvider: suspend (ReceiverIdentifier) -> ImmutableBitmap?,
+    bitmapProvider: suspend (ConversationId) -> ImmutableBitmap?,
     onClick: () -> Unit,
 ) {
     val conversationUiModel = conversationListItemUiModel.model
     AvatarAsyncCheckable(
-        receiverIdentifier = conversationUiModel.receiverIdentifier,
+        conversationId = conversationUiModel.conversationId,
         avatarIteration = avatarIteration,
         bitmapProvider = bitmapProvider,
         contentDescription = conversationUiModel.receiverDisplayName?.let {
             getAvatarContentDescription(
                 context = LocalContext.current,
-                receiverIdentifier = conversationUiModel.receiverIdentifier,
+                conversationId = conversationUiModel.conversationId,
                 receiverDisplayName = conversationUiModel.receiverDisplayName ?: "",
             )
         },
         fallbackIcon = when (conversationUiModel) {
             is ConversationUiModel.ContactConversation -> R.drawable.ic_contact
             is ConversationUiModel.GroupConversation -> R.drawable.ic_group
-            is ConversationUiModel.DistributionListConversation -> R.drawable.ic_distribution_list
+            is ConversationUiModel.DistributionListConversation -> R.drawable.ic_distribution_list_avatar
         },
         showWorkBadge = when (conversationUiModel) {
-            is ConversationUiModel.ContactConversation -> conversationUiModel.showWorkBadge
+            is ConversationUiModel.ContactConversation -> conversationUiModel.showIdentityTypeBadge
             else -> false
         },
         availabilityStatus = when (conversationUiModel) {
@@ -412,9 +388,8 @@ private fun ConversationListItemContent(
     onLongClick: () -> Unit,
     onClickJoinOrOpenGroupCall: () -> Unit,
 ) {
-    Box(
+    Row(
         modifier = modifier
-            .height(IntrinsicSize.Min)
             .clip(
                 shape = listItemShape,
             )
@@ -424,95 +399,71 @@ private fun ConversationListItemContent(
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick,
-            ),
+            )
+            .padding(vertical = GridUnit.x1),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        SpacerHorizontal(GridUnit.x2)
+        avatarContent()
+        SpacerHorizontal(GridUnit.x1_5)
         Row(
-            modifier = Modifier
-                .padding(vertical = GridUnit.x1),
+            modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SpacerHorizontal(GridUnit.x2)
-            avatarContent()
-            SpacerHorizontal(GridUnit.x1_5)
-            Row(
+            Column(
                 modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                ) {
-                    FirstLine(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(
-                                min = dimensionResource(R.dimen.listitem_min_height_first_line),
-                            ),
-                        conversationName = conversationName,
-                        conversationNameStyle = conversationNameStyle,
-                        isPinned = isPinned,
-                        unreadState = unreadState,
-                        groupCall = groupCall,
-                        muteStatusIcon = muteStatusIcon,
-                        emojiStyle = emojiStyle,
-                    )
-                    SecondLine(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(
-                                min = 24.dp,
-                            ),
-                        ownIdentity = ownIdentity,
-                        latestMessageData = latestMessageData,
-                        icon = conversationIcon,
-                        groupMessageSenderName = groupMessageSenderName,
-                        localDayOfYear = localDayOfYear,
-                        isPrivate = isPrivate,
-                        groupCall = groupCall,
-                        unreadState = unreadState,
-                        draftData = draftData,
-                        emojiStyle = emojiStyle,
-                        contactNameFormat = contactNameFormat,
-                        isTyping = isTyping,
-                    )
-                }
-
-                if (groupCall != null) {
-                    ButtonPrimaryDense(
-                        modifier = Modifier.padding(horizontal = GridUnit.x1_5),
-                        onClick = onClickJoinOrOpenGroupCall,
-                        text = stringResource(
-                            if (groupCall.isJoined) {
-                                R.string.voip_gc_open_call
-                            } else {
-                                R.string.voip_gc_join_call
-                            },
+                FirstLine(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(
+                            min = dimensionResource(R.dimen.listitem_min_height_first_line),
                         ),
-                    )
-                }
+                    conversationName = conversationName,
+                    conversationNameStyle = conversationNameStyle,
+                    isPinned = isPinned,
+                    isPrivate = isPrivate,
+                    unreadState = unreadState,
+                    groupCall = groupCall,
+                    muteStatusIcon = muteStatusIcon,
+                    emojiStyle = emojiStyle,
+                )
+                SecondLine(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(
+                            min = 24.dp,
+                        ),
+                    ownIdentity = ownIdentity,
+                    latestMessageData = latestMessageData,
+                    icon = conversationIcon,
+                    groupMessageSenderName = groupMessageSenderName,
+                    localDayOfYear = localDayOfYear,
+                    isPrivate = isPrivate,
+                    groupCall = groupCall,
+                    unreadState = unreadState,
+                    draftData = draftData,
+                    emojiStyle = emojiStyle,
+                    contactNameFormat = contactNameFormat,
+                    isTyping = isTyping,
+                )
             }
-            SpacerHorizontal(GridUnit.x2)
-        }
 
-        if (unreadState != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(GridUnit.x0_5)
-                    .padding(vertical = GridUnit.x0_5)
-                    .clip(RoundedCornerShape(topEnd = 2.dp, bottomEnd = 2.dp))
-                    .background(color = Color.Red),
-            )
+            if (groupCall != null) {
+                ButtonPrimaryDense(
+                    modifier = Modifier.padding(horizontal = GridUnit.x1_5),
+                    onClick = onClickJoinOrOpenGroupCall,
+                    text = stringResource(
+                        if (groupCall.isJoined) {
+                            R.string.voip_gc_open_call
+                        } else {
+                            R.string.voip_gc_join_call
+                        },
+                    ),
+                )
+            }
         }
-
-        if (isPrivate) {
-            Image(
-                modifier = Modifier
-                    .size(GridUnit.x3)
-                    .align(Alignment.TopEnd),
-                painter = painterResource(R.drawable.ic_incognito),
-                contentDescription = null,
-            )
-        }
+        SpacerHorizontal(GridUnit.x2)
     }
 }
 
@@ -522,6 +473,7 @@ private fun FirstLine(
     conversationName: String,
     conversationNameStyle: ConversationNameStyle,
     isPinned: Boolean,
+    isPrivate: Boolean,
     unreadState: UnreadState?,
     groupCall: GroupCallUiModel?,
     @DrawableRes muteStatusIcon: Int?,
@@ -569,9 +521,17 @@ private fun FirstLine(
         )
         if (isPinned && groupCall == null) {
             SpacerHorizontal(GridUnit.x0_5)
-            Image(
-                modifier = Modifier.size(GridUnit.x3),
-                painter = painterResource(R.drawable.ic_pin_circle),
+            Icon(
+                modifier = Modifier.size(GridUnit.x2_5),
+                painter = painterResource(R.drawable.ic_pin),
+                contentDescription = null,
+            )
+        }
+        if (isPrivate && groupCall == null) {
+            SpacerHorizontal(GridUnit.x0_5)
+            Icon(
+                modifier = Modifier.size(GridUnit.x2_5),
+                painter = painterResource(R.drawable.ic_lock_filled),
                 contentDescription = null,
             )
         }
@@ -716,8 +676,16 @@ private fun SecondLineDraft(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        ThemedText(
+            text = stringResource(R.string.draft_pattern, stringResource(R.string.draft)),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.error,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         ConversationText(
-            modifier = Modifier.weight(2f),
+            modifier = Modifier.weight(1f),
             rawInput = draftData.draft,
             textStyle = MaterialTheme.typography.bodyMedium,
             color = LocalContentColor.current,
@@ -731,15 +699,6 @@ private fun SecondLineDraft(
             ),
             markupEnabled = true,
             highlightFeature = HighlightFeature.Off,
-        )
-        SpacerHorizontal(GridUnit.x1)
-        ThemedText(
-            modifier = Modifier.widthIn(max = 150.dp),
-            text = stringResource(R.string.draft).uppercase(Locale.getDefault()),
-            style = MaterialTheme.typography.bodySmall,
-            color = Color.Red,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -769,6 +728,7 @@ private fun SecondLineMessage(
     contactNameFormat: ContactNameFormat,
 ) {
     val context = LocalContext.current
+    val messageViewElementFactory = koinInject<MessageViewElementFactory>()
     val latestMessageViewElement: MessageViewElement? = remember(
         latestMessageData.type,
         latestMessageData.body,
@@ -777,16 +737,20 @@ private fun SecondLineMessage(
         latestMessageData.isDeleted,
         contactNameFormat,
     ) {
-        latestMessageData.toMessageViewElement(context, contactNameFormat)
+        latestMessageData.toMessageViewElement(messageViewElementFactory, contactNameFormat)
     }
     val latestMessagePreview: String = remember(
         key1 = latestMessageViewElement?.text,
-        key2 = latestMessageData.isDeleted,
+        key2 = latestMessageViewElement?.placeholder,
+        key3 = latestMessageData.isDeleted,
     ) {
         if (latestMessageData.isDeleted) {
             context.getString(R.string.message_was_deleted)
         } else {
-            latestMessageViewElement?.text?.let(::getBodyPreview) ?: ""
+            latestMessageViewElement?.text
+                ?.let(::getBodyPreview)
+                ?: latestMessageViewElement?.placeholder
+                ?: ""
         }
     }
 
@@ -813,7 +777,6 @@ private fun SecondLineMessage(
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = fontWeightGroupSenderName,
                 ),
-                color = LocalContentColor.current,
                 maxLines = 1,
                 emojiSettings = ConversationTextDefaults.EmojiSettings.copy(
                     style = emojiStyle,
@@ -836,7 +799,7 @@ private fun SecondLineMessage(
                     ),
                 painter = painterResource(latestMessageViewElement.icon),
                 contentDescription = latestMessageViewElement.placeholder,
-                tint = latestMessageViewElement.color?.let { colorRes ->
+                tint = latestMessageViewElement.iconTint?.let { colorRes ->
                     colorResource(colorRes)
                 } ?: LocalContentColor.current,
             )
@@ -926,7 +889,7 @@ private fun ConversationIcon(
         modifier = modifier.size(GridUnit.x2_5),
         tint = icon.tintOverride?.let(::Color)
             ?: LocalContentColor.current,
-        painter = painterResource(icon.res),
+        painter = painterResource(icon.iconRes),
         contentDescription = icon.contentDescription?.let { contentDescriptionRes ->
             stringResource(contentDescriptionRes)
         },
@@ -935,39 +898,38 @@ private fun ConversationIcon(
 
 private fun getAvatarContentDescription(
     context: Context,
-    receiverIdentifier: ReceiverIdentifier,
+    conversationId: ConversationId,
     receiverDisplayName: String,
 ): String =
-    when (receiverIdentifier) {
-        is ContactReceiverIdentifier -> context.getString(
+    when (conversationId) {
+        is ContactConversationId -> context.getString(
             R.string.edit_type_content_description,
             context.getString(R.string.mime_contact),
             receiverDisplayName,
         )
 
-        is GroupReceiverIdentifier -> context.getString(
+        is GroupConversationId -> context.getString(
             R.string.edit_type_content_description,
             context.getString(R.string.group),
             receiverDisplayName,
         )
 
-        is DistributionListReceiverIdentifier -> context.getString(
+        is DistributionListConversationId -> context.getString(
             R.string.edit_type_content_description,
             context.getString(R.string.distribution_list),
             receiverDisplayName,
         )
     }
 
+@Stable
 private fun ConversationUiModel.LatestMessageData.toMessageViewElement(
-    context: Context,
+    messageViewElementFactory: MessageViewElementFactory,
     contactNameFormat: ContactNameFormat,
 ): MessageViewElement? {
     if (isDeleted) {
         return null
     }
-    return MessageUtil.getViewElement(
-        /* context = */
-        context,
+    return messageViewElementFactory.getViewElement(
         /* messageType = */
         type,
         /* messageBody = */
@@ -996,7 +958,7 @@ private fun ConversationUiModel.LatestMessageData.getDisplayDate(context: Contex
     )
 
 /**
- *  To to avoid loading unnecessary emoji assets for message content that does not even fit on the screen horizontally, we only use a part of the full
+ *  To avoid loading unnecessary emoji assets for message content that does not even fit on the screen horizontally, we only use a part of the full
  *  message body characters.
  *
  *  @param body The complete [ConversationUiModel.LatestMessageData.body]
@@ -1006,11 +968,7 @@ private fun ConversationUiModel.LatestMessageData.getDisplayDate(context: Contex
  *  @see MESSAGE_BODY_PREVIEW_MAX_LENGTH
  */
 private fun getBodyPreview(body: String): String {
-    // Replace all linebreak characters by space
-    val messageBodyWithoutLineBreaks = body.replace(
-        regex = Regex("\\R+"),
-        replacement = TextUtil.SPACE,
-    )
+    val messageBodyWithoutLineBreaks = body.withoutLineBreaks(replaceWith = " ")
     // Truncate to a reasonable preview length
     val truncated: String = ConversationTextUtil.truncateRespectingEmojis(
         text = messageBodyWithoutLineBreaks,
@@ -1039,7 +997,7 @@ private class PreviewProviderContactConversationListItemItemUiModel : PreviewPar
             isPinned: Boolean = false,
             isPrivate: Boolean = false,
             icon: IconInfo? = IconInfo(
-                res = R.drawable.ic_reply_filled,
+                iconRes = R.drawable.ic_reply,
                 contentDescription = null,
             ),
             muteStatusIcon: Int? = null,
@@ -1049,8 +1007,7 @@ private class PreviewProviderContactConversationListItemItemUiModel : PreviewPar
             isHighlighted: Boolean = false,
         ) = ConversationListItemUiModel(
             model = ConversationUiModel.ContactConversation(
-                conversationUID = "0",
-                receiverIdentifier = ContactReceiverIdentifier(
+                conversationId = ContactConversationId(
                     identity = PreviewData.IDENTITY_OTHER_1.value,
                 ),
                 receiverDisplayName = receiverDisplayName,
@@ -1063,7 +1020,7 @@ private class PreviewProviderContactConversationListItemItemUiModel : PreviewPar
                 isPrivate = isPrivate,
                 icon = icon,
                 muteStatusIcon = muteStatusIcon,
-                showWorkBadge = showWorkBadge,
+                showIdentityTypeBadge = showWorkBadge,
                 isTyping = isTyping,
                 avatarIteration = AvatarIteration.initial,
                 availabilityStatus = AvailabilityStatus.Unavailable(),
@@ -1117,7 +1074,7 @@ private class PreviewProviderContactConversationListItemItemUiModel : PreviewPar
             ),
         ),
         createContactConversationListItemUiModel(
-            muteStatusIcon = R.drawable.ic_do_not_disturb_filled,
+            muteStatusIcon = R.drawable.ic_dnd_filled,
         ),
         createContactConversationListItemUiModel(
             latestMessageData = PreviewData.LatestMessageData.incomingDeletedTextMessage(),
@@ -1159,7 +1116,7 @@ private class PreviewProviderGroupConversationListItemUiModel : PreviewParameter
             isPinned: Boolean = false,
             isPrivate: Boolean = false,
             icon: IconInfo? = IconInfo(
-                res = R.drawable.ic_group_filled,
+                iconRes = R.drawable.ic_group_filled,
                 contentDescription = null,
             ),
             muteStatusIcon: Int? = null,
@@ -1168,11 +1125,8 @@ private class PreviewProviderGroupConversationListItemUiModel : PreviewParameter
             isHighlighted: Boolean = false,
         ) = ConversationListItemUiModel(
             model = ConversationUiModel.GroupConversation(
-                conversationUID = "0",
-                receiverIdentifier = GroupReceiverIdentifier(
+                conversationId = GroupConversationId(
                     groupDatabaseId = 1L,
-                    groupCreatorIdentity = PreviewData.IDENTITY_OTHER_1.value,
-                    groupApiId = 1L,
                 ),
                 receiverDisplayName = receiverDisplayName,
                 conversationName = conversationName,
@@ -1232,8 +1186,8 @@ private class PreviewProviderGroupConversationListItemUiModel : PreviewParameter
             groupCall = GroupCallUiModel(
                 id = CallId(emptyByteArray()),
                 groupId = LocalGroupId(0),
-                startedAt = now().time - (1000L * 30L),
-                processedAt = now().time - (1000L * 30L),
+                startedAt = Instant.now().toEpochMilli() - (1000L * 30L),
+                processedAt = Instant.now().toEpochMilli() - (1000L * 30L),
                 isJoined = false,
             ),
         ),
@@ -1241,8 +1195,8 @@ private class PreviewProviderGroupConversationListItemUiModel : PreviewParameter
             groupCall = GroupCallUiModel(
                 id = CallId(emptyByteArray()),
                 groupId = LocalGroupId(0),
-                startedAt = now().time - (1000L * 30L),
-                processedAt = now().time - (1000L * 30L),
+                startedAt = Instant.now().toEpochMilli() - (1000L * 30L),
+                processedAt = Instant.now().toEpochMilli() - (1000L * 30L),
                 isJoined = true,
             ),
         ),
@@ -1250,8 +1204,8 @@ private class PreviewProviderGroupConversationListItemUiModel : PreviewParameter
             groupCall = GroupCallUiModel(
                 id = CallId(emptyByteArray()),
                 groupId = LocalGroupId(0),
-                startedAt = now().time - (1000L * 30L),
-                processedAt = now().time - (1000L * 30L),
+                startedAt = Instant.now().toEpochMilli() - (1000L * 30L),
+                processedAt = Instant.now().toEpochMilli() - (1000L * 30L),
                 isJoined = false,
             ),
             isPinned = true,
@@ -1260,8 +1214,8 @@ private class PreviewProviderGroupConversationListItemUiModel : PreviewParameter
             groupCall = GroupCallUiModel(
                 id = CallId(emptyByteArray()),
                 groupId = LocalGroupId(0),
-                startedAt = now().time - (1000L * 30L),
-                processedAt = now().time - (1000L * 30L),
+                startedAt = Instant.now().toEpochMilli() - (1000L * 30L),
+                processedAt = Instant.now().toEpochMilli() - (1000L * 30L),
                 isJoined = false,
             ),
             unreadState = UnreadState.Messages(
@@ -1272,8 +1226,8 @@ private class PreviewProviderGroupConversationListItemUiModel : PreviewParameter
             groupCall = GroupCallUiModel(
                 id = CallId(emptyByteArray()),
                 groupId = LocalGroupId(0),
-                startedAt = now().time - (1000L * 30L),
-                processedAt = now().time - (1000L * 30L),
+                startedAt = Instant.now().toEpochMilli() - (1000L * 30L),
+                processedAt = Instant.now().toEpochMilli() - (1000L * 30L),
                 isJoined = false,
             ),
             isPrivate = true,
@@ -1282,8 +1236,8 @@ private class PreviewProviderGroupConversationListItemUiModel : PreviewParameter
             groupCall = GroupCallUiModel(
                 id = CallId(emptyByteArray()),
                 groupId = LocalGroupId(0),
-                startedAt = now().time - (1000L * 30L),
-                processedAt = now().time - (1000L * 30L),
+                startedAt = Instant.now().toEpochMilli() - (1000L * 30L),
+                processedAt = Instant.now().toEpochMilli() - (1000L * 30L),
                 isJoined = false,
             ),
             isPinned = true,
@@ -1313,7 +1267,7 @@ private class PreviewProviderDistributionListConversationListItemUiModel : Previ
             isPinned: Boolean = false,
             isPrivate: Boolean = false,
             icon: IconInfo? = IconInfo(
-                res = R.drawable.ic_distribution_list_filled,
+                iconRes = R.drawable.ic_distribution_list,
                 contentDescription = null,
             ),
             muteStatusIcon: Int? = null,
@@ -1321,9 +1275,8 @@ private class PreviewProviderDistributionListConversationListItemUiModel : Previ
             isHighlighted: Boolean = false,
         ) = ConversationListItemUiModel(
             model = ConversationUiModel.DistributionListConversation(
-                conversationUID = "0",
-                receiverIdentifier = DistributionListReceiverIdentifier(
-                    id = 1L,
+                conversationId = DistributionListConversationId(
+                    distributionListId = 1L,
                 ),
                 receiverDisplayName = receiverDisplayName,
                 conversationName = conversationName,
@@ -1373,6 +1326,7 @@ private class PreviewProviderDistributionListConversationListItemUiModel : Previ
 
 @Composable
 @PreviewLightDark
+@PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 private fun Preview_ContactConversation(
     @PreviewParameter(PreviewProviderContactConversationListItemItemUiModel::class)
     conversationListItemUiModel: ConversationListItemUiModel,
@@ -1382,6 +1336,7 @@ private fun Preview_ContactConversation(
 
 @Composable
 @PreviewLightDark
+@PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 private fun Preview_GroupConversation(
     @PreviewParameter(PreviewProviderGroupConversationListItemUiModel::class)
     conversationListItemUiModel: ConversationListItemUiModel,
@@ -1391,6 +1346,7 @@ private fun Preview_GroupConversation(
 
 @Composable
 @PreviewLightDark
+@PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 private fun Preview_DistributionListConversation(
     @PreviewParameter(PreviewProviderDistributionListConversationListItemUiModel::class)
     conversationListItemUiModel: ConversationListItemUiModel,
@@ -1400,45 +1356,38 @@ private fun Preview_DistributionListConversation(
 
 @Composable
 private fun Preview(conversationListItemUiModel: ConversationListItemUiModel) {
-    ThreemaThemePreview {
-        Surface(
-            color = MaterialTheme.colorScheme.background,
-            contentColor = MaterialTheme.colorScheme.onBackground,
-        ) {
-            ConversationListItem(
-                modifier = Modifier,
-                conversationListItemUiModel = conversationListItemUiModel,
-                avatarIteration = AvatarIteration.initial,
-                localDayOfYear = 1,
-                avatarBitmapProvider = { null },
-                ownIdentity = PreviewData.IDENTITY_ME,
-                emojiStyle = EMOJI_STYLE_ANDROID,
-                contactNameFormat = ContactNameFormat.DEFAULT,
-                onClick = {},
-                onLongClick = {},
-                onClickAvatar = {},
-                onClickJoinOrOpenGroupCall = {},
-                swipeFeatureStartToEnd = ListItemSwipeFeature.StartToEnd(
-                    onSwipe = {},
-                    hapticFeedback = null,
-                    containerColor = MaterialTheme.colorScheme.secondary,
-                    contentColor = MaterialTheme.colorScheme.onSecondary,
-                    state = ListItemSwipeFeatureState(
-                        icon = R.drawable.ic_new_feature,
-                        text = "Swipe start to end",
-                    ),
-                ),
-                swipeFeatureEndToStart = ListItemSwipeFeature.EndToStart(
-                    onSwipe = {},
-                    hapticFeedback = null,
-                    containerColor = MaterialTheme.colorScheme.secondary,
-                    contentColor = MaterialTheme.colorScheme.onSecondary,
-                    state = ListItemSwipeFeatureState(
-                        icon = R.drawable.ic_new_feature,
-                        text = "Swipe end to start",
-                    ),
-                ),
-            )
-        }
-    }
+    ConversationListItem(
+        modifier = Modifier,
+        conversationListItemUiModel = conversationListItemUiModel,
+        avatarIteration = AvatarIteration.initial,
+        localDayOfYear = 1,
+        avatarBitmapProvider = { null },
+        ownIdentity = PreviewData.IDENTITY_ME,
+        emojiStyle = EMOJI_STYLE_ANDROID,
+        contactNameFormat = ContactNameFormat.DEFAULT,
+        onClick = {},
+        onLongClick = {},
+        onClickAvatar = {},
+        onClickJoinOrOpenGroupCall = {},
+        swipeFeatureStartToEnd = ListItemSwipeFeature.StartToEnd(
+            onSwipe = {},
+            hapticFeedback = null,
+            containerColor = MaterialTheme.colorScheme.secondary,
+            contentColor = MaterialTheme.colorScheme.onSecondary,
+            state = ListItemSwipeFeatureState(
+                icon = R.drawable.ic_new_feature,
+                text = "Swipe start to end",
+            ),
+        ),
+        swipeFeatureEndToStart = ListItemSwipeFeature.EndToStart(
+            onSwipe = {},
+            hapticFeedback = null,
+            containerColor = MaterialTheme.colorScheme.secondary,
+            contentColor = MaterialTheme.colorScheme.onSecondary,
+            state = ListItemSwipeFeatureState(
+                icon = R.drawable.ic_new_feature,
+                text = "Swipe end to start",
+            ),
+        ),
+    )
 }

@@ -16,7 +16,7 @@ fastlane/descriptions/
 fastlane/jenkins-screenshots/
 export/
 threema-android-*
-release/
+/release/
 reproduce/
 .cxx/
 **/.DS_Store

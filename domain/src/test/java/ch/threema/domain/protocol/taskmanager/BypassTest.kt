@@ -63,13 +63,9 @@ class BypassTest {
     }
 
     private val noopDeviceCookieManager: DeviceCookieManager = object : DeviceCookieManager {
-        override fun obtainDeviceCookie(): ByteArray = emptyByteArray()
+        override fun getOrCreateDeviceCookie(): ByteArray = emptyByteArray()
 
-        override fun changeIndicationReceived() {
-            // Nothing to do
-        }
-
-        override fun deleteDeviceCookie() {
+        override fun onChangeIndicationReceived() {
             // Nothing to do
         }
     }
@@ -78,7 +74,7 @@ class BypassTest {
 
     init {
         val contactStore = InMemoryContactStore().apply {
-            addContact(Contact("01234567", ByteArray(NaCl.PUBLIC_KEY_BYTES)))
+            addContact(Contact("01234567", ByteArray(NaCl.PUBLIC_KEY_BYTES) { it.toByte() }))
         }
 
         val privateKey = ByteArray(NaCl.SECRET_KEY_BYTES)
@@ -143,7 +139,7 @@ class BypassTest {
                     // incoming messages while this task is running).
                     delay(1000)
                     // At this point no message should have been processed so far.
-                    assertFalse { loggingIncomingMessageProcessor.hasProcessedMessages() }
+                    assertFalse(loggingIncomingMessageProcessor.hasProcessedMessages())
 
                     // As we await the reflect ack, messages will get bypassed and should have been
                     // processed after the ack has been processed.

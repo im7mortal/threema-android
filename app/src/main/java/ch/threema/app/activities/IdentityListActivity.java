@@ -26,9 +26,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import ch.threema.app.R;
 import ch.threema.app.adapters.IdentityListAdapter;
-import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.dialogs.TextEntryDialog;
-import ch.threema.app.managers.ListenerManager;
+import ch.threema.app.eventbus.GlobalEventBuses;
+import ch.threema.app.eventbus.events.ContactEvent;
 import ch.threema.app.ui.EmptyRecyclerView;
 import ch.threema.app.ui.EmptyView;
 import ch.threema.app.ui.InsetSides;
@@ -48,7 +48,7 @@ abstract public class IdentityListActivity extends ThreemaToolbarActivity implem
     private EmptyRecyclerView recyclerView;
 
     @NonNull
-    private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
+    private final GlobalEventBuses globalEventBuses = KoinJavaComponent.get(GlobalEventBuses.class);
 
     public interface IdentityList {
         /**
@@ -235,7 +235,7 @@ abstract public class IdentityListActivity extends ThreemaToolbarActivity implem
         //add identity to list!
         this.getIdentityListHandle().addIdentity(identity);
 
-        fireOnModifiedContact(identity);
+        globalEventBuses.getContacts().emit(ContactEvent.ContactUpdated.javaCreate(identity));
 
         this.updateListAdapter();
     }
@@ -248,7 +248,7 @@ abstract public class IdentityListActivity extends ThreemaToolbarActivity implem
         //remove identity from list!
         this.getIdentityListHandle().removeIdentity(identity);
 
-        fireOnModifiedContact(identity);
+        globalEventBuses.getContacts().emit(ContactEvent.ContactUpdated.javaCreate(identity));
 
         this.updateListAdapter();
     }
@@ -299,12 +299,6 @@ abstract public class IdentityListActivity extends ThreemaToolbarActivity implem
             actionMode = null;
 
             adapter.clearSelection();
-        }
-    }
-
-    private void fireOnModifiedContact(final String identity) {
-        if (isSessionScopeReady()) {
-            ListenerManager.contactListeners.handle(listener -> listener.onModified(identity));
         }
     }
 

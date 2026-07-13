@@ -192,7 +192,7 @@ class GroupCallStartMessageTest {
 
         // assert
         assertEquals(incomingMessageId, resultGroupCallStartMessage.messageId.messageIdLong)
-        assertEquals(incomingMessageCreatedAt, resultGroupCallStartMessage.date.time)
+        assertEquals(incomingMessageCreatedAt, resultGroupCallStartMessage.timestamp.toEpochMilli())
         assertEquals(incomingMessageSenderIdentity, resultGroupCallStartMessage.fromIdentity)
         assertEquals(groupCreatorIdentityTest, resultGroupCallStartMessage.groupCreator)
         assertContentEquals(apiGroupIdTest, resultGroupCallStartMessage.apiGroupId.groupId)
@@ -219,7 +219,7 @@ class GroupCallStartMessageTest {
 
         // assert
         assertEquals(outgoingMessageId, resultGroupCallStartMessage.messageId.messageIdLong)
-        assertEquals(outgoingMessageCreatedAt, resultGroupCallStartMessage.date.time)
+        assertEquals(outgoingMessageCreatedAt, resultGroupCallStartMessage.timestamp.toEpochMilli())
         assertEquals(outgoingMessageSenderIdentity, resultGroupCallStartMessage.fromIdentity)
         assertEquals(groupCreatorIdentityTest, resultGroupCallStartMessage.groupCreator)
         assertContentEquals(apiGroupIdTest, resultGroupCallStartMessage.apiGroupId.groupId)

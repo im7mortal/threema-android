@@ -274,7 +274,7 @@ pub fn concat_fixed_bytes(tokens: TokenStream) -> TokenStream {
 ///
 /// These fields will be marked as deprecated to discourage direct usage of it. Furthermore, the padding tag
 /// will be extracted and made available on the message as a `PADDING_TAG` const. See the
-/// `ProtobufPaddedMessage` trait.
+/// `protobuf::PaddedMessage` trait.
 #[proc_macro_attribute]
 pub fn protobuf_annotations(_attribute: TokenStream, input: TokenStream) -> TokenStream {
     fn annotate_protobuf_message(mut message: ItemStruct) -> syn::Result<TokenStream> {

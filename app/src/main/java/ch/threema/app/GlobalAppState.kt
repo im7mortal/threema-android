@@ -1,14 +1,15 @@
 package ch.threema.app
 
-import java.util.Date
+import ch.threema.app.backuprestore.csv.RestoreService
+import java.time.Instant
 
-object GlobalAppState {
-    @JvmStatic
-    var lastLoggedIn: Date? = null
+class GlobalAppState {
+    var lastLoggedIn: Instant? = null
 
-    @JvmStatic
     var isDeviceIdle: Boolean = false
 
-    @JvmStatic
     var isAppResumed: Boolean = false
+
+    val isRestoreRunning: Boolean
+        get() = RestoreService.isRunning()
 }

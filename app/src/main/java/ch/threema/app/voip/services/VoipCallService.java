@@ -1,7 +1,8 @@
 package ch.threema.app.voip.services;
 
 import static android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
-import static ch.threema.app.dev.UtilsKt.hasDevFeatures;
+import static ch.threema.app.notifications.NotificationIDs.IN_CALL_NOTIFICATION_ID;
+import static ch.threema.base.HasDevFeaturesKt.HAS_DEV_FEATURES;
 import static ch.threema.app.voip.services.VideoContext.CAMERA_BACK;
 import static ch.threema.app.voip.services.VideoContext.CAMERA_FRONT;
 import static ch.threema.app.voip.services.VoipStateService.VIDEO_RENDER_FLAG_NONE;
@@ -69,11 +70,13 @@ import ch.threema.app.BuildConfig;
 import ch.threema.app.R;
 import ch.threema.app.apptaskexecutor.AppTaskExecutor;
 import ch.threema.app.di.DependencyContainer;
+import ch.threema.app.eventbus.GlobalEventBuses;
+import ch.threema.app.eventbus.events.VoipCallEvent;
 import ch.threema.app.listeners.VoipCallListener;
 import ch.threema.app.managers.ListenerManager;
-import ch.threema.app.notifications.BackgroundErrorNotification;
 import ch.threema.app.notifications.NotificationChannels;
 import ch.threema.app.notifications.NotificationGroups;
+import ch.threema.app.notifications.NotificationRequestCodes;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.ui.SingleToast;
 import ch.threema.app.utils.AudioDevice;
@@ -81,9 +84,7 @@ import ch.threema.app.utils.CloseableLock;
 import ch.threema.app.utils.CloseableReadWriteLock;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.MediaPlayerStateWrapper;
-import ch.threema.app.utils.RandomUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.voip.CallStateSnapshot;
 import ch.threema.app.voip.PeerConnectionClient;
 import ch.threema.app.voip.VoipAudioManager;
@@ -93,6 +94,7 @@ import ch.threema.app.voip.listeners.VoipMessageListener;
 import ch.threema.app.voip.managers.VoipListenerManager;
 import ch.threema.app.voip.receivers.IncomingMobileCallReceiver;
 import ch.threema.app.voip.receivers.MeteredStatusChangedReceiver;
+import ch.threema.app.voip.util.CallIdGenerator;
 import ch.threema.app.voip.util.SdpPatcher;
 import ch.threema.app.voip.util.SdpUtil;
 import ch.threema.app.voip.util.VideoCapturerUtil;
@@ -103,7 +105,10 @@ import ch.threema.app.voip.util.VoipVideoParams;
 import ch.threema.base.ThreemaException;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.areEqual;
+import static ch.threema.logging.ErrorReportingKt.logAndReportError;
 
+import ch.threema.data.datatypes.ContactConversationId;
 import ch.threema.data.models.ContactModelData;
 import ch.threema.domain.models.VerificationLevel;
 import ch.threema.domain.protocol.ThreemaFeature;
@@ -122,6 +127,8 @@ import ch.threema.protobuf.o2o_call.VideoQualityProfile;
 import kotlin.Unit;
 
 import java.util.function.Supplier;
+
+import kotlin.Lazy;
 
 /**
  * The service keeping track of VoIP call state and the corresponding WebRTC peer connection.
@@ -152,9 +159,6 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
     public static final String ACTION_START_CAPTURING = BuildConfig.APPLICATION_ID + ".START_CAPTURING";
     public static final String ACTION_STOP_CAPTURING = BuildConfig.APPLICATION_ID + ".STOP_CAPTURING";
     public static final String ACTION_SWITCH_CAMERA = BuildConfig.APPLICATION_ID + ".SWITCH_CAMERA";
-
-    // Notification IDs
-    private static final int INCALL_NOTIFICATION_ID = 41991;
 
     private static final int FOREGROUND_SERVICE_TYPE =
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ? FOREGROUND_SERVICE_TYPE_MICROPHONE : 0;
@@ -205,9 +209,13 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
     @NonNull
     private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
     @NonNull
+    private final Lazy<CallIdGenerator> callIdGeneratorLazy = KoinJavaComponent.inject(CallIdGenerator.class);
+    @NonNull
     private final Context appContext = KoinJavaComponent.get(Context.class);
     @NonNull
     private final AppTaskExecutor appTaskExecutor = KoinJavaComponent.get(AppTaskExecutor.class);
+    @NonNull
+    private final GlobalEventBuses globalEventBuses = KoinJavaComponent.get(GlobalEventBuses.class);
 
     // Listeners
     private VoipMessageListener voipMessageListener;
@@ -636,7 +644,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
         }
         long callId = intent.getLongExtra(EXTRA_CALL_ID, 0L);
         if (callId == -1) {
-            callId = RandomUtil.generateRandomU32();
+            callId = callIdGeneratorLazy.getValue().generateCallId();
         }
 
         // If candidates are sent with the intent, then we simply want to add those
@@ -890,7 +898,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
         }
 
         // Initialize peer connection parameters
-        if (hasDevFeatures()) {
+        if (HAS_DEV_FEATURES) {
             // Don't use hardware echo cancellation on debug and internal builds. Note that we
             // override this setting to test software echo cancellation internally.
             this.useHardwareEC = false;
@@ -940,13 +948,14 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
         );
 
         // Initialize peer connection
-        if (dependencies.getVoipStateService().getVideoContext() == null) {
+        final @Nullable VideoContext videoContext = dependencies.getVoipStateService().getVideoContext();
+        if (videoContext == null) {
             throw new IllegalStateException("Video context is null");
         }
         this.peerConnectionClient = new PeerConnectionClient(
             appContext,
             peerConnectionParameters,
-            dependencies.getVoipStateService().getVideoContext().getEglBaseContext(),
+            videoContext.getEglBaseContext(),
             callId
         );
         this.peerConnectionClient.setEventHandler(VoipCallService.this);
@@ -1053,6 +1062,8 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
 
         logCallInfo(callId, "Video calls are {}", this.videoEnabled ? "enabled" : "disabled");
 
+        final @Nullable VideoContext videoContext = dependencies.getVoipStateService().getVideoContext();
+
         // Make sure that the peerConnectionClient is initialized
         final @StringRes int initError = R.string.voip_error_init_call;
         if (this.peerConnectionClient == null) {
@@ -1061,7 +1072,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
         } else if (contactModel == null) {
             this.abortCall(initError, "Cannot start call: contact is not initialized", false);
             return;
-        } else if (this.videoEnabled && dependencies.getVoipStateService().getVideoContext() == null) {
+        } else if (this.videoEnabled && videoContext == null) {
             this.abortCall(initError, "Cannot start call: video context is not initialized", false);
             return;
         }
@@ -1080,8 +1091,8 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
 
         // Create peer connection
         logCallInfo(callId, "Creating peer connection, delay={}ms", System.currentTimeMillis() - this.callStartedTimeMs);
-        final VideoSink localVideoSink = dependencies.getVoipStateService().getVideoContext().getLocalVideoSinkProxy();
-        final VideoSink remoteVideoSink = dependencies.getVoipStateService().getVideoContext().getRemoteVideoSinkProxy();
+        final @Nullable VideoSink localVideoSink = videoContext != null ? videoContext.getLocalVideoSinkProxy() : null;
+        final @Nullable VideoSink remoteVideoSink = videoContext != null ? videoContext.getRemoteVideoSinkProxy() : null;
         peerConnectionClient.createPeerConnection(localVideoSink, remoteVideoSink);
 
         // Set initial video quality parameters
@@ -1141,7 +1152,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
                 if (contactModel == null) {
                     logCallError(callId, "Ignoring answer: contact is not initialized");
                     return;
-                } else if (!TestUtil.compare(contactModel.getIdentity(), identity)) {
+                } else if (!areEqual(contactModel.getIdentity(), identity)) {
                     logCallError(callId, "Ignoring answer: Does not match current contact");
                     return;
                 }
@@ -1251,7 +1262,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
 
             @Override
             public boolean handle(final String identity) {
-                return contactModel != null && TestUtil.compare(contactModel.getIdentity(), identity);
+                return contactModel != null && areEqual(contactModel.getIdentity(), identity);
             }
         };
         VoipListenerManager.messageListener.add(this.voipMessageListener);
@@ -1347,7 +1358,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
             logCallInfo(currentCallId, "Ignore candidates from broadcast, contact hasn't been initialized yet");
             return;
         }
-        if (!TestUtil.compare(contactIdentity, contactModel.getIdentity())) {
+        if (!areEqual(contactIdentity, contactModel.getIdentity())) {
             logCallInfo(
                 currentCallId,
                 "Ignore candidates from broadcast targeted at another identity (current {}, target {})",
@@ -1399,13 +1410,11 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
         } else {
             final String contactIdentity = contactModel.getIdentity();
             final Boolean isInitiator = dependencies.getVoipStateService().isInitiator();
-            VoipListenerManager.callEventListener.handle(listener -> {
-                if (isInitiator == null) {
-                    logCallError(callId, "voipStateService.isInitiator() is null in callConnected()");
-                } else {
-                    listener.onStarted(contactIdentity, isInitiator);
-                }
-            });
+            if (isInitiator == null) {
+                logCallError(callId, "voipStateService.isInitiator() is null in callConnected()");
+            } else {
+                globalEventBuses.getVoipCalls().emit(VoipCallEvent.Started.javaCreate(contactIdentity, isInitiator));
+            }
         }
     }
 
@@ -1539,24 +1548,18 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
             this.transportConnected, this.isError, userMessage
         );
 
-        logger.info("Notify about finishing if call is still connected"); // TODO(ANDR-2441): remove eventually
-        // If the call is still connected, notify listeners about the finishing
+        // If the call is still connected, notify event bus about the finishing
         if (callState.isCalling() && contactModel != null) {
-            // Notify listeners
             final String contactIdentity = contactModel.getIdentity();
             final Boolean isInitiator = dependencies.getVoipStateService().isInitiator();
             final Integer duration = dependencies.getVoipStateService().getCallDuration();
-            logger.info("Call is still connected, notify event listeners"); // TODO(ANDR-2441): remove eventually
-            VoipListenerManager.callEventListener.handle(listener -> {
-                if (isInitiator == null) {
-                    logger.error("isInitiator is null in disconnect()");
-                } else if (duration == null) {
-                    logger.error("duration is null in disconnect()");
-                } else {
-                    logger.info("Notify call event listener: onFinished"); // TODO(ANDR-2441): remove eventually
-                    listener.onFinished(callId, contactIdentity, isInitiator, duration);
-                }
-            });
+            if (isInitiator == null) {
+                logger.error("isInitiator is null in disconnect()");
+            } else if (duration == null) {
+                logger.error("duration is null in disconnect()");
+            } else {
+                globalEventBuses.getVoipCalls().emit(VoipCallEvent.Finished.javaCreate(callId, contactIdentity, isInitiator, duration));
+            }
         }
 
         this.preDisconnect(callId);
@@ -1572,10 +1575,9 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
         }
 
         if (!this.didShowDisconnectMessage) {
-            @NonNull String toastMessage = getString(R.string.voip_call_finished);
-            if (userMessage != null) {
-                toastMessage += ": " + userMessage;
-            }
+            String toastMessage = userMessage != null
+                ? getString(R.string.void_call_finished_pattern, getString(R.string.voip_call_finished), userMessage)
+                : getString(R.string.voip_call_finished);
             this.showSingleToast(toastMessage, Toast.LENGTH_LONG);
             this.didShowDisconnectMessage = true;
         }
@@ -1649,29 +1651,24 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
      * <p>
      * The message(s) will be logged, followed by a disconnect.
      *
-     * @param userMessageRes        A user facing message that's shown in the post-call toast message.
-     * @param internalMessage       An (optional) internal message that's being logged.
-     * @param throwable             A (optional) {@link Throwable} that's logged.
-     * @param showErrorNotification If set to true, the message and throwable will be shown as a {@link BackgroundErrorNotification}.
+     * @param userMessageRes  A user facing message that's shown in the post-call toast message.
+     * @param internalMessage An (optional) internal message that's being logged.
+     * @param throwable       A (optional) {@link Throwable} that's logged.
+     * @param reportError     If set to true, the message and throwable will be reported (to Sentry, if applicable) and the user is informed via toast
      */
     @AnyThread
     private synchronized void abortCall(
         @StringRes final int userMessageRes,
-        @Nullable final String internalMessage,
+        @NonNull final String internalMessage,
         @Nullable final Throwable throwable,
-        boolean showErrorNotification
+        boolean reportError
     ) {
-        final @NonNull String userMessage = getString(userMessageRes);
-
-        // If internal message is not specified, use user message
-        final @NonNull String description = internalMessage != null ? internalMessage : userMessage;
-
         // Log error
         final long callId = dependencies.getVoipStateService().getCallState().getCallId();
         if (throwable != null) {
-            logCallError(callId, "Aborting call: {}", description, throwable);
+            logCallError(callId, "Aborting call: {}", internalMessage, throwable);
         } else {
-            logCallError(callId, "Aborting call: {}", description);
+            logCallError(callId, "Aborting call: {}", internalMessage);
         }
 
         // Update isError
@@ -1692,23 +1689,13 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
             this.showInCallNotification(this.callStartedTimeMs, callStartedRealtimeMs);
         }
 
-        RuntimeUtil.runOnUiThread(() -> {
-            // If desired, show an error notification (but ensure that only
-            // one notification is generated by checking `wasError`)
-            if (showErrorNotification && !wasError) {
-                BackgroundErrorNotification.showNotification(
-                    appContext,
-                    getString(R.string.voip_error_call),
-                    description,
-                    "VoipCallService",
-                    true,
-                    throwable
-                );
-            }
+        // ensure that only one error is logged by checking `wasError`
+        if (reportError && !wasError) {
+            logAndReportError(logger, "Error during Threema call: {}", internalMessage, throwable);
+            showSingleToast(getString(R.string.voip_error_call), Toast.LENGTH_LONG);
+        }
 
-            // Disconnect
-            disconnect(userMessageRes);
-        });
+        RuntimeUtil.runOnUiThread(() -> disconnect(userMessageRes));
     }
 
     /**
@@ -1717,8 +1704,8 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
      * @see #abortCall(int, String, Throwable, boolean)
      */
     @AnyThread
-    private synchronized void abortCall(@StringRes final int userMessageRes, @Nullable final String internalMessage, boolean showErrorNotification) {
-        this.abortCall(userMessageRes, internalMessage, null, showErrorNotification);
+    private synchronized void abortCall(@StringRes final int userMessageRes, @NonNull final String internalMessage, boolean reportError) {
+        this.abortCall(userMessageRes, internalMessage, null, reportError);
     }
 
     //endregion
@@ -2166,13 +2153,14 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
         }
 
         logger.info("Show ongoing in-call notification");
+        var identity = contactModel.getIdentity();
 
         // Prepare hangup action
         final Intent hangupIntent = new Intent(this, VoipCallService.class);
         hangupIntent.setAction(ACTION_HANGUP);
         final PendingIntent hangupPendingIntent = PendingIntent.getService(
             this,
-            (int) System.currentTimeMillis(),
+            NotificationRequestCodes.CALL_HANG_UP,
             hangupIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
@@ -2180,7 +2168,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
         // Prepare open action
         final Intent openIntent = new Intent(this, CallActivity.class);
         openIntent.putExtra(EXTRA_ACTIVITY_MODE, CallActivity.MODE_ACTIVE_CALL);
-        openIntent.putExtra(EXTRA_CONTACT_IDENTITY, contactModel.getIdentity());
+        openIntent.putExtra(EXTRA_CONTACT_IDENTITY, identity);
         openIntent.putExtra(EXTRA_START_TIME, elapsedTimeMs);
 
         String contactName = contactModelData.getDisplayName(dependencies.getPreferenceService().getContactNameFormat(), true);
@@ -2192,7 +2180,10 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
 
         final PendingIntent openPendingIntent = PendingIntent.getActivity(
             this,
-            (int) System.currentTimeMillis(),
+            NotificationRequestCodes.getRequestCodeForConversationNotification(
+                new ContactConversationId(identity),
+                NotificationRequestCodes.ConversationNotificationAction.OPEN_CALL
+            ),
             openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
@@ -2221,7 +2212,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
         this.foregroundStarted = true;
         ServiceCompat.startForeground(
             this,
-            INCALL_NOTIFICATION_ID,
+            IN_CALL_NOTIFICATION_ID,
             notification,
             FOREGROUND_SERVICE_TYPE
         );
@@ -2232,7 +2223,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
 
     private void cancelInCallNotification() {
         if (notificationManagerCompat != null) {
-            notificationManagerCompat.cancel(INCALL_NOTIFICATION_ID);
+            notificationManagerCompat.cancel(IN_CALL_NOTIFICATION_ID);
             //call listener
             ListenerManager.voipCallListeners.handle(VoipCallListener::onEnd);
         }
@@ -2259,7 +2250,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
 
                         // Query cameras
                         if (videoCapturer instanceof CameraVideoCapturer) {
-                            final VideoContext videoContext = dependencies.getVoipStateService().getVideoContext();
+                            final @Nullable VideoContext videoContext = dependencies.getVoipStateService().getVideoContext();
                             if (videoContext != null) {
                                 Pair<String, String> primaryCameraNames = VideoCapturerUtil.getPrimaryCameraNames(appContext);
                                 videoContext.setFrontCameraName(primaryCameraNames.first);
@@ -2339,9 +2330,9 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
                         }
                     }
                 } catch (RuntimeException e) {
-                    this.abortCall(
+                    abortCall(
                         R.string.voip_error_determine_common_video_quality_profile,
-                        null,
+                        "Could not determine common video quality profile",
                         e,
                         true
                     );
@@ -2376,7 +2367,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
                 } catch (RuntimeException e) {
                     this.abortCall(
                         R.string.voip_error_determine_common_video_quality_profile,
-                        null,
+                        "Could not determine common video quality profile",
                         e,
                         true
                     );
@@ -2395,7 +2386,12 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
         }
 
         synchronized (this.capturingLock) {
-            final CameraVideoCapturer capturer = dependencies.getVoipStateService().getVideoContext().getCameraVideoCapturer();
+            final @Nullable VideoContext videoContext = dependencies.getVoipStateService().getVideoContext();
+            if (videoContext == null) {
+                logger.warn("Ignoring camera switch request, no video context initialized");
+                return;
+            }
+            final @Nullable CameraVideoCapturer capturer = videoContext.getCameraVideoCapturer();
             if (capturer == null) {
                 logger.debug("Ignoring camera switch request, no capturer initialized");
                 return;
@@ -2405,12 +2401,12 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
 
             final @VideoContext.CameraOrientation int newCameraOrientation;
             final String newCameraName;
-            if (dependencies.getVoipStateService().getVideoContext().getCameraOrientation() == CAMERA_FRONT) {
+            if (videoContext.getCameraOrientation() == CAMERA_FRONT) {
                 newCameraOrientation = CAMERA_BACK;
-                newCameraName = dependencies.getVoipStateService().getVideoContext().getBackCameraName();
+                newCameraName = videoContext.getBackCameraName();
             } else {
                 newCameraOrientation = CAMERA_FRONT;
-                newCameraName = dependencies.getVoipStateService().getVideoContext().getFrontCameraName();
+                newCameraName = videoContext.getFrontCameraName();
             }
 
             if (newCameraName == null) {
@@ -2418,33 +2414,38 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
                 return;
             }
 
-            capturer.switchCamera(new CameraVideoCapturer.CameraSwitchHandler() {
-                @Override
-                public void onCameraSwitchDone(boolean isFront) {
-                    dependencies.getVoipStateService().getVideoContext().setCameraOrientation(newCameraOrientation);
+            capturer.switchCamera(
+                new CameraVideoCapturer.CameraSwitchHandler() {
+                    @Override
+                    public void onCameraSwitchDone(boolean isFront) {
+                        final @Nullable VideoContext videoContext = dependencies.getVoipStateService().getVideoContext();
+                        if (videoContext == null) {
+                            logger.info("Ignoring camera switch done callback, no video context initialized");
+                            return;
+                        }
+                        videoContext.setCameraOrientation(newCameraOrientation);
+                        logger.info("Switched camera to {}", isFront ? "front cam" : "rear cam");
+                        VoipUtil.sendVoipBroadcast(getApplicationContext(), CallActivity.ACTION_CAMERA_CHANGED);
+                        Toast.makeText(
+                            appContext,
+                            isFront ? R.string.voip_switch_cam_front : R.string.voip_switch_cam_rear,
+                            Toast.LENGTH_SHORT
+                        ).show();
+                        this.resetInProgress();
+                    }
 
-                    logger.info("Switched camera to {}", isFront ? "front cam" : "rear cam");
+                    @Override
+                    public void onCameraSwitchError(String s) {
+                        logger.info("Error while switching camera: {}", s);
+                        this.resetInProgress();
+                    }
 
-                    VoipUtil.sendVoipBroadcast(getApplicationContext(), CallActivity.ACTION_CAMERA_CHANGED);
-
-                    Toast.makeText(
-                        appContext,
-                        isFront ? R.string.voip_switch_cam_front : R.string.voip_switch_cam_rear,
-                        Toast.LENGTH_SHORT
-                    ).show();
-                    this.resetInProgress();
-                }
-
-                @Override
-                public void onCameraSwitchError(String s) {
-                    logger.info("Error while switching camera: {}", s);
-                    this.resetInProgress();
-                }
-
-                private void resetInProgress() {
-                    switchCamInProgress.set(false);
-                }
-            }, newCameraName);
+                    private void resetInProgress() {
+                        switchCamInProgress.set(false);
+                    }
+                },
+                newCameraName
+            );
         }
     }
 
@@ -2452,8 +2453,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
 
     //region Remote video state
 
-    private final @NonNull RemoteVideoStateDetector remoteVideoStateDetector
-        = new RemoteVideoStateDetector(this::getApplicationContext);
+    private final @NonNull RemoteVideoStateDetector remoteVideoStateDetector = new RemoteVideoStateDetector(this::getApplicationContext);
 
     /**
      * This class handles remote video state changes (combining the
@@ -2569,14 +2569,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
                 }
             } else {
                 // lost forever - disconnect
-                BackgroundErrorNotification.showNotification(
-                    appContext,
-                    R.string.audio_focus_loss,
-                    R.string.audio_focus_loss_complete,
-                    "VoipCallService",
-                    false,
-                    null
-                );
+                logAndReportError(logger, "Call disconnected due to complete audio focus loss");
                 RuntimeUtil.runOnUiThread(
                     () -> disconnect(R.string.voip_audio_focus_lost)
                 );

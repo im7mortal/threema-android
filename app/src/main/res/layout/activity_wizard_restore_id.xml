@@ -5,8 +5,6 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <include layout="@layout/background_new_wizard" />
-
     <LinearLayout
         android:id="@+id/content"
         android:layout_width="match_parent"
@@ -17,117 +15,89 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:background="@android:color/transparent">
+            android:background="@null">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:paddingVertical="@dimen/grid_unit_x2">
 
                 <TextView
                     android:id="@+id/wizard_welcome"
-                    style="@style/WizardTitleText"
+                    style="@style/WizardTextHeadlineLargeEmphasized"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center_horizontal"
-                    android:layout_marginTop="8dp"
                     android:gravity="center_horizontal"
                     android:text="@string/new_wizard_restore_id_backup" />
 
-                <LinearLayout
-                    android:id="@+id/restore_id_container"
-                    android:layout_width="fill_parent"
+                <TextView
+                    android:id="@+id/id_export_title"
+                    style="@style/WizardTextLabelLargeEmphasized"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="24dp"
-                    android:background="@drawable/shape_edittext"
-                    android:orientation="vertical"
-                    android:padding="8dp">
+                    android:layout_marginTop="@dimen/grid_unit_x5"
+                    android:text="@string/restore_id_string_label" />
 
-                    <EditText
-                        android:id="@+id/restore_id_edittext"
-                        android:layout_width="fill_parent"
-                        android:layout_height="wrap_content"
-                        android:background="@android:color/transparent"
-                        android:capitalize="characters"
-                        android:fontFamily="monospace"
-                        android:gravity="top"
-                        android:hint="@string/restore_id_hint"
-                        android:inputType="textNoSuggestions|textMultiLine|textImeMultiLine|textCapCharacters"
-                        android:maxLength="129"
-                        android:minHeight="@dimen/wizard_backup_code_edittext_minheight"
-                        android:nextFocusDown="@+id/restore_password"
-                        android:textColor="@android:color/white"
-                        android:textSize="16sp"
-                        android:textStyle="normal"
-                        android:typeface="monospace" />
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/id_export_layout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/grid_unit_x0_5"
+                    app:endIconDrawable="@drawable/ic_qr_code_scan"
+                    app:endIconMode="custom">
 
-                    <ch.threema.app.activities.wizard.components.WizardButtonXml
-                        android:id="@+id/wizard_scan_compose"
+                    <ch.threema.app.ui.ThreemaTextInputEditText
+                        android:id="@+id/id_export"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        app:wizardButton_text="@string/new_wizard_scan_id_backup"
-                        app:wizardButton_trailingIcon="@drawable/ic_qr_code_scan" />
+                        android:imeOptions="actionDone|flagNoPersonalizedLearning"
+                        android:inputType="textNoSuggestions|textMultiLine|textImeMultiLine|textCapCharacters"
+                        android:maxLength="129"
+                        android:nextFocusDown="@+id/password"
+                        android:singleLine="false"
+                        android:minLines="2"/>
 
-                </LinearLayout>
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/id_export_explain"
+                    style="@style/WizardTextBodySmall"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/grid_unit_x0_5"
+                    android:text="@string/restore_id_hint" />
 
                 <TextView
                     android:id="@+id/enter_password_explain"
-                    style="@style/WizardSmallText"
+                    style="@style/WizardTextLabelLargeEmphasized"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="center_horizontal"
-                    android:layout_marginTop="16dp"
-                    android:gravity="left"
+                    android:layout_marginTop="@dimen/grid_unit_x3"
                     android:text="@string/password_hint" />
 
-                <androidx.constraintlayout.widget.ConstraintLayout
-                    android:id="@+id/wizard_edit1_layout"
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/password_layout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginVertical="@dimen/grid_unit_x2">
+                    android:layout_marginTop="@dimen/grid_unit_x0_5"
+                    android:hint="@string/password_hint"
+                    app:counterEnabled="false"
+                    app:errorEnabled="false"
+                    app:hintAnimationEnabled="false"
+                    app:hintEnabled="false"
+                    app:passwordToggleEnabled="true">
 
-                    <ImageView
-                        android:id="@+id/icon_password"
-                        style="@style/WizardEditTextIcon"
-                        android:layout_width="0dp"
-                        android:layout_height="0dp"
-                        android:importantForAccessibility="no"
-                        app:layout_constraintBottom_toBottomOf="@id/passphrase_layout"
-                        app:layout_constraintDimensionRatio="1"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="@+id/passphrase_layout"
-                        app:srcCompat="@drawable/ic_key_outline" />
-
-                    <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/passphrase_layout"
-                        android:layout_width="0dp"
+                    <ch.threema.app.ui.ThreemaTextInputEditText
+                        android:id="@+id/password"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="@string/password_hint"
-                        android:minHeight="@dimen/wizard_default_view_height"
-                        app:counterEnabled="false"
-                        app:errorEnabled="false"
-                        app:hintAnimationEnabled="false"
-                        app:hintEnabled="false"
-                        app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintStart_toEndOf="@+id/icon_password"
-                        app:layout_constraintTop_toTopOf="parent"
-                        app:passwordToggleEnabled="true">
+                        android:imeOptions="actionDone|flagNoPersonalizedLearning"
+                        android:inputType="textPassword|textNoSuggestions"
+                        android:singleLine="true" />
 
-                        <ch.threema.app.ui.ThreemaTextInputEditText
-                            android:id="@+id/restore_password"
-                            style="@style/WizardEditText"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:imeOptions="actionDone"
-                            android:inputType="textPassword|textNoSuggestions"
-                            android:minHeight="@dimen/wizard_default_view_height"
-                            android:singleLine="true" />
-
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                </androidx.constraintlayout.widget.ConstraintLayout>
+                </com.google.android.material.textfield.TextInputLayout>
 
             </LinearLayout>
 
@@ -137,25 +107,22 @@
             android:id="@+id/buttons"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
             android:orientation="horizontal">
 
-            <ch.threema.app.activities.wizard.components.WizardButtonXml
+            <ch.threema.app.ui.interop.TextButtonPrimaryXml
                 android:id="@+id/wizard_cancel_compose"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginRight="@dimen/grid_unit_x0_5"
+                android:layout_marginRight="@dimen/grid_unit_x1"
                 android:layout_weight="1"
-                app:wizardButton_style="wizardButton_inverse"
-                app:wizardButton_text="@string/cancel" />
+                app:textButtonPrimary_text="@string/cancel" />
 
-            <ch.threema.app.activities.wizard.components.WizardButtonXml
+            <ch.threema.app.ui.interop.ButtonPrimaryXml
                 android:id="@+id/wizard_finish_compose"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginLeft="@dimen/grid_unit_x0_5"
                 android:layout_weight="1"
-                app:wizardButton_text="@string/restore" />
+                app:buttonPrimary_text="@string/restore" />
 
         </LinearLayout>
 

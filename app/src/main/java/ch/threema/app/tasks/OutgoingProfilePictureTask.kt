@@ -1,13 +1,13 @@
 package ch.threema.app.tasks
 
 import ch.threema.app.services.ContactService
-import ch.threema.common.now
 import ch.threema.domain.models.MessageId
 import ch.threema.domain.protocol.csp.messages.ContactRequestProfilePictureMessage
 import ch.threema.domain.protocol.csp.messages.DeleteProfilePictureMessage
 import ch.threema.domain.protocol.csp.messages.SetProfilePictureMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.types.IdentityString
+import java.time.Instant
 
 /**
  * This class provides methods to send the csp messages set-profile-picture,
@@ -30,7 +30,7 @@ sealed class OutgoingProfilePictureTask() : OutgoingCspMessageTask(), Persistabl
             messageModel = null,
             toIdentity = toIdentity,
             messageId = MessageId.random(),
-            createdAt = now(),
+            createdAt = Instant.now(),
             handle = handle,
         )
     }
@@ -57,7 +57,7 @@ sealed class OutgoingProfilePictureTask() : OutgoingCspMessageTask(), Persistabl
             messageModel = null,
             toIdentity = toIdentity,
             messageId = MessageId.random(),
-            createdAt = now(),
+            createdAt = Instant.now(),
             handle = handle,
         )
     }
@@ -77,7 +77,7 @@ sealed class OutgoingProfilePictureTask() : OutgoingCspMessageTask(), Persistabl
             messageModel = null,
             toIdentity = toIdentity,
             messageId = MessageId.random(),
-            createdAt = now(),
+            createdAt = Instant.now(),
             handle = handle,
         )
     }

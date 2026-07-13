@@ -142,13 +142,15 @@
         <attr name="colorBarProgress" format="color" />
     </declare-styleable>
 
-    <declare-styleable name="WizardButtonXmlWrapper">
-        <attr name="wizardButton_style" format="enum">
-            <enum name="wizardButton_default" value="0" />
-            <enum name="wizardButton_inverse" value="1" />
-        </attr>
-        <attr name="wizardButton_text" format="reference" />
-        <attr name="wizardButton_trailingIcon" format="reference" />
+    <declare-styleable name="ButtonPrimaryXml">
+        <attr name="buttonPrimary_text" format="reference" />
+        <attr name="buttonPrimary_trailingIcon" format="reference" />
     </declare-styleable>
+
+    <declare-styleable name="TextButtonPrimaryXml">
+        <attr name="textButtonPrimary_text" format="reference" />
+        <attr name="textButtonPrimary_trailingIcon" format="reference" />
+    </declare-styleable>
+
 
 </resources>

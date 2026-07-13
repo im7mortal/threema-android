@@ -83,6 +83,7 @@ impl From<HttpsEndpointError> for WorkPropertiesUpdateError {
             HttpsEndpointError::RateLimitExceeded => Self::RateLimitExceeded,
             HttpsEndpointError::Forbidden
             | HttpsEndpointError::NotFound
+            | HttpsEndpointError::InvalidChallenge
             | HttpsEndpointError::InvalidChallengeResponse
             | HttpsEndpointError::UnexpectedStatus(_)
             | HttpsEndpointError::DecodingFailed(_)
@@ -539,7 +540,7 @@ mod tests {
                 result: Ok(HttpsResponse {
                     status: 200,
                     body: serde_json::to_vec(&json!({
-                        "challengePublicKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+                        "challengePublicKey": "BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
                         "challenge": "bWVvdw==",
                     }))?,
                 }),
@@ -637,7 +638,7 @@ mod tests {
             result: Ok(HttpsResponse {
                 status: 200,
                 body: serde_json::to_vec(&json!({
-                    "challengePublicKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+                    "challengePublicKey": "BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
                     "challenge": "bWVvdw==",
                 }))?,
             }),

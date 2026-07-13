@@ -1,6 +1,5 @@
 package ch.threema.app.activities;
 
-import static ch.threema.app.preference.service.PreferenceService.LOCKING_MECH_NONE;
 import static ch.threema.app.startup.AppStartupUtilKt.finishAndRestartLaterIfNotReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 
@@ -24,8 +23,6 @@ import com.google.android.material.tabs.TabLayout;
 import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
-import java.time.Instant;
-
 import ch.threema.app.R;
 import ch.threema.app.applock.CheckAppLockContract;
 import ch.threema.app.di.DependencyContainer;
@@ -42,6 +39,7 @@ public class BackupAdminActivity extends ThreemaToolbarActivity {
     private static final Logger logger = getThreemaLogger("BackupAdminActivity");
 
     private static final String BUNDLE_IS_UNLOCKED = "biu";
+    private static final String EXTRA_HIDE_DATA_BACKUP = "hide_data_backup";
 
     @NonNull
     private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
@@ -96,12 +94,12 @@ public class BackupAdminActivity extends ThreemaToolbarActivity {
         viewPager.setAdapter(new BackupAdminPagerAdapter(getSupportFragmentManager()));
         tabLayout.setupWithViewPager(viewPager);
 
-        if (dependencies.getPreferenceService().getBackupWarningDismissedTime() == null) {
+        if (!dependencies.getPreferenceService().isBackupWarningDismissed()) {
             ((TextView) findViewById(R.id.notice_text)).setText(R.string.backup_explain_text);
             final View noticeLayout = findViewById(R.id.notice_layout);
             noticeLayout.setVisibility(View.VISIBLE);
             findViewById(R.id.close_button).setOnClickListener(v -> {
-                dependencies.getPreferenceService().setBackupWarningDismissedTime(Instant.now());
+                dependencies.getPreferenceService().setBackupWarningDismissed(true);
                 AnimationUtil.collapse(noticeLayout, null, true);
             });
         } else {
@@ -118,7 +116,7 @@ public class BackupAdminActivity extends ThreemaToolbarActivity {
     protected void onResume() {
         super.onResume();
 
-        if (!isUnlocked && !dependencies.getPreferenceService().getLockMechanism().equals(LOCKING_MECH_NONE)) {
+        if (!isUnlocked && dependencies.getPreferenceService().hasLockMechanism()) {
             checkLockLauncher.launch(Unit.INSTANCE);
         }
     }
@@ -136,11 +134,12 @@ public class BackupAdminActivity extends ThreemaToolbarActivity {
     }
 
     private boolean threemaSafeUIDisabled() {
-        return ConfigUtils.isWorkRestricted() && safeConfig.isBackupAdminDisabled();
+        return dependencies.getAppRestrictions().isRestricted() && safeConfig.isBackupAdminDisabled();
     }
 
     private boolean dataBackupUIDisabled() {
-        return dependencies.getAppRestrictions().isDataBackupsDisabled();
+        return dependencies.getAppRestrictions().isDataBackupsDisabled() ||
+            getIntent().getBooleanExtra(EXTRA_HIDE_DATA_BACKUP, false);
     }
 
     @Override
@@ -186,6 +185,13 @@ public class BackupAdminActivity extends ThreemaToolbarActivity {
 
     @NonNull
     public static Intent createIntent(@NonNull Context context) {
-        return new Intent(context, BackupAdminActivity.class);
+        return createIntent(context, false);
+    }
+
+    @NonNull
+    public static Intent createIntent(@NonNull Context context, boolean hideDataBackup) {
+        Intent intent = new Intent(context, BackupAdminActivity.class);
+        intent.putExtra(EXTRA_HIDE_DATA_BACKUP, hideDataBackup);
+        return intent;
     }
 }

@@ -1,6 +1,5 @@
 package ch.threema.app.dialogs;
 
-import android.app.Activity;
 import android.content.DialogInterface;
 import android.os.Bundle;
 import android.os.Parcelable;
@@ -25,53 +24,76 @@ import java.util.ArrayList;
 import ch.threema.app.R;
 import ch.threema.app.emojis.EmojiTextView;
 import ch.threema.app.ui.SelectorDialogItem;
+
+import static androidx.fragment.app.FragmentKt.setFragmentResult;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 
 public class SelectorDialog extends ThreemaDialogFragment {
     private static final Logger logger = getThreemaLogger("SelectorDialog");
-    private SelectorDialogClickListener callback;
-    private SelectorDialogInlineClickListener inlineCallback;
-    private Activity activity;
+    private @Nullable SelectorDialogClickListener callback;
+    private @Nullable SelectorDialogInlineClickListener inlineCallback;
 
     private static final String BUNDLE_TITLE_EXTRA = "title";
     private static final String BUNDLE_ITEMS_EXTRA = "items";
     private static final String BUNDLE_TAGS_EXTRA = "tags";
     private static final String BUNDLE_NEGATIVE_EXTRA = "negative";
     private static final String BUNDLE_LISTENER_EXTRA = "listener";
+    private static final String BUNDLE_REQUEST_KEY_EXTRA = "requestKey";
 
-    public static SelectorDialog newInstance(String title, ArrayList<SelectorDialogItem> items, String negative) {
+    // Either the defined tag integer value, or the index of the clicked item
+    public static final String BUNDLE_KEY_CLICKED_ITEM = "clicked-item";
+
+    @NonNull
+    public static SelectorDialog newInstance(
+        @Nullable String title,
+        @NonNull ArrayList<SelectorDialogItem> items,
+        @Nullable String negative,
+        @Nullable String requestKey
+    ) {
         SelectorDialog dialog = new SelectorDialog();
         Bundle args = new Bundle();
         args.putString(BUNDLE_TITLE_EXTRA, title);
         args.putSerializable(BUNDLE_ITEMS_EXTRA, items);
         args.putString(BUNDLE_NEGATIVE_EXTRA, negative);
-
+        args.putString(BUNDLE_REQUEST_KEY_EXTRA, requestKey);
         dialog.setArguments(args);
         return dialog;
     }
 
-    public static SelectorDialog newInstance(String title, ArrayList<SelectorDialogItem> items, ArrayList<Integer> tags, String negative) {
+    @NonNull
+    public static SelectorDialog newInstance(
+        @Nullable String title,
+        @NonNull ArrayList<SelectorDialogItem> items,
+        @NonNull ArrayList<Integer> tags,
+        @Nullable String negative,
+        @Nullable String requestKey
+    ) {
         SelectorDialog dialog = new SelectorDialog();
         Bundle args = new Bundle();
         args.putString(BUNDLE_TITLE_EXTRA, title);
         args.putIntegerArrayList(BUNDLE_TAGS_EXTRA, tags);
         args.putSerializable(BUNDLE_ITEMS_EXTRA, items);
         args.putString(BUNDLE_NEGATIVE_EXTRA, negative);
-
+        args.putString(BUNDLE_REQUEST_KEY_EXTRA, requestKey);
         dialog.setArguments(args);
         return dialog;
     }
 
-    public static SelectorDialog newInstance(String title, ArrayList<SelectorDialogItem> items, String negative, SelectorDialogInlineClickListener listener) {
+    @NonNull
+    public static SelectorDialog newInstance(
+        @Nullable String title,
+        @NonNull ArrayList<SelectorDialogItem> items,
+        @Nullable String negative,
+        @NonNull SelectorDialogInlineClickListener listener
+    ) {
         SelectorDialog dialog = new SelectorDialog();
         Bundle args = new Bundle();
         args.putString(BUNDLE_TITLE_EXTRA, title);
         args.putSerializable(BUNDLE_ITEMS_EXTRA, items);
         args.putString(BUNDLE_NEGATIVE_EXTRA, negative);
         args.putParcelable(BUNDLE_LISTENER_EXTRA, listener);
-
         dialog.setArguments(args);
         return dialog;
     }
@@ -91,17 +113,26 @@ public class SelectorDialog extends ThreemaDialogFragment {
     }
 
     @Override
-    public void onAttach(@NonNull Activity activity) {
-        super.onAttach(activity);
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        logScreenVisibility(this, logger);
 
-        this.activity = activity;
+        try {
+            callback = (SelectorDialogClickListener) getTargetFragment();
+        } catch (ClassCastException e) {
+            //
+        }
+
+        // maybe called from an activity rather than a fragment
+        if (callback == null && getActivity() != null && (requireActivity() instanceof SelectorDialogClickListener)) {
+            callback = (SelectorDialogClickListener) requireActivity();
+        }
     }
 
     @Override
     public void onCancel(@NonNull DialogInterface dialogInterface) {
         super.onCancel(dialogInterface);
-
-        if (inlineCallback == null) {
+        if (inlineCallback == null && callback != null) {
             callback.onCancel(this.getTag());
         }
     }
@@ -109,12 +140,13 @@ public class SelectorDialog extends ThreemaDialogFragment {
     @NonNull
     @Override
     public AppCompatDialog onCreateDialog(Bundle savedInstanceState) {
-        Bundle arguments = getArguments();
-        String title = arguments.getString(BUNDLE_TITLE_EXTRA);
-        final ArrayList<SelectorDialogItem> items = (ArrayList<SelectorDialogItem>) arguments.getSerializable(BUNDLE_ITEMS_EXTRA);
-        final ArrayList<Integer> tags = arguments.getIntegerArrayList(BUNDLE_TAGS_EXTRA);
-        String negative = arguments.getString(BUNDLE_NEGATIVE_EXTRA);
-        SelectorDialogInlineClickListener listener = arguments.getParcelable(BUNDLE_LISTENER_EXTRA);
+        final @NonNull Bundle arguments = requireArguments();
+        final @Nullable String title = arguments.getString(BUNDLE_TITLE_EXTRA);
+        final @NonNull ArrayList<SelectorDialogItem> items = (ArrayList<SelectorDialogItem>) arguments.getSerializable(BUNDLE_ITEMS_EXTRA);
+        final @Nullable ArrayList<Integer> tags = arguments.getIntegerArrayList(BUNDLE_TAGS_EXTRA);
+        final @Nullable String negative = arguments.getString(BUNDLE_NEGATIVE_EXTRA);
+        final @Nullable SelectorDialogInlineClickListener listener = arguments.getParcelable(BUNDLE_LISTENER_EXTRA);
+        final @Nullable String requestKey = arguments.getString(BUNDLE_REQUEST_KEY_EXTRA);
 
         if (listener != null) {
             inlineCallback = listener;
@@ -122,7 +154,7 @@ public class SelectorDialog extends ThreemaDialogFragment {
 
         final String fragmentTag = this.getTag();
 
-        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(getActivity(), getTheme());
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireActivity(), getTheme());
         if (title != null) {
             EmojiTextView emojiTextView = new EmojiTextView(new ContextThemeWrapper(getContext(), R.style.MaterialAlertDialog_Material3_Title_Text));
             emojiTextView.setText(title);
@@ -135,12 +167,14 @@ public class SelectorDialog extends ThreemaDialogFragment {
         }
 
         ListAdapter adapter = new ArrayAdapter<>(
-            activity,
+            requireActivity(),
             R.layout.item_selector_dialog,
             R.id.text1,
-            items) {
+            items
+        ) {
+            @NonNull
             @Override
-            public View getView(int position, View convertView, ViewGroup parent) {
+            public View getView(int position, View convertView, @NonNull ViewGroup parent) {
                 //Use super class to create the View
                 View v = super.getView(position, convertView, parent);
                 TextView selectorOptionDesc = v.findViewById(R.id.text1);
@@ -155,52 +189,45 @@ public class SelectorDialog extends ThreemaDialogFragment {
             }
         };
 
-        builder.setAdapter(adapter, (dialog, which) -> {
-            dialog.dismiss();
+        builder.setAdapter(
+            adapter,
+            (dialog, which) -> {
+                dialog.dismiss();
 
-            if (tags != null && !tags.isEmpty()) {
+                final int whichItem = (tags != null && !tags.isEmpty()) ? tags.get(which) : which;
+
                 if (inlineCallback != null) {
-                    inlineCallback.onClick(fragmentTag, tags.get(which), object);
-                } else {
-                    callback.onClick(fragmentTag, tags.get(which), object);
+                    inlineCallback.onClick(fragmentTag, whichItem, object);
+                } else if (callback != null) {
+                    callback.onClick(fragmentTag, whichItem, object);
                 }
-            } else {
-                if (inlineCallback != null) {
-                    inlineCallback.onClick(fragmentTag, which, object);
-                } else {
-                    callback.onClick(fragmentTag, which, object);
+                if (requestKey != null) {
+                    final @NonNull Bundle resultBundle = new Bundle();
+                    resultBundle.putAll(requestData);
+                    resultBundle.putInt(BUNDLE_KEY_CLICKED_ITEM, whichItem);
+                    setFragmentResult(SelectorDialog.this, requestKey, resultBundle);
                 }
             }
-        });
+        );
 
         if (negative != null) {
-            builder.setNegativeButton(negative, (dialog, which) -> {
-                dialog.dismiss();
-                if (inlineCallback == null) {
-                    callback.onNo(fragmentTag);
+            builder.setNegativeButton(
+                negative,
+                (dialog, which) -> {
+                    dialog.dismiss();
+                    if (inlineCallback == null && callback != null) {
+                        callback.onNo(fragmentTag);
+                    }
+                    if (requestKey != null) {
+                        final @NonNull Bundle resultBundle = new Bundle();
+                        resultBundle.putAll(requestData);
+                        resultBundle.putSerializable(ThreemaDialogFragment.BUNDLE_KEY_CLICKED_BUTTON, ClickedButton.NEGATIVE);
+                        setFragmentResult(SelectorDialog.this, requestKey, resultBundle);
+                    }
                 }
-            });
+            );
         }
 
         return builder.create();
-    }
-
-    @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        logScreenVisibility(this, logger);
-
-        try {
-            callback = (SelectorDialogClickListener) getTargetFragment();
-        } catch (ClassCastException e) {
-            //
-        }
-
-        // maybe called from an activity rather than a fragment
-        if (callback == null) {
-            if ((activity instanceof SelectorDialogClickListener)) {
-                callback = (SelectorDialogClickListener) activity;
-            }
-        }
     }
 }

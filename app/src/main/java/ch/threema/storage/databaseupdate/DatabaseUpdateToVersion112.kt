@@ -1,7 +1,6 @@
 package ch.threema.storage.databaseupdate
 
 import android.content.Context
-import ch.threema.common.now
 import ch.threema.storage.buildContentValues
 import ch.threema.storage.runInsert
 import ch.threema.storage.runQuery
@@ -38,7 +37,7 @@ class DatabaseUpdateToVersion112(
         )
 
         cursor.use {
-            val now = now().time
+            val now = System.currentTimeMillis()
             while (cursor.moveToNext()) {
                 val groupId = cursor.getInt(0)
 

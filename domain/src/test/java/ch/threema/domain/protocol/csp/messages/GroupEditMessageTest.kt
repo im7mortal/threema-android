@@ -184,7 +184,7 @@ class GroupEditMessageTest {
         )
         assertContentEquals(bytesApiGroupId, editMessage.apiGroupId.groupId)
         assertEquals(incomingMessageId, editMessage.messageId.messageIdLong)
-        assertEquals(incomingMessageCreatedAt, editMessage.date.time)
+        assertEquals(incomingMessageCreatedAt, editMessage.timestamp.toEpochMilli())
         assertEquals(incomingMessageSenderIdentity, editMessage.fromIdentity)
         assertEquals(messageIdToUpdate.messageIdLong, editMessage.data.messageId)
         assertEquals(updatedMessageText, editMessage.data.text)
@@ -211,7 +211,7 @@ class GroupEditMessageTest {
         )
         assertContentEquals(bytesApiGroupId, editMessage.apiGroupId.groupId)
         assertEquals(outgoingMessageId, editMessage.messageId.messageIdLong)
-        assertEquals(outgoingMessageCreatedAt, editMessage.date.time)
+        assertEquals(outgoingMessageCreatedAt, editMessage.timestamp.toEpochMilli())
         assertEquals(messageIdToUpdate.messageIdLong, editMessage.data.messageId)
         assertEquals(updatedMessageText, editMessage.data.text)
     }

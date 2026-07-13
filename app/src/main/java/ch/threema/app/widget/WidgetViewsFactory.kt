@@ -72,7 +72,7 @@ class WidgetViewsFactory(private val context: Context) : RemoteViewsFactory, Koi
                 object : ConversationService.Filter {
                     override fun onlyUnread() = true
 
-                    override fun noHiddenChats() = preferenceService.arePrivateChatsHidden()
+                    override fun noHiddenConversations() = preferenceService.arePrivateChatsHidden()
                 },
             )
             logger.info("Conversations updated")
@@ -85,7 +85,7 @@ class WidgetViewsFactory(private val context: Context) : RemoteViewsFactory, Koi
     override fun getCount(): Int {
         val lockAppService = lockAppService ?: return 0
         return try {
-            if (!lockAppService.isLocked() && notificationPreferenceService.isShowMessagePreview()) {
+            if (!lockAppService.isLocked && notificationPreferenceService.isShowMessagePreview()) {
                 conversations?.size ?: 0
             } else {
                 0
@@ -113,31 +113,29 @@ class WidgetViewsFactory(private val context: Context) : RemoteViewsFactory, Koi
         var profilePicture: Bitmap? = null
         val extras = Bundle()
 
-        if (!lockAppService.isLocked() && notificationPreferenceService.isShowMessagePreview()) {
+        if (!lockAppService.isLocked && notificationPreferenceService.isShowMessagePreview()) {
             sender = conversation.messageReceiver.getDisplayName(
                 preferenceService?.getContactNameFormat() ?: ContactNameFormat.DEFAULT,
             )
 
-            when {
+            profilePicture = when {
                 conversation.isContactConversation -> {
-                    val contact = conversation.contact
-                    val identity = contact?.identity
-                    profilePicture = contactService.getAvatar(identity, false)
-                    extras.putString(AppConstants.INTENT_DATA_CONTACT, identity)
+                    contactService.getAvatar(conversation.contact?.identity, false)
                 }
                 conversation.isGroupConversation -> {
-                    profilePicture = groupService.getAvatar(conversation.group, false)
-                    extras.putLong(AppConstants.INTENT_DATA_GROUP_DATABASE_ID, conversation.group!!.id.toLong())
+                    groupService.getAvatar(conversation.group, false)
                 }
                 conversation.isDistributionListConversation -> {
-                    profilePicture = distributionListService.getAvatar(conversation.distributionList!!.id, false)
-                    extras.putLong(AppConstants.INTENT_DATA_DISTRIBUTION_LIST_ID, conversation.distributionList!!.id)
+                    distributionListService.getAvatar(conversation.distributionList!!.id, false)
                 }
+                else -> null
             }
+
+            extras.putParcelable(AppConstants.INTENT_DATA_CONVERSATION_ID, conversation.id)
 
             count = conversation.unreadCount
 
-            if (conversationCategoryService.isPrivateChat(conversation.messageReceiver.getUniqueIdString())) {
+            if (conversationCategoryService.isMarkedAsPrivate(conversationId = conversation.id)) {
                 message = context.getString(R.string.private_chat_subject)
             } else {
                 conversation.latestMessage?.let { latestMessage ->

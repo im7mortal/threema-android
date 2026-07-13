@@ -59,14 +59,14 @@ class IncomingGroupEditMessageTask(
         val editedMessage = runCommonEditMessageReceiveSteps(
             myIdentity = myIdentity,
             editMessageSenderIdentity = message.fromIdentity,
-            editMessageCreatedAt = message.date,
+            editMessageCreatedAt = message.timestamp,
             messageId = message.data.messageId,
             receiver = receiver,
             messageService = messageService,
         )
             ?: return ReceiveStepsResult.DISCARD
 
-        messageService.saveEditedMessageText(editedMessage, message.data.text, message.date)
+        messageService.saveEditedMessageText(editedMessage, message.data.text, message.timestamp)
 
         return ReceiveStepsResult.SUCCESS
     }

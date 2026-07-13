@@ -1,5 +1,6 @@
 package ch.threema.app.webclient.services.instance;
 
+import org.koin.java.KoinJavaComponent;
 import org.msgpack.core.MessagePackException;
 import org.msgpack.value.MapValue;
 import org.msgpack.value.Value;
@@ -20,7 +21,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 import ch.threema.app.managers.ListenerManager.HandleListener;
-import ch.threema.app.utils.TestUtil;
+import ch.threema.app.protocolsteps.ValidContactsLookupSteps;
 import ch.threema.app.utils.executor.HandlerExecutor;
 import ch.threema.app.webclient.Protocol;
 import ch.threema.app.webclient.SendMode;
@@ -74,6 +75,8 @@ import ch.threema.app.webclient.services.instance.message.updater.VoipStatusUpda
 import ch.threema.app.webclient.services.instance.state.SessionStateManager;
 import ch.threema.app.webclient.state.WebClientSessionState;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.areEqual;
+
 import ch.threema.logging.ThreemaLogger;
 import ch.threema.storage.models.WebClientSessionModel;
 
@@ -188,11 +191,7 @@ public class SessionInstanceServiceImpl implements SessionInstanceService {
         final ConversationUpdateHandler conversationUpdateHandler = new ConversationUpdateHandler(
             handler,
             updateDispatcher,
-            services.contact,
-            services.group,
-            services.distributionList,
-            services.conversationCategoryService,
-            this.sessionId
+            services.conversationCategoryService
         );
         final MessageUpdateHandler messageUpdateHandler = new MessageUpdateHandler(
             handler,
@@ -213,7 +212,6 @@ public class SessionInstanceServiceImpl implements SessionInstanceService {
         );
         final VoipStatusUpdateHandler voipStatusUpdateHandler = new VoipStatusUpdateHandler(
             handler,
-            this.sessionId,
             updateDispatcher
         );
         final ProfileUpdateHandler profileUpdateHandler = new ProfileUpdateHandler(
@@ -254,7 +252,7 @@ public class SessionInstanceServiceImpl implements SessionInstanceService {
                 @WorkerThread
                 public void onAnswered(@Nullable final String pushToken) {
                     // Save the fcm token in the model
-                    if (!TestUtil.compare(model.getPushToken(), pushToken)) {
+                    if (!areEqual(model.getPushToken(), pushToken)) {
                         WebClientListenerManager.serviceListener.handle(new HandleListener<WebClientServiceListener>() {
                             @Override
                             @WorkerThread
@@ -437,10 +435,9 @@ public class SessionInstanceServiceImpl implements SessionInstanceService {
         createDispatcher.addReceiver(new CreateContactHandler(
             createDispatcher,
             services.contact,
-            services.user,
             services.preference,
-            services.apiConnector,
-            services.contactModelRepository
+            services.contactModelRepository,
+            KoinJavaComponent.get(ValidContactsLookupSteps.class)
         ));
 
         createDispatcher.addReceiver(new CreateGroupHandler(
@@ -477,7 +474,8 @@ public class SessionInstanceServiceImpl implements SessionInstanceService {
         ));
         updateDispatcher.addReceiver(new ModifyConversationHandler(
             responseDispatcher,
-            services.conversation
+            services.conversation,
+            services.distributionList
         ));
         updateDispatcher.addReceiver(new IsTypingHandler(
             services.contact
@@ -680,15 +678,11 @@ public class SessionInstanceServiceImpl implements SessionInstanceService {
      * Warning: The caller MUST ensure that the current state is either DISCONNECTED or ERROR!
      */
     private void init(@NonNull final SaltyRTCBuilder builder, @Nullable final String affiliationId) {
-        // Register listener (if not already registered)
+        // Register listener
         // Note: The message listener may already be registered in case a session is being
         //       restarted immediately by a pending wakeup.
-        if (!WebClientListenerManager.messageListener.contains(this.messageListener)) {
-            logger.debug("Registering message listener");
-            WebClientListenerManager.messageListener.add(this.messageListener);
-        } else {
-            logger.debug("Message listener already registered");
-        }
+        logger.debug("Registering message listener");
+        WebClientListenerManager.messageListener.add(this.messageListener);
 
         // Store affiliation id and connect
         this.affiliationId = affiliationId;
@@ -720,12 +714,8 @@ public class SessionInstanceServiceImpl implements SessionInstanceService {
         }
 
         // Remove listener
-        if (WebClientListenerManager.messageListener.contains(this.messageListener)) {
-            logger.debug("Unregistering message listener");
-            WebClientListenerManager.messageListener.remove(this.messageListener);
-        } else {
-            logger.error("Message listener was not registered!");
-        }
+        logger.debug("Unregistering message listener");
+        WebClientListenerManager.messageListener.remove(this.messageListener);
 
         // Reset connection duration timer
         this.startTimeNs = -1;

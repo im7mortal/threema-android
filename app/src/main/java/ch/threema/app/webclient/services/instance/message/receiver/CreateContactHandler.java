@@ -24,9 +24,9 @@ import ch.threema.app.exceptions.EntryAlreadyExistsException;
 import ch.threema.app.exceptions.InvalidEntryException;
 import ch.threema.app.exceptions.PolicyViolationException;
 import ch.threema.app.preference.service.PreferenceService;
+import ch.threema.app.protocolsteps.ValidContactsLookupSteps;
 import ch.threema.app.restrictions.AppRestrictions;
 import ch.threema.app.services.ContactService;
-import ch.threema.app.services.UserService;
 import ch.threema.app.webclient.Protocol;
 import ch.threema.app.webclient.converter.Contact;
 import ch.threema.app.webclient.converter.MsgpackObjectBuilder;
@@ -35,7 +35,7 @@ import ch.threema.app.webclient.services.instance.MessageDispatcher;
 import ch.threema.app.webclient.services.instance.MessageReceiver;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.data.repositories.ContactModelRepository;
-import ch.threema.domain.protocol.api.APIConnector;
+import ch.threema.domain.models.AcquaintanceLevel;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
 import ch.threema.storage.models.ContactModel;
 
@@ -45,10 +45,9 @@ public class CreateContactHandler extends MessageReceiver {
 
     private final MessageDispatcher dispatcher;
     private final ContactService contactService;
-    private final UserService userService;
     private final PreferenceService preferenceService;
-    private final APIConnector apiConnector;
     private final ContactModelRepository contactModelRepository;
+    private final ValidContactsLookupSteps validContactsLookupSteps;
 
     @Retention(RetentionPolicy.SOURCE)
     @StringDef({
@@ -63,18 +62,16 @@ public class CreateContactHandler extends MessageReceiver {
     public CreateContactHandler(
         MessageDispatcher dispatcher,
         ContactService contactService,
-        @NonNull UserService userService,
         @NonNull PreferenceService preferenceService,
-        @NonNull APIConnector apiConnector,
-        @NonNull ContactModelRepository contactModelRepository
+        @NonNull ContactModelRepository contactModelRepository,
+        @NonNull ValidContactsLookupSteps validContactsLookupSteps
     ) {
         super(Protocol.SUB_TYPE_CONTACT);
         this.dispatcher = dispatcher;
         this.contactService = contactService;
-        this.userService = userService;
         this.preferenceService = preferenceService;
-        this.apiConnector = apiConnector;
         this.contactModelRepository = contactModelRepository;
+        this.validContactsLookupSteps = validContactsLookupSteps;
     }
 
     @Override
@@ -159,9 +156,8 @@ public class CreateContactHandler extends MessageReceiver {
         throws InvalidEntryException, EntryAlreadyExistsException, PolicyViolationException {
         ContactResult result = new BasicAddOrUpdateContactBackgroundTask(
             identity,
-            ContactModel.AcquaintanceLevel.DIRECT,
-            userService.getIdentity(),
-            apiConnector,
+            AcquaintanceLevel.DIRECT,
+            validContactsLookupSteps,
             contactModelRepository,
             AddContactRestrictionPolicy.CHECK,
             KoinJavaComponent.get(AppRestrictions.class),

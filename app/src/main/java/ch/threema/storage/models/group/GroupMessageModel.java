@@ -15,7 +15,7 @@ public class GroupMessageModel extends AbstractMessageModel {
 
     // TODO(ANDR-3325): This is only used for group ack/dec and can therefore be removed
     //  when the database is migrated.
-    private Map<String, Object> groupMessageStates;
+    private Map<String, String> groupMessageStates;
 
     public GroupMessageModel() {
         super();
@@ -39,11 +39,11 @@ public class GroupMessageModel extends AbstractMessageModel {
     }
 
     @Nullable
-    public Map<String, Object> getGroupMessageStates() {
+    public Map<String, String> getGroupMessageStates() {
         return this.groupMessageStates;
     }
 
-    public GroupMessageModel setGroupMessageStates(@Nullable Map<String, Object> groupMessageStates) {
+    public GroupMessageModel setGroupMessageStates(@Nullable Map<String, String> groupMessageStates) {
         this.groupMessageStates = groupMessageStates;
         return this;
     }

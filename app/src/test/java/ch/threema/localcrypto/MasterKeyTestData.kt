@@ -1,6 +1,6 @@
 package ch.threema.localcrypto
 
-import ch.threema.base.utils.Base64
+import ch.threema.common.Base64
 import ch.threema.common.emptyByteArray
 import ch.threema.libthreema.blake2bMac256
 import ch.threema.localcrypto.models.RemoteSecret

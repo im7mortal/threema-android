@@ -14,7 +14,7 @@ import java.lang.annotation.RetentionPolicy;
     MessageContentsType.VOICE_MESSAGE,
     MessageContentsType.LOCATION,
     MessageContentsType.STATUS,
-    MessageContentsType.BALLOT,
+    MessageContentsType.POLL,
     MessageContentsType.FILE,
     MessageContentsType.VOIP_STATUS,
     MessageContentsType.GIF,
@@ -34,7 +34,7 @@ public @interface MessageContentsType {
     int VOICE_MESSAGE = 5;
     int LOCATION = 6;
     int STATUS = 7;
-    int BALLOT = 8;
+    int POLL = 8;
     int FILE = 9;
     int VOIP_STATUS = 10;
     int GIF = 11;

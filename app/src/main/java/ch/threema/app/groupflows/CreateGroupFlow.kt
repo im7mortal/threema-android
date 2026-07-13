@@ -14,9 +14,9 @@ import ch.threema.app.tasks.ReflectionResult
 import ch.threema.app.utils.OutgoingCspMessageServices
 import ch.threema.app.utils.executor.BackgroundTask
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.common.now
 import ch.threema.common.secureRandom
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.ConversationVisibility
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.GroupModel
 import ch.threema.data.models.GroupModelData
 import ch.threema.data.repositories.GroupModelRepository
@@ -25,6 +25,7 @@ import ch.threema.domain.protocol.connection.ConnectionState
 import ch.threema.domain.protocol.connection.ServerConnection
 import ch.threema.domain.taskmanager.TaskManager
 import ch.threema.domain.taskmanager.runCatchingExceptNetworkException
+import java.time.Instant
 import kotlinx.coroutines.runBlocking
 
 private val logger = getThreemaLogger("CreateGroupFlow")
@@ -57,7 +58,7 @@ class CreateGroupFlow(
     private val myIdentity by lazy { outgoingCspMessageServices.identityStore.getIdentityString()!! }
 
     private val groupModelData by lazy {
-        val now = now()
+        val now = Instant.now()
         GroupModelData(
             groupIdentity = GroupIdentity(
                 myIdentity,
@@ -67,7 +68,7 @@ class CreateGroupFlow(
             createdAt = now,
             synchronizedAt = null,
             lastUpdate = now,
-            isArchived = false,
+            conversationVisibility = ConversationVisibility.NORMAL,
             groupDescription = null,
             groupDescriptionChangedAt = null,
             otherMembers = groupCreateProperties.members - myIdentity,
@@ -117,7 +118,7 @@ class CreateGroupFlow(
     }
 
     private fun createGroupWithMd(): GroupFlowResult {
-        if (connection.connectionState != ConnectionState.LOGGEDIN) {
+        if (connection.connectionState != ConnectionState.LOGGED_IN) {
             return GroupFlowResult.Failure.Network
         }
         return runBlocking {

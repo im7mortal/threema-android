@@ -5,13 +5,13 @@ package ch.threema.app.usecases.availabilitystatus
 import ch.threema.app.BuildConfig
 import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.preference.service.PreferenceService
-import ch.threema.app.test.unconfinedTestDispatcherProvider
 import ch.threema.app.work.workproperties.WorkPropertiesClient
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.taskmanager.TaskManager
 import ch.threema.libthreema.WorkPropertiesUpdateException
+import ch.threema.testhelpers.unconfinedTestDispatcherProvider
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.confirmVerified
@@ -55,7 +55,7 @@ class UpdateUserAvailabilityStatusUseCaseTest {
         val result = useCase.call(newAvailabilityStatus)
 
         // assert
-        assertTrue { result.isSuccess }
+        assertTrue(result.isSuccess)
         coVerify(exactly = 0) {
             workPropertiesClientMock.updateAvailabilityStatus(newAvailabilityStatus)
         }
@@ -133,7 +133,7 @@ class UpdateUserAvailabilityStatusUseCaseTest {
         val result = useCase.call(newAvailabilityStatus)
 
         // assert
-        assertTrue { result.isSuccess }
+        assertTrue(result.isSuccess)
         coVerify(exactly = 1) {
             workPropertiesClientMock.updateAvailabilityStatus(newAvailabilityStatus)
         }
@@ -171,7 +171,7 @@ class UpdateUserAvailabilityStatusUseCaseTest {
         val result = useCase.call(newAvailabilityStatus)
 
         // assert
-        assertTrue { result.isFailure }
+        assertTrue(result.isFailure)
         coVerify(exactly = 1) {
             workPropertiesClientMock.updateAvailabilityStatus(newAvailabilityStatus)
         }
@@ -214,7 +214,7 @@ class UpdateUserAvailabilityStatusUseCaseTest {
         val result = useCase.call(newAvailabilityStatus)
 
         // assert
-        assertTrue { result.isSuccess }
+        assertTrue(result.isSuccess)
         coVerify(exactly = 1) {
             workPropertiesClientMock.updateAvailabilityStatus(newAvailabilityStatus)
         }
@@ -252,7 +252,7 @@ class UpdateUserAvailabilityStatusUseCaseTest {
         val result = useCase.call(newAvailabilityStatus)
 
         // assert
-        assertTrue { result.isFailure }
+        assertTrue(result.isFailure)
         confirmVerified(preferenceServiceMock)
         confirmVerified(workPropertiesClientMock)
         confirmVerified(multiDeviceManagerMock)

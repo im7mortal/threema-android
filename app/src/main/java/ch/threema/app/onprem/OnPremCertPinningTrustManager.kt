@@ -1,12 +1,12 @@
 package ch.threema.app.onprem
 
 import android.annotation.SuppressLint
-import ch.threema.base.utils.Base64
+import ch.threema.common.Base64
 import ch.threema.common.secureContentEquals
+import ch.threema.common.sha256
 import ch.threema.domain.onprem.OnPremConfigDomainRuleMatchMode
 import ch.threema.domain.onprem.OnPremConfigDomainRuleSpkiAlgorithm
 import ch.threema.domain.onprem.OnPremConfigDomains
-import ch.threema.libthreema.sha256
 import java.security.cert.CertificateException
 import java.security.cert.X509Certificate
 import javax.net.ssl.X509TrustManager

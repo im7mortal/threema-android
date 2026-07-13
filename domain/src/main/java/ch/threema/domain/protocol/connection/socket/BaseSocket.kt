@@ -62,7 +62,7 @@ internal abstract class BaseSocket(
                 ioProcessingStoppedSignal.complete(Unit)
             } else {
                 // do not log the exception as it will be logged elsewhere
-                logger.warn("IO processing stopped exceptionally", e)
+                logger.warn("IO processing stopped exceptionally: {}", e.message)
                 ioProcessingStoppedSignal.completeExceptionally(e)
             }
         }

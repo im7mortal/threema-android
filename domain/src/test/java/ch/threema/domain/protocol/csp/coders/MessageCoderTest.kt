@@ -20,7 +20,6 @@ import ch.threema.domain.protocol.csp.messages.voip.VoipCallOfferData.OfferData
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallOfferMessage
 import ch.threema.domain.protocol.csp.messages.voip.VoipICECandidatesData
 import ch.threema.domain.protocol.csp.messages.voip.VoipICECandidatesMessage
-import ch.threema.domain.stores.ContactStore
 import ch.threema.domain.stores.IdentityStore
 import ch.threema.domain.testhelpers.TestHelpers.noopContactStore
 import ch.threema.domain.testhelpers.TestHelpers.noopIdentityStore
@@ -59,10 +58,10 @@ class MessageCoderTest {
             "Peer",
         )
 
-        val myContactStore: ContactStore = InMemoryContactStore()
+        val myContactStore = InMemoryContactStore()
         myContactStore.addContact(Contact("0ABCDEFG", peerPublicKey, VerificationLevel.UNVERIFIED))
 
-        val peerContactStore: ContactStore = InMemoryContactStore()
+        val peerContactStore = InMemoryContactStore()
         peerContactStore.addContact(Contact("01234567", myPublicKey, VerificationLevel.UNVERIFIED))
 
         encoder = MessageCoder(

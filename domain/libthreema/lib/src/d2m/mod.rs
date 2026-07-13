@@ -2,7 +2,7 @@
 use core::{cmp::min, mem};
 
 use const_format::formatcp;
-use data_encoding::HEXLOWER;
+use data_encoding::HEXLOWER_PERMISSIVE;
 use educe;
 use libthreema_macros::{DebugVariantNames, Name, VariantNames};
 use prost::Message as _;
@@ -33,7 +33,7 @@ pub mod payload;
 
 /// Cause of an internal encoding error.
 #[derive(Clone, Debug, thiserror::Error)]
-pub enum InternalEncodingErrorCause {
+pub enum D2mProtocolInternalEncodingErrorCause {
     /// Unable to encode via a `ByteWriter`.
     #[error(transparent)]
     ByteWriterError(ByteWriterError),
@@ -46,7 +46,7 @@ pub enum InternalEncodingErrorCause {
 /// Cause of an internal error.
 #[derive(Clone, Debug, thiserror::Error)]
 #[expect(clippy::enum_variant_names, reason = "All ending with 'failed' intentionally")]
-pub enum InternalErrorCause {
+pub enum D2mProtocolInternalErrorCause {
     /// Unable to encrypt a struct or message.
     #[error("Encrypting '{name}' failed")]
     EncryptionFailed {
@@ -60,7 +60,7 @@ pub enum InternalErrorCause {
         /// Name of the struct or message.
         name: &'static str,
         /// Error source.
-        source: InternalEncodingErrorCause,
+        source: D2mProtocolInternalEncodingErrorCause,
     },
 
     /// Unable to encode a protobuf message.
@@ -75,7 +75,7 @@ pub enum InternalErrorCause {
 
 /// Source of a decoding error.
 #[derive(Clone, Debug, thiserror::Error)]
-pub enum DecodingErrorSource {
+pub enum D2mProtocolDecodingErrorSource {
     /// Error during decoding of a protobuf message.
     #[error(transparent)]
     ProstDecodeError(#[from] prost::DecodeError),
@@ -107,7 +107,7 @@ pub enum D2mProtocolError {
 
     /// An internal error happened.
     #[error("Internal error: {0}")]
-    InternalError(#[from] InternalErrorCause),
+    InternalError(#[from] D2mProtocolInternalErrorCause),
 
     /// Unable to decrypt a handshake message or a payload.
     #[error("Decrypting '{name}' failed")]
@@ -122,7 +122,7 @@ pub enum D2mProtocolError {
         /// Name of the message.
         name: &'static str,
         /// Error source.
-        source: DecodingErrorSource,
+        source: D2mProtocolDecodingErrorSource,
     },
 
     /// Unexpected payload type.
@@ -284,10 +284,13 @@ impl State {
                 .device_group_key
                 .path_key()
                 .authentication_cipher(&server_hello.ephemeral_server_key)
+                .ok_or(D2mProtocolError::ServerError(
+                    "Non-contributory ephemeral server key for authentication cipher",
+                ))?
                 .0
                 .encrypt_random_nonce_ahead(server_hello.challenge.as_slice())
                 .map_err(|_| {
-                    D2mProtocolError::InternalError(InternalErrorCause::EncryptionFailed {
+                    D2mProtocolError::InternalError(D2mProtocolInternalErrorCause::EncryptionFailed {
                         name: "ChallengeResponse",
                     })
                 })?;
@@ -304,7 +307,7 @@ impl State {
                     .0
                     .encrypt_in_place_random_nonce_ahead(b"", &mut device_info)
                     .map_err(|_| {
-                        D2mProtocolError::InternalError(InternalErrorCause::EncryptionFailed {
+                        D2mProtocolError::InternalError(D2mProtocolInternalErrorCause::EncryptionFailed {
                             name: "EncryptedDeviceInfo",
                         })
                     })?;
@@ -464,7 +467,7 @@ impl D2mProtocol {
                 server_group = &context.csp_server_group.0,
                 "Create client-url-info message"
             );
-            let client_url_info = HEXLOWER.encode(
+            let client_url_info = HEXLOWER_PERMISSIVE.encode(
                 &protobuf::ClientUrlInfo {
                     device_group_id: device_group_id.0.as_bytes().to_vec(),
                     server_group: context.csp_server_group.0.clone().to_string(),

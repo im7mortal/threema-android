@@ -19,8 +19,9 @@ import ch.threema.app.services.DistributionListService
 import ch.threema.app.services.GroupFlowDispatcher
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.MessageService
+import ch.threema.app.usecases.conversations.EmptyOrDeleteConversationsUseCase
 import ch.threema.app.utils.executor.BackgroundExecutor
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.data.repositories.GroupModelRepository
 import ch.threema.data.storage.EditHistoryDao
@@ -39,16 +40,19 @@ import ch.threema.storage.factories.MessageModelFactory
 import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.group.GroupMessageModel
-import java.util.Date
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.runner.RunWith
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(AndroidJUnit4::class)
 @LargeTest
 @DangerousTest
@@ -158,10 +162,12 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
         messageModel.assertHistorySize(0)
 
         messageModel.sendEdit()
+        advanceUntilIdle()
 
         messageModel.assertHistorySize(1)
 
         messageModel.sendDelete()
+        advanceUntilIdle()
 
         messageModel.assertHistorySize(0)
     }
@@ -175,10 +181,12 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
         messageModel.assertHistorySize(0)
 
         messageModel.sendEdit()
+        advanceUntilIdle()
 
         messageModel.assertHistorySize(1)
 
         messageModel.sendDelete()
+        advanceUntilIdle()
 
         messageModel.assertHistorySize(0)
     }
@@ -192,10 +200,12 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
         messageModel.assertHistorySize(0)
 
         messageModel.receiveEdit()
+        advanceUntilIdle()
 
         messageModel.assertHistorySize(1)
 
-        messageModel.emptyOrDeleteChat(EmptyOrDeleteConversationsAsyncTask.Mode.EMPTY)
+        messageModel.emptyOrDeleteChat(EmptyOrDeleteConversationsUseCase.Mode.EMPTY)
+        advanceUntilIdle()
 
         messageModel.assertHistorySize(0)
     }
@@ -209,10 +219,12 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
         messageModel.assertHistorySize(0)
 
         messageModel.receiveEdit()
+        advanceUntilIdle()
 
         messageModel.assertHistorySize(1)
 
-        messageModel.emptyOrDeleteChat(EmptyOrDeleteConversationsAsyncTask.Mode.EMPTY)
+        messageModel.emptyOrDeleteChat(EmptyOrDeleteConversationsUseCase.Mode.EMPTY)
+        advanceUntilIdle()
 
         messageModel.assertHistorySize(0)
     }
@@ -226,10 +238,12 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
         messageModel.assertHistorySize(0)
 
         messageModel.receiveEdit()
+        advanceUntilIdle()
 
         messageModel.assertHistorySize(1)
 
-        messageModel.emptyOrDeleteChat(EmptyOrDeleteConversationsAsyncTask.Mode.DELETE)
+        messageModel.emptyOrDeleteChat(EmptyOrDeleteConversationsUseCase.Mode.DELETE)
+        advanceUntilIdle()
 
         messageModel.assertHistorySize(0)
     }
@@ -243,10 +257,12 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
         messageModel.assertHistorySize(0)
 
         messageModel.receiveEdit()
+        advanceUntilIdle()
 
         messageModel.assertHistorySize(1)
 
-        messageModel.emptyOrDeleteChat(EmptyOrDeleteConversationsAsyncTask.Mode.DELETE)
+        messageModel.emptyOrDeleteChat(EmptyOrDeleteConversationsUseCase.Mode.DELETE)
+        advanceUntilIdle()
 
         messageModel.assertHistorySize(0)
     }
@@ -260,6 +276,7 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
         messageModel.assertHistorySize(0)
 
         messageModel.receiveEdit()
+        advanceUntilIdle()
 
         messageModel.assertHistorySize(1)
 
@@ -285,6 +302,7 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
         messageModel.assertHistorySize(0)
 
         messageModel.receiveEdit()
+        advanceUntilIdle()
 
         messageModel.assertHistorySize(1)
 
@@ -303,7 +321,7 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
         messageModel.assertHistorySize(0)
     }
 
-    private suspend fun AbstractMessageModel.emptyOrDeleteChat(mode: EmptyOrDeleteConversationsAsyncTask.Mode) {
+    private suspend fun AbstractMessageModel.emptyOrDeleteChat(mode: EmptyOrDeleteConversationsUseCase.Mode) {
         val receiver = messageService.getMessageReceiver(this)
         val deferred = CompletableDeferred<Unit>()
         @Suppress("DEPRECATION")
@@ -340,8 +358,8 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
     private suspend fun MessageModel.receiveEdit() {
         val editMessage = EditMessage(
             EditMessageData(
-                MessageId.fromString(apiMessageId).messageIdLong,
-                "$body Edited",
+                messageId = messageId!!,
+                text = "$body Edited",
             ),
         ).apply {
             fromIdentity = identity
@@ -352,7 +370,7 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
 
     private suspend fun MessageModel.receiveDelete() {
         val deleteMessage = DeleteMessage(
-            DeleteMessageData(MessageId.fromString(apiMessageId).messageIdLong),
+            DeleteMessageData(messageId!!),
         ).apply {
             fromIdentity = identity
             toIdentity = myContact.identity
@@ -381,8 +399,8 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
     private suspend fun GroupMessageModel.receiveEdit() {
         val editMessage = GroupEditMessage(
             EditMessageData(
-                MessageId.fromString(apiMessageId).messageIdLong,
-                "$body Edited",
+                messageId = messageId!!,
+                text = "$body Edited",
             ),
         ).apply {
             apiGroupId = groupA.apiGroupId
@@ -395,7 +413,7 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
 
     private suspend fun GroupMessageModel.receiveDelete() {
         val deleteMessage = GroupDeleteMessage(
-            DeleteMessageData(MessageId.fromString(apiMessageId).messageIdLong),
+            DeleteMessageData(messageId!!),
         ).apply {
             apiGroupId = groupA.apiGroupId
             groupCreator = groupA.groupCreator.identity
@@ -413,7 +431,7 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
 
     private fun AbstractMessageModel.sendEdit() {
         val receiver = messageService.getMessageReceiver(this)
-        messageService.sendEditedMessageText(this, "$body Edited", Date(), receiver)
+        messageService.sendEditedMessageText(this, "$body Edited", Instant.now(), receiver)
     }
 
     private fun AbstractMessageModel.sendDelete() {

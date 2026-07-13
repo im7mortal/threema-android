@@ -1,13 +1,13 @@
 package ch.threema.app.processors.incomingcspmessage.groupcontrol
 
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.GroupEvent
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.processors.incomingcspmessage.IncomingCspMessageSubTask
 import ch.threema.app.processors.incomingcspmessage.ReceiveStepsResult
 import ch.threema.app.tasks.ReflectGroupSyncUpdateImmediateTask
 import ch.threema.app.tasks.ReflectionResult
 import ch.threema.app.utils.ExifInterface
-import ch.threema.app.utils.ShortcutUtil
 import ch.threema.base.crypto.NaCl
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.contentEquals
@@ -24,6 +24,7 @@ class IncomingGroupSetProfilePictureTask(
     message: GroupSetProfilePictureMessage,
     triggerSource: TriggerSource,
     serviceManager: ServiceManager,
+    private val globalEventBuses: GlobalEventBuses,
 ) : IncomingCspMessageSubTask<GroupSetProfilePictureMessage>(
     message,
     triggerSource,
@@ -31,9 +32,7 @@ class IncomingGroupSetProfilePictureTask(
 ) {
     private val fileService by lazy { serviceManager.fileService }
     private val apiService by lazy { serviceManager.apiService }
-    private val groupService by lazy { serviceManager.groupService }
     private val multiDeviceManager by lazy { serviceManager.multiDeviceManager }
-    private val preferenceService by lazy { serviceManager.preferenceService }
 
     override suspend fun executeMessageStepsFromRemote(handle: ActiveTaskCodec): ReceiveStepsResult {
         logger.info("Processing incoming set-profile-picture message for group with id {}", message.apiGroupId)
@@ -49,7 +48,7 @@ class IncomingGroupSetProfilePictureTask(
         val blobLoader = apiService.createLoader(message.blobId)
         // TODO(ANDR-2869): Correctly handle blob server faults
         val blob = blobLoader.load(
-            // since its an incoming message, always use the public scope
+            // since it's an incoming message, always use the public scope
             BlobScope.Public,
         ) ?: throw IllegalStateException("Profile picture blob is null")
         NaCl.symmetricDecryptDataInPlace(
@@ -127,12 +126,7 @@ class IncomingGroupSetProfilePictureTask(
     private fun updateGroupPictureLocally(group: GroupModel, blob: ByteArray): ReceiveStepsResult {
         fileService.writeGroupProfilePicture(group, blob)
 
-        ListenerManager.groupListeners.handle { it.onUpdatePhoto(group.groupIdentity) }
-
-        ShortcutUtil.updateShareTargetShortcut(
-            groupService.createReceiver(group),
-            preferenceService.getContactNameFormat(),
-        )
+        globalEventBuses.groups.emit(GroupEvent.GroupProfilePictureUpdated(group.groupIdentity))
 
         return ReceiveStepsResult.SUCCESS
     }

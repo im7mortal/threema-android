@@ -55,5 +55,8 @@ public class StorageLayerTest {
             )
             .should().haveSimpleNameEndingWith("Model")
             .orShould().haveSimpleNameEndingWith("ModelKt")
+            .orShould().haveSimpleNameEndingWith("ModelSerializer")
+            .orShould().haveSimpleNameEndingWith("ModelSerializerKt")
+            .orShould().haveSimpleNameEndingWith("ModelExtensionsKt")
             .orShould().haveSimpleName("GroupModelOld");
 }

@@ -15,6 +15,10 @@ private val logger = getThreemaLogger("AddContactBackgroundTask")
 /**
  * This task simply adds the given contact model data if the contact does not exist. If there is a
  * contact with the same identity already, adding the new data is aborted.
+ *
+ * Note: This task neither fetches information from the directory, nor does it check the list of
+ * predefined contacts. If you need a more high-level task, use the
+ * [AddOrUpdateContactBackgroundTask] instead.
  */
 class AddContactBackgroundTask(
     private val contactModelData: ContactModelData,

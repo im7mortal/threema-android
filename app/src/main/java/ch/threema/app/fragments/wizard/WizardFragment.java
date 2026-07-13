@@ -1,11 +1,15 @@
 package ch.threema.app.fragments.wizard;
 
+import android.app.AlertDialog;
+import android.app.Dialog;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.widget.ImageView;
+
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import org.slf4j.Logger;
 
@@ -19,6 +23,7 @@ import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.LocaleService;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.services.UserService;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 public abstract class WizardFragment extends Fragment {
@@ -58,8 +63,14 @@ public abstract class WizardFragment extends Fragment {
     private void showAdditionalInfo() {
         int infoStringRes = getAdditionalInfoText();
         if (infoStringRes != 0) {
-            WizardDialog wizardDialog = WizardDialog.newInstance(infoStringRes, R.string.ok);
-            wizardDialog.show(getParentFragmentManager(), DIALOG_TAG_ADDITIONAL_INFO);
+            final Dialog infoDialog = new MaterialAlertDialogBuilder(requireContext())
+                .setMessage(infoStringRes)
+                .setPositiveButton(
+                    R.string.ok,
+                    (dialog, b) -> dialog.dismiss()
+                )
+                .create();
+            infoDialog.show();
         }
     }
 
@@ -77,7 +88,7 @@ public abstract class WizardFragment extends Fragment {
     }
 
     private void instantiate() {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager != null) {
             this.preferenceService = serviceManager.getPreferenceService();
             try {

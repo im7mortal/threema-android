@@ -1,11 +1,12 @@
 package ch.threema.app.webclient.services;
 
+import static ch.threema.common.JavaCompat.toHexString;
+
 import androidx.annotation.AnyThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import ch.threema.base.ThreemaException;
-import ch.threema.base.utils.Utils;
 
 @AnyThread
 public interface WebSessionQRCodeParser {
@@ -50,9 +51,9 @@ public interface WebSessionQRCodeParser {
             return "version: " + this.versionNumber
                 + ", isSelfHosted: " + this.isSelfHosted
                 + ", isPermanent: " + this.isPermanent
-                + ", key: " + Utils.byteArrayToHexString(this.key)
-                + ", authToken: " + Utils.byteArrayToHexString(this.authToken)
-                + ", serverKey: " + Utils.byteArrayToHexString(this.serverKey)
+                + ", key: " + toHexString(this.key)
+                + ", authToken: " + toHexString(this.authToken)
+                + ", serverKey: " + toHexString(this.serverKey)
                 + ", saltyRtcPort: " + this.saltyRtcPort
                 + ", saltyRtcHost: " + this.saltyRtcHost;
         }

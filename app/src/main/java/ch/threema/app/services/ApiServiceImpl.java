@@ -26,7 +26,6 @@ public class ApiServiceImpl implements ApiService {
     private static final Logger logger = getThreemaLogger("ApiServiceImpl");
 
     private final AppVersion appVersion;
-    private final boolean useIpv6;
     private final APIConnector apiConnector;
     private final TokenStoreInterface authTokenStore;
     private final ServerAddressProvider serverAddressProvider;
@@ -35,7 +34,6 @@ public class ApiServiceImpl implements ApiService {
 
     public ApiServiceImpl(
         AppVersion appVersion,
-        boolean useIpv6,
         APIConnector apiConnector,
         TokenStoreInterface authTokenStore,
         ServerAddressProvider serverAddressProvider,
@@ -43,7 +41,6 @@ public class ApiServiceImpl implements ApiService {
         OkHttpClient baseOkHttpClient
     ) {
         this.appVersion = appVersion;
-        this.useIpv6 = useIpv6;
         this.apiConnector = apiConnector;
         this.authTokenStore = authTokenStore;
         this.serverAddressProvider = serverAddressProvider;
@@ -79,7 +76,6 @@ public class ApiServiceImpl implements ApiService {
                 appVersion,
                 serverAddressProvider,
                 null,
-                useIpv6,
                 shouldPersist
             );
         }
@@ -105,8 +101,7 @@ public class ApiServiceImpl implements ApiService {
                 blobId,
                 appVersion,
                 serverAddressProvider,
-                null,
-                useIpv6
+                null
             );
         }
         return loader;
@@ -134,6 +129,6 @@ public class ApiServiceImpl implements ApiService {
     @Override
     @NonNull
     public URL getAvatarURL(@NonNull String identity) throws ThreemaException, IOException {
-        return new URL(serverAddressProvider.getAvatarServerUrl(useIpv6) + identity);
+        return new URL(serverAddressProvider.getAvatarServerUrl() + identity);
     }
 }

@@ -13,8 +13,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.time.Instant;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -35,7 +35,6 @@ import ch.threema.domain.protocol.csp.messages.EditMessage;
 import ch.threema.domain.protocol.csp.messages.GroupDeleteMessage;
 import ch.threema.domain.protocol.csp.messages.GroupEditMessage;
 import ch.threema.domain.protocol.csp.messages.GroupReactionMessage;
-import ch.threema.domain.protocol.csp.messages.ImageMessage;
 import ch.threema.domain.protocol.csp.messages.location.LocationMessage;
 import ch.threema.domain.protocol.csp.messages.ReactionMessage;
 import ch.threema.domain.protocol.csp.messages.TextMessage;
@@ -46,7 +45,6 @@ import ch.threema.domain.protocol.csp.messages.DeliveryReceiptMessage;
 import ch.threema.domain.protocol.csp.messages.GroupSetupMessage;
 import ch.threema.domain.protocol.csp.messages.GroupDeleteProfilePictureMessage;
 import ch.threema.domain.protocol.csp.messages.GroupDeliveryReceiptMessage;
-import ch.threema.domain.protocol.csp.messages.GroupImageMessage;
 import ch.threema.domain.protocol.csp.messages.GroupLeaveMessage;
 import ch.threema.domain.protocol.csp.messages.location.GroupLocationMessage;
 import ch.threema.domain.protocol.csp.messages.GroupNameMessage;
@@ -56,10 +54,10 @@ import ch.threema.domain.protocol.csp.messages.GroupTextMessage;
 import ch.threema.domain.protocol.csp.messages.MissingPublicKeyException;
 import ch.threema.domain.protocol.csp.messages.TypingIndicatorMessage;
 import ch.threema.domain.protocol.csp.messages.WebSessionResumeMessage;
-import ch.threema.domain.protocol.csp.messages.ballot.PollSetupMessage;
-import ch.threema.domain.protocol.csp.messages.ballot.PollVoteMessage;
-import ch.threema.domain.protocol.csp.messages.ballot.GroupPollSetupMessage;
-import ch.threema.domain.protocol.csp.messages.ballot.GroupPollVoteMessage;
+import ch.threema.domain.protocol.csp.messages.poll.PollSetupMessage;
+import ch.threema.domain.protocol.csp.messages.poll.PollVoteMessage;
+import ch.threema.domain.protocol.csp.messages.poll.GroupPollSetupMessage;
+import ch.threema.domain.protocol.csp.messages.poll.GroupPollVoteMessage;
 import ch.threema.domain.protocol.csp.messages.file.FileMessage;
 import ch.threema.domain.protocol.csp.messages.file.GroupFileMessage;
 import ch.threema.domain.protocol.csp.messages.fs.ForwardSecurityData;
@@ -146,7 +144,7 @@ public class MessageCoder {
         msg.setFromIdentity(boxmsg.getFromIdentity());
         msg.setToIdentity(boxmsg.getToIdentity());
         msg.setMessageId(boxmsg.getMessageId());
-        msg.setDate(boxmsg.getDate());
+        msg.setTimestamp(boxmsg.getTimestamp());
         msg.setMessageFlags(boxmsg.getFlags());
 
         // Decrypt metadata, if present
@@ -166,7 +164,7 @@ public class MessageCoder {
 
                 // Take date from encrypted metadata
                 if (metadata.getCreatedAt() != 0) {
-                    msg.setDate(new Date(metadata.getCreatedAt()));
+                    msg.setTimestamp(Instant.ofEpochMilli(metadata.getCreatedAt()));
                 }
 
                 // Take nickname from encrypted metadata. Note that the nickname in the metadata box
@@ -232,7 +230,7 @@ public class MessageCoder {
         msg.setFromIdentity(outer.getFromIdentity());
         msg.setToIdentity(outer.getToIdentity());
         msg.setMessageId(outer.getMessageId());
-        msg.setDate(outer.getDate());
+        msg.setTimestamp(outer.getTimestamp());
         msg.setMessageFlags(outer.getMessageFlags());
         msg.setNickname(outer.getNickname());
 
@@ -288,7 +286,7 @@ public class MessageCoder {
             /* Encrypt metadata */
             MessageMetadata.Builder metadataBuilder = MessageMetadata.newBuilder()
                 .setMessageId(message.getMessageId().getMessageIdLong())
-                .setCreatedAt(message.getDate().getTime());
+                .setCreatedAt(message.getTimestamp().toEpochMilli());
 
             // Get the nickname from the identity store
             String nickname = identityStore.getPublicNickname();
@@ -315,7 +313,7 @@ public class MessageCoder {
             boxmsg.setFromIdentity(message.getFromIdentity());
             boxmsg.setToIdentity(message.getToIdentity());
             boxmsg.setMessageId(message.getMessageId());
-            boxmsg.setDate(message.getDate());
+            boxmsg.setTimestamp(message.getTimestamp());
             boxmsg.setFlags(message.getMessageFlags());
 
             if (message.allowUserProfileDistribution() && boxmsg.getToIdentity() != null && boxmsg.getToIdentity().startsWith("*")) {
@@ -345,7 +343,7 @@ public class MessageCoder {
             }
 
             case ProtocolDefines.MSGTYPE_IMAGE: {
-                message = ImageMessage.fromByteArray(data, 1, realDataLength - 1);
+                message = LegacyMessageTransformer.transformImageMessage(data, 1, realDataLength - 1);
                 break;
             }
 
@@ -459,27 +457,7 @@ public class MessageCoder {
             }
 
             case ProtocolDefines.MSGTYPE_GROUP_IMAGE: {
-                if (realDataLength != (1 + ProtocolDefines.IDENTITY_LEN + ProtocolDefines.GROUP_ID_LEN + ProtocolDefines.BLOB_ID_LEN + 4 + ProtocolDefines.BLOB_KEY_LEN)) {
-                    throw new BadMessageException("Bad length (" + realDataLength + ") for group image message");
-                }
-
-                int i = 1;
-
-                GroupImageMessage groupimagemsg = new GroupImageMessage();
-                groupimagemsg.setGroupCreator(new String(data, i, ProtocolDefines.IDENTITY_LEN, StandardCharsets.US_ASCII));
-                i += ProtocolDefines.IDENTITY_LEN;
-                groupimagemsg.setApiGroupId(new GroupId(data, i));
-                i += ProtocolDefines.GROUP_ID_LEN;
-                byte[] blobId = new byte[ProtocolDefines.BLOB_ID_LEN];
-                System.arraycopy(data, i, blobId, 0, ProtocolDefines.BLOB_ID_LEN);
-                i += ProtocolDefines.BLOB_ID_LEN;
-                groupimagemsg.setBlobId(blobId);
-                groupimagemsg.setSize(readLittleEndianInt(data, i));
-                i += 4;
-                byte[] blobKey = new byte[ProtocolDefines.BLOB_KEY_LEN];
-                System.arraycopy(data, i, blobKey, 0, ProtocolDefines.BLOB_KEY_LEN);
-                groupimagemsg.setEncryptionKey(blobKey);
-                message = groupimagemsg;
+                message = LegacyMessageTransformer.transformGroupImageMessage(data, 1, realDataLength - 1);
 
                 break;
             }
@@ -499,7 +477,7 @@ public class MessageCoder {
                 break;
             }
 
-            case ProtocolDefines.MSGTYPE_BALLOT_CREATE: {
+            case ProtocolDefines.MSGTYPE_POLL_CREATE: {
                 message = PollSetupMessage.fromByteArray(data, 1, realDataLength - 1, fromIdentity);
                 break;
             }
@@ -509,12 +487,12 @@ public class MessageCoder {
                 break;
             }
 
-            case ProtocolDefines.MSGTYPE_BALLOT_VOTE: {
+            case ProtocolDefines.MSGTYPE_POLL_VOTE: {
                 message = PollVoteMessage.fromByteArray(data, 1, realDataLength - 1);
                 break;
             }
 
-            case ProtocolDefines.MSGTYPE_GROUP_BALLOT_CREATE: {
+            case ProtocolDefines.MSGTYPE_GROUP_POLL_CREATE: {
                 message = GroupPollSetupMessage.fromByteArray(data, 1, realDataLength - 1, fromIdentity);
                 break;
             }
@@ -524,7 +502,7 @@ public class MessageCoder {
                 break;
             }
 
-            case ProtocolDefines.MSGTYPE_GROUP_BALLOT_VOTE: {
+            case ProtocolDefines.MSGTYPE_GROUP_POLL_VOTE: {
                 message = GroupPollVoteMessage.fromByteArray(data, 1, realDataLength - 1);
                 break;
             }

@@ -5,12 +5,17 @@ import ch.threema.app.activities.referral.referralFeatureModule
 import ch.threema.app.activities.starred.starredFeatureModule
 import ch.threema.app.androidcontactsync.androidContactFeatureModule
 import ch.threema.app.applock.appLockFeatureModule
+import ch.threema.app.applogo.appLogoFeatureModule
 import ch.threema.app.apptaskexecutor.appTaskExecutorFeatureModule
 import ch.threema.app.archive.archiveFeatureModule
 import ch.threema.app.availabilitystatus.availabilityStatusFeatureModule
+import ch.threema.app.backupcenter.backupCenterFeatureModule
+import ch.threema.app.backuprestore.backupRestoreFeatureModule
 import ch.threema.app.camera.cameraFeatureModule
 import ch.threema.app.compose.edithistory.editHistoryFeatureModule
 import ch.threema.app.contactdetails.contactDetailsFeatureModule
+import ch.threema.app.conversation.conversationFeatureModule
+import ch.threema.app.conversations.conversationsFeatureModule
 import ch.threema.app.dev.devFeatureModule
 import ch.threema.app.dialogs.loadingtimeout.LoadingWithTimeoutDialogViewModel
 import ch.threema.app.drafts.draftsFeatureModule
@@ -18,7 +23,6 @@ import ch.threema.app.emojireactions.emojiReactionsFeatureModule
 import ch.threema.app.errorreporting.errorReportingModule
 import ch.threema.app.files.filesFeatureModule
 import ch.threema.app.fragments.composemessage.composeMessageFeatureModule
-import ch.threema.app.fragments.conversations.conversationsFeatureModule
 import ch.threema.app.globalsearch.globalSearchFeatureModule
 import ch.threema.app.home.homeFeatureModule
 import ch.threema.app.identitylinks.identityLinkFeatureModule
@@ -32,17 +36,23 @@ import ch.threema.app.notifications.notificationModule
 import ch.threema.app.onprem.onPremFeatureModule
 import ch.threema.app.passphrase.passphraseFeatureModule
 import ch.threema.app.pinlock.pinLockFeatureModule
+import ch.threema.app.poll.pollFeatureModule
 import ch.threema.app.preference.preferenceFeatureModule
 import ch.threema.app.problemsolving.problemSolvingFeatureModule
+import ch.threema.app.profilepicture.profilePictureFeatureModule
 import ch.threema.app.qrcodes.qrCodesFeatureModule
 import ch.threema.app.reset.resetFeatureModule
 import ch.threema.app.restrictions.appRestrictionsFeatureModule
+import ch.threema.app.servermessage.ServerMessageViewModel
+import ch.threema.app.servermessage.serverMessageFeatureModule
+import ch.threema.app.shortcuts.shortcutsFeatureModule
 import ch.threema.app.startup.startupFeatureModule
 import ch.threema.app.storagemanagement.storageManagementFeatureModule
-import ch.threema.app.threemasafe.usecases.threemaSafeFeatureModule
+import ch.threema.app.threemasafe.threemaSafeFeatureModule
+import ch.threema.app.troubleshooting.troubleShootingFeatureModule
+import ch.threema.app.typingindicator.typingIndicatorFeatureModule
 import ch.threema.app.ui.AvatarEditViewModel
 import ch.threema.app.ui.GroupDetailViewModel
-import ch.threema.app.ui.ServerMessageViewModel
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.voicemessage.voiceMessageFeatureModule
 import ch.threema.app.voip.voipFeatureModule
@@ -61,11 +71,15 @@ val featuresModule = module {
     includes(
         androidContactFeatureModule,
         appLockFeatureModule,
+        appLogoFeatureModule,
         appRestrictionsFeatureModule,
         appTaskExecutorFeatureModule,
-        availabilityStatusFeatureModule,
         archiveFeatureModule,
+        availabilityStatusFeatureModule,
+        backupCenterFeatureModule,
+        backupRestoreFeatureModule,
         conversationsFeatureModule,
+        conversationFeatureModule,
         cameraFeatureModule,
         composeMessageFeatureModule,
         contactDetailsFeatureModule,
@@ -89,15 +103,21 @@ val featuresModule = module {
         notificationModule,
         passphraseFeatureModule,
         pinLockFeatureModule,
+        pollFeatureModule,
         preferenceFeatureModule,
         problemSolvingFeatureModule,
+        profilePictureFeatureModule,
         qrCodesFeatureModule,
         referralFeatureModule,
         resetFeatureModule,
+        serverMessageFeatureModule,
+        shortcutsFeatureModule,
         starredFeatureModule,
         startupFeatureModule,
         storageManagementFeatureModule,
         threemaSafeFeatureModule,
+        troubleShootingFeatureModule,
+        typingIndicatorFeatureModule,
         voiceMessageFeatureModule,
         voipFeatureModule,
         webclientFeatureModule,

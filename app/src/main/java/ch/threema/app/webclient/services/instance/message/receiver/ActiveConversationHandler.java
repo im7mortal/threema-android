@@ -1,5 +1,6 @@
 package ch.threema.app.webclient.services.instance.message.receiver;
 
+import org.koin.java.KoinJavaComponent;
 import org.msgpack.core.MessagePackException;
 import org.msgpack.value.Value;
 import org.slf4j.Logger;
@@ -8,6 +9,8 @@ import java.util.Map;
 
 import androidx.annotation.AnyThread;
 import androidx.annotation.WorkerThread;
+import ch.threema.app.eventbus.GlobalEventBuses;
+import ch.threema.app.eventbus.events.ConversationEvent;
 import ch.threema.app.services.ContactService;
 import ch.threema.app.services.ConversationService;
 import ch.threema.app.services.ConversationTagService;
@@ -75,7 +78,11 @@ public class ActiveConversationHandler extends MessageReceiver {
         if (messageReceiver != null) {
             final ConversationModel conversationModel = this.conversationService.refresh(messageReceiver);
             if (conversationModel != null) {
-                conversationTagService.removeTagAndNotify(conversationModel, ConversationTag.MARKED_AS_UNREAD, TriggerSource.LOCAL);
+                var updated = conversationTagService.removeTag(conversationModel.getId(), ConversationTag.MARKED_AS_UNREAD, TriggerSource.LOCAL);
+                if (updated) {
+                    GlobalEventBuses globalEventBuses = KoinJavaComponent.get(GlobalEventBuses.class);
+                    globalEventBuses.getConversations().emit(new ConversationEvent.ConversationUpdated(conversationModel));
+                }
             }
         }
     }

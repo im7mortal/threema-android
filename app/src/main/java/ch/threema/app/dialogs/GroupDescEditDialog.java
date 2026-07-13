@@ -13,10 +13,10 @@ import androidx.annotation.StringRes;
 import androidx.appcompat.app.AppCompatDialog;
 import ch.threema.app.R;
 import ch.threema.app.utils.EditTextUtil;
-import ch.threema.app.utils.TestUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 
 public class GroupDescEditDialog extends ThreemaDialogFragment {
@@ -71,7 +71,7 @@ public class GroupDescEditDialog extends ThreemaDialogFragment {
         final EditText groupDescEditText = dialogView.findViewById(R.id.group_desc_edit_text);
 
 
-        if (!TestUtil.isEmptyOrNull(groupDesc)) {
+        if (!isNullOrEmpty(groupDesc)) {
             groupDescEditText.setText(groupDesc);
         }
 

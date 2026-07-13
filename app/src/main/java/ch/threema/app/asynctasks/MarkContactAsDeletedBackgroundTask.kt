@@ -4,9 +4,10 @@ import android.content.Context
 import android.widget.Toast
 import androidx.annotation.CallSuper
 import androidx.fragment.app.FragmentManager
+import ch.threema.android.ToastDuration
+import ch.threema.android.showToast
 import ch.threema.app.GlobalListeners
 import ch.threema.app.R
-import ch.threema.app.ThreemaApplication
 import ch.threema.app.asynctasks.AndroidContactLinkPolicy.KEEP
 import ch.threema.app.asynctasks.AndroidContactLinkPolicy.REMOVE_LINK
 import ch.threema.app.asynctasks.ContactSyncPolicy.EXCLUDE
@@ -23,16 +24,16 @@ import ch.threema.app.services.UserService
 import ch.threema.app.services.WallpaperService
 import ch.threema.app.services.notification.NotificationService
 import ch.threema.app.utils.AndroidContactUtil
-import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.ContactUtil
 import ch.threema.app.utils.DialogUtil
 import ch.threema.app.utils.RuntimeUtil
 import ch.threema.app.utils.ShortcutUtil
 import ch.threema.app.utils.executor.BackgroundTask
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.repositories.ContactModelRepository
+import ch.threema.domain.models.AcquaintanceLevel
+import ch.threema.domain.stores.DHSessionStore
 import ch.threema.domain.stores.DHSessionStoreException
-import ch.threema.domain.stores.DHSessionStoreInterface
 import ch.threema.domain.taskmanager.TriggerSource
 import ch.threema.domain.types.IdentityString
 import ch.threema.storage.factories.ContactModelFactory
@@ -56,7 +57,7 @@ data class DeleteContactServices(
     val wallpaperService: WallpaperService,
     val fileService: FileService,
     val excludedSyncIdentitiesService: ExcludedSyncIdentitiesService,
-    val dhSessionStore: DHSessionStoreInterface,
+    val dhSessionStore: DHSessionStore,
     val notificationService: NotificationService,
     val contactModelFactory: ContactModelFactory,
 )
@@ -107,20 +108,15 @@ open class MarkContactAsDeletedBackgroundTask(
     private val syncPolicy: ContactSyncPolicy,
     private val androidLinkPolicy: AndroidContactLinkPolicy,
 ) : BackgroundTask<Set<String>>, CancelableHorizontalProgressDialog.ProgressDialogClickListener {
+    @Volatile
     private var cancelled = false
 
-    @CallSuper
-    override fun runBefore() {
-        // Note that we need to lock the android contact change lock on the UI thread in order to be
-        // able to unlock it again. The reason is that the runAfter method is run on the UI thread.
-        // TODO(ANDR-2327): This is a hack that may be removed when we have implemented contact
-        //  import.
-        RuntimeUtil.runOnUiThread {
-            GlobalListeners.onAndroidContactChangeLock.lock()
-        }
-    }
-
     override fun runInBackground(): Set<String> {
+        // TODO(ANDR-2327): This is a hack that may be removed when we have implemented contact import.
+        while (!GlobalListeners.onAndroidContactChangeMutex.tryLock()) {
+            Thread.sleep(100)
+        }
+
         val deletedIdentities = mutableSetOf<String>()
         for ((index, identity) in contacts.withIndex()) {
             try {
@@ -150,13 +146,13 @@ open class MarkContactAsDeletedBackgroundTask(
             }
         }
 
+        GlobalListeners.onAndroidContactChangeMutex.unlock()
+
         return deletedIdentities
     }
 
     @CallSuper
     override fun runAfter(result: Set<String>) {
-        GlobalListeners.onAndroidContactChangeLock.unlock()
-
         when (syncPolicy) {
             EXCLUDE -> {
                 for (deletedIdentity in result) {
@@ -192,9 +188,9 @@ open class MarkContactAsDeletedBackgroundTask(
         deleteContactServices.contactService.invalidateCache(identity)
 
         // Cancel notifications
-        deleteContactServices.notificationService.cancel(identity)
+        deleteContactServices.notificationService.cancel(ContactConversationId(identity))
 
-        contactModel.setAcquaintanceLevelFromLocal(ContactModel.AcquaintanceLevel.GROUP)
+        contactModel.setAcquaintanceLevelFromLocal(AcquaintanceLevel.GROUP_OR_DELETED)
 
         return true
     }
@@ -261,18 +257,18 @@ open class DeleteAllContactsBackgroundTask(
         deleteContactServices.contactService.invalidateCache(identity)
         deleteContactServices.conversationService.delete(identity)
 
-        val uniqueIdString = ContactUtil.getUniqueIdString(identity)
+        val contactConversationId = ContactConversationId(identity)
 
-        deleteContactServices.ringtoneService.removeCustomRingtone(uniqueIdString)
-        deleteContactServices.conversationCategoryService.persistDefaultChat(uniqueIdString)
+        deleteContactServices.ringtoneService.removeCustomRingtone(contactConversationId)
+        deleteContactServices.conversationCategoryService.persistRemovePrivateMark(contactConversationId)
         deleteContactServices.profilePictureRecipientsService.remove(identity)
-        deleteContactServices.wallpaperService.removeWallpaper(uniqueIdString)
+        deleteContactServices.wallpaperService.removeWallpaper(contactConversationId)
         deleteContactServices.fileService.removeAndroidDefinedProfilePicture(identity)
         deleteContactServices.fileService.removeUserDefinedProfilePicture(identity)
         deleteContactServices.fileService.removeContactDefinedProfilePicture(identity)
-        deleteContactServices.notificationService.cancel(identity)
-        ShortcutUtil.deleteShareTargetShortcut(uniqueIdString)
-        ShortcutUtil.deletePinnedShortcut(uniqueIdString)
+        deleteContactServices.notificationService.cancel(contactConversationId)
+        ShortcutUtil.deleteShareTargetShortcut(contactConversationId)
+        ShortcutUtil.deletePinnedShortcut(contactConversationId)
 
         val myIdentity = deleteContactServices.userService.identity
         try {
@@ -322,16 +318,14 @@ open class DialogMarkContactAsDeletedBackgroundTask(
 
         val failed = contacts.size - result.size
         if (failed > 0) {
-            Toast.makeText(
-                context,
-                ConfigUtils.getSafeQuantityString(
-                    ThreemaApplication.getAppContext(),
+            context.showToast(
+                context.resources.getQuantityString(
                     R.plurals.some_contacts_not_deleted,
                     failed,
                     failed,
                 ),
-                Toast.LENGTH_LONG,
-            ).show()
+                ToastDuration.LONG,
+            )
         } else {
             if (result.size > 1) {
                 Toast.makeText(context, R.string.contacts_deleted, Toast.LENGTH_LONG).show()

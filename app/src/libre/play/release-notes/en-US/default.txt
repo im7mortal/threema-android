@@ -1,1 +1,5 @@
-- Various under-the-hood improvements and bug fixes
+- Increased the Android SDK level to 36 (Android 16)
+- Fixed a bug in relation to reproducible builds
+- Fixed a bug in relation to the verification level of known Threema contacts
+- Various UX improvements
+- Various improvements and bug fixes

@@ -39,11 +39,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ch.threema.app.R
-import ch.threema.app.compose.common.DynamicSpacerSize1
-import ch.threema.app.compose.common.DynamicSpacerSize4
-import ch.threema.app.compose.common.ThemedText
 import ch.threema.app.compose.common.buttons.primary.ButtonPrimary
-import ch.threema.app.compose.preview.PreviewThreemaPhone
+import ch.threema.app.compose.common.spacer.DynamicSpacerSize1
+import ch.threema.app.compose.common.spacer.DynamicSpacerSize4
+import ch.threema.app.compose.common.text.ThemedText
+import ch.threema.app.compose.preview.PreviewThreemaPhoneAll
 import ch.threema.app.compose.theme.ThreemaTheme
 import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.dimens.GridUnit
@@ -146,7 +146,7 @@ fun LinkNewDeviceResultContent(
 }
 
 @Composable
-@PreviewThreemaPhone
+@PreviewThreemaPhoneAll
 fun LinkNewDeviceResultContentPreviewFailure() = ThreemaThemePreview {
     LinkNewDeviceResultContent(
         modifier = Modifier.fillMaxSize(),
@@ -156,7 +156,7 @@ fun LinkNewDeviceResultContentPreviewFailure() = ThreemaThemePreview {
 }
 
 @Composable
-@PreviewThreemaPhone
+@PreviewThreemaPhoneAll
 fun LinkNewDeviceResultContentPreviewFailureInvalidTimestamp() = ThreemaThemePreview {
     LinkNewDeviceResultContent(
         modifier = Modifier.fillMaxSize(),
@@ -169,7 +169,7 @@ fun LinkNewDeviceResultContentPreviewFailureInvalidTimestamp() = ThreemaThemePre
 }
 
 @Composable
-@PreviewThreemaPhone
+@PreviewThreemaPhoneAll
 fun LinkNewDeviceResultContentPreviewSuccess() = ThreemaThemePreview {
     LinkNewDeviceResultContent(
         modifier = Modifier.fillMaxSize(),

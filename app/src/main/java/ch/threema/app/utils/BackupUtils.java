@@ -2,16 +2,16 @@ package ch.threema.app.utils;
 
 import ch.threema.storage.models.DistributionListModel;
 import ch.threema.storage.models.group.GroupModelOld;
-import ch.threema.storage.models.ballot.BallotChoiceModel;
-import ch.threema.storage.models.ballot.BallotModel;
+import ch.threema.storage.models.poll.PollChoiceModel;
+import ch.threema.storage.models.poll.PollModel;
 
 public class BackupUtils {
 
-    private static String buildBallotChoiceUid(int apiChoiceId) {
+    private static String buildPollChoiceUid(int apiChoiceId) {
         return String.valueOf(apiChoiceId);
     }
 
-    private static String buildBallotUid(String apiId, String creator) {
+    private static String buildPollUid(String apiId, String creator) {
         return apiId + "-" + creator;
     }
 
@@ -25,12 +25,12 @@ public class BackupUtils {
         return buildGroupUid(groupModel.getApiGroupId().toString(), groupModel.getCreatorIdentity());
     }
 
-    public static String buildBallotUid(BallotModel ballotModel) {
-        return buildBallotUid(ballotModel.getApiBallotId(), ballotModel.getCreatorIdentity());
+    public static String buildPollUid(PollModel pollModel) {
+        return buildPollUid(pollModel.getApiPollId(), pollModel.getCreatorIdentity());
     }
 
-    public static String buildBallotChoiceUid(BallotChoiceModel ballotChoiceModel) {
-        return buildBallotChoiceUid(ballotChoiceModel.getApiBallotChoiceId());
+    public static String buildPollChoiceUid(PollChoiceModel pollChoiceModel) {
+        return buildPollChoiceUid(pollChoiceModel.getApiPollChoiceId());
     }
 
     public static String buildDistributionListUid(DistributionListModel distributionListModel) {

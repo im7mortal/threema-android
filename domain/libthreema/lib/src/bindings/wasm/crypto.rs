@@ -105,10 +105,13 @@ pub fn blake2b_mac_512(
 pub struct Argon2idParameters {
     /// Memory size in 1 KiB blocks. Between 8*`parallelism` and (2^32)-1.
     pub memory_cost: u32,
+
     /// Number of iterations. Between 1 and (2^32)-1.
     pub time_cost: u32,
+
     /// Degree of parallelism. Between 1 and (2^24)-1.
     pub parallelism: u32,
+
     /// Size of the output in bytes. Between 1 and 64.
     pub output_length: u8,
 }
@@ -157,10 +160,13 @@ pub struct ScryptParameters {
     /// memory cost will be `2 ^ log_memory_cost` in KiB. For example, `log_memory_cost = 17` would
     /// be 128 MiB.
     pub log_memory_cost: u8,
+
     /// Block size as multiplicator of 128 bytes (aka `r`). Between 1 and (2^32)-1.
     pub block_size: u32,
+
     /// Degree of parallelism / amount of threads (aka `p`). Between 1 and (2^32)-1.
     pub parallelism: u32,
+
     /// Size of the output in bytes. Between 10 and 64.
     pub output_length: u8,
 }
@@ -214,7 +220,8 @@ pub fn x25519_derive_public_key(secret_key: &[u8]) -> Result<Vec<u8>, Error> {
 ///
 /// # Errors
 ///
-/// Returns an error if `public_key` or `secret_key` is not exactly 32 bytes.
+/// Returns an error if `public_key` or `secret_key` is not exactly 32 bytes
+/// or `public_key` is non-contributory.
 #[wasm_bindgen(js_name = x25519HSalsa20DeriveSharedSecret)]
 pub fn x25519_hsalsa20_derive_shared_secret(public_key: &[u8], secret_key: &[u8]) -> Result<Vec<u8>, Error> {
     let public_key = x25519::PublicKey::from(
@@ -223,7 +230,11 @@ pub fn x25519_hsalsa20_derive_shared_secret(public_key: &[u8], secret_key: &[u8]
     let secret_key = x25519::StaticSecret::from(
         <[u8; 32]>::try_from(secret_key).map_err(|_| Error::new("'secret_key' must be 32 bytes"))?,
     );
-    let shared_secret = x25519::SharedSecretHSalsa20::from(secret_key.diffie_hellman(&public_key));
+    let shared_secret = x25519::SharedSecretHSalsa20::from(
+        secret_key
+            .diffie_hellman(&public_key)
+            .ok_or_else(|| Error::new("'public_key' is non-contributory"))?,
+    );
     Ok(shared_secret.as_bytes().to_vec())
 }
 

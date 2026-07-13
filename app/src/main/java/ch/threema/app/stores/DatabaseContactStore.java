@@ -1,30 +1,16 @@
 package ch.threema.app.stores;
 
-import org.slf4j.Logger;
-
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import ch.threema.app.managers.ListenerManager;
-import ch.threema.app.utils.ConfigUtils;
-import ch.threema.base.ThreemaException;
 
-import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-
+import ch.threema.data.datatypes.PredefinedContact;
 import ch.threema.domain.models.BasicContact;
 import ch.threema.domain.models.Contact;
-import ch.threema.domain.models.IdentityState;
-import ch.threema.domain.models.IdentityType;
-import ch.threema.domain.models.VerificationLevel;
-import ch.threema.domain.models.WorkVerificationLevel;
-import ch.threema.domain.protocol.ServerAddressProvider;
-import ch.threema.domain.protocol.csp.ProtocolDefines;
 import ch.threema.domain.stores.ContactStore;
-import ch.threema.storage.DatabaseService;
 import ch.threema.storage.factories.ContactModelFactory;
 import ch.threema.storage.models.ContactModel;
 
@@ -33,14 +19,7 @@ import ch.threema.storage.models.ContactModel;
  * which stores the contacts in the Android SQLite database.
  */
 public class DatabaseContactStore implements ContactStore {
-    private static final Logger logger = getThreemaLogger("DatabaseContactStore");
-
-    private final @NonNull DatabaseService databaseService;
-
-    /**
-     * This map contains the special contacts.
-     */
-    private final @NonNull Map<String, Contact> specialContacts = new HashMap<>();
+    private final @NonNull ContactModelFactory contactModelFactory;
 
     /**
      * The cache of contacts. Note that this cache only contains the cached contacts from a server
@@ -49,55 +28,25 @@ public class DatabaseContactStore implements ContactStore {
     private final @NonNull Map<String, BasicContact> contactCache = new HashMap<>();
 
     public DatabaseContactStore(
-        @NonNull DatabaseService databaseService,
-        @NonNull ServerAddressProvider serverAddressProvider
+        @NonNull ContactModelFactory contactModelFactory
     ) {
-        this.databaseService = databaseService;
-
-        if (ConfigUtils.isOnPremBuild()) {
-            // TODO(ONPREM-164): OnPrem currently doesn't support the concept of special contacts
-            return;
-        }
-        try {
-            // Add special contact '*3MAPUSH'
-            final byte[] publicKey = serverAddressProvider.getThreemaPushPublicKey();
-            if (publicKey == null) {
-                logger.error("Could not add special contact {} due to missing public key", ProtocolDefines.SPECIAL_CONTACT_PUSH);
-            } else {
-                specialContacts.put(
-                    ProtocolDefines.SPECIAL_CONTACT_PUSH,
-                    BasicContact.javaCreate(
-                        ProtocolDefines.SPECIAL_CONTACT_PUSH,
-                        publicKey,
-                        0,
-                        IdentityState.ACTIVE,
-                        IdentityType.NORMAL,
-                        VerificationLevel.FULLY_VERIFIED,
-                        WorkVerificationLevel.NONE,
-                        null,
-                        null
-                    )
-                );
-            }
-        } catch (ThreemaException e) {
-            logger.error("Could not add special contact {}", ProtocolDefines.SPECIAL_CONTACT_PUSH, e);
-        }
+        this.contactModelFactory = contactModelFactory;
     }
 
     @Nullable
     @Override
     public ContactModel getContactForIdentity(@NonNull String identity) {
-        return this.databaseService.getContactModelFactory().getByIdentity(identity);
+        return contactModelFactory.getByIdentity(identity);
     }
 
     @NonNull
     public List<ContactModel> getContactsForIdentities(@NonNull List<String> identities) {
-        return this.databaseService.getContactModelFactory().getByIdentities(identities);
+        return contactModelFactory.getByIdentities(identities);
     }
 
     @Nullable
     public ContactModel getContactModelForLookupKey(final @NonNull String lookupKey) {
-        return this.databaseService.getContactModelFactory().getByLookupKey(lookupKey);
+        return contactModelFactory.getByLookupKey(lookupKey);
     }
 
     @Override
@@ -114,9 +63,9 @@ public class DatabaseContactStore implements ContactStore {
     @Nullable
     @Override
     public Contact getContactForIdentityIncludingCache(@NonNull String identity) {
-        Contact special = specialContacts.get(identity);
-        if (special != null) {
-            return special;
+        PredefinedContact specialContact = PredefinedContact.getSpecialContact(identity);
+        if (specialContact != null) {
+            return specialContact.toBasicContact();
         }
 
         Contact cached = contactCache.get(identity);
@@ -125,48 +74,5 @@ public class DatabaseContactStore implements ContactStore {
         }
 
         return getContactForIdentity(identity);
-    }
-
-    @Override
-    public void addContact(@NonNull Contact contact) {
-        ContactModel contactModel = (ContactModel) contact;
-        boolean isUpdate = false;
-
-        ContactModelFactory contactModelFactory = this.databaseService.getContactModelFactory();
-        //get db record
-        ContactModel existingModel = contactModelFactory.getByIdentity(contactModel.getIdentity());
-
-        if (existingModel != null) {
-            isUpdate = true;
-            //check for modifications!
-            if (Arrays.equals(contactModel.getModifiedValueCandidates(), existingModel.getModifiedValueCandidates())) {
-                logger.info("Do not save unmodified contact");
-                return;
-            }
-        }
-
-        contactModelFactory.createOrUpdate(contactModel);
-
-        // Fire listeners
-        if (!isUpdate) {
-            this.fireOnNewContact(contactModel);
-        } else {
-            this.fireOnModifiedContact(contactModel.getIdentity());
-        }
-    }
-
-    @Override
-    public boolean isSpecialContact(@NonNull String identity) {
-        return specialContacts.containsKey(identity);
-    }
-
-    private void fireOnNewContact(final ContactModel createdContactModel) {
-        ListenerManager.contactListeners.handle(listener ->
-            listener.onNew(createdContactModel.getIdentity())
-        );
-    }
-
-    private void fireOnModifiedContact(final String identity) {
-        ListenerManager.contactListeners.handle(listener -> listener.onModified(identity));
     }
 }

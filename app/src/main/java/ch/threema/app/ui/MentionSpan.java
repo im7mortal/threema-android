@@ -14,10 +14,11 @@ import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.ContactService;
 import ch.threema.app.services.UserService;
 import ch.threema.app.utils.NameUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.data.datatypes.ContactNameFormat;
 
 import static ch.threema.app.emojis.EmojiMarkupUtil.MENTION_INDICATOR;
+import static ch.threema.common.JavaCompat.isNullOrBlank;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class MentionSpan extends ReplacementSpan {
 
@@ -49,7 +50,7 @@ public class MentionSpan extends ReplacementSpan {
         super();
 
         try {
-            final @NonNull ServiceManager serviceManager = ThreemaApplication.requireServiceManager();
+            final @NonNull ServiceManager serviceManager = ServiceManager.require();
             contactService = serviceManager.getContactService();
             userService = serviceManager.getUserService();
             contactNameFormat = serviceManager.getPreferenceService().getContactNameFormat();
@@ -88,9 +89,9 @@ public class MentionSpan extends ReplacementSpan {
 
     @Override
     public int getSize(@NonNull Paint paint, CharSequence text, int start, int end, @Nullable Paint.FontMetricsInt fm) {
-        if (!TestUtil.isBlankOrNull(text) && end - start == 11) {
+        if (!isNullOrBlank(text) && end - start == 11) {
             String labelText = getMentionLabelText(text, start, end);
-            if (!TestUtil.isEmptyOrNull(labelText)) {
+            if (!isNullOrEmpty(labelText)) {
                 if (fm != null) {
                     // The span is not rendered if it spans the entire text and no height is set. Therefore, we need to apply the font metrics
                     // here such that a height can be calculated.
@@ -111,7 +112,7 @@ public class MentionSpan extends ReplacementSpan {
 
     @Override
     public void draw(@NonNull Canvas canvas, CharSequence text, int start, int end, float x, int top, int y, int bottom, @NonNull Paint paint) {
-        if (width != 0 && !TestUtil.isBlankOrNull(text) && end - start == 11) {
+        if (width != 0 && !isNullOrBlank(text) && end - start == 11) {
             int alpha = paint.getAlpha();
             String identity = text.subSequence(start + 2, end - 1).toString();
 

@@ -18,8 +18,8 @@ import ch.threema.storage.models.DistributionListMessageModel;
 import ch.threema.storage.models.group.GroupMessageModel;
 import ch.threema.storage.models.group.GroupModelOld;
 import ch.threema.storage.models.MessageModel;
-import ch.threema.storage.models.ballot.BallotModel;
-import ch.threema.storage.models.ballot.LinkBallotModel;
+import ch.threema.storage.models.poll.PollModel;
+import ch.threema.storage.models.poll.LinkPollModel;
 
 public class CacheService {
     private final @NonNull Collection<MessageModel> messageModelCache = new HashSet<>();
@@ -29,8 +29,8 @@ public class CacheService {
     private final @NonNull Collection<GroupMessageModel> groupMessageModelCache = new HashSet<>();
     private final @NonNull List<ConversationModel> conversationModelCache = new ArrayList<>();
     private final @NonNull SparseArrayCompat<Map<String, IdColor>> groupMemberColorCache = new SparseArrayCompat<>();
-    private final @NonNull SparseArray<BallotModel> ballotModelCache = new SparseArray<>();
-    private final @NonNull SparseArray<LinkBallotModel> linkBallotModelCache = new SparseArray<>();
+    private final @NonNull SparseArray<PollModel> pollModelCache = new SparseArray<>();
+    private final @NonNull SparseArray<LinkPollModel> linkPollModelCache = new SparseArray<>();
     private final @NonNull Map<String, ContactModel> contactModelCache = new HashMap<>();
 
     public @NonNull List<ConversationModel> getConversationModelCache() {
@@ -65,11 +65,11 @@ public class CacheService {
         return this.contactModelCache;
     }
 
-    public @NonNull SparseArray<BallotModel> getBallotModelCache() {
-        return this.ballotModelCache;
+    public @NonNull SparseArray<PollModel> getPollModelCache() {
+        return this.pollModelCache;
     }
 
-    public @NonNull SparseArray<LinkBallotModel> getLinkBallotModelCache() {
-        return this.linkBallotModelCache;
+    public @NonNull SparseArray<LinkPollModel> getLinkPollModelCache() {
+        return this.linkPollModelCache;
     }
 }

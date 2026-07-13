@@ -4,28 +4,33 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.text.Editable;
+import android.text.InputFilter;
 import android.text.InputType;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.widget.EditText;
+
+import com.google.android.material.textfield.TextInputLayout;
 
 import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import ch.threema.android.LifecycleAwareAsyncTask;
+import ch.threema.android.textwatchers.Base32InputSanitizer;
 import ch.threema.app.AppConstants;
 import ch.threema.app.R;
-import ch.threema.app.activities.wizard.components.WizardButtonXml;
+import ch.threema.app.activities.ThreemaAppCompatActivity;
+import ch.threema.app.ui.interop.ButtonPrimaryXml;
 import ch.threema.app.camera.QRScannerActivity;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.dialogs.GenericProgressDialog;
 import ch.threema.app.dialogs.SimpleStringAlertDialog;
 import ch.threema.app.ui.InsetSides;
-import ch.threema.app.ui.SimpleTextWatcher;
+import ch.threema.android.textwatchers.SimpleTextWatcher;
 import ch.threema.app.ui.SpacingValues;
 import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.usecases.OverrideOneTimeHintsUseCase;
@@ -35,13 +40,14 @@ import ch.threema.app.utils.EditTextUtil;
 
 import static ch.threema.android.ToastKt.showToast;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
 import ch.threema.domain.protocol.api.FetchIdentityException;
 import ch.threema.domain.protocol.connection.ServerConnection;
 
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 
-public class WizardIDRestoreActivity extends WizardBackgroundActivity {
+public class WizardIDRestoreActivity extends ThreemaAppCompatActivity {
     private static final Logger logger = getThreemaLogger("WizardIDRestoreActivity");
     private static final String DIALOG_TAG_RESTORE_PROGRESS = "rp";
     private static final int PERMISSION_REQUEST_CAMERA = 1;
@@ -55,7 +61,7 @@ public class WizardIDRestoreActivity extends WizardBackgroundActivity {
     private EditText passwordEditText;
     private boolean passwordOK = false;
     private boolean idOK = false;
-    private WizardButtonXml nextButtonCompose;
+    private ButtonPrimaryXml nextButtonCompose;
     private final int BACKUP_V1_STRING_LENGTH = 99;
     private final int BACKUP_V2_STRING_LENGTH = 129;
 
@@ -82,24 +88,33 @@ public class WizardIDRestoreActivity extends WizardBackgroundActivity {
             SpacingValues.symmetric(
                 R.dimen.wizard_contents_padding,
                 R.dimen.wizard_contents_padding_horizontal
-            )
+            ),
+            /* includingIme */
+            true
         );
 
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
 
-        backupIdText = findViewById(R.id.restore_id_edittext);
+        backupIdText = findViewById(R.id.id_export);
         backupIdText.setImeOptions(EditorInfo.IME_ACTION_SEND);
         backupIdText.setRawInputType(InputType.TYPE_CLASS_TEXT | EditorInfo.TYPE_TEXT_FLAG_CAP_CHARACTERS);
+        backupIdText.setFilters(
+            new InputFilter[]{
+                new InputFilter.LengthFilter(129),
+                new InputFilter.AllCaps(),
+            }
+        );
+        backupIdText.addTextChangedListener(new Base32InputSanitizer());
         backupIdText.addTextChangedListener(new SimpleTextWatcher() {
             @Override
             public void afterTextChanged(@NonNull Editable editable) {
-                int trimmedLength = editable.toString().trim().length();
-                idOK = trimmedLength == BACKUP_V1_STRING_LENGTH || trimmedLength == BACKUP_V2_STRING_LENGTH;
+                int length = editable.toString().length();
+                idOK = length == BACKUP_V1_STRING_LENGTH || length == BACKUP_V2_STRING_LENGTH;
                 setRestoreButtonEnabled(idOK && passwordOK);
             }
         });
 
-        passwordEditText = findViewById(R.id.restore_password);
+        passwordEditText = findViewById(R.id.password);
         passwordEditText.addTextChangedListener(new SimpleTextWatcher() {
             @Override
             public void afterTextChanged(@NonNull Editable editable) {
@@ -114,7 +129,8 @@ public class WizardIDRestoreActivity extends WizardBackgroundActivity {
         nextButtonCompose.setOnClickListener(v -> restoreID());
         setRestoreButtonEnabled(false);
 
-        findViewById(R.id.wizard_scan_compose).setOnClickListener(v -> {
+        final @NonNull TextInputLayout idExportLayout = findViewById(R.id.id_export_layout);
+        idExportLayout.setEndIconOnClickListener(v -> {
             if (ConfigUtils.requestCameraPermissions(WizardIDRestoreActivity.this, null, PERMISSION_REQUEST_CAMERA)) {
                 scanQR();
             }
@@ -145,18 +161,18 @@ public class WizardIDRestoreActivity extends WizardBackgroundActivity {
         EditTextUtil.hideSoftKeyboard(backupIdText);
         EditTextUtil.hideSoftKeyboard(passwordEditText);
 
-        new AsyncTask<Void, Void, RestoreResult>() {
+        new LifecycleAwareAsyncTask<Void, RestoreResult>() {
             String password, backupString;
 
             @Override
             protected void onPreExecute() {
                 GenericProgressDialog.newInstance(R.string.restoring_backup, R.string.please_wait).show(getSupportFragmentManager(), DIALOG_TAG_RESTORE_PROGRESS);
                 password = passwordEditText.getText().toString();
-                backupString = backupIdText.getText().toString().trim();
+                backupString = backupIdText.getText().toString();
             }
 
             @Override
-            protected RestoreResult doInBackground(Void... params) {
+            protected RestoreResult doInBackground(Void params) {
                 try {
                     ServerConnection connection = dependencies.getServerConnection();
                     if (connection.isRunning()) {
@@ -167,7 +183,7 @@ public class WizardIDRestoreActivity extends WizardBackgroundActivity {
                     }
                 } catch (InterruptedException e) {
                     logger.error("Interrupted", e);
-                    Thread.currentThread().interrupt();
+                    cancel();
                 } catch (FetchIdentityException e) {
                     return RestoreResult.failure(e.getMessage());
                 } catch (Exception e) {
@@ -192,7 +208,7 @@ public class WizardIDRestoreActivity extends WizardBackgroundActivity {
                     getSupportFragmentManager().beginTransaction().add(SimpleStringAlertDialog.newInstance(R.string.error, result.getErrorMessage()), "er").commitAllowingStateLoss();
                 }
             }
-        }.execute();
+        }.execute(this, null);
     }
 
     @Override

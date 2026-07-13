@@ -18,10 +18,10 @@ import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 import ch.threema.app.R;
 import ch.threema.app.emojis.EmojiMarkupUtil;
-import ch.threema.app.utils.TestUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrBlank;
 
 public class SimpleStringAlertDialog extends ThreemaDialogFragment {
     private static final Logger logger = getThreemaLogger("SimpleStringAlertDialog");
@@ -111,7 +111,7 @@ public class SimpleStringAlertDialog extends ThreemaDialogFragment {
             setCancelable(false);
         }
 
-        if (TestUtil.isBlankOrNull(message)) {
+        if (isNullOrBlank(message)) {
             builder.setMessage(messageInt);
         } else {
             builder.setMessage(message);

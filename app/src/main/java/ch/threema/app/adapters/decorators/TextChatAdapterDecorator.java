@@ -20,10 +20,11 @@ import ch.threema.app.utils.LinkifyUtil;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.app.utils.QuoteUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.group.GroupMessageModel;
+
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class TextChatAdapterDecorator extends ChatAdapterDecorator {
 
@@ -126,7 +127,7 @@ public class TextChatAdapterDecorator extends ChatAdapterDecorator {
 
         if (holder.secondaryTextView instanceof EmojiConversationTextView) {
             ((EmojiConversationTextView) holder.secondaryTextView).setFade(
-                TestUtil.isEmptyOrNull(filterString) && content.quotedText.length() > helper.getMaxQuoteTextLength()
+                isNullOrEmpty(filterString) && content.quotedText.length() > helper.getMaxQuoteTextLength()
             );
             holder.secondaryTextView.setText(
                 formatTextString(context, content.quotedText, this.filterString, helper.getMaxQuoteTextLength() + 8),

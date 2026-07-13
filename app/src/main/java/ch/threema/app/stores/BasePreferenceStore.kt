@@ -1,43 +1,37 @@
 package ch.threema.app.stores
 
-import org.json.JSONArray
+import ch.threema.common.primitiveOrNull
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.addJsonArray
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.contentOrNull
 
 abstract class BasePreferenceStore {
-    protected fun Map<String, String?>.encodeToJSONArray(): JSONArray {
-        val json = JSONArray()
-        for ((key, value) in this) {
-            val keyValueArray = JSONArray()
-            keyValueArray.put(key)
-            keyValueArray.put(value)
-            json.put(keyValueArray)
-        }
-        return json
-    }
-
-    protected fun JSONArray.decodeToStringMap(): Map<String, String?> {
-        val jsonArray = this
-        return buildMap {
-            for (n in 0 until jsonArray.length()) {
-                val keyValuePair = jsonArray.getJSONArray(n)
-                val key = keyValuePair.getString(0)
-                val value = if (!keyValuePair.isNull(1)) {
-                    keyValuePair.getString(1)
-                } else {
-                    null
+    protected fun Map<String, String?>.encodeToJsonArray(): JsonArray {
+        val map = this
+        return buildJsonArray {
+            for ((key, value) in map) {
+                addJsonArray {
+                    add(key)
+                    add(value)
                 }
-                put(key, value)
             }
         }
     }
 
-    protected fun JSONArray.decodeToIntMap(): Map<Int, String> {
+    protected fun JsonArray.decodeToStringMap(): Map<String, String?> {
         val jsonArray = this
         return buildMap {
-            for (n in 0 until jsonArray.length()) {
-                val keyValuePair = jsonArray.getJSONArray(n)
-                val key = keyValuePair.getInt(0)
-                val value = keyValuePair.getString(1)
-                put(key, value)
+            jsonArray.forEach { item ->
+                (item as? JsonArray)
+                    ?.let { innerArray ->
+                        val key = innerArray.getOrNull(0)?.primitiveOrNull?.contentOrNull
+                        val value = innerArray.getOrNull(1)?.primitiveOrNull?.contentOrNull
+                        if (key != null) {
+                            put(key, value)
+                        }
+                    }
             }
         }
     }

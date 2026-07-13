@@ -1,10 +1,13 @@
 package ch.threema.domain.protocol.connection
 
 import androidx.annotation.WorkerThread
+import ch.threema.common.DelegateStateFlow
+import ch.threema.common.stateFlowOf
 import ch.threema.domain.protocol.connection.util.ConnectionLoggingUtil
 import java.util.function.Supplier
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 private val logger = ConnectionLoggingUtil.getConnectionLogger("ConvertibleServerConnection")
@@ -18,16 +21,22 @@ private val logger = ConnectionLoggingUtil.getConnectionLogger("ConvertibleServe
  */
 open class ConvertibleServerConnection(
     private val connectionSupplier: Supplier<ServerConnection>,
-) : ServerConnection, ConnectionStateListener, ReconnectableServerConnection {
-    private val connectionStateListeners = mutableSetOf<ConnectionStateListener>()
-
+) : ServerConnection, ReconnectableServerConnection {
     private var connection: ServerConnection? = null
+        set(value) {
+            connectionStateFlow.delegate = value?.watchConnectionState() ?: stateFlowOf(ConnectionState.DISCONNECTED)
+            field = value
+        }
 
     override val isRunning: Boolean
         get() = connection?.isRunning ?: false
 
+    private val connectionStateFlow = DelegateStateFlow(stateFlowOf(ConnectionState.DISCONNECTED))
+
+    override fun watchConnectionState(): StateFlow<ConnectionState> = connectionStateFlow
+
     override val connectionState: ConnectionState
-        get() = connection?.connectionState ?: ConnectionState.DISCONNECTED
+        get() = connectionStateFlow.value
 
     override val isNewConnectionSession: Boolean
         get() = connection?.isNewConnectionSession ?: true
@@ -55,8 +64,6 @@ open class ConvertibleServerConnection(
 
                 // Drop and stop old connection
                 connection?.let { oldConnection ->
-                    oldConnection.removeConnectionStateListener(this)
-
                     logger.debug("Stopping old connection asynchronously")
                     CoroutineScope(Dispatchers.IO).launch {
                         oldConnection.stop()
@@ -65,7 +72,6 @@ open class ConvertibleServerConnection(
                 }
 
                 // Register new connection
-                newConnection.addConnectionStateListener(this)
                 connection = newConnection
             }
         }.start()
@@ -88,30 +94,6 @@ open class ConvertibleServerConnection(
             logger.info("Reconnect")
             stop()
             start()
-        }
-    }
-
-    override fun addConnectionStateListener(listener: ConnectionStateListener) {
-        synchronized(connectionStateListeners) {
-            connectionStateListeners.add(listener)
-        }
-    }
-
-    override fun removeConnectionStateListener(listener: ConnectionStateListener) {
-        synchronized(connectionStateListeners) {
-            connectionStateListeners.remove(listener)
-        }
-    }
-
-    override fun updateConnectionState(connectionState: ConnectionState?) {
-        synchronized(connectionStateListeners) {
-            connectionStateListeners.forEach { listener ->
-                try {
-                    listener.updateConnectionState(connectionState)
-                } catch (e: Exception) {
-                    logger.warn("Exception while invoking connection state listener", e)
-                }
-            }
         }
     }
 }

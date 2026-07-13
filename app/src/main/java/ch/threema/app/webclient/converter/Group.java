@@ -6,9 +6,9 @@ import java.util.List;
 import androidx.annotation.AnyThread;
 import androidx.annotation.NonNull;
 import ch.threema.app.services.GroupService;
-import ch.threema.app.utils.GroupUtil;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.app.webclient.exceptions.ConversionException;
+import ch.threema.data.datatypes.GroupConversationId;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.group.GroupModelOld;
 
@@ -42,7 +42,9 @@ public class Group extends Converter {
         MsgpackObjectBuilder builder = new MsgpackObjectBuilder();
         try {
             final boolean isDisabled = !getGroupService().isGroupMember(group);
-            final boolean isPrivateChat = getConversationCategoryService().isPrivateChat(GroupUtil.getUniqueIdString(group));
+            final boolean isPrivateChat = getConversationCategoryService().isMarkedAsPrivate(
+                new GroupConversationId(group.getId())
+            );
             final boolean isVisible = !isPrivateChat || !getPreferenceService().arePrivateChatsHidden();
 
             builder.put(Receiver.ID, String.valueOf(group.getId()));
@@ -52,7 +54,7 @@ public class Group extends Converter {
             if (isDisabled) {
                 builder.put(Receiver.DISABLED, true);
             }
-            builder.put(CREATED_AT, group.getCreatedAt() != null ? group.getCreatedAt().getTime() / 1000 : 0);
+            builder.put(CREATED_AT, group.getCreatedAt() != null ? group.getCreatedAt().getEpochSecond() : 0);
             if (isPrivateChat) {
                 builder.put(Receiver.LOCKED, true);
             }

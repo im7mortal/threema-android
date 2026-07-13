@@ -1,93 +1,94 @@
 [versions]
-activityCompose = "1.10.1"
-androidGradle = "8.13.2"
-androidImageCropper = "4.6.0"
-androidx_activity = "1.10.1"
-androidx_annotation = "1.9.1"
-androidx_appcompat = "1.7.0"
+androidGradle = "8.13.2" # TODO(ANDR-4869) Updating to version 9.x.x requires notable code changes
+androidImageCropper = "4.7.0"
+androidx_activity = "1.12.4" # TODO(ANDR-4883) Version 1.13.0 is incompatible with Mockk version 1.14.9
+androidx_annotation = "1.10.0"
+androidx_appcompat = "1.7.1"
 androidx_biometric = "1.1.0"
-androidx_camera = "1.5.0"
-androidx_composeBom = "2026.01.00"
-androidx_concurrentFutures = "1.2.0"
+androidx_camera = "1.6.1"
+androidx_composeBom = "2026.05.00"
+androidx_concurrentFutures = "1.3.0"
 androidx_constraintlayout = "2.2.1"
-androidx_core = "1.15.0"
+androidx_core = "1.18.0"
 androidx_espresso = "3.7.0"
-androidx_fragment = "1.8.6"
-androidx_junit = "1.2.1"
-androidx_lifecycle = "2.8.7"
-androidx_lifecycleCompose = "2.8.7"
+androidx_fragment = "1.8.9"
+androidx_junit = "1.3.0"
+androidx_lifecycle = "2.10.0"
+androidx_lifecycleCompose = "2.10.0"
 androidx_lifecycleExtensions = "2.2.0"
-androidx_media = "1.7.1"
-androidx_mmedia3 = "1.9.0"
-androidx_pagingRuntime = "3.3.6"
+androidx_media = "1.8.0"
+androidx_mmedia3 = "1.10.0"
+androidx_pagingRuntime = "3.5.0"
 androidx_palette = "1.0.0"
 androidx_preference = "1.2.1"
 androidx_recyclerview = "1.4.0"
-androidx_room = "2.6.1"
+androidx_room = "2.8.4"
 androidx_sharetarget = "1.2.0"
-androidx_splashscreen = "1.0.1"
-androidx_sqlite = "2.5.0"
-androidx_swiperefreshlayout = "1.1.0"
-androidx_test_core = "1.6.1"
-androidx_test_rules = "1.6.1"
-androidx_test_runner = "1.6.2"
-androidx_window = "1.3.0"
-androidx_workRuntime = "2.10.0"
-archunitJunit4 = "0.18.0"
-bcprovJdk15to18 = "1.83"
+androidx_splashscreen = "1.2.0"
+androidx_sqlite = "2.6.2"
+androidx_swiperefreshlayout = "1.2.0"
+androidx_test_core = "1.7.0"
+androidx_test_rules = "1.7.0"
+androidx_test_runner = "1.7.0"
+androidx_window = "1.5.1"
+androidx_workRuntime = "2.11.2"
+archunitJunit4 = "1.4.2"
+bcprovJdk15to18 = "1.84"
 chunkedDc = "1.0.1"
-composeRuntimeAnnotation = "1.10.0"
+composeRuntimeAnnotation = "1.11.1"
 desugarJdkLibs = "2.1.5"
 eddsa = "0.3.0"
+#noinspection NewerVersionAvailable
 ezVcard = "0.11.3" # >0.11.3 uses JDK8 features not supported by Java 8+ API desugaring, thus requiring Android 8. See https://github.com/mangstadt/ez-vcard/wiki/Changelog
 fastlaneScreengrab = "2.1.1"
 fastscroll = "1.3.0"
-firebaseMessaging = "24.1.0"
-gestureViews = "2.8.3"
-glide = "5.0.5"
+firebaseMessaging = "25.0.2"
+gestureViews = "2.9.0"
+glide = "5.0.7"
 hmsPush = "6.3.0.304"
+#noinspection NewerVersionAvailable
 jacksonCore = "2.14.3" # Note: Any newer version breaks the compatibility with API versions older than 26. If we use a newer version of jackson core, the webclient does not work anymore on android 7.
 jna = "5.18.1" # Note: when updating this version, we need to include the libjnidispatch.so of the same version for each ABI in app/libs/. Note that the description in the readme files in app/libs/ files should be updated when this version is changed. The libjnidispatch.so files can be found in the jna.aar file: https://github.com/java-native-access/jna/tree/master/dist
-json = "20250107"
+json = "20251224"
 junit = "4.13.2"
-koin = "4.1.1"
-kotlin = "2.2.20"
-kotlinx_coroutines = "1.10.1"
-kotlinx_serializationJson = "1.6.3"
-ksp = "2.2.20-2.0.3" # must be kept in sync with kotlin version, see https://github.com/google/ksp/releases
-ktlint = "14.0.1"
+koin = "4.1.1" # TODO(ANDR-4882): Version 4.2.1 makes our device tests fail
+kotlin = "2.3.21"
+kotlinx_coroutines = "1.10.2"
+kotlinx_serializationJson = "1.11.0"
+ksp = "2.3.7"
+ktlint = "14.2.0"
 leakcanary = "2.14"
-libphonenumber = "9.0.1"
-lintApi = "31.13.2"
-maplibre = "11.11.0"
+libphonenumber = "9.0.30"
+lintApi = "32.2.1"
+maplibre = "13.1.0"
 material = "1.13.0"
 mockk = "1.14.9"
-msgpackCore = "0.8.24"
-nvWebsocketClient = "2.9"
-okhttp3 = "5.1.0"
+msgpackCore = "0.9.12"
+nvWebsocketClient = "2.14"
+okhttp3 = "5.3.2"
 opencsv = "2.3"
-playServices = "18.6.0"
-protobufKotlinLite = "4.33.1"
+playServices = "18.10.0"
+protobufKotlinLite = "4.34.1"
 rustAndroid = "0.9.6"
 saltyrtcClient = "0.14.2"
 saltyrtcTaskWebrtc = "0.18.1"
 slf4j = "2.0.17"
-sonarqube = "4.4.1.3373"
-sqlcipherAndroid = "4.12.0"
-stem = "3.0.0"
+sonarqube = "4.4.1.3373" # TODO(ANDR-4870): Updating requires notable code changes
+sqlcipherAndroid = "4.15.0"
+stem = "3.3.0"
 subsamplingScaleImageView = "3.10.0"
-taptargetview = "1.13.3"
-turbine = "1.2.0"
+taptargetview = "1.15.0"
+turbine = "1.2.1"
 uiautomator = "2.3.0"
 webrtcAndroid = "144.0.0"
-zip4j = "2.11.5"
-zxing = "3.5.3"
+zip4j = "2.11.6"
+zxing = "3.5.4"
 
 [libraries]
 android-gradle = { module = "com.android.tools.build:gradle", version.ref = "androidGradle" }
 androidImageCropper = { module = "com.vanniktech:android-image-cropper", version.ref = "androidImageCropper" }
 androidx-activity = { module = "androidx.activity:activity-ktx", version.ref = "androidx_activity" }
-androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx_activity" }
 androidx-annotation = { module = "androidx.annotation:annotation", version.ref = "androidx_annotation" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidx_appcompat" }
 androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "androidx_biometric" }
@@ -102,6 +103,7 @@ androidx-espresso-contrib = { module = "androidx.test.espresso:espresso-contrib"
 androidx-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "androidx_espresso" }
 androidx-espresso-intents = { module = "androidx.test.espresso:espresso-intents", version.ref = "androidx_espresso" }
 androidx-fragment = { module = "androidx.fragment:fragment-ktx", version.ref = "androidx_fragment" }
+androidx-fragment-compose = { module = "androidx.fragment:fragment-compose", version.ref = "androidx_fragment" }
 androidx-junit = { module = "androidx.test.ext:junit-ktx", version.ref = "androidx_junit" }
 androidx-lifecycle-commonJava8 = { module = "androidx.lifecycle:lifecycle-common-java8", version.ref = "androidx_lifecycle" }
 androidx-lifecycle-extensions = { module = "androidx.lifecycle:lifecycle-extensions", version.ref = "androidx_lifecycleExtensions" }
@@ -191,7 +193,6 @@ protobuf-kotlin-lite = { module = "com.google.protobuf:protobuf-kotlin-lite", ve
 saltyrtc-client = { module = "org.saltyrtc:saltyrtc-client", version.ref = "saltyrtcClient" }
 saltyrtc-taskWebrtc = { module = "org.saltyrtc:saltyrtc-task-webrtc", version.ref = "saltyrtcTaskWebrtc" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
-slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 sqlcipher-android = { module = "net.zetetic:sqlcipher-android", version.ref = "sqlcipherAndroid" }
 subsamplingScaleImageView = { module = "com.davemorrissey.labs:subsampling-scale-image-view-androidx", version.ref = "subsamplingScaleImageView" }
 taptargetview = { module = "com.getkeepsafe.taptargetview:taptargetview", version.ref = "taptargetview" }

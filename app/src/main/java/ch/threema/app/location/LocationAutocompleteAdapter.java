@@ -16,7 +16,8 @@ import androidx.annotation.StringRes;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.ui.EmptyRecyclerView;
-import ch.threema.app.utils.TestUtil;
+
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class LocationAutocompleteAdapter extends EmptyRecyclerView.Adapter<EmptyRecyclerView.ViewHolder> {
     private static final int TYPE_ITEM = 0;
@@ -116,12 +117,12 @@ public class LocationAutocompleteAdapter extends EmptyRecyclerView.Adapter<Empty
     }
 
     private @NonNull String getLocalizedDescription(Context context, String id) {
-        if (!TestUtil.isEmptyOrNull(id)) {
+        if (!isNullOrEmpty(id)) {
             @StringRes int resId = context.getResources().getIdentifier(id, "string", context.getPackageName());
 
             if (resId != 0) {
                 String value = context.getString(resId);
-                if (!TestUtil.isEmptyOrNull(value)) {
+                if (!isNullOrEmpty(value)) {
                     return value;
                 }
             }

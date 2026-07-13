@@ -30,13 +30,13 @@ class AppStartupMonitorImplTest {
                 AppSystem.SYSTEM_UPDATES to SystemStatus.UNKNOWN,
                 AppSystem.DATABASE_UPDATES to SystemStatus.UNKNOWN,
             ),
-            appStartupMonitor.observeSystems().first(),
+            appStartupMonitor.watchSystems().first(),
         )
         assertEquals(
             setOf(
                 AppSystem.UNLOCKED_MASTER_KEY,
             ),
-            appStartupMonitor.observePendingSystems().first(),
+            appStartupMonitor.watchPendingSystems().first(),
         )
         assertFalse(appStartupMonitor.isReady())
         assertFalse(appStartupMonitor.isReady(AppSystem.REMOTE_SECRET))
@@ -60,14 +60,14 @@ class AppStartupMonitorImplTest {
                 AppSystem.SYSTEM_UPDATES to SystemStatus.PENDING,
                 AppSystem.DATABASE_UPDATES to SystemStatus.PENDING,
             ),
-            appStartupMonitor.observeSystems().first(),
+            appStartupMonitor.watchSystems().first(),
         )
         assertEquals(
             setOf(
                 AppSystem.SYSTEM_UPDATES,
                 AppSystem.DATABASE_UPDATES,
             ),
-            appStartupMonitor.observePendingSystems().first(),
+            appStartupMonitor.watchPendingSystems().first(),
         )
         assertFalse(appStartupMonitor.isReady())
         assertTrue(appStartupMonitor.isReady(AppSystem.REMOTE_SECRET))
@@ -91,13 +91,13 @@ class AppStartupMonitorImplTest {
                 AppSystem.SYSTEM_UPDATES to SystemStatus.PENDING,
                 AppSystem.DATABASE_UPDATES to SystemStatus.READY,
             ),
-            appStartupMonitor.observeSystems().first(),
+            appStartupMonitor.watchSystems().first(),
         )
         assertEquals(
             setOf(
                 AppSystem.SYSTEM_UPDATES,
             ),
-            appStartupMonitor.observePendingSystems().first(),
+            appStartupMonitor.watchPendingSystems().first(),
         )
         assertFalse(appStartupMonitor.isReady())
         assertTrue(appStartupMonitor.isReady(AppSystem.REMOTE_SECRET))
@@ -121,13 +121,13 @@ class AppStartupMonitorImplTest {
                 AppSystem.SYSTEM_UPDATES to SystemStatus.READY,
                 AppSystem.DATABASE_UPDATES to SystemStatus.PENDING,
             ),
-            appStartupMonitor.observeSystems().first(),
+            appStartupMonitor.watchSystems().first(),
         )
         assertEquals(
             setOf(
                 AppSystem.DATABASE_UPDATES,
             ),
-            appStartupMonitor.observePendingSystems().first(),
+            appStartupMonitor.watchPendingSystems().first(),
         )
         assertFalse(appStartupMonitor.isReady())
         assertTrue(appStartupMonitor.isReady(AppSystem.REMOTE_SECRET))
@@ -151,11 +151,11 @@ class AppStartupMonitorImplTest {
                 AppSystem.SYSTEM_UPDATES to SystemStatus.READY,
                 AppSystem.DATABASE_UPDATES to SystemStatus.READY,
             ),
-            appStartupMonitor.observeSystems().first(),
+            appStartupMonitor.watchSystems().first(),
         )
         assertEquals(
             emptySet(),
-            appStartupMonitor.observePendingSystems().first(),
+            appStartupMonitor.watchPendingSystems().first(),
         )
         assertTrue(appStartupMonitor.isReady())
         assertTrue(appStartupMonitor.isReady(AppSystem.REMOTE_SECRET))
@@ -180,13 +180,13 @@ class AppStartupMonitorImplTest {
                 AppSystem.SYSTEM_UPDATES to SystemStatus.UNKNOWN,
                 AppSystem.DATABASE_UPDATES to SystemStatus.UNKNOWN,
             ),
-            appStartupMonitor.observeSystems().first(),
+            appStartupMonitor.watchSystems().first(),
         )
         assertEquals(
             setOf(
                 AppSystem.UNLOCKED_MASTER_KEY,
             ),
-            appStartupMonitor.observePendingSystems().first(),
+            appStartupMonitor.watchPendingSystems().first(),
         )
         assertFalse(appStartupMonitor.isReady())
         assertFalse(appStartupMonitor.isReady(AppSystem.REMOTE_SECRET))
@@ -201,7 +201,7 @@ class AppStartupMonitorImplTest {
         val systemUpdateState = MutableStateFlow(SystemUpdateState.INIT)
         val appStartupMonitor = AppStartupMonitorImpl()
 
-        appStartupMonitor.observeSystems().test {
+        appStartupMonitor.watchSystems().test {
             expectItem(
                 mapOf(
                     AppSystem.REMOTE_SECRET to SystemStatus.UNKNOWN,
@@ -309,7 +309,7 @@ class AppStartupMonitorImplTest {
         val systemUpdateState = MutableStateFlow(SystemUpdateState.INIT)
         val appStartupMonitor = AppStartupMonitorImpl()
 
-        appStartupMonitor.observePendingSystems().test {
+        appStartupMonitor.watchPendingSystems().test {
             expectItem(
                 setOf(
                     AppSystem.UNLOCKED_MASTER_KEY,
@@ -402,7 +402,7 @@ class AppStartupMonitorImplTest {
                 AppStartupError.FailedToFetchRemoteSecret,
                 AppStartupError.Unexpected("TEST2"),
             ),
-            appStartupMonitor.observeErrors().first(),
+            appStartupMonitor.watchErrors().first(),
         )
         assertFalse(appStartupMonitor.isReady())
         assertFalse(appStartupMonitor.isReady(AppSystem.REMOTE_SECRET))
@@ -416,7 +416,7 @@ class AppStartupMonitorImplTest {
                 AppStartupError.Unexpected("TEST1"),
                 AppStartupError.Unexpected("TEST2"),
             ),
-            appStartupMonitor.observeErrors().first(),
+            appStartupMonitor.watchErrors().first(),
         )
     }
 }

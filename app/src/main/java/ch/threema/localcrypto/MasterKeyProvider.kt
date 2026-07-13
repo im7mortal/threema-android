@@ -13,6 +13,9 @@ import kotlinx.coroutines.flow.StateFlow
 class MasterKeyProvider(
     private val masterKeyFlow: StateFlow<MasterKey?>,
 ) {
+    fun watchMasterKey(): StateFlow<MasterKey?> =
+        masterKeyFlow
+
     fun getMasterKeyOrNull(): MasterKey? =
         masterKeyFlow.value
 

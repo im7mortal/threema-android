@@ -13,7 +13,7 @@
 
         <TextView
             android:id="@+id/scooter"
-            style="@style/WizardSubTitleText"
+            style="@style/WizardTextBodyMedium"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/wizard_paragraph_height"
@@ -22,149 +22,124 @@
 
         <Spinner
             android:id="@+id/country_spinner"
-            style="@style/WizardSpinner"
+            style="@style/Widget.AppCompat.Spinner"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/grid_unit_x2"
+            android:layout_marginTop="@dimen/grid_unit_x3"
+            android:background="@drawable/shape_spinner"
             android:focusable="true"
-            android:minHeight="@dimen/wizard_default_view_height"
+            android:minHeight="56dp"
+            android:paddingStart="@dimen/grid_unit_x1"
+            android:paddingEnd="@dimen/grid_unit_x4"
             android:spinnerMode="dropdown" />
 
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/wizard_phone_layout"
+        <LinearLayout
+            android:id="@+id/phone_input_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/grid_unit_x1">
+            android:layout_marginTop="@dimen/grid_unit_x1"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
 
-            <ImageView
-                android:id="@+id/icon_phone"
-                style="@style/WizardEditTextIcon"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                app:layout_constraintBottom_toBottomOf="@+id/phone_input_container"
-                app:layout_constraintDimensionRatio="1"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="@+id/phone_input_container"
-                app:srcCompat="@drawable/ic_call_outline" />
-
-            <FrameLayout
-                android:id="@+id/phone_input_container"
-                android:layout_width="0dp"
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/wizard_prefix_layout"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toEndOf="@+id/icon_phone"
-                app:layout_constraintTop_toTopOf="parent">
+                android:layout_marginEnd="@dimen/grid_unit_x0_25"
+                app:hintEnabled="false"
+                app:startIconDrawable="@drawable/ic_call_outline">
 
-                <LinearLayout
+                <ch.threema.app.ui.ThreemaTextInputEditText
+                    android:id="@+id/wizard_prefix"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:hint="+"
+                    android:importantForAutofill="no"
+                    android:inputType="phone"
+                    android:maxLength="6"
+                    android:minWidth="100dp"
+                    android:nextFocusForward="@+id/wizard_phone"
+                    tools:ignore="HardcodedText" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/wizard_phone_layout"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                app:hintEnabled="false">
+
+                <ch.threema.app.ui.ThreemaTextInputEditText
+                    android:id="@+id/wizard_phone"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:hint="@string/new_wizard_hint_mobile_number"
+                    android:inputType="phone"
+                    android:nextFocusForward="@+id/wizard_email" />
 
-                    <EditText
-                        android:id="@+id/wizard_prefix"
-                        style="@style/WizardEditText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:hint="+"
-                        android:importantForAutofill="no"
-                        android:inputType="phone"
-                        android:maxLength="6"
-                        android:minWidth="64dp"
-                        android:minHeight="@dimen/wizard_default_view_height"
-                        android:nextFocusForward="@+id/wizard_phone"
-                        tools:ignore="HardcodedText" />
+            </com.google.android.material.textfield.TextInputLayout>
 
-                    <ch.threema.app.emojis.EmojiEditText
-                        android:id="@+id/wizard_phone"
-                        style="@style/WizardEditText"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginLeft="1dp"
-                        android:hint="@string/new_wizard_hint_mobile_number"
-                        android:inputType="phone"
-                        android:minHeight="@dimen/wizard_default_view_height"
-                        android:nextFocusForward="@+id/wizard_email" />
+        </LinearLayout>
 
-                </LinearLayout>
+        <TextView
+            android:id="@+id/preset_phone_text"
+            style="@style/WizardTextBodyMedium"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/grid_unit_x4"
+            android:drawablePadding="@dimen/grid_unit_x1_5"
+            android:gravity="center_vertical"
+            android:padding="@dimen/grid_unit_x1"
+            android:singleLine="true"
+            android:text="@string/linked"
+            android:visibility="gone"
+            app:drawableStartCompat="@drawable/ic_call_outline"
+            app:drawableTint="?attr/colorOnBackground"
+            tools:visibility="visible" />
 
-                <TextView
-                    android:id="@+id/preset_phone_text"
-                    style="@style/WizardSmallText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/shape_edittext_icon"
-                    android:gravity="center_vertical"
-                    android:minHeight="@dimen/wizard_default_view_height"
-                    android:paddingHorizontal="@dimen/grid_unit_x1"
-                    android:singleLine="true"
-                    android:visibility="gone" />
-
-            </FrameLayout>
-
-        </androidx.constraintlayout.widget.ConstraintLayout>
-
-        <androidx.constraintlayout.widget.ConstraintLayout
+        <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/wizard_email_layout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/grid_unit_x2"
-            android:minHeight="@dimen/wizard_default_view_height">
+            app:hintEnabled="false"
+            app:startIconDrawable="@drawable/ic_email_outline">
 
-            <ImageView
-                android:id="@+id/icon_email"
-                style="@style/WizardEditTextIcon"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
-                app:layout_constraintBottom_toBottomOf="@+id/email_input_container"
-                app:layout_constraintDimensionRatio="1"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="@+id/email_input_container"
-                app:srcCompat="@drawable/ic_email_outline" />
+            <ch.threema.app.ui.ThreemaTextInputEditText
+                android:id="@+id/wizard_email"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:hint="@string/new_wizard_hint_email"
+                android:imeOptions="actionDone"
+                android:inputType="textEmailAddress" />
 
-            <FrameLayout
-                android:id="@+id/email_input_container"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toEndOf="@+id/icon_email"
-                app:layout_constraintTop_toTopOf="parent">
+        </com.google.android.material.textfield.TextInputLayout>
 
-                <TextView
-                    android:id="@+id/preset_email_text"
-                    style="@style/WizardSmallText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/shape_edittext_icon"
-                    android:gravity="center_vertical"
-                    android:minHeight="@dimen/wizard_default_view_height"
-                    android:paddingHorizontal="@dimen/grid_unit_x1"
-                    android:singleLine="true"
-                    android:visibility="gone" />
-
-                <ch.threema.app.emojis.EmojiEditText
-                    android:id="@+id/wizard_email"
-                    style="@style/WizardEditText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/new_wizard_hint_email"
-                    android:imeOptions="actionDone"
-                    android:inputType="textEmailAddress"
-                    android:minHeight="@dimen/wizard_default_view_height" />
-
-            </FrameLayout>
-
-        </androidx.constraintlayout.widget.ConstraintLayout>
+        <TextView
+            android:id="@+id/preset_email_text"
+            style="@style/WizardTextBodyMedium"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/grid_unit_x3"
+            android:drawablePadding="@dimen/grid_unit_x1_5"
+            android:gravity="center_vertical"
+            android:padding="@dimen/grid_unit_x1"
+            android:singleLine="true"
+            android:text="@string/linked"
+            android:visibility="gone"
+            app:drawableStartCompat="@drawable/ic_email_outline"
+            app:drawableTint="?attr/colorOnBackground"
+            tools:visibility="visible" />
 
         <TextView
             android:id="@+id/disabled_by_policy"
+            style="@style/WizardTextBodyMedium"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/grid_unit_x2"
             android:gravity="center_horizontal"
             android:text="@string/disabled_by_policy"
-            android:textSize="14sp"
             android:visibility="gone"
             tools:visibility="visible" />
 

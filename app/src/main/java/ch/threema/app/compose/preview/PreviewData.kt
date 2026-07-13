@@ -6,10 +6,9 @@ import ch.threema.android.ResourceIdString
 import ch.threema.app.R
 import ch.threema.app.compose.conversation.models.ConversationUiModel
 import ch.threema.app.services.ContactService
-import ch.threema.common.now
 import ch.threema.domain.types.Identity
 import ch.threema.storage.models.MessageType
-import java.util.Date
+import java.time.Instant
 
 /**
  *  Often used values for Compose `@Preview`s.
@@ -41,12 +40,14 @@ object PreviewData {
         IDENTITY_BROADCAST to ResolvedString("Broadcast"),
     )
 
+    val INSTANT_1 = Instant.ofEpochMilli(1_766_682_905_000L)
+
     object LatestMessageData {
 
         fun incomingTextMessage(
             body: String?,
-            postedAt: Date = now(),
-            modifiedAt: Date = now(),
+            postedAt: Instant = Instant.now(),
+            modifiedAt: Instant = Instant.now(),
             mentionNames: Map<Identity, ResolvableString> = PreviewData.mentionNames,
         ) = ConversationUiModel.LatestMessageData(
             type = MessageType.TEXT,
@@ -61,8 +62,8 @@ object PreviewData {
 
         fun incomingFileMessage(
             caption: String?,
-            postedAt: Date = now(),
-            modifiedAt: Date = now(),
+            postedAt: Instant = Instant.now(),
+            modifiedAt: Instant = Instant.now(),
             mentionNames: Map<Identity, ResolvableString> = PreviewData.mentionNames,
         ) = ConversationUiModel.LatestMessageData(
             type = MessageType.FILE,
@@ -81,8 +82,8 @@ object PreviewData {
             caption = null,
             isOutbox = false,
             isDeleted = true,
-            postedAt = now(),
-            modifiedAt = now(),
+            postedAt = Instant.now(),
+            modifiedAt = Instant.now(),
             mentionNames = mentionNames,
         )
     }

@@ -65,7 +65,7 @@ class TaskArchiverTest {
             getDebugString = getDebugString,
         )
 
-        assertTrue { taskArchiver.loadAllTasks().isEmpty() }
+        assertTrue(taskArchiver.loadAllTasks().isEmpty())
         verify(exactly = 1) { taskArchiveFactoryMock.getAll() }
         verify(exactly = 1) { taskRecoveryManagerMock.recoverTask(unknownTaskEncoding) }
     }

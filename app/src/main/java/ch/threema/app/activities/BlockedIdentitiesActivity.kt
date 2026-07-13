@@ -3,7 +3,7 @@ package ch.threema.app.activities
 import android.content.Context
 import ch.threema.android.buildActivityIntent
 import ch.threema.app.R
-import ch.threema.app.ThreemaApplication
+import ch.threema.app.managers.ServiceManager
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.types.IdentityString
@@ -17,7 +17,7 @@ class BlockedIdentitiesActivity : IdentityListActivity() {
 
     private val identityList: IdentityList? by lazy {
         val blockedIdentitiesService =
-            ThreemaApplication.getServiceManager()?.blockedIdentitiesService ?: return@lazy null
+            ServiceManager.get()?.blockedIdentitiesService ?: return@lazy null
 
         object : IdentityList {
             override fun getAll(): Set<String> {

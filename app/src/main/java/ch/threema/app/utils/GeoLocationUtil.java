@@ -36,6 +36,7 @@ import ch.threema.storage.models.data.LocationDataModel;
 
 import static ch.threema.app.location.LocationExtensionsKt.toCoordinates;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class GeoLocationUtil {
     private static final Logger logger = getThreemaLogger("GeoLocationUtil");
@@ -216,11 +217,11 @@ public class GeoLocationUtil {
 
         @Nullable String locationName = poiName;
 
-        if (TestUtil.isEmptyOrNull(locationName)) {
+        if (isNullOrEmpty(locationName)) {
             locationName = poiAddress;
         }
 
-        if (!TestUtil.isEmptyOrNull(locationName)) {
+        if (!isNullOrEmpty(locationName)) {
             try {
                 locationName = URLEncoder.encode(locationName, "utf-8");
                 return Uri.parse(geoString + "(" + locationName + ")");

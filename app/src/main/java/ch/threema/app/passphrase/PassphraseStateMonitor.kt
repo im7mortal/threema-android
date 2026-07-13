@@ -1,6 +1,7 @@
 package ch.threema.app.passphrase
 
 import android.content.Context
+import ch.threema.app.monitors.Monitor
 import ch.threema.app.services.PassphraseService
 import ch.threema.localcrypto.MasterKeyManager
 import ch.threema.localcrypto.models.PassphraseLockState
@@ -11,8 +12,8 @@ import kotlinx.coroutines.flow.map
 class PassphraseStateMonitor(
     private val appContext: Context,
     private val masterKeyManager: MasterKeyManager,
-) {
-    suspend fun monitorPassphraseLock() {
+) : Monitor("PassphraseStateMonitor") {
+    override suspend fun run() {
         masterKeyManager.passphraseLockState
             .map { lockState ->
                 when (lockState) {

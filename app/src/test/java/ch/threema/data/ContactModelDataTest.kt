@@ -1,11 +1,8 @@
 package ch.threema.data
 
-import ch.threema.app.managers.CoreServiceManager
 import ch.threema.data.datatypes.ContactNameFormat
 import ch.threema.data.models.ContactModelData
-import ch.threema.domain.stores.IdentityStore
-import io.mockk.every
-import io.mockk.mockk
+import ch.threema.test.TestIdentityProvider
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import testdata.TestData
@@ -14,11 +11,7 @@ class ContactModelDataTest {
 
     @Test
     fun `getDisplayName should pick correct values`() {
-        val coreServiceManagerMock = mockk<CoreServiceManager>(relaxed = true) {
-            every { identityStore } returns mockk<IdentityStore> {
-                every { getIdentityString() } returns TestData.Identities.ME.value
-            }
-        }
+        val identityProvider = TestIdentityProvider(TestData.Identities.ME)
 
         val testSet = mapOf(
             TestData.createContactModel(identity = TestData.Identities.OTHER_1, firstname = "Firstname", lastname = "Lastname", nickname = "Nick")
@@ -46,7 +39,7 @@ class ContactModelDataTest {
                 firstname = "",
                 lastname = "",
                 nickname = null,
-                coreServiceManagerMock = coreServiceManagerMock,
+                identityProvider = identityProvider,
             )
                 to ContactModelData.DISPLAY_NAME_INVALID_CONTACT,
             TestData.createContactModel(

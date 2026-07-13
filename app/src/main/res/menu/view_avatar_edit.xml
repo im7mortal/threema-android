@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
         android:id="@+id/menu_take_photo"
-        android:icon="@drawable/ic_camera_outline"
+        android:icon="@drawable/ic_camera"
         android:orderInCategory="25"
         android:title="@string/take_photo"
         app:iconTint="?attr/colorOnSurface" />

@@ -1,6 +1,5 @@
 package ch.threema.app.groupmanagement
 
-import android.text.format.DateUtils
 import ch.threema.app.DangerousTest
 import ch.threema.app.groupflows.GroupCreateProperties
 import ch.threema.app.groupflows.GroupFlowResult
@@ -11,11 +10,14 @@ import ch.threema.app.tasks.ReflectGroupSyncCreateTask
 import ch.threema.app.testutils.TestHelpers
 import ch.threema.app.testutils.TestHelpers.TestContact
 import ch.threema.app.testutils.clearDatabaseAndCaches
+import ch.threema.common.minus
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.models.ContactModelData
 import ch.threema.data.models.GroupModel
 import ch.threema.data.models.GroupModelData
 import ch.threema.domain.helpers.ControlledTaskManager
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.ContactSyncState
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
@@ -27,16 +29,16 @@ import ch.threema.domain.models.WorkVerificationLevel
 import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.taskmanager.TaskManager
-import ch.threema.storage.models.ContactModel
-import java.util.Date
+import ch.threema.test.TestData.PUBLIC_KEY
+import java.time.Instant
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.test.runTest
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -55,21 +57,22 @@ class CreateGroupFlowTest : GroupFlowTest(), KoinComponent {
 
     private val initialContactModelData = ContactModelData(
         identity = "12345678",
-        publicKey = ByteArray(32),
-        createdAt = Date(),
+        publicKey = PUBLIC_KEY,
+        createdAt = Instant.now(),
+        lastUpdateAt = null,
         firstName = "",
         lastName = "",
         verificationLevel = VerificationLevel.SERVER_VERIFIED,
         workVerificationLevel = WorkVerificationLevel.NONE,
         nickname = null,
-        identityType = IdentityType.NORMAL,
-        acquaintanceLevel = ContactModel.AcquaintanceLevel.DIRECT,
+        identityType = IdentityType.REGULAR,
+        acquaintanceLevel = AcquaintanceLevel.DIRECT,
         activityState = IdentityState.ACTIVE,
         syncState = ContactSyncState.INITIAL,
         featureMask = 255u,
         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
-        isArchived = false,
+        conversationVisibility = ConversationVisibility.NORMAL,
         profilePictureBlobId = null,
         androidContactLookupInfo = null,
         localAvatarExpires = null,
@@ -197,7 +200,7 @@ class CreateGroupFlowTest : GroupFlowTest(), KoinComponent {
         ).await()
 
         // assert
-        assertTrue(groupFlowResult is GroupFlowResult.Failure.Network)
+        assertIs<GroupFlowResult.Failure.Network>(groupFlowResult)
     }
 
     private suspend fun testAndAssertSuccessfulGroupCreation(
@@ -205,7 +208,7 @@ class CreateGroupFlowTest : GroupFlowTest(), KoinComponent {
         reflectionExpectation: ReflectionExpectation,
     ): GroupModel {
         val createGroupFlowResult = testGroupCreation(groupCreateProperties, reflectionExpectation)
-        assertTrue(createGroupFlowResult is GroupFlowResult.Success)
+        assertIs<GroupFlowResult.Success>(createGroupFlowResult)
         val groupModel = createGroupFlowResult.groupModel
         groupModel.assertCreatedFrom(groupCreateProperties)
         groupModel.assertNewGroup()
@@ -283,11 +286,10 @@ class CreateGroupFlowTest : GroupFlowTest(), KoinComponent {
         assertEquals(UserState.MEMBER, userState)
         assertEquals(lastUpdate, createdAt)
         assertTrue {
-            val current = Date().time
-            val aWhileAgo = current - DateUtils.SECOND_IN_MILLIS * 30
-            createdAt.time in aWhileAgo..<current
+            val now = Instant.now()
+            createdAt in (now - 30.seconds)..<now
         }
-        assertFalse(isArchived)
+        assertEquals(ConversationVisibility.NORMAL, conversationVisibility)
         assertNull(groupDescription)
         assertNull(groupDescriptionChangedAt)
     }

@@ -1,5 +1,6 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <group
         android:id="@+id/group_search"
@@ -37,7 +38,7 @@
 
         <item
             android:id="@+id/menu_new_distribution_list"
-            android:icon="@drawable/ic_bullhorn_outline"
+            android:icon="@drawable/ic_distribution_list"
             android:orderInCategory="30"
             android:title="@string/title_add_distribution_list"
             android:visible="true"
@@ -51,7 +52,7 @@
 
         <item
             android:id="@+id/menu_toggle_private_chats"
-            android:icon="@drawable/ic_outline_visibility"
+            android:icon="@drawable/ic_visibility"
             android:orderInCategory="50"
             android:title="@string/title_hide_private_chats"
             android:visible="false"
@@ -59,36 +60,21 @@
 
         <item
             android:id="@+id/my_backups"
-            android:icon="@drawable/ic_settings_backup_restore_outline"
+            android:icon="@drawable/ic_backup"
             android:orderInCategory="55"
             android:title="@string/my_backups_title"
             app:showAsAction="never" />
 
         <item
             android:id="@+id/archived"
-            android:icon="@drawable/ic_archive_outline"
+            android:icon="@drawable/ic_archive"
             android:orderInCategory="60"
             android:title="@string/archived"
             app:showAsAction="never" />
 
         <item
-            android:id="@+id/multi_device"
-            android:icon="@drawable/ic_multi_device"
-            android:orderInCategory="61"
-            android:title="@string/md_linked_devices"
-            android:visible="false"
-            app:showAsAction="never" />
-
-        <item
-            android:id="@+id/webclient"
-            android:icon="@drawable/ic_web_notification"
-            android:orderInCategory="65"
-            android:title="@string/webclient"
-            app:showAsAction="never" />
-
-        <item
             android:id="@+id/directory"
-            android:icon="@drawable/ic_contacts_outline"
+            android:icon="@drawable/ic_contacts"
             android:orderInCategory="75"
             android:title="@string/work_directory_title"
             android:visible="false"
@@ -101,22 +87,15 @@
         android:checkableBehavior="none">
 
         <item
-            android:id="@+id/threema_channel"
-            android:icon="@drawable/ic_rss_feed_outline"
-            android:orderInCategory="70"
-            android:title="@string/threema_channel"
-            app:showAsAction="never" />
-
-        <item
             android:id="@+id/settings"
-            android:icon="@drawable/ic_settings_outline_24dp"
+            android:icon="@drawable/ic_settings"
             android:orderInCategory="75"
             android:title="@string/menu_settings"
             app:showAsAction="never" />
 
         <item
             android:id="@+id/help"
-            android:icon="@drawable/ic_help_outline_24dp"
+            android:icon="@drawable/ic_help"
             android:orderInCategory="80"
             android:title="@string/support"
             app:showAsAction="never" />
@@ -125,9 +104,10 @@
 
     <item
         android:id="@+id/menu_lock"
-        android:icon="@drawable/ic_lock_outline"
+        android:icon="@drawable/ic_lock"
         android:orderInCategory="10"
         android:title="@string/title_lock"
         android:visible="true"
-        app:showAsAction="always" />
+        app:showAsAction="always"
+        tools:ignore="AlwaysShowAction" />
 </menu>

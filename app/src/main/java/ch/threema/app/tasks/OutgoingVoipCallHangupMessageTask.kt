@@ -1,11 +1,11 @@
 package ch.threema.app.tasks
 
-import ch.threema.common.now
 import ch.threema.domain.models.MessageId
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallHangupData
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallHangupMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.types.IdentityString
+import java.time.Instant
 
 class OutgoingVoipCallHangupMessageTask(
     private val voipCallHangupData: VoipCallHangupData,
@@ -24,7 +24,7 @@ class OutgoingVoipCallHangupMessageTask(
             messageModel = null,
             toIdentity = toIdentity,
             messageId = MessageId.random(),
-            createdAt = now(),
+            createdAt = Instant.now(),
             handle = handle,
         )
     }

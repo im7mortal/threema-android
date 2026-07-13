@@ -21,6 +21,7 @@ import android.widget.Toast;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ListMultimap;
 
+import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
 import java.time.Instant;
@@ -35,7 +36,6 @@ import androidx.annotation.WorkerThread;
 import androidx.core.content.ContextCompat;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
-import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.FileService;
 import ch.threema.app.services.UserService;
 import ch.threema.data.models.ContactModel;
@@ -43,12 +43,11 @@ import ch.threema.data.models.ContactModelData;
 import ch.threema.data.datatypes.AndroidContactLookupInfo;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 import static ch.threema.storage.models.ContactModel.DEFAULT_ANDROID_CONTACT_AVATAR_EXPIRY;
 
 public class AndroidContactUtil {
     private static final Logger logger = getThreemaLogger("AndroidContactUtil");
-    private UserService userService;
-    private FileService fileService;
 
     private static AndroidContactUtil sInstance = null;
 
@@ -60,12 +59,6 @@ public class AndroidContactUtil {
     }
 
     private AndroidContactUtil() {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
-
-        if (serviceManager != null) {
-            this.userService = serviceManager.getUserService();
-            this.fileService = serviceManager.getFileService();
-        }
     }
 
     private static final String[] RAW_CONTACT_PROJECTION = new String[]{
@@ -77,6 +70,7 @@ public class AndroidContactUtil {
     private final ContentResolver contentResolver = ThreemaApplication.getAppContext().getContentResolver();
 
     private @Nullable Account getAccount() {
+        UserService userService = KoinJavaComponent.getOrNull(UserService.class);
         if (userService == null) {
             logger.info("UserService not available");
             return null;
@@ -126,10 +120,7 @@ public class AndroidContactUtil {
      */
     @RequiresPermission(Manifest.permission.READ_CONTACTS)
     public void updateAvatarByAndroidContact(@NonNull ContactModel contactModel, @NonNull Context context) {
-        if (fileService == null) {
-            logger.info("FileService not available");
-            return;
-        }
+        FileService fileService = KoinJavaComponent.get(FileService.class);
 
         ContactModelData data = contactModel.getData();
         if (data == null) {
@@ -303,7 +294,7 @@ public class AndroidContactUtil {
         ArrayList<ContentProviderOperation> contentProviderOperations = new ArrayList<>();
 
         for (Map.Entry<String, RawContactInfo> rawContact : rawContacts.entries()) {
-            if (!TestUtil.isEmptyOrNull(rawContact.getKey()) && rawContact.getValue().rawContactId != 0L) {
+            if (!isNullOrEmpty(rawContact.getKey()) && rawContact.getValue().rawContactId != 0L) {
                 try {
                     ContentProviderOperation.Builder builder = ContentProviderOperation.newDelete(
                             ContactsContract.RawContacts.CONTENT_URI

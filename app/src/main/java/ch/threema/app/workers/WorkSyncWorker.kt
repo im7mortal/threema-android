@@ -15,32 +15,34 @@ import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.work.await
+import ch.threema.android.buildNotification
 import ch.threema.android.buildOneTimeWorkRequest
 import ch.threema.android.buildPeriodicWorkRequest
 import ch.threema.android.setConstraints
 import ch.threema.android.setInputData
 import ch.threema.app.R
-import ch.threema.app.ThreemaApplication
+import ch.threema.app.applogo.UpdateAppLogoUseCase
 import ch.threema.app.asynctasks.AddOrUpdateWorkContactBackgroundTask
 import ch.threema.app.di.awaitAppFullyReadyWithTimeout
-import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.notifications.NotificationChannels
 import ch.threema.app.notifications.NotificationIDs
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.restrictions.AppRestrictionService
 import ch.threema.app.restrictions.AppRestrictions
-import ch.threema.app.routines.UpdateAppLogoRoutine
 import ch.threema.app.routines.UpdateWorkInfoRoutine
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.FileService
 import ch.threema.app.services.UserService
 import ch.threema.app.services.license.LicenseService
 import ch.threema.app.services.notification.NotificationService
+import ch.threema.app.tasks.BatchUpdateContactAvailabilityStatusTask
+import ch.threema.app.tasks.BatchUpdateContactWorkLastFullSyncAtTask
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.RuntimeUtil
 import ch.threema.app.utils.WorkManagerUtil
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.Http
+import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.models.ContactModel
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.domain.models.UserCredentials
@@ -50,9 +52,12 @@ import ch.threema.domain.protocol.api.APIConnector
 import ch.threema.domain.protocol.api.work.WorkData
 import ch.threema.domain.stores.IdentityStore
 import ch.threema.domain.taskmanager.TaskManager
-import kotlin.time.Duration.Companion.milliseconds
+import ch.threema.domain.types.IdentityString
+import java.time.Instant
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
-import okhttp3.OkHttpClient
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -65,8 +70,6 @@ class WorkSyncWorker(
 
     private val contactService: ContactService by inject()
     private val preferenceService: PreferenceService by inject()
-    private val okHttpClient: OkHttpClient by inject()
-    private val fileService: FileService by inject()
     private val licenseService: LicenseService<*> by inject()
     private val apiConnector: APIConnector by inject()
     private val notificationService: NotificationService by inject()
@@ -74,139 +77,9 @@ class WorkSyncWorker(
     private val identityStore: IdentityStore by inject()
     private val contactModelRepository: ContactModelRepository by inject()
     private val appRestrictions: AppRestrictions by inject()
+    private val updateAppLogoUseCase: UpdateAppLogoUseCase by inject()
+    private val appRestrictionService: AppRestrictionService by inject()
     private val taskManager: TaskManager by inject()
-    private val multiDeviceManager: MultiDeviceManager by inject()
-
-    companion object {
-        private const val EXTRA_FORCE_UPDATE = "FORCE_UPDATE"
-
-        fun schedulePeriodicWorkSync(context: Context, preferenceService: PreferenceService) {
-            if (!ConfigUtils.isWorkBuild()) {
-                logger.debug("Do not start work sync worker in non-work build")
-                return
-            }
-
-            val schedulePeriodMs =
-                WorkManagerUtil.normalizeSchedulePeriod(preferenceService.getWorkSyncCheckInterval())
-            logger.info("Scheduling periodic work sync. Schedule period: {} ms", schedulePeriodMs)
-
-            try {
-                val workManager = WorkManager.getInstance(context)
-                val policy = if (WorkManagerUtil.shouldScheduleNewWorkManagerInstance(
-                        workManager,
-                        WorkerNames.WORKER_PERIODIC_WORK_SYNC,
-                        schedulePeriodMs,
-                    )
-                ) {
-                    ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE
-                } else {
-                    ExistingPeriodicWorkPolicy.KEEP
-                }
-                logger.info(
-                    "{}: {} existing periodic work",
-                    WorkerNames.WORKER_PERIODIC_WORK_SYNC,
-                    policy,
-                )
-                val workRequest = buildPeriodicWorkRequest(schedulePeriodMs)
-                workManager.enqueueUniquePeriodicWork(
-                    WorkerNames.WORKER_PERIODIC_WORK_SYNC,
-                    policy,
-                    workRequest,
-                )
-            } catch (e: IllegalStateException) {
-                logger.error("Unable to schedule periodic work sync work", e)
-            }
-        }
-
-        suspend fun cancelPeriodicWorkSyncAwait(context: Context) {
-            WorkManagerUtil.cancelUniqueWorkAwait(
-                context,
-                WorkerNames.WORKER_PERIODIC_WORK_SYNC,
-            )
-        }
-
-        private fun buildOneTimeWorkRequest(
-            forceUpdate: Boolean,
-            tag: String?,
-        ): OneTimeWorkRequest =
-            buildOneTimeWorkRequest<WorkSyncWorker> {
-                setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-                setInputData {
-                    putBoolean(EXTRA_FORCE_UPDATE, forceUpdate)
-                }
-                if (tag != null) {
-                    addTag(tag)
-                }
-            }
-
-        private fun buildPeriodicWorkRequest(schedulePeriodMs: Long): PeriodicWorkRequest =
-            buildPeriodicWorkRequest<WorkSyncWorker>(
-                repeatInterval = schedulePeriodMs.milliseconds,
-            ) {
-                setConstraints {
-                    setRequiredNetworkType(NetworkType.CONNECTED)
-                }
-                addTag(schedulePeriodMs.toString())
-                setInputData {
-                    putBoolean(EXTRA_FORCE_UPDATE, false)
-                }
-            }
-
-        /**
-         * Start a one time work sync request. Existing work will be [ExistingWorkPolicy.REPLACE]d.
-         *
-         * If it is required to run a callback when the request was successful or failed, use
-         * `performOneTimeWorkSync(Activity, Runnable, Runnable)`.
-         */
-        fun performOneTimeWorkSync(
-            context: Context,
-            forceUpdate: Boolean,
-            tag: String?,
-        ) {
-            val workRequest = buildOneTimeWorkRequest(forceUpdate, tag)
-            WorkManager.getInstance(context).enqueueUniqueWork(
-                WorkerNames.WORKER_WORK_SYNC,
-                ExistingWorkPolicy.REPLACE,
-                workRequest,
-            )
-        }
-
-        /**
-         * Start a one time work sync request.
-         *
-         * @param onSuccess is run when the work sync request was successful
-         * @param onFail    is run when the work sync request was unsuccessful
-         */
-        fun performOneTimeWorkSync(
-            activity: AppCompatActivity,
-            onSuccess: Runnable,
-            onFail: Runnable,
-        ) {
-            val workerTag = "OneTimeWorkSyncWorker"
-            val workRequest = buildOneTimeWorkRequest(
-                forceUpdate = true,
-                tag = workerTag,
-            )
-            val workManager = WorkManager.getInstance(ThreemaApplication.getAppContext())
-            workManager.getWorkInfoByIdLiveData(workRequest.id)
-                .observe(activity) { workInfo: WorkInfo? ->
-                    if (workInfo?.state == WorkInfo.State.SUCCEEDED) {
-                        onSuccess.run()
-                    } else if (workInfo?.state == WorkInfo.State.FAILED) {
-                        onFail.run()
-                    } else if (workInfo == null) {
-                        // Just log this. It is likely that a non-null work info will be observed
-                        // later and the sync completes successfully.
-                        logger.info("Work info is null")
-                    }
-                }
-            workManager.enqueueUniqueWork(
-                WorkerNames.WORKER_WORK_SYNC,
-                ExistingWorkPolicy.REPLACE,
-                workRequest,
-            )
-        }
-    }
 
     override suspend fun doWork(): Result {
         val forceUpdate: Boolean = inputData.getBoolean(EXTRA_FORCE_UPDATE, false)
@@ -264,6 +137,9 @@ class WorkSyncWorker(
         val existingWorkIdentities = contactService.allWork.map { it.identity }.toSet()
         val fetchedWorkIdentities = workData.workContacts.map { it.threemaId }.toSet()
 
+        val pendingContactWorkLastFullSyncAtUpdates = mutableMapOf<IdentityString, Instant>()
+        val pendingContactAvailabilityStatusUpdates = mutableMapOf<IdentityString, AvailabilityStatus>()
+
         // Create or update work contacts
         val refreshedWorkIdentities = workData
             .workContacts
@@ -272,11 +148,31 @@ class WorkSyncWorker(
                     workContact = workContact,
                     myIdentity = userService.identity!!,
                     contactModelRepository = contactModelRepository,
-                    taskManager = taskManager,
-                    multiDeviceManager = multiDeviceManager,
+                    pendingUpdateContactWorkLastFullSyncAt = { identity, workLastFullSyncAt ->
+                        pendingContactWorkLastFullSyncAtUpdates[identity] = workLastFullSyncAt
+                    },
+                    pendingUpdateContactAvailabilityStatus = { identity, availabilityStatus ->
+                        pendingContactAvailabilityStatusUpdates[identity] = availabilityStatus
+                    },
                 ).runSynchronously()
             }
             .map(ContactModel::identity)
+
+        // Schedule tasks to batch-update contacts workLastFullSyncAtTimestamp values
+        if (pendingContactWorkLastFullSyncAtUpdates.isNotEmpty()) {
+            val batchUpdateContactWorkLastFullSyncAtTasks = BatchUpdateContactWorkLastFullSyncAtTask.createBatchedTasks(
+                workLastFullSyncAtTimestamps = pendingContactWorkLastFullSyncAtUpdates,
+            )
+            batchUpdateContactWorkLastFullSyncAtTasks.forEach(taskManager::schedule)
+        }
+
+        // Schedule tasks to batch-update contacts availability status values
+        if (pendingContactAvailabilityStatusUpdates.isNotEmpty()) {
+            val batchUpdateContactAvailabilityStatusTasks = BatchUpdateContactAvailabilityStatusTask.createBatchedTasks(
+                availabilityStatuses = pendingContactAvailabilityStatusUpdates,
+            )
+            batchUpdateContactAvailabilityStatusTasks.forEach(taskManager::schedule)
+        }
 
         val newWorkIdentities = refreshedWorkIdentities - existingWorkIdentities
         newWorkContacts.addAll(
@@ -297,29 +193,19 @@ class WorkSyncWorker(
         }
 
         // update app-logos
-        // start a new thread to lazy download the app icons
-        logger.trace("Updating app logos in new thread")
-        Thread(
-            UpdateAppLogoRoutine(
-                /* fileService = */
-                fileService,
-                /* preferenceService = */
-                preferenceService,
-                /* okHttpClient = */
-                okHttpClient,
-                /* lightUrl = */
-                workData.logoLight,
-                /* darkUrl = */
-                workData.logoDark,
-                /* forceUpdate = */
-                forceUpdate,
-            ),
-            "UpdateAppIcon",
-        ).start()
+        logger.trace("Updating app logos")
+        val updateAppLogoJob = coroutineScope {
+            launch {
+                updateAppLogoUseCase.call(
+                    lightUrl = workData.logoLight,
+                    darkUrl = workData.logoDark,
+                    forceUpdate = forceUpdate,
+                )
+            }
+        }
         preferenceService.setCustomSupportUrl(workData.supportUrl)
         // Save the Mini-MDM Parameters to a local file
-        AppRestrictionService.getInstance()
-            .storeWorkMDMSettings(workData.mdm)
+        appRestrictionService.storeWorkMDMSettings(workData.mdm)
 
         // update work info
         UpdateWorkInfoRoutine(
@@ -340,10 +226,12 @@ class WorkSyncWorker(
         logger.trace("CheckInterval = {}", workData.checkInterval)
         if (workData.checkInterval > 0) {
             // schedule next interval
-            preferenceService.setWorkSyncCheckInterval(workData.checkInterval)
+            preferenceService.setWorkSyncCheckInterval(workData.checkInterval.seconds)
         }
 
         notificationService.cancelWorkSyncProgress()
+
+        updateAppLogoJob.join()
 
         logger.info("Refreshing work data successfully finished")
 
@@ -363,18 +251,150 @@ class WorkSyncWorker(
     }
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
-        val notification = NotificationCompat.Builder(context, NotificationChannels.NOTIFICATION_CHANNEL_WORK_SYNC)
-            .setSound(null)
-            .setSmallIcon(R.drawable.ic_sync_notification)
-            .setContentTitle(context.getString(R.string.wizard1_sync_work))
-            .setProgress(0, 0, true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setAutoCancel(true)
-            .setLocalOnly(true)
-            .setOnlyAlertOnce(true)
-            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
-            .build()
+        val notification = buildNotification(context, NotificationChannels.NOTIFICATION_CHANNEL_WORK_SYNC) {
+            setSound(null)
+            setSmallIcon(R.drawable.ic_sync_notification)
+            setContentTitle(context.getString(R.string.wizard1_sync_work))
+            setProgress(0, 0, true)
+            setPriority(NotificationCompat.PRIORITY_LOW)
+            setAutoCancel(true)
+            setLocalOnly(true)
+            setOnlyAlertOnce(true)
+            setVisibility(NotificationCompat.VISIBILITY_SECRET)
+        }
 
         return ForegroundInfo(NotificationIDs.WORK_SYNC_NOTIFICATION_ID, notification)
+    }
+
+    class Scheduler(
+        private val workManager: WorkManager,
+        private val preferenceService: PreferenceService,
+    ) {
+        fun schedulePeriodicWorkSync() {
+            if (!ConfigUtils.isWorkBuild()) {
+                logger.debug("Do not start work sync worker in non-work build")
+                return
+            }
+
+            val schedulePeriod = preferenceService.getWorkSyncCheckInterval()
+            logger.info("Scheduling periodic work sync. Schedule period: {}", schedulePeriod)
+
+            try {
+                val policy = if (WorkManagerUtil.shouldScheduleNewWorkManagerInstance(
+                        workManager,
+                        WorkerNames.WORKER_PERIODIC_WORK_SYNC,
+                        schedulePeriod.inWholeMilliseconds,
+                    )
+                ) {
+                    ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE
+                } else {
+                    ExistingPeriodicWorkPolicy.KEEP
+                }
+                logger.info(
+                    "{}: {} existing periodic work",
+                    WorkerNames.WORKER_PERIODIC_WORK_SYNC,
+                    policy,
+                )
+                val workRequest = buildPeriodicWorkRequest(schedulePeriod)
+                workManager.enqueueUniquePeriodicWork(
+                    WorkerNames.WORKER_PERIODIC_WORK_SYNC,
+                    policy,
+                    workRequest,
+                )
+            } catch (e: IllegalStateException) {
+                logger.error("Unable to schedule periodic work sync work", e)
+            }
+        }
+
+        suspend fun cancelPeriodicWorkSyncAwait() {
+            logger.info("Cancelling periodic work sync")
+            val result = workManager.cancelUniqueWork(WorkerNames.WORKER_PERIODIC_WORK_SYNC).await()
+            logger.info("Cancelled periodic work sync, result={}", result)
+        }
+
+        private fun buildOneTimeWorkRequest(
+            forceUpdate: Boolean,
+            tag: String?,
+        ): OneTimeWorkRequest =
+            buildOneTimeWorkRequest<WorkSyncWorker> {
+                setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                setInputData {
+                    putBoolean(EXTRA_FORCE_UPDATE, forceUpdate)
+                }
+                if (tag != null) {
+                    addTag(tag)
+                }
+            }
+
+        private fun buildPeriodicWorkRequest(schedulePeriodMs: Duration): PeriodicWorkRequest =
+            buildPeriodicWorkRequest<WorkSyncWorker>(
+                repeatInterval = schedulePeriodMs,
+            ) {
+                setConstraints {
+                    setRequiredNetworkType(NetworkType.CONNECTED)
+                }
+                addTag(schedulePeriodMs.inWholeMilliseconds.toString())
+                setInputData {
+                    putBoolean(EXTRA_FORCE_UPDATE, false)
+                }
+            }
+
+        /**
+         * Start a one time work sync request. Existing work will be [ExistingWorkPolicy.REPLACE]d.
+         *
+         * If it is required to run a callback when the request was successful or failed, use
+         * `performOneTimeWorkSync(Activity, Runnable, Runnable)`.
+         */
+        fun performOneTimeWorkSync(
+            forceUpdate: Boolean,
+            tag: String?,
+        ) {
+            val workRequest = buildOneTimeWorkRequest(forceUpdate, tag)
+            workManager.enqueueUniqueWork(
+                WorkerNames.WORKER_WORK_SYNC,
+                ExistingWorkPolicy.REPLACE,
+                workRequest,
+            )
+        }
+
+        /**
+         * Start a one time work sync request.
+         *
+         * @param onSuccess is run when the work sync request was successful
+         * @param onFail    is run when the work sync request was unsuccessful
+         */
+        fun performOneTimeWorkSync(
+            activity: AppCompatActivity,
+            onSuccess: Runnable,
+            onFail: Runnable,
+        ) {
+            val workerTag = "OneTimeWorkSyncWorker"
+            val workRequest = buildOneTimeWorkRequest(
+                forceUpdate = true,
+                tag = workerTag,
+            )
+            workManager.getWorkInfoByIdLiveData(workRequest.id)
+                .observe(activity) { workInfo: WorkInfo? ->
+                    when (workInfo?.state) {
+                        WorkInfo.State.SUCCEEDED -> onSuccess.run()
+                        WorkInfo.State.FAILED -> onFail.run()
+                        null -> {
+                            // Just log this. It is likely that a non-null work info will be observed
+                            // later and the sync completes successfully.
+                            logger.info("Work info is null")
+                        }
+                        else -> Unit
+                    }
+                }
+            workManager.enqueueUniqueWork(
+                WorkerNames.WORKER_WORK_SYNC,
+                ExistingWorkPolicy.REPLACE,
+                workRequest,
+            )
+        }
+    }
+
+    companion object {
+        private const val EXTRA_FORCE_UPDATE = "FORCE_UPDATE"
     }
 }

@@ -64,7 +64,7 @@ class MasterKeyManagerImpl(
 
     override val passphraseLockState: StateFlow<PassphraseLockState>
         get() = combineStates(
-            storageStateHolder.observeStorageState(),
+            storageStateHolder.watchStorageState(),
             lockStateHolder.passphraseLockedFlow,
         ) { storageState, isLockedWithPassphrase ->
             when (storageState) {

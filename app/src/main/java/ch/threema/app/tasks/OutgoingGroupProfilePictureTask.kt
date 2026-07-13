@@ -45,7 +45,7 @@ class OutgoingGroupProfilePictureTask(
             return
         }
 
-        val groupProfilePicture = fileService.getGroupProfilePictureBytes(group)?.let { bytes -> RawProfilePicture(bytes) }
+        val groupProfilePicture = fileService.getGroupProfilePictureBytes(group.getDatabaseId())?.let { bytes -> RawProfilePicture(bytes) }
         if (groupProfilePicture != null) {
             sendGroupPhoto(groupProfilePicture, handle)
         } else {

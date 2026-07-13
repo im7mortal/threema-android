@@ -9,7 +9,7 @@ import ch.threema.protobuf.common.CspE2eMessageType
 import ch.threema.protobuf.d2d.OutgoingMessage
 import ch.threema.storage.models.MessageState
 import ch.threema.storage.models.group.GroupMessageModel
-import java.util.Date
+import java.time.Instant
 
 private val logger = getThreemaLogger("ReflectedOutgoingGroupDeliveryReceiptTask")
 
@@ -66,7 +66,7 @@ internal class ReflectedOutgoingGroupDeliveryReceiptTask(
                 messageState,
                 // the identity that reacted (this is us => reflected outgoing message)
                 myIdentity,
-                Date(outgoingMessage.createdAt),
+                Instant.ofEpochMilli(outgoingMessage.createdAt),
             )
         }
     }

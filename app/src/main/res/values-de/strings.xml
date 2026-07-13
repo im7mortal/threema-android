@@ -32,6 +32,12 @@
     <string name="title_job_title">Berufsbezeichnung</string>
     <string name="title_department">Abteilung</string>
     <string name="send">Absenden</string>
+    <string name="prefs_linked_devices">Verknüpfte Geräte</string>
+    <string name="prefs_community_and_sharing">Community &amp; Teilen</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <string name="prefs_advanced">Fortgeschrittenes</string>
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
+    <string name="prefs_about">Über</string>
     <string name="prefs_privacy">Privatsphäre</string>
     <string name="prefs_notifications">Töne &amp; Benachrichtigungen</string>
     <string name="prefs_chatdisplay">Chat</string>
@@ -83,8 +89,11 @@
     <string name="prefs_sum_threema_push_off">Mittels System-Push-Dienst auf neue Nachrichten prüfen</string>
     <string name="prefs_logging">Logging</string>
     <string name="prefs_title_message_log_switch">In Datei loggen</string>
-    <string name="prefs_title_sum_message_log_on">Ereignisse und Netzwerkinformationen werden in die Datei debug_log.txt geloggt</string>
-    <string name="prefs_title_sum_message_log_off">Ereignisse werden nicht geloggt</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_on_since">Systemaktivität wird seit %1$s geloggt (%2$s)</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_forced_on">Systemaktivität wird geloggt. Löschen Sie die Datei «%1$s», um das Logging zu deaktivieren. (%2$s)</string>
+    <string name="prefs_title_sum_message_log_off">Systemaktivität wird nicht geloggt</string>
     <string name="prefs_reset_push">Push-Token zurücksetzen</string>
     <string name="prefs_sum_reset_push">Gerät neu bei FCM/HMS registrieren</string>
     <string name="prefs_notification_preview">Vorschau anzeigen</string>
@@ -197,9 +206,10 @@
     <string name="masterkey_passphrase_hint">Passphrase</string>
     <string name="master_key_locked_want_exit">Der Hauptschlüssel ist immer noch gesperrt. Möchten Sie es nochmals versuchen?</string>
     <string name="click_here_to_change_passphrase">Hier klicken, um die Passphrase zu ändern</string>
-    <string name="attach_camera">System-Kamera</string>
+    <string name="attach_camera">Kamera</string>
     <string name="menu_restore">Backup wiederherstellen</string>
-    <string name="restore_id_hint">Fügen Sie hier die Zeichenfolge Ihres ID-Exports ein</string>
+    <string name="restore_id_hint">Fügen Sie hier die Zeichenfolge Ihres ID-Exports ein. Oder scannen Sie den QR-Code Ihres ID-Exports</string>
+    <string name="restore_id_string_label">ID-Export-Zeichenfolge</string>
     <string name="location_placeholder">Ort</string>
     <string name="video_placeholder">Video</string>
     <string name="audio_placeholder">Audio</string>
@@ -362,8 +372,11 @@
     <string name="status_rename_group">Gruppe umbenannt zu «%1$s»</string>
     <string name="status_group_new_photo">Gruppenbild aktualisiert.</string>
     <string name="status_group_new_member">«%1$s» wurde zur Gruppe hinzugefügt.</string>
+    <string name="status_group_you_were_added">Sie wurden der Gruppe hinzugefügt.</string>
     <string name="status_group_member_left">«%1$s» hat die Gruppe verlassen.</string>
+    <string name="status_group_you_left">Sie haben die Gruppe verlassen.</string>
     <string name="status_group_member_kicked">«%1$s» wurde aus der Gruppe entfernt.</string>
+    <string name="status_group_you_were_removed">Sie wurden aus der Gruppe entfernt.</string>
     <string name="can_not_send_no_group_members">Es können keine Nachrichten an eine leere Gruppe gesendet werden.</string>
     <string name="you_are_not_a_member_of_this_group">Sie sind kein Mitglied dieser Gruppe.</string>
     <string name="title_public_nickname">Nickname</string>
@@ -502,6 +515,7 @@
     <string name="ballot_result_final">Endresultat</string>
     <string name="invalid_cannot_send">Sie können keine Nachrichten an einen ungültigen Kontakt senden</string>
     <string name="ballot_answer_count_error">Bitte mindestens zwei Antworten festlegen.</string>
+    <string name="ballot_removed">Umfrage entfernt</string>
     <string name="contact_state_inactive">Inaktiv</string>
     <string name="contact_state_invalid">Ungültig</string>
     <string name="back">Zurück</string>
@@ -702,7 +716,7 @@
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_info_nickname">Der Nickname wird auf einigen Geräten in Benachrichtigungen angezeigt und dient in der Kontaktliste als zusätzliche Identifikationsmöglichkeit für Chatpartner, die Sie nicht in ihrer Kontaktliste haben. Wir empfehlen, nur einen Vornamen oder ein Pseudonym zu verwenden. Wenn Sie keinen Nickname festlegen, wird Ihre ${app_name_short}-ID verwendet.</string>
     <string name="not_linked">nicht verknüpft</string>
-    <string name="linked">verknüpft</string>
+    <string name="linked">Verknüpft</string>
     <string name="pending_sms_verification_notice">Ihre Handynummer ist noch nicht überprüft.</string>
     <string name="no_sms_received">Keine SMS erhalten?</string>
     <string name="really_cancel_verify">Möchten Sie die Überprüfung Ihrer Handynummer wirklich abbrechen? Wenn Sie die Überprüfung abbrechen, wird die Handynummer nicht verknüpft.</string>
@@ -716,7 +730,6 @@
     <string name="new_wizard_anonymous_confirm">Sie haben weder eine Handynummer noch eine E-Mail-Adresse zur Verknüpfung mit Ihrer ${app_name_short}-ID angegeben, weshalb Sie nicht automatisch zu Kontaktlisten hinzugefügt werden. Möchten Sie ${app_name} wirklich komplett anonym nutzen?</string>
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_anonymous_confirm_phone_only">Sie haben keine Handynummer zur Verknüpfung mit Ihrer ${app_name_short}-ID angegeben, weshalb Sie nicht automatisch zu Kontaktlisten hinzugefügt werden. Möchten Sie ${app_name} wirklich komplett anonym nutzen?</string>
-    <string name="new_wizard_scan_id_backup">Oder scannen Sie den QR-Code Ihres ID-Exports</string>
     <string name="error_saving_file">Einige Dateien konnten nicht gesichert werden</string>
     <string name="wait_one_minute">Bitte warten Sie mindestens 10 Minuten auf die SMS, bevor Sie einen Anruf anfordern.</string>
     <string name="backup_id">ID-Export</string>
@@ -799,7 +812,8 @@
     <string name="prefs_language_override">Sprache</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
     <string name="threema_channel_intro">Der ${app_name_short} Channel versorgt Sie mit Neuigkeiten zu ${app_name_short}. Möchten Sie ${app_name_short} Channel abonnieren und zu Ihren Kontakten hinzufügen? Es ist kostenlos und Sie können sich jederzeit abmelden.</string>
-    <string name="quote">Zitieren</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
+    <string name="reply_to_message">Antworten</string>
     <string name="contacts_deleted">Kontakte wurden gelöscht</string>
     <string name="take_photo">Foto aufnehmen</string>
     <string name="select_from_gallery">Aus Galerie auswählen</string>
@@ -1241,7 +1255,10 @@
     <string name="max_selectable_media_exceeded">Es können maximal %d Objekte aufs Mal versendet werden.</string>
     <string name="error_unable_loading_media_thumb">Vorschau kann nicht geladen werden</string>
     <string name="filter_list">Liste filtern</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
+    <string name="search_list">Liste durchsuchen</string>
     <string name="hint_filter_list">Filtertext eingeben</string>
+    <string name="hint_search_list">Suchtext eingeben</string>
     <string name="add">Hinzufügen</string>
     <string name="only_images_or_videos">Nur Bilder und Videos können ausgewählt werden</string>
     <string name="media_gallery_gifs">GIFs</string>
@@ -1570,7 +1587,7 @@
     <string name="problemsolver_to_settings">Zu den Einstellungen</string>
     <!-- Label on button to dismiss/hide a warning -->
     <string name="problemsolver_dismiss">Ausblenden</string>
-    <string name="prefs_advanced_options">Erweiterte Optionen</string>
+    <string name="prefs_advanced_options">Erweiterte Einstellungen</string>
     <string name="push_service">Push-Dienst</string>
     <string name="edit_and_send">Bearbeiten &amp; senden</string>
     <string name="media_gallery_animated_webps">Animierte WebPs</string>
@@ -1601,10 +1618,11 @@
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="error_reporting_summary_always_ask">Jedes Mal fragen, ob ein Fehlerbericht an ${company_name} gesendet werden soll</string>
     <string name="error_detected_dialog_title">Anonymen Bericht senden</string>
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
-    <string name="crash_detected_dialog_text">${app_name_short} scheint kürzlich abgestürzt zu sein. Möchten Sie einen anonymen Fehlerbericht senden?</string>
+    <string name="crash_detected_dialog_text">Ein Problem scheint kürzlich aufgetreten zu sein. Möchten Sie einen anonymen Fehlerbericht senden?</string>
     <string name="crash_detected_dialog_remember_choice">Meine Auswahl speichern</string>
     <string name="crash_detected_dialog_send_button">Senden</string>
+    <string name="error_reporting_learn_more_button">Mehr erfahren</string>
+    <string name="error_reporting_details_button">Technische Details</string>
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
     <string name="prefs_error_reporting_id">Anonyme Geräte-ID</string>
     <!-- The %s is a placeholder for an ID. It must be left as-is. -->
@@ -1633,6 +1651,7 @@
     <!-- Button label on dialog when configuring a backup, shown on dialog that lets the user choose how they want to select the backup folder. This option lets them bypass the file picker and use the default Documents folder instead -->
     <string name="backup_path_selection_documents">«Dokumente»-Ordner verwenden</string>
     <!-- accessibility -->
+    <string name="cd_menu_more">Weitere Optionen</string>
     <string name="cd_edited">Nachricht wurde bearbeitet</string>
     <string name="cd_created_at">Erstellt um %s</string>
     <string name="cd_edited_at">bearbeitet am %s</string>
@@ -1779,7 +1798,6 @@
     <string name="edit_availability_status_modal_optional_message_placeholder">In einem Meeting</string>
     <string name="edit_availability_status_modal_optional_message_description">Wenn «Beschäftigt» oder «Abwesend» ausgewählt ist, können Sie einen eigenen Status definieren.</string>
     <string name="edit_availability_status_modal_optional_message_too_long">Text zu lang, bitte kürzen Sie ihn.</string>
-    <string name="edit_availability_status_did_change">Verfügbarkeitsstatus geändert</string>
     <string name="tooltip_title_availability_status">Verfügbarkeitsstatus</string>
     <string name="tooltip_text_availability_status_in_chat">Sehen Sie vor dem Senden einer Nachricht, ob jemand beschäftigt oder abwesend ist. Ihren eigenen Status können Sie im Profil festlegen.</string>
     <string name="tooltip_text_availability_status_in_profile">Legen Sie Ihren Status fest, damit andere sehen, wenn Sie beschäftigt oder abwesend sind.</string>
@@ -1839,6 +1857,8 @@
         <item quantity="one">%d Nachricht gelöscht</item>
         <item quantity="other">%d Nachrichten gelöscht</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
+    <string name="notifications_for_one_week">Für 1 Woche</string>
     <plurals name="notifications_for_x_hours">
         <item quantity="one">Für %d Stunde</item>
         <item quantity="other">Für %d Stunden</item>

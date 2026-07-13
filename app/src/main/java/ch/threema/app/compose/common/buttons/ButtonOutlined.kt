@@ -8,7 +8,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -16,11 +15,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.PreviewLightDark
+import androidx.compose.ui.tooling.preview.PreviewWrapper
 import androidx.compose.ui.unit.sp
 import ch.threema.app.R
-import ch.threema.app.compose.common.SpacerHorizontal
-import ch.threema.app.compose.common.ThemedText
-import ch.threema.app.compose.theme.ThreemaThemePreview
+import ch.threema.app.compose.common.spacer.SpacerHorizontal
+import ch.threema.app.compose.common.text.ThemedText
+import ch.threema.app.compose.theme.ThreemaPreviewWrapper
 import ch.threema.app.compose.theme.color.AlphaValues
 import ch.threema.app.compose.theme.dimens.GridUnit
 import ch.threema.app.utils.compose.stringResourceOrNull
@@ -51,7 +52,7 @@ fun ButtonOutlined(
                         24.sp.toDp()
                     },
                 ),
-                painter = painterResource(leadingIcon.icon),
+                painter = painterResource(leadingIcon.iconRes),
                 contentDescription = stringResourceOrNull(leadingIcon.contentDescription),
                 tint = LocalContentColor.current,
             )
@@ -71,96 +72,53 @@ fun ButtonOutlined(
 
 @Preview
 @Composable
+@PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 fun ButtonOutlined_Preview() {
-    ThreemaThemePreview {
-        ButtonOutlined(
-            modifier = Modifier.padding(GridUnit.x1),
-            onClick = {},
-            text = "Invite friends",
-        )
-    }
+    ButtonOutlined(
+        modifier = Modifier.padding(GridUnit.x1),
+        onClick = {},
+        text = "Invite friends",
+    )
 }
 
-@Preview
+@PreviewLightDark
 @Composable
+@PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 fun ButtonOutlined_Preview_Leading_Icon() {
-    ThreemaThemePreview {
-        ButtonOutlined(
-            modifier = Modifier.padding(GridUnit.x1),
-            onClick = {},
-            text = "Invite friends",
-            leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_person_add_outline,
-                contentDescription = null,
-            ),
-        )
-    }
+    ButtonOutlined(
+        modifier = Modifier.padding(GridUnit.x1),
+        onClick = {},
+        text = "Invite friends",
+        leadingIcon = ButtonIconInfo(
+            iconRes = R.drawable.ic_person_add_outline,
+        ),
+    )
 }
 
-@Preview
+@PreviewLightDark
 @Composable
-fun ButtonOutlined_Preview_Leading_Icon_Night() {
-    ThreemaThemePreview(isDarkTheme = true) {
-        Surface {
-            ButtonOutlined(
-                modifier = Modifier.padding(GridUnit.x1),
-                onClick = {},
-                text = "Invite friends",
-                leadingIcon = ButtonIconInfo(
-                    icon = R.drawable.ic_person_add_outline,
-                    contentDescription = null,
-                ),
-            )
-        }
-    }
-}
-
-@Preview
-@Composable
+@PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 fun ButtonOutlined_Preview_Disabled() {
-    ThreemaThemePreview {
-        ButtonOutlined(
-            modifier = Modifier.padding(GridUnit.x1),
-            onClick = {},
-            text = "Invite friends",
-            leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_person_add_outline,
-                contentDescription = null,
-            ),
-            enabled = false,
-        )
-    }
+    ButtonOutlined(
+        modifier = Modifier.padding(GridUnit.x1),
+        onClick = {},
+        text = "Invite friends",
+        leadingIcon = ButtonIconInfo(
+            iconRes = R.drawable.ic_person_add_outline,
+        ),
+        enabled = false,
+    )
 }
 
-@Preview
+@PreviewLightDark
 @Composable
-fun ButtonOutlined_Preview_Disabled_Night() {
-    ThreemaThemePreview(isDarkTheme = true) {
-        Surface {
-            ButtonOutlined(
-                modifier = Modifier.padding(GridUnit.x1),
-                onClick = {},
-                text = "Invite friends",
-                leadingIcon = ButtonIconInfo(
-                    icon = R.drawable.ic_person_add_outline,
-                    contentDescription = null,
-                ),
-                enabled = false,
-            )
-        }
-    }
-}
-
-@Preview
-@Composable
+@PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 fun ButtonOutlined_Preview_FullWidth() {
-    ThreemaThemePreview {
-        ButtonOutlined(
-            modifier = Modifier
-                .padding(GridUnit.x1)
-                .fillMaxWidth(),
-            onClick = {},
-            text = "Invite friends",
-        )
-    }
+    ButtonOutlined(
+        modifier = Modifier
+            .padding(GridUnit.x1)
+            .fillMaxWidth(),
+        onClick = {},
+        text = "Invite friends",
+    )
 }

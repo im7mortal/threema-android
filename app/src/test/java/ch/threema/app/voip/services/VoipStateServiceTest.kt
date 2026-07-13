@@ -3,7 +3,10 @@ package ch.threema.app.voip.services
 import android.content.Context
 import android.media.AudioManager
 import android.os.SystemClock
-import ch.threema.app.ThreemaApplication
+import ch.threema.app.eventbus.EventBus
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.VoipCallEvent
+import ch.threema.app.managers.ServiceManager
 import ch.threema.app.messagereceiver.ContactMessageReceiver
 import ch.threema.app.notifications.CallNotificationManager
 import ch.threema.app.preference.service.PreferenceService
@@ -12,7 +15,6 @@ import ch.threema.app.services.LifetimeService
 import ch.threema.app.services.NotificationPreferenceService
 import ch.threema.app.test.koinTestModuleRule
 import ch.threema.app.utils.DoNotDisturbUtil
-import ch.threema.app.voip.listeners.VoipCallEventListener
 import ch.threema.app.voip.listeners.VoipMessageListener
 import ch.threema.app.voip.managers.VoipListenerManager
 import ch.threema.app.voip.util.VoipUtil
@@ -38,7 +40,6 @@ import io.mockk.spyk
 import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import io.mockk.verify
-import java.util.Date
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.function.BiFunction
 import kotlin.test.AfterTest
@@ -69,6 +70,7 @@ class VoipStateServiceTest {
     private lateinit var contactMessageReceiver: ContactMessageReceiver
     private lateinit var mockNotificationPreferenceService: NotificationPreferenceService
     private lateinit var mockLifetimeService: LifetimeService
+    private lateinit var voipCallEventBusMock: EventBus<VoipCallEvent>
 
     // Service
     private lateinit var service: VoipStateService
@@ -91,6 +93,7 @@ class VoipStateServiceTest {
         mockPreferenceService = mockk(relaxed = true)
         mockNotificationPreferenceService = mockk()
         mockLifetimeService = mockk(relaxed = true)
+        voipCallEventBusMock = mockk(relaxed = true)
 
         // Mock contact message receiver
         contactMessageReceiver = mockk(relaxed = true) {
@@ -114,29 +117,28 @@ class VoipStateServiceTest {
         mockkStatic(VoipUtil::class)
         every { VoipUtil.sendVoipBroadcast(any(), any()) } just runs
 
-        // Clear message listeners (used by tests)
-        VoipListenerManager.messageListener.clear()
-        VoipListenerManager.callEventListener.clear()
-
         // Instantiate service
         service = VoipStateService(
             mockContactService,
             mockContactModelRepository,
             mockCallNotificationManager,
             mockLifetimeService,
+            mockk<GlobalEventBuses> {
+                every { voipCalls } returns voipCallEventBusMock
+            },
             mockContext,
         )
 
         // TODO(ANDR-4219): We have to mock ServiceManager, as it is sneakily referenced somewhere deep down the stack. This needs to be cleaned up.
-        mockkObject(ThreemaApplication)
-        every { ThreemaApplication.getServiceManager() } returns null
+        mockkObject(ServiceManager)
+        every { ServiceManager.get() } returns null
     }
 
     @AfterTest
     fun tearDown() {
         unmockkStatic(SystemClock::class)
         unmockkStatic(VoipUtil::class)
-        unmockkObject(ThreemaApplication)
+        unmockkObject(ServiceManager)
     }
 
     /**
@@ -371,17 +373,16 @@ class VoipStateServiceTest {
     fun validateCallIdAnswer() {
         // Detect message handling
         val answerHandled = AtomicBoolean(false)
-        VoipListenerManager.messageListener.add(
-            object : VoipMessageListener {
-                override fun onAnswer(identity: IdentityString, data: VoipCallAnswerData) {
-                    answerHandled.set(true)
-                }
+        val listener = object : VoipMessageListener {
+            override fun onAnswer(identity: IdentityString, data: VoipCallAnswerData) {
+                answerHandled.set(true)
+            }
 
-                override fun handle(identity: IdentityString): Boolean {
-                    return true
-                }
-            },
-        )
+            override fun handle(identity: IdentityString): Boolean {
+                return true
+            }
+        }
+        VoipListenerManager.messageListener.add(listener)
 
         // Create answer
         val answer = VoipCallAnswerMessage()
@@ -426,6 +427,8 @@ class VoipStateServiceTest {
 
         // Process answer with missing call ID (accepted for backwards compatibility)
         testProcessAnswer.apply(0, true)
+
+        VoipListenerManager.messageListener.remove(listener)
     }
 
     /**
@@ -478,6 +481,7 @@ class VoipStateServiceTest {
     fun handleMissedCall() {
         // Create hangup
         val msg = VoipCallHangupMessage()
+        msg.timestamp = mockk()
         msg.fromIdentity = TestData.Identities.OTHER_1.value
         msg.toIdentity = TestData.Identities.OTHER_2.value
 
@@ -485,42 +489,6 @@ class VoipStateServiceTest {
         val pastCallId: Long = 1
         // The call id that belongs to the missed call
         val missedCallId: Long = 2
-
-        val listenerSpy: VoipCallEventListener = spyk(
-            object : VoipCallEventListener {
-                override fun onRinging(peerIdentity: IdentityString) {
-                    // This must not be executed
-                    fail()
-                }
-
-                override fun onStarted(peerIdentity: IdentityString, outgoing: Boolean) {
-                    // This must not be executed
-                    fail()
-                }
-
-                override fun onFinished(callId: Long, peerIdentity: IdentityString, outgoing: Boolean, duration: Int) {
-                    // This must not be executed
-                    fail()
-                }
-
-                override fun onRejected(callId: Long, peerIdentity: IdentityString, outgoing: Boolean, reason: Byte) {
-                    // This must not be executed
-                    fail()
-                }
-
-                override fun onMissed(callId: Long, peerIdentity: IdentityString, accepted: Boolean, date: Date?) {
-                    // This must be called with the missed call id
-                    assertEquals(callId, missedCallId)
-                }
-
-                override fun onAborted(callId: Long, peerIdentity: IdentityString) {
-                    // This must not be executed
-                    fail()
-                }
-            },
-        )
-
-        VoipListenerManager.callEventListener.add(listenerSpy)
 
         // Initialize a call and set state to idle again
         service.setStateInitializing(pastCallId, peerIdentity)
@@ -536,7 +504,17 @@ class VoipStateServiceTest {
         service.handleRemoteCallHangup(msg)
 
         verify(exactly = 1) {
-            listenerSpy.onMissed(missedCallId, any(), false, any())
+            voipCallEventBusMock.emit(
+                VoipCallEvent.Missed(
+                    callId = missedCallId,
+                    peerIdentity = TestData.Identities.OTHER_1,
+                    accepted = false,
+                    createdAt = msg.timestamp,
+                ),
+            )
+        }
+        verify(exactly = 1) {
+            voipCallEventBusMock.emit(any())
         }
     }
 
@@ -547,17 +525,16 @@ class VoipStateServiceTest {
     fun ignoreDuplicateAnswer() {
         // Detect message handling
         val answerHandled = AtomicBoolean(false)
-        VoipListenerManager.messageListener.add(
-            object : VoipMessageListener {
-                override fun onAnswer(identity: IdentityString, data: VoipCallAnswerData) {
-                    answerHandled.set(true)
-                }
+        val listener = object : VoipMessageListener {
+            override fun onAnswer(identity: IdentityString, data: VoipCallAnswerData) {
+                answerHandled.set(true)
+            }
 
-                override fun handle(identity: IdentityString): Boolean {
-                    return true
-                }
-            },
-        )
+            override fun handle(identity: IdentityString): Boolean {
+                return true
+            }
+        }
+        VoipListenerManager.messageListener.add(listener)
 
         // Call ID is always 1
         val callId = 1
@@ -585,5 +562,7 @@ class VoipStateServiceTest {
         answerHandled.set(false)
         service.handleCallAnswer(answer)
         assertFalse(answerHandled.get(), "Answer should not have been handled")
+
+        VoipListenerManager.messageListener.remove(listener)
     }
 }

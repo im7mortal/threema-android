@@ -15,18 +15,17 @@ import com.google.firebase.messaging.RemoteMessage;
 
 import org.slf4j.Logger;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import ch.threema.app.utils.PushUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.base.ThreemaException;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.domain.protocol.csp.ProtocolDefines;
+import static ch.threema.base.TestUtilKt.isInDeviceTest;
 
-import static ch.threema.common.TimeExtensionsKt.now;
+import ch.threema.domain.protocol.csp.ProtocolDefines;
 
 public class PushService extends FirebaseMessagingService {
     private static final Logger logger = getThreemaLogger("PushService");
@@ -75,8 +74,8 @@ public class PushService extends FirebaseMessagingService {
 
         // Log message sent time
         try {
-            Date sentDate = new Date(remoteMessage.getSentTime());
-            Date receivedDate = now();
+            Instant sentDate = Instant.ofEpochMilli(remoteMessage.getSentTime());
+            Instant receivedDate = Instant.now();
 
             logger.info("*** Message sent     : {}", sentDate);
             logger.info("*** Message received : {}", receivedDate);
@@ -105,7 +104,7 @@ public class PushService extends FirebaseMessagingService {
     public static boolean playServicesInstalled(Context context) {
         GoogleApiAvailability apiAvailability = com.google.android.gms.common.GoogleApiAvailability.getInstance();
         int resultCode = apiAvailability.isGooglePlayServicesAvailable(context);
-        return TestUtil.isInDeviceTest() || (resultCode == ConnectionResult.SUCCESS);
+        return isInDeviceTest() || (resultCode == ConnectionResult.SUCCESS);
     }
 
     /**

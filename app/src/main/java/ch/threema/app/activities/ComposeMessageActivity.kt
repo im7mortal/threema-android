@@ -12,30 +12,37 @@ import androidx.activity.result.launch
 import ch.threema.android.buildActivityIntent
 import ch.threema.android.buildBundle
 import ch.threema.android.disableExitTransition
+import ch.threema.android.getLongOrNull
+import ch.threema.android.getParcelableExtraCompat
+import ch.threema.android.getStringOrNull
 import ch.threema.android.runTransaction
 import ch.threema.app.AppConstants
+import ch.threema.app.BuildConfig
 import ch.threema.app.R
 import ch.threema.app.applock.CheckAppLockContract
+import ch.threema.app.conversation.ConversationActivity
+import ch.threema.app.conversations.ConversationsFragment
 import ch.threema.app.dialogs.GenericAlertDialog
 import ch.threema.app.dialogs.GenericAlertDialog.DialogClickListener
 import ch.threema.app.fragments.composemessage.ComposeMessageFragment
-import ch.threema.app.fragments.conversations.ConversationsFragment
 import ch.threema.app.preference.SettingsActivity
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.startup.AppStartupAware
 import ch.threema.app.startup.waitUntilReady
 import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.ConversationUtil.getContactConversationUid
-import ch.threema.app.utils.ConversationUtil.getDistributionListConversationUid
-import ch.threema.app.utils.ConversationUtil.getGroupConversationUid
-import ch.threema.app.utils.IntentDataUtil
+import ch.threema.app.utils.ShortcutUtil
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.domain.models.ContactReceiverIdentifier
-import ch.threema.domain.models.DistributionListReceiverIdentifier
-import ch.threema.domain.models.GroupReceiverIdentifier
-import ch.threema.domain.models.ReceiverIdentifier
+import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationId
+import ch.threema.data.datatypes.DistributionListConversationId
+import ch.threema.data.datatypes.GroupConversationId
+import ch.threema.domain.types.GroupDatabaseId
+import ch.threema.domain.types.IdentityString
+import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.DistributionListMessageModel
+import ch.threema.storage.models.group.GroupMessageModel
 import org.koin.android.ext.android.inject
 
 private val logger = getThreemaLogger("ComposeMessageActivity")
@@ -103,22 +110,26 @@ class ComposeMessageActivity : ThreemaToolbarActivity(), DialogClickListener, Ap
 
         findExistingFragments()
 
-        if (findViewById<View>(R.id.messages) != null && conversationsFragment == null) {
-            // add messages fragment in tablet layout
-            conversationsFragment = ConversationsFragment()
-            getConversationUidFromIntent(intent)?.let { conversationUID ->
-                conversationsFragment!!.setArguments(
-                    buildBundle {
-                        putString(ConversationsFragment.OPENED_CONVERSATION_UID, conversationUID)
-                    },
-                )
+        val conversationId: ConversationId = intent?.extractConversationId()
+            ?: run {
+                logger.warn("Can't open conversation, didn't receive conversation id in intent")
+                return false
             }
+
+        if (findViewById<View>(R.id.messages) != null && conversationsFragment == null) {
+            // add conversations fragment in tablet layout
+            conversationsFragment = ConversationsFragment()
+            conversationsFragment!!.setArguments(
+                buildBundle {
+                    putParcelable(AppConstants.INTENT_DATA_CONVERSATION_ID, conversationId)
+                },
+            )
             supportFragmentManager.runTransaction {
                 add(R.id.messages, conversationsFragment!!, MESSAGES_FRAGMENT_TAG)
             }
         }
 
-        val isHidden = checkHiddenChatLock(intent, checkLockOnCreateLauncher)
+        val isHidden = checkHiddenConversationLock(conversationId, checkLockOnCreateLauncher)
         if (composeMessageFragment == null) {
             composeMessageFragment = ComposeMessageFragment()
             if (isHidden) {
@@ -137,22 +148,6 @@ class ComposeMessageActivity : ThreemaToolbarActivity(), DialogClickListener, Ap
             }
         }
         return true
-    }
-
-    private fun getConversationUidFromIntent(intent: Intent?): String? {
-        val identity = IntentDataUtil.getIdentity(intent)
-        if (identity != null) {
-            return getContactConversationUid(identity)
-        }
-        val groupDbId = IntentDataUtil.getGroupId(intent)
-        if (groupDbId != -1L) {
-            return getGroupConversationUid(groupDbId)
-        }
-        val distributionListId = IntentDataUtil.getDistributionListId(intent)
-        if (distributionListId != -1L) {
-            return getDistributionListConversationUid(distributionListId)
-        }
-        return null
     }
 
     override fun getLayoutResource() = if (ConfigUtils.isTabletLayout(this)) {
@@ -175,8 +170,13 @@ class ComposeMessageActivity : ThreemaToolbarActivity(), DialogClickListener, Ap
 
         findExistingFragments()
 
+        val conversationId: ConversationId = intent.extractConversationId()
+            ?: run {
+                logger.warn("Can't open conversation, didn't receive conversation id in new intent")
+                return
+            }
         composeMessageFragment?.let { composeMessageFragment ->
-            if (!checkHiddenChatLock(intent, checkLockOnNewIntentLauncher)) {
+            if (!checkHiddenConversationLock(conversationId, checkLockOnNewIntentLauncher)) {
                 supportFragmentManager.runTransaction {
                     show(composeMessageFragment)
                 }
@@ -221,20 +221,28 @@ class ComposeMessageActivity : ThreemaToolbarActivity(), DialogClickListener, Ap
         }
     }
 
-    private fun checkHiddenChatLock(intent: Intent?, launcher: ActivityResultLauncher<Unit>): Boolean {
-        val messageReceiver = IntentDataUtil.getMessageReceiverFromIntent(applicationContext, intent)
-
-        if (messageReceiver == null) {
-            logger.info("Intent does not have any extras. Check \"Don't keep activities\" option in developer settings.")
-            return false
-        }
-
-        if (conversationCategoryService.isPrivateChat(messageReceiver.uniqueIdString)) {
-            if (ConfigUtils.hasProtection(preferenceService)) {
+    private fun checkHiddenConversationLock(conversationId: ConversationId, launcher: ActivityResultLauncher<Unit>): Boolean {
+        if (conversationCategoryService.isMarkedAsPrivate(conversationId)) {
+            if (preferenceService.hasLockMechanism()) {
                 launcher.launch()
             } else {
-                GenericAlertDialog.newInstance(R.string.hide_chat, R.string.hide_chat_enter_message_explain, R.string.set_lock, R.string.cancel)
-                    .show(supportFragmentManager, DIALOG_TAG_HIDDEN_NOTICE)
+                GenericAlertDialog
+                    .newInstance(
+                        /* title = */
+                        R.string.hide_chat,
+                        /* message = */
+                        R.string.hide_chat_enter_message_explain,
+                        /* positive = */
+                        R.string.set_lock,
+                        /* negative = */
+                        R.string.cancel,
+                    )
+                    .show(
+                        /* manager = */
+                        supportFragmentManager,
+                        /* tag = */
+                        DIALOG_TAG_HIDDEN_NOTICE,
+                    )
             }
             return true
         }
@@ -271,18 +279,96 @@ class ComposeMessageActivity : ThreemaToolbarActivity(), DialogClickListener, Ap
 
         private const val DIALOG_TAG_HIDDEN_NOTICE = "hidden"
 
-        fun createIntent(context: Context, receiverIdentifier: ReceiverIdentifier) = buildActivityIntent<ComposeMessageActivity>(context) {
-            when (receiverIdentifier) {
-                is GroupReceiverIdentifier -> {
-                    putExtra(AppConstants.INTENT_DATA_GROUP_DATABASE_ID, receiverIdentifier.groupDatabaseId)
-                }
-                is DistributionListReceiverIdentifier -> {
-                    putExtra(AppConstants.INTENT_DATA_DISTRIBUTION_LIST_ID, receiverIdentifier.id)
-                }
-                is ContactReceiverIdentifier -> {
-                    putExtra(AppConstants.INTENT_DATA_CONTACT, receiverIdentifier.identity)
+        @JvmStatic
+        @JvmOverloads
+        @Suppress("KotlinConstantConditions")
+        fun createIntent(
+            context: Context,
+            conversationId: ConversationId,
+            initialText: String? = null,
+            hasInitialFocus: Boolean? = null,
+        ) =
+            if (BuildConfig.NEW_CONVERSATION_SCREEN_ENABLED) {
+                ConversationActivity.createIntent(
+                    context = context,
+                    conversationId = conversationId,
+                    initialText = initialText,
+                    hasInitialFocus = hasInitialFocus,
+                )
+            } else {
+                buildActivityIntent<ComposeMessageActivity>(context) {
+                    putExtra(AppConstants.INTENT_DATA_CONVERSATION_ID, conversationId)
+                    if (initialText != null) {
+                        putExtra(AppConstants.INTENT_DATA_TEXT, initialText)
+                    }
+                    if (hasInitialFocus != null) {
+                        putExtra(AppConstants.INTENT_DATA_EDITFOCUS, hasInitialFocus)
+                    }
                 }
             }
-        }
+
+        @JvmStatic
+        @JvmOverloads
+        @Suppress("KotlinConstantConditions")
+        fun createIntentJumpToMessage(
+            context: Context,
+            message: AbstractMessageModel,
+            overrideBackToHomeBehavior: Boolean? = null,
+        ) =
+            if (BuildConfig.NEW_CONVERSATION_SCREEN_ENABLED) {
+                ConversationActivity.createIntentJumpToMessage(
+                    context = context,
+                    message = message,
+                    overrideBackToHomeBehavior = overrideBackToHomeBehavior,
+                )
+            } else {
+                buildActivityIntent<ComposeMessageActivity>(context) {
+                    val conversationId: ConversationId =
+                        when (message) {
+                            is GroupMessageModel -> {
+                                GroupConversationId(
+                                    groupDatabaseId = message.groupId.toLong(),
+                                )
+                            }
+                            is DistributionListMessageModel -> {
+                                DistributionListConversationId(
+                                    distributionListId = message.distributionListId,
+                                )
+                            }
+                            else -> {
+                                val identity = message.identity
+                                requireNotNull(identity) { "Message is missing identity" }
+                                ContactConversationId(identity)
+                            }
+                        }
+                    putExtra(AppConstants.INTENT_DATA_CONVERSATION_ID, conversationId)
+                    putExtra(ComposeMessageFragment.EXTRA_API_MESSAGE_ID, message.apiMessageId)
+                    putExtra(ComposeMessageFragment.EXTRA_SEARCH_QUERY, " ")
+                    if (overrideBackToHomeBehavior != null) {
+                        putExtra(ComposeMessageFragment.EXTRA_OVERRIDE_BACK_TO_HOME_BEHAVIOR, overrideBackToHomeBehavior)
+                    }
+                }
+            }
+
+        @JvmStatic
+        fun Intent.extractConversationId(): ConversationId? =
+            getParcelableExtraCompat<ConversationId>(AppConstants.INTENT_DATA_CONVERSATION_ID)
+                ?: run {
+                    // Persisted intents from shortcuts do not support parcelable extras, so conversation-id can not be used directly
+                    val calledFromShortcut = getBooleanExtra(ShortcutUtil.EXTRA_CALLED_FROM_SHORTCUT, false)
+                    if (!calledFromShortcut) {
+                        return null
+                    }
+                    getStringOrNull(AppConstants.INTENT_DATA_CONTACT)?.let { identity: IdentityString ->
+                        return ContactConversationId(identity)
+                    }
+                    getLongOrNull(AppConstants.INTENT_DATA_GROUP_DATABASE_ID)?.let { groupDatabaseId: GroupDatabaseId ->
+                        return GroupConversationId(groupDatabaseId)
+                    }
+                    getLongOrNull(AppConstants.INTENT_DATA_DISTRIBUTION_LIST_ID)?.let { distributionListId ->
+                        return DistributionListConversationId(distributionListId)
+                    }
+                    null
+                }
     }
 }

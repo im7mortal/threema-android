@@ -1,18 +1,20 @@
 package ch.threema.data.models
 
-import ch.threema.app.managers.CoreServiceManager
+import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
+import ch.threema.domain.taskmanager.TaskManager
 import kotlinx.coroutines.flow.MutableStateFlow
 
 class EmojiReactionsModel(
     data: List<EmojiReactionData>,
-    coreServiceManager: CoreServiceManager,
+    multiDeviceManager: MultiDeviceManager,
+    taskManager: TaskManager,
 ) : BaseModel<List<EmojiReactionData>, Task<*, TaskCodec>>(
     modelName = "EmojiReactionModel",
     mutableData = MutableStateFlow(data),
-    multiDeviceManager = coreServiceManager.multiDeviceManager,
-    taskManager = coreServiceManager.taskManager,
+    multiDeviceManager = multiDeviceManager,
+    taskManager = taskManager,
 ) {
     fun addEntry(entry: EmojiReactionData) {
         if (mutableData.value?.none { it.emojiSequence == entry.emojiSequence && it.senderIdentity == entry.senderIdentity } == true) {

@@ -16,13 +16,14 @@ import ch.threema.app.R
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.MessageService
-import ch.threema.app.stores.IdentityProvider
 import ch.threema.app.ui.InsetSides
 import ch.threema.app.ui.SpacingValues
 import ch.threema.app.ui.applyDeviceInsetsAsPadding
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.data.IdentityProvider
 import ch.threema.data.models.EmojiReactionData
+import ch.threema.logging.logAndReportError
 import ch.threema.storage.models.AbstractMessageModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -103,12 +104,16 @@ class EmojiReactionsOverviewFragment(
 
     override fun onRemoveClick(data: EmojiReactionData, position: Int) {
         CoroutineScope(Dispatchers.Default).launch {
-            messageService.sendEmojiReaction(
-                messageModel,
-                data.emojiSequence,
-                messageService.getMessageReceiver(messageModel),
-                false,
-            )
+            runCatching {
+                messageService.sendEmojiReaction(
+                    messageModel,
+                    data.emojiSequence,
+                    messageService.getMessageReceiver(messageModel),
+                    false,
+                )
+            }.onFailure { throwable ->
+                logger.logAndReportError("Could not send emoji reaction", throwable)
+            }
         }
     }
 

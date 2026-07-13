@@ -7,6 +7,7 @@ import androidx.annotation.Nullable;
 import ch.threema.app.messagereceiver.DistributionListMessageReceiver;
 import ch.threema.base.SessionScoped;
 import ch.threema.base.ThreemaException;
+import ch.threema.data.datatypes.ConversationVisibility;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.DistributionListMemberModel;
 import ch.threema.storage.models.DistributionListModel;
@@ -49,6 +50,7 @@ public interface DistributionListService extends AvatarService<Long> {
 
     List<ContactModel> getMembers(DistributionListModel distributionListModel);
 
+    @NonNull
     String getMembersString(DistributionListModel distributionListModel);
 
     @Nullable
@@ -57,14 +59,46 @@ public interface DistributionListService extends AvatarService<Long> {
     @NonNull
     DistributionListMessageReceiver createReceiver(@NonNull DistributionListModel distributionListModel);
 
-    String getUniqueIdString(DistributionListModel distributionListModel);
+    /**
+     * Archive the distribution list model. Note that this change will only be applied if it is
+     * currently not archived. This sets the conversation visibility to 'archived' - even if it is
+     * currently 'pinned'.
+     */
+    void archive(@NonNull DistributionListModel distributionListModel);
 
-    void setIsArchived(DistributionListModel distributionListModel, boolean archived);
+    /**
+     * Unarchive the distribution list model. Note that this change will only be applied if it is
+     * currently archived. A pinned distribution list will therefore remain pinned after calling
+     * this method.
+     */
+    void unarchive(@NonNull DistributionListModel distributionListModel);
+
+    /**
+     * Pin the distribution list. Note that this change will only be applied if it is currently not
+     * pinned. An archived distribution list will therefore also be pinned and unarchived after
+     * calling this method.
+     */
+    void pin(@NonNull DistributionListModel distributionListModel);
+
+    /**
+     * Unpin the distribution list. Note that this change will only be applied if it is currently
+     * pinned. An archived distribution list model will therefore remain archived after calling this
+     * method.
+     */
+    void unpin(@NonNull DistributionListModel distributionListModel);
+
+    /**
+     * Set the conversation visibility of the distribution list model.
+     */
+    void setConversationVisibility(
+        @NonNull DistributionListModel distributionListModel,
+        @NonNull ConversationVisibility conversationVisibility
+    );
 
     /**
      * Set the `lastUpdate` field of the specified distribution list to the current date.
      * <p>
-     * Save the model and notify listeners.
+     * Save the model and notify the event bus.
      */
     void bumpLastUpdate(@NonNull DistributionListModel distributionListModel);
 }

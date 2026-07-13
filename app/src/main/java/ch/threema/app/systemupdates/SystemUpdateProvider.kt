@@ -55,7 +55,8 @@ class SystemUpdateProvider {
             ::SystemUpdateToVersion124,
             ::SystemUpdateToVersion125,
             ::SystemUpdateToVersion126,
+            ::SystemUpdateToVersion127,
         )
 
-    val version = 126
+    val version = 127
 }

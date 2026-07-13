@@ -4,6 +4,8 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.TypedArray;
 
+import androidx.annotation.ColorInt;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import androidx.fragment.app.DialogFragment;
@@ -13,7 +15,7 @@ import org.slf4j.Logger;
 
 import ch.threema.app.R;
 import ch.threema.app.dialogs.CancelableHorizontalProgressDialog;
-import ch.threema.app.dialogs.GenericProgressDialog;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 public abstract class DialogUtil {
@@ -66,35 +68,25 @@ public abstract class DialogUtil {
         }
     }
 
-    @UiThread
-    public static void updateMessage(FragmentManager fragmentManager, String tag, String message) {
-        if (fragmentManager != null) {
-            DialogFragment dialogFragment = (DialogFragment) fragmentManager.findFragmentByTag(tag);
-            if (dialogFragment instanceof GenericProgressDialog) {
-                GenericProgressDialog progressDialog = (GenericProgressDialog) dialogFragment;
-                progressDialog.setMessage(message);
-            }
-        }
-    }
-
-    public static ColorStateList getButtonColorStateList(Context context) {
+    @NonNull
+    public static ColorStateList getButtonColorStateList(@NonNull Context context) {
         // Fix for appcompat bug. Set button text color from theme
-        TypedArray a = context.getTheme().obtainStyledAttributes(new int[]{R.attr.colorPrimary});
-        int accentColor = a.getColor(0, 0);
-        a.recycle();
-
-        // you can't have attrs in xml colorstatelists :-(
-        ColorStateList colorStateList = new ColorStateList(
-            new int[][]{
-                new int[]{-android.R.attr.state_enabled},
-                new int[]{}
-            },
-            new int[]{
-                context.getResources().getColor(R.color.material_grey_400),
-                accentColor,
-            }
+        final @NonNull TypedArray typedArray = context.getTheme().obtainStyledAttributes(
+            new int[]{R.attr.colorPrimary}
         );
-
-        return colorStateList;
+        try (typedArray) {
+            final @ColorInt int accentColor = typedArray.getColor(0, 0);
+            // You can't have attrs in XML color-state-lists :-(
+            return new ColorStateList(
+                new int[][]{
+                    new int[]{-android.R.attr.state_enabled},
+                    new int[]{}
+                },
+                new int[]{
+                    context.getResources().getColor(R.color.material_grey_400, context.getTheme()),
+                    accentColor,
+                }
+            );
+        }
     }
 }

@@ -1,8 +1,6 @@
 package ch.threema.app.processors.incomingcspmessage.workdelta
 
-import ch.threema.app.AppConstants
 import ch.threema.app.BuildConfig
-import ch.threema.app.ThreemaApplication
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.processors.incomingcspmessage.IncomingCspMessageSubTask
 import ch.threema.app.processors.incomingcspmessage.ReceiveStepsResult
@@ -11,6 +9,7 @@ import ch.threema.app.workers.WorkSyncWorker
 import ch.threema.base.crypto.NonceScope
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.PredefinedContact.Companion.SPECIAL_CONTACT_3MAW0RK_IDENTITY
 import ch.threema.data.models.ContactModel
 import ch.threema.domain.protocol.csp.messages.workdelta.WorkSyncDeltaMessage
 import ch.threema.domain.protocol.multidevice.MultiDeviceProperties
@@ -39,6 +38,8 @@ class IncomingWorkSyncDeltaMessageTask(
 
     private val workSyncDeltaChangeDeterminationSteps: WorkSyncDeltaChangeDeterminationSteps by inject()
 
+    private val workSyncScheduler: WorkSyncWorker.Scheduler by inject()
+
     override suspend fun executeMessageStepsFromRemote(handle: ActiveTaskCodec) = processWorkSyncDeltaMessage(handle)
 
     /**
@@ -61,7 +62,7 @@ class IncomingWorkSyncDeltaMessageTask(
         }
 
         // 2. If the sender is not *3MAW0RK, discard the message and abort these steps.
-        if (message.fromIdentity != AppConstants.THREEMA_WORK_SYNC_IDENTITY) {
+        if (message.fromIdentity != SPECIAL_CONTACT_3MAW0RK_IDENTITY) {
             logger.warn("Received a work sync delta message from an unknown sender: {}", message.fromIdentity)
             return ReceiveStepsResult.DISCARD
         }
@@ -193,8 +194,7 @@ class IncomingWorkSyncDeltaMessageTask(
     }
 
     private fun enqueueFullWorkSync() {
-        WorkSyncWorker.performOneTimeWorkSync(
-            context = ThreemaApplication.getAppContext(),
+        workSyncScheduler.performOneTimeWorkSync(
             forceUpdate = false,
             tag = null,
         )

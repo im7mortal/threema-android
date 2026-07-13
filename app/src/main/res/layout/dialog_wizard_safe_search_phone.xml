@@ -2,90 +2,91 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="@dimen/wizard_contents_padding">
+    android:padding="@dimen/grid_unit_x3">
 
     <TextView
-        style="@style/WizardSmallText"
-        android:layout_width="wrap_content"
+        style="@style/MaterialAlertDialog.Material3.Title.Text"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="center_horizontal"
         android:gravity="center_horizontal"
-        android:text="@string/safe_search_id_title"
-        android:textAppearance="@style/Threema.TextAppearance.Dialog.Body" />
+        android:text="@string/forgot_your_id" />
 
-    <LinearLayout
-        android:id="@+id/safe_phone_layout"
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="@dimen/wizard_default_view_height"
-        android:layout_marginTop="16dp"
-        android:orientation="horizontal">
+        android:layout_height="0dp"
+        android:layout_marginTop="@dimen/grid_unit_x1"
+        android:layout_weight="1"
+        android:background="@null">
 
-        <ImageView
-            style="@style/WizardEditTextIcon"
-            android:layout_width="@dimen/wizard_default_view_height"
-            android:layout_height="@dimen/wizard_default_view_height"
-            android:importantForAccessibility="no"
-            app:srcCompat="@drawable/ic_call_outline" />
-
-        <ch.threema.app.emojis.EmojiEditText
-            android:id="@+id/safe_phone"
-            style="@style/WizardEditText"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="@dimen/wizard_default_view_height"
-            android:hint="@string/linked_mobile"
-            android:inputType="phone" />
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingVertical="@dimen/grid_unit_x2">
 
-    </LinearLayout>
+            <TextView
+                style="@style/MaterialAlertDialog.Material3.Body.Text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:text="@string/safe_search_id_title" />
 
-    <LinearLayout
-        android:id="@+id/safe_email_layout"
-        android:layout_width="match_parent"
-        android:layout_height="@dimen/wizard_default_view_height"
-        android:layout_marginTop="16dp"
-        android:orientation="horizontal">
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/grid_unit_x2"
+                android:hint="@string/linked_mobile">
 
-        <ImageView
-            style="@style/WizardEditTextIcon"
-            android:layout_width="@dimen/wizard_default_view_height"
-            android:layout_height="@dimen/wizard_default_view_height"
-            android:importantForAccessibility="no"
-            app:srcCompat="@drawable/ic_email_outline" />
+                <ch.threema.app.ui.ThreemaTextInputEditText
+                    android:id="@+id/safe_phone"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:imeOptions="actionDone"
+                    android:inputType="phone" />
 
-        <ch.threema.app.emojis.EmojiEditText
-            android:id="@+id/safe_email"
-            style="@style/WizardEditText"
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/wizard_default_view_height"
-            android:hint="@string/linked_email"
-            android:imeOptions="actionDone"
-            android:inputType="textEmailAddress" />
+            </com.google.android.material.textfield.TextInputLayout>
 
-    </LinearLayout>
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/filledTextField"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/grid_unit_x2"
+                android:hint="@string/linked_email">
+
+                <ch.threema.app.ui.ThreemaTextInputEditText
+                    android:id="@+id/safe_email"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:imeOptions="actionDone"
+                    android:inputType="textEmailAddress" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+        </LinearLayout>
+
+    </ScrollView>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
+        android:gravity="end"
         android:orientation="horizontal">
 
-        <ch.threema.app.activities.wizard.components.WizardButtonXml
+        <ch.threema.app.ui.interop.TextButtonPrimaryXml
             android:id="@+id/cancel_compose"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginRight="4dp"
-            android:layout_weight="1"
-            app:wizardButton_style="wizardButton_inverse"
-            app:wizardButton_text="@string/cancel" />
+            android:layout_marginRight="@dimen/grid_unit_x1"
+            app:textButtonPrimary_text="@string/cancel" />
 
-        <ch.threema.app.activities.wizard.components.WizardButtonXml
+        <ch.threema.app.ui.interop.TextButtonPrimaryXml
             android:id="@+id/ok_compose"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginLeft="4dp"
-            android:layout_weight="1"
-            app:wizardButton_text="@string/ok" />
+            app:textButtonPrimary_text="@string/ok" />
 
     </LinearLayout>
 

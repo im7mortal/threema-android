@@ -15,7 +15,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.lifecycle.DefaultLifecycleObserver
 import ch.threema.app.R
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.GroupCallUtil
 import ch.threema.app.voip.activities.CallActivity
 import ch.threema.app.voip.activities.GroupCallActivity
@@ -72,10 +71,6 @@ class OngoingCallNoticeView : LinearLayout, DefaultLifecycleObserver {
      */
     @AnyThread
     fun hideVoip() {
-        logger.info(
-            "Hide voip in operation mode `{}`",
-            operationMode,
-        ) // TODO(ANDR-2441): remove eventually
         if (operationMode == OngoingCallNoticeMode.MODE_VOIP) {
             hide()
         }
@@ -175,7 +170,6 @@ class OngoingCallNoticeView : LinearLayout, DefaultLifecycleObserver {
     }
 
     private fun voipContainerAction() {
-        logger.info("Run voip container action") // TODO(ANDR-2441): remove eventually
         if (VoipCallService.isRunning()) {
             val openIntent = Intent(context, CallActivity::class.java)
             openIntent.putExtra(VoipCallService.EXTRA_ACTIVITY_MODE, CallActivity.MODE_ACTIVE_CALL)
@@ -189,7 +183,6 @@ class OngoingCallNoticeView : LinearLayout, DefaultLifecycleObserver {
     }
 
     private fun voipButtonAction() {
-        logger.info("Run voip button action") // TODO(ANDR-2441): remove eventually
         val hangupIntent = Intent(context, VoipCallService::class.java)
         hangupIntent.action = VoipCallService.ACTION_HANGUP
         context.startService(hangupIntent)
@@ -203,7 +196,10 @@ class OngoingCallNoticeView : LinearLayout, DefaultLifecycleObserver {
         if (action == null) {
             view?.setOnClickListener(null)
         } else {
-            view?.setOnClickListener { action.run() }
+            view?.setOnClickListener {
+                logger.info("Ongoing call button clicked")
+                action.run()
+            }
         }
     }
 
@@ -232,8 +228,7 @@ class OngoingCallNoticeView : LinearLayout, DefaultLifecycleObserver {
 
     private fun setParticipantsText(participantCount: Int) {
         if (participantCount > 0) {
-            participantsText.text = ConfigUtils.getSafeQuantityString(
-                context,
+            participantsText.text = context.resources.getQuantityString(
                 R.plurals.n_participants_in_call,
                 participantCount,
                 participantCount,

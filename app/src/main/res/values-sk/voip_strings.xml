@@ -53,12 +53,18 @@
     <string name="voip_prefs_video_codec_no_h264hip">Zakázať H264-HiP</string>
     <string name="voip_prefs_video_codec_sw">Softvérové kodeky</string>
     <string name="voip_connection_failed">Spojenie nebolo nadviazané</string>
+    <string name="voip_call_disconnected">Hovor bol prerušený</string>
     <string name="prefs_voip_reject_incoming_calls_title">Odmietnuť mobilné hovory</string>
     <string name="prefs_voip_reject_incoming_calls_summary">Odmietnuť prichádzajúce mobilné hovory, ak prebieha Threema hovor.</string>
     <string name="voip_contact_not_found">Pre toto číslo nebol nájdený Threema kontakt.</string>
     <string name="voip_another_pstn_call">Nie je možné zahájiť hovor. Stále prebieha bežný telefónny hovor.</string>
     <string name="voip_call_status_off_hours">Hovory mimo pracovnú dobu</string>
     <string name="voip_peer_video_disabled">Video hovory sú zakázané protistranou.</string>
+    <string name="voip_error_processing_call_anser">Pri spracovaní prijatia hovoru došlo k chybe</string>
+    <string name="voip_error_peer_connection">Chyba spojenia s partnerom</string>
+    <string name="voip_error_determine_common_video_quality_profile">Nepodarilo sa určiť spoločný profil kvality videa</string>
+    <string name="voip_audio_focus_lost">Strata zamerania zvuku</string>
+    <string name="voip_could_not_initialize">Nepodarilo sa inicializovať hovor</string>
     <!-- WebRTC debugger -->
     <string name="voip_prefs_webrtc_debug">Diagnostika WebRTC</string>
     <string name="voip_prefs_webrtc_debug_summary">Spustením tohoto nástroja vám umožní hľadať zdroj problémov s nastavením spojenia hlasového hovoru</string>

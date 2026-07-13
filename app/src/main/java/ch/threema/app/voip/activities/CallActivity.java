@@ -69,6 +69,7 @@ import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.transition.ChangeBounds;
@@ -88,8 +89,10 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.concurrent.ExecutionException;
 
+import ch.threema.android.FlowJavaCompat;
 import ch.threema.app.BuildConfig;
 import ch.threema.app.R;
+import ch.threema.app.activities.PermissionRequestActivity;
 import ch.threema.app.activities.ThreemaActivity;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.dialogs.BottomSheetAbstractDialog;
@@ -97,9 +100,9 @@ import ch.threema.app.dialogs.BottomSheetListDialog;
 import ch.threema.app.dialogs.GenericAlertDialog;
 import ch.threema.app.dialogs.SimpleStringAlertDialog;
 import ch.threema.app.emojis.EmojiTextView;
-import ch.threema.app.listeners.ContactListener;
+import ch.threema.app.eventbus.GlobalEventBuses;
+import ch.threema.app.eventbus.events.ContactEvent;
 import ch.threema.app.listeners.SensorListener;
-import ch.threema.app.managers.ListenerManager;
 import ch.threema.app.routines.UpdateFeatureLevelRoutine;
 import ch.threema.app.services.ActivityService;
 import ch.threema.app.ui.AnimatedEllipsisTextView;
@@ -114,7 +117,6 @@ import ch.threema.app.utils.ContactUtil;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.app.utils.PermissionUtilsKt;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.voip.AudioSelectorButton;
 import ch.threema.app.voip.CallStateSnapshot;
 import ch.threema.app.voip.listeners.VoipAudioManagerListener;
@@ -124,7 +126,9 @@ import ch.threema.app.voip.services.VideoContext;
 import ch.threema.app.voip.services.VoipCallService;
 import ch.threema.app.voip.util.VoipUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.base.utils.Utils;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
+import static ch.threema.common.JavaCompat.toHexString;
+
 import ch.threema.domain.protocol.ThreemaFeature;
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallAnswerData;
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallOfferData;
@@ -180,7 +184,7 @@ public class CallActivity extends ThreemaActivity implements
         R.drawable.ic_headset_mic_outline,
         R.drawable.ic_phone_in_talk,
         R.drawable.ic_bluetooth_searching_outline,
-        R.drawable.ic_mic_off_outline
+        R.drawable.ic_microphone_off_outline
     };
 
     public @StringRes int[] audioDeviceLabels = {
@@ -265,6 +269,8 @@ public class CallActivity extends ThreemaActivity implements
 
     @NonNull
     private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
+    @NonNull
+    private final GlobalEventBuses globalEventBuses = KoinJavaComponent.get(GlobalEventBuses.class);
 
     private ContactModel contact;
 
@@ -281,11 +287,14 @@ public class CallActivity extends ThreemaActivity implements
     private final ActivityResultLauncher<Intent> permissionLauncher = registerForActivityResult(
         new ActivityResultContracts.StartActivityForResult(),
         result -> {
-            if (result.getResultCode() == Activity.RESULT_OK) {
+            int resultCode = result.getResultCode();
+            if (resultCode == Activity.RESULT_OK) {
                 initializeCall(getIntent());
-            } else {
+            } else if (resultCode == PermissionRequestActivity.RESULT_CANCELED_BY_USER) {
                 rejectCall(dependencies.getVoipStateService().getCallState().getCallId(), VoipCallAnswerData.RejectReason.DISABLED);
             }
+            // We do not reject the call if the resultCode is `Activity.RESULT_CANCELED`, as this may also
+            // mean that another permission request was started by onNewIntent while a request was already in progress.
         });
 
     /**
@@ -594,25 +603,18 @@ public class CallActivity extends ThreemaActivity implements
     //endregion
 
     //region Listeners
-
-    private final ContactListener contactListener = new ContactListener() {
-        @Override
-        public void onModified(final @NonNull String identity) {
-            this.handleUpdate(identity);
+    @UiThread
+    private void handleContactEvent(@NonNull ContactEvent event) {
+        if (event instanceof ContactEvent.ContactUpdated || event instanceof ContactEvent.ContactProfilePictureUpdated) {
+            handleUpdate(event.getIdentityString());
         }
+    }
 
-        @Override
-        public void onAvatarChanged(@NonNull String identity) {
-            this.handleUpdate(identity);
+    private void handleUpdate(@NonNull String identity) {
+        if (contact != null && identity.equals(contact.getIdentity())) {
+            updateContactInfo();
         }
-
-        private void handleUpdate(String identity) {
-            if (contact == null || !TestUtil.compare(contact.getIdentity(), identity)) {
-                return;
-            }
-            RuntimeUtil.runOnUiThread(CallActivity.this::updateContactInfo);
-        }
-    };
+    }
 
     //endregion
     private final VoipAudioManagerListener audioManagerListener = new VoipAudioManagerListener() {
@@ -762,8 +764,7 @@ public class CallActivity extends ThreemaActivity implements
         filter.addAction(ACTION_DISABLE_VIDEO);
         LocalBroadcastManager.getInstance(this).registerReceiver(localBroadcastReceiver, filter);
 
-        // Register listeners
-        ListenerManager.contactListeners.add(this.contactListener);
+        FlowJavaCompat.collect(this, Lifecycle.State.CREATED, globalEventBuses.getContacts(), this::handleContactEvent);
         VoipListenerManager.audioManagerListener.add(this.audioManagerListener);
 
         // Restore PIP position from preferences
@@ -843,7 +844,7 @@ public class CallActivity extends ThreemaActivity implements
 
         logger.info("Restored activity mode: {}", activityMode);
         logger.info("Restored call state: {}", dependencies.getVoipStateService().getCallState());
-        logger.info("Restored Video flags: {}", Utils.byteToHex((byte) dependencies.getVoipStateService().getVideoRenderMode(), true, true));
+        logger.info("Restored Video flags: 0x{}", toHexString((byte) dependencies.getVoipStateService().getVideoRenderMode()));
 
         // Fetch contact
         this.contact = dependencies.getContactService().getByIdentity(contactIdentity);
@@ -929,7 +930,6 @@ public class CallActivity extends ThreemaActivity implements
         }
 
         // Unregister other listeners
-        ListenerManager.contactListeners.remove(this.contactListener);
         VoipListenerManager.audioManagerListener.remove(this.audioManagerListener);
 
         // Release renderers
@@ -1093,7 +1093,7 @@ public class CallActivity extends ThreemaActivity implements
 
     private void updateMicButton(boolean micEnabled) {
         if (this.commonViews != null) {
-            this.commonViews.toggleMicButton.setImageResource(micEnabled ? R.drawable.ic_keyboard_voice_outline : R.drawable.ic_mic_off_outline);
+            this.commonViews.toggleMicButton.setImageResource(micEnabled ? R.drawable.ic_microphone_outline : R.drawable.ic_microphone_off_outline);
             this.commonViews.toggleMicButton.setContentDescription(micEnabled ? getString(R.string.voip_mic_disable) : getString(R.string.voip_mic_enable));
         }
     }
@@ -1878,7 +1878,7 @@ public class CallActivity extends ThreemaActivity implements
     @Override
     public void onSelected(String tag, String data) {
         logger.debug("*** onSelected");
-        if (!TestUtil.isEmptyOrNull(tag)) {
+        if (!isNullOrEmpty(tag)) {
             int ordinal = Integer.valueOf(tag);
             final AudioDevice device = AudioDevice.values()[ordinal];
             this.selectAudioDevice(device);

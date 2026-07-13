@@ -15,6 +15,7 @@ import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.WindowManager;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ImageView;
@@ -46,11 +47,11 @@ import ch.threema.app.ui.QRCodePopup;
 import ch.threema.app.ui.TooltipPopup;
 import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.utils.ConfigUtils;
-import ch.threema.app.utils.TestUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class ExportIDResultActivity extends ThreemaToolbarActivity implements GenericAlertDialog.DialogClickListener, LifecycleOwner {
     private static final Logger logger = getThreemaLogger("ExportIDResultActivity");
@@ -79,6 +80,7 @@ public class ExportIDResultActivity extends ThreemaToolbarActivity implements Ge
             finish();
             return;
         }
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
 
         MaterialToolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -101,7 +103,7 @@ public class ExportIDResultActivity extends ThreemaToolbarActivity implements Ge
         this.backupData = this.getIntent().getStringExtra(AppConstants.INTENT_DATA_ID_BACKUP);
         this.identity = this.getIntent().getStringExtra(AppConstants.INTENT_DATA_CONTACT);
 
-        if (TestUtil.isEmptyOrNull(this.backupData)) {
+        if (isNullOrEmpty(this.backupData)) {
             finish();
             return;
         }

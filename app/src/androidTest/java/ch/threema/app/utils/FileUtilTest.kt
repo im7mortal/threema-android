@@ -1,11 +1,18 @@
 package ch.threema.app.utils
 
-import ch.threema.app.ThreemaApplication
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class FileUtilTest {
+
+    private val appContext: Context
+        get() = ApplicationProvider.getApplicationContext()
+    private val packageName
+        get() = appContext.packageName
+
     @Test
     fun testValidPaths() {
         // Arrange
@@ -16,10 +23,10 @@ class FileUtilTest {
 
         paths.forEach { path ->
             // Act
-            val isSanePath = FileUtil.isSanePath(ThreemaApplication.getAppContext(), path)
+            val isSanePath = FileUtil.isSanePath(appContext, path)
 
             // Assert
-            assertTrue { isSanePath }
+            assertTrue(isSanePath)
         }
     }
 
@@ -34,10 +41,10 @@ class FileUtilTest {
 
         paths.forEach { path ->
             // Act
-            val isSanePath = FileUtil.isSanePath(ThreemaApplication.getAppContext(), path)
+            val isSanePath = FileUtil.isSanePath(appContext, path)
 
             // Assert
-            assertTrue { isSanePath }
+            assertTrue(isSanePath)
         }
     }
 
@@ -45,17 +52,17 @@ class FileUtilTest {
     fun testInvalidInternalPaths() {
         // Arrange
         val paths = listOf(
-            "/data/data/ch.threema.app/databases/db.db",
-            "/data/data/ch.threema.app/files/file.txt",
-            "/data/data/ch.threema.app/file.txt",
+            "/data/data/$packageName/databases/db.db",
+            "/data/data/$packageName/files/file.txt",
+            "/data/data/$packageName/file.txt",
         )
 
         paths.forEach { path ->
             // Act
-            val isSanePath = FileUtil.isSanePath(ThreemaApplication.getAppContext(), path)
+            val isSanePath = FileUtil.isSanePath(appContext, path)
 
             // Assert
-            assertFalse { isSanePath }
+            assertFalse(isSanePath)
         }
     }
 
@@ -63,19 +70,19 @@ class FileUtilTest {
     fun testInvalidInternalPathsWithPathTraversals() {
         // Arrange
         val paths = listOf(
-            "../.././data/data/ch.threema.app/databases/db.db",
-            "/data/data/../data/ch.threema.app/files/file.txt",
-            "/data/data/ch.threema.app/../ch.threema.app/../ch.threema.app/file.txt",
-            "/data/data/.///./ch.threema.app/file.txt",
-            "/data/../../../data/data/ch.threema.app/file.txt",
+            "../.././data/data/$packageName/databases/db.db",
+            "/data/data/../data/$packageName/files/file.txt",
+            "/data/data/$packageName/../$packageName/../$packageName/file.txt",
+            "/data/data/.///./$packageName/file.txt",
+            "/data/../../../data/data/$packageName/file.txt",
         )
 
         paths.forEach { path ->
             // Act
-            val isSanePath = FileUtil.isSanePath(ThreemaApplication.getAppContext(), path)
+            val isSanePath = FileUtil.isSanePath(appContext, path)
 
             // Assert
-            assertFalse { isSanePath }
+            assertFalse(isSanePath)
         }
     }
 }

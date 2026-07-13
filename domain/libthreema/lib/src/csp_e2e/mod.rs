@@ -1,6 +1,6 @@
 //! Implementation of the end-to-end encryption layer of the _Chat Server Protocol_.
 use core::{cell::RefCell, fmt};
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc, sync::Arc};
 
 use educe::Educe;
 use libthreema_macros::Name;
@@ -34,7 +34,7 @@ pub mod transaction;
 
 /// Cause of an internal error.
 #[derive(Clone, Debug, thiserror::Error)]
-pub enum InternalErrorCause {
+pub enum CspE2eProtocolInternalErrorCause {
     /// Exhausted the available sequence numbers (e.g. for `ReflectId`s). Should never happen.
     #[error("Sequence number overflow happened")]
     SequenceNumberOverflow(#[from] SequenceNumberOverflow),
@@ -50,7 +50,7 @@ pub enum InternalErrorCause {
     #[error("{0}")]
     Other(String),
 }
-impl<T: Into<String>> From<T> for InternalErrorCause {
+impl<T: Into<String>> From<T> for CspE2eProtocolInternalErrorCause {
     fn from(message: T) -> Self {
         Self::Other(message.into())
     }
@@ -87,7 +87,7 @@ pub enum CspE2eProtocolError {
     /// An internal error happened.
     #[cfg_attr(feature = "wasm", serde(serialize_with = "string::to_string::serialize"))]
     #[error("Internal error: {0}")]
-    InternalError(#[from] InternalErrorCause),
+    InternalError(#[from] CspE2eProtocolInternalErrorCause),
 
     /// A desync occurred.
     ///
@@ -130,7 +130,7 @@ pub enum CspE2eProtocolError {
 }
 impl From<SequenceNumberOverflow> for CspE2eProtocolError {
     fn from(error: SequenceNumberOverflow) -> Self {
-        Self::InternalError(InternalErrorCause::from(error))
+        Self::InternalError(CspE2eProtocolInternalErrorCause::from(error))
     }
 }
 impl From<HttpsEndpointError> for CspE2eProtocolError {
@@ -143,6 +143,7 @@ impl From<HttpsEndpointError> for CspE2eProtocolError {
             HttpsEndpointError::InvalidCredentials => CspE2eProtocolError::InvalidCredentials,
             HttpsEndpointError::Forbidden
             | HttpsEndpointError::NotFound
+            | HttpsEndpointError::InvalidChallenge
             | HttpsEndpointError::InvalidChallengeResponse
             | HttpsEndpointError::UnexpectedStatus(_)
             | HttpsEndpointError::CustomPossiblyLocalizedError(_)
@@ -194,7 +195,7 @@ pub struct CspE2eProtocolContextInit {
     pub client_info: ClientInfo,
 
     /// Configuration used by the protocol.
-    pub config: Rc<Config>,
+    pub config: Arc<Config>,
 
     /// See [`CspE2eContext`].
     pub csp_e2e: CspE2eContextInit,
@@ -288,7 +289,7 @@ pub struct CspE2eProtocolContext {
     client_info: ClientInfo,
 
     /// Configuration used by the protocol.
-    config: Rc<Config>,
+    config: Arc<Config>,
 
     /// See [`CspE2eContext`].
     csp_e2e: CspE2eContext,

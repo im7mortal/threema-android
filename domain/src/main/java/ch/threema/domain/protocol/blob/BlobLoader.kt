@@ -40,8 +40,6 @@ class BlobLoader private constructor(
     private val useMirror: Boolean,
     private val serverAddressProvider: ServerAddressProvider,
     @JvmField var progressListener: ProgressListener?,
-    // used only for non-mirror blob server
-    private val useIpv6: Boolean?,
     // used only for mirror blob sever requests:
     private val multiDevicePropertyProvider: MultiDevicePropertyProvider?,
 ) {
@@ -58,7 +56,6 @@ class BlobLoader private constructor(
             version: Version,
             serverAddressProvider: ServerAddressProvider,
             progressListener: ProgressListener?,
-            useIpv6: Boolean,
         ) = BlobLoader(
             baseOkHttpClient = baseOkHttpClient,
             blobId = blobId,
@@ -66,7 +63,6 @@ class BlobLoader private constructor(
             useMirror = false,
             serverAddressProvider = serverAddressProvider,
             progressListener = progressListener,
-            useIpv6 = useIpv6,
             multiDevicePropertyProvider = null,
         )
 
@@ -85,7 +81,6 @@ class BlobLoader private constructor(
             useMirror = true,
             serverAddressProvider = serverAddressProvider,
             progressListener = progressListener,
-            useIpv6 = null,
             multiDevicePropertyProvider = multiDevicePropertyProvider,
         )
     }
@@ -240,10 +235,7 @@ class BlobLoader private constructor(
                 ),
             )
         } else {
-            if (useIpv6 == null) {
-                throw ThreemaException("Missing argument")
-            }
-            return URL(serverAddressProvider.getBlobServerDownloadUrl(useIpv6).get(blobId))
+            return URL(serverAddressProvider.getBlobServerDownloadUrl().get(blobId))
         }
     }
 
@@ -262,15 +254,12 @@ class BlobLoader private constructor(
                 ),
             )
         } else {
-            if (useIpv6 == null) {
-                throw ThreemaException("Missing argument")
-            }
-            return URL(serverAddressProvider.getBlobServerDoneUrl(useIpv6).get(blobId))
+            return URL(serverAddressProvider.getBlobServerDoneUrl().get(blobId))
         }
     }
 
     /**
-     * @param rawUrl An url string **without** any query parameters. The value of this will not be mutated.
+     * @param rawUrl A url string **without** any query parameters. The value of this will not be mutated.
      */
     @Throws(ThreemaException::class)
     private fun appendMirrorQueryParameters(

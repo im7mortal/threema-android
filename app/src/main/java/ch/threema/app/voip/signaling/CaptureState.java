@@ -3,7 +3,7 @@ package ch.threema.app.voip.signaling;
 import com.google.protobuf.ByteString;
 
 import androidx.annotation.NonNull;
-import ch.threema.app.utils.RandomUtil;
+import ch.threema.app.voip.util.RandomPaddingGenerator;
 import ch.threema.protobuf.o2o_call.CaptureState.CaptureDevice;
 import ch.threema.protobuf.o2o_call.Envelope;
 
@@ -48,7 +48,7 @@ public class CaptureState implements ToSignalingMessage {
                     : ch.threema.protobuf.o2o_call.CaptureState.Mode.OFF
             );
         return Envelope.newBuilder()
-            .setPadding(ByteString.copyFrom(RandomUtil.generateRandomPadding(0, 255)))
+            .setPadding(ByteString.copyFrom(RandomPaddingGenerator.generateRandomPadding(0, 255)))
             .setCaptureStateChange(captureState)
             .build();
     }

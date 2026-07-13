@@ -3,7 +3,9 @@ package ch.threema.app.services;
 import android.content.Context;
 import android.net.Uri;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import ch.threema.data.datatypes.ConversationId;
 
 /**
  * The ringtone service provides either default or custom ringtones for contacts and groups. Note
@@ -14,32 +16,28 @@ public interface RingtoneService {
 
     void init();
 
-    void setRingtone(String uniqueId, Uri ringtoneUri);
+    void setRingtone(@NonNull ConversationId conversationId, @Nullable Uri ringtoneUri);
 
     /**
-     * Get the ringtone uri from the given unique id. Note that this method returns null on api 26
-     * and newer.
+     * Get the ringtone uri from the given conversation-id. Note that this method returns null on api 26 and newer.
      */
     @Nullable
-    Uri getRingtoneFromUniqueId(String uniqueId);
+    Uri getRingtoneByConversationId(@NonNull ConversationId conversationId);
 
     /**
-     * Get the ringtone uri from the given unique id. Note that this method returns null on api 26
-     * and newer.
+     * Get the ringtone uri from the given conversation-id. Note that this method returns null on api 26 and newer.
      */
     @Nullable
-    Uri getContactRingtone(String uniqueId);
+    Uri getContactRingtone(@NonNull ConversationId conversationId);
 
     /**
-     * Get the ringtone uri from the given unique id. Note that this method returns null on api 26
-     * and newer.
+     * Get the ringtone uri from the given conversation-id. Note that this method returns null on api 26 and newer.
      */
     @Nullable
-    Uri getGroupRingtone(String uniqueId);
+    Uri getGroupRingtone(@NonNull ConversationId conversationId);
 
     /**
-     * Get the default ringtone for contacts. Note that this method returns null on api 26 and
-     * newer.
+     * Get the default ringtone for contacts. Note that this method returns null on api 26 and newer.
      */
     @Nullable
     Uri getDefaultContactRingtone();
@@ -51,15 +49,14 @@ public interface RingtoneService {
     Uri getDefaultGroupRingtone();
 
     /**
-     * Check whether the given conversation is silent or not. Note that starting from api 26, this
-     * method always returns false as the sound is managed by the system notification channel
-     * settings.
+     * Check whether the given conversation is silent or not. Note that starting from api 26, this method always returns false as the sound is managed
+     * by the system notification channel settings.
      */
-    boolean isSilent(String uniqueId, boolean isGroup);
+    boolean isSilent(@NonNull ConversationId conversationId, boolean isGroup);
 
-    boolean hasCustomRingtone(String uniqueId);
+    boolean hasCustomRingtone(@NonNull ConversationId conversationId);
 
-    void removeCustomRingtone(String uniqueId);
+    void removeCustomRingtone(@NonNull ConversationId conversationId);
 
-    void resetRingtones(Context context);
+    void resetRingtones(@NonNull Context context);
 }

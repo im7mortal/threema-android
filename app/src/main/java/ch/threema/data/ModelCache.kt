@@ -1,12 +1,14 @@
 package ch.threema.data
 
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.BaseModel
 import ch.threema.data.models.ContactModel
 import ch.threema.data.models.EditHistoryListModel
 import ch.threema.data.models.EmojiReactionsModel
-import ch.threema.data.models.GroupIdentity
 import ch.threema.data.models.GroupModel
 import ch.threema.data.repositories.EmojiReactionsRepository
+import ch.threema.domain.types.IdentityString
+import ch.threema.domain.types.MessageUid
 
 /**
  * The model cache holds a [ModelTypeCache] for every model type.
@@ -16,13 +18,13 @@ import ch.threema.data.repositories.EmojiReactionsRepository
  */
 class ModelCache {
     // Contacts are identified by their identity
-    val contacts = ModelTypeCache<String, ContactModel>()
+    val contacts = ModelTypeCache<IdentityString, ContactModel>()
 
     // Groups are identified by their group identity (creator identity and group id)
     val groups = ModelTypeCache<GroupIdentity, GroupModel>()
 
     // Edit history entries are identified by their reference to a message's uid
-    val editHistory = ModelTypeCache<String, EditHistoryListModel>()
+    val editHistory = ModelTypeCache<MessageUid, EditHistoryListModel>()
 
     // Emoji reactions are uniquely identified by a composition of the message's id (int) and type
     val emojiReaction =
@@ -66,4 +68,13 @@ class ModelTypeCache<TIdentifier, TModel : BaseModel<*, *>> {
      * Remove the model with the specified [identifier] from the cache and return it.
      */
     fun remove(identifier: TIdentifier): TModel? = this.map.remove(identifier)
+
+    /**
+     * Remove the models with the specified [identifiers] from the cache
+     */
+    fun remove(identifiers: Set<TIdentifier>) {
+        identifiers.forEach { identifier ->
+            this.map.remove(identifier)
+        }
+    }
 }

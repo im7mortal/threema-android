@@ -40,7 +40,7 @@ internal class CspConnectionImpl(
     }
 
     override fun onException(t: Throwable) {
-        if (connectionState != ConnectionState.LOGGEDIN) {
+        if (connectionState != ConnectionState.LOGGED_IN) {
             socket.let {
                 if (it is CspSocket) {
                     it.advanceAddress()
@@ -59,6 +59,5 @@ data class CspConnectionConfiguration(
     override val incomingMessageProcessor: IncomingMessageProcessor,
     override val taskManager: TaskManager,
     val hostResolver: HostResolver,
-    val ipv6: Boolean,
     val socketFactory: SocketFactory,
 ) : BaseServerConnectionConfiguration

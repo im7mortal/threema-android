@@ -5,4 +5,5 @@ import org.koin.dsl.module
 
 val appLockFeatureModule = module {
     singleOf(::AppLockUtil)
+    singleOf(::AppLockNotificationUpdaterMonitor)
 }

@@ -2,21 +2,22 @@ package ch.threema.app.contacts
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import ch.threema.KoinTestRule
-import ch.threema.app.TestCoreServiceManager
 import ch.threema.app.TestMultiDeviceManager
+import ch.threema.app.TestNonceStore
 import ch.threema.app.TestTaskManager
-import ch.threema.app.ThreemaApplication
+import ch.threema.app.managers.ServiceManager
 import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.processors.reflectedd2dsync.ReflectedContactSyncTask
-import ch.threema.app.stores.IdentityProvider
-import ch.threema.base.crypto.NaCl
+import ch.threema.base.crypto.NonceFactory
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.IdColor
 import ch.threema.data.models.ContactModel
 import ch.threema.data.models.ContactModelData
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.data.repositories.ModelRepositories
 import ch.threema.domain.helpers.TransactionAckTaskCodec
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.ContactSyncState
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
@@ -24,7 +25,6 @@ import ch.threema.domain.models.ReadReceiptPolicy
 import ch.threema.domain.models.TypingIndicatorPolicy
 import ch.threema.domain.models.VerificationLevel
 import ch.threema.domain.models.WorkVerificationLevel
-import ch.threema.domain.stores.IdentityStore
 import ch.threema.domain.types.Identity
 import ch.threema.protobuf.common.unit
 import ch.threema.protobuf.d2d.ContactSyncKt.create
@@ -35,14 +35,15 @@ import ch.threema.protobuf.d2d.sync.ContactKt.deprecatedNotificationSoundPolicyO
 import ch.threema.protobuf.d2d.sync.ContactKt.readReceiptPolicyOverride
 import ch.threema.protobuf.d2d.sync.ContactKt.typingIndicatorPolicyOverride
 import ch.threema.protobuf.d2d.sync.ConversationCategory
-import ch.threema.protobuf.d2d.sync.ConversationVisibility
+import ch.threema.protobuf.d2d.sync.ConversationVisibility as ProtocolsConversationVisibility
 import ch.threema.protobuf.d2d.sync.contact
-import ch.threema.storage.TestDatabaseProvider
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel
+import ch.threema.test.TestData.PUBLIC_KEY
+import ch.threema.test.TestDatabaseProvider
+import ch.threema.test.TestIdentityProvider
+import ch.threema.testhelpers.TestDispatcherProvider
 import com.google.protobuf.kotlin.toByteString
-import io.mockk.every
 import io.mockk.mockk
-import java.util.Date
+import java.time.Instant
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -58,29 +59,32 @@ import org.koin.dsl.module
 
 @RunWith(AndroidJUnit4::class)
 class ReflectedContactSyncTaskTest {
+
     private lateinit var databaseProvider: TestDatabaseProvider
     private lateinit var taskCodec: TransactionAckTaskCodec
-    private lateinit var coreServiceManager: TestCoreServiceManager
+    private lateinit var multiDeviceManager: TestMultiDeviceManager
+    private lateinit var taskManager: TestTaskManager
     private lateinit var contactModelRepository: ContactModelRepository
 
     private val initialContactModelData = ContactModelData(
         identity = "01234567",
-        publicKey = ByteArray(32),
-        createdAt = Date(),
+        publicKey = PUBLIC_KEY,
+        createdAt = Instant.now(),
+        lastUpdateAt = null,
         firstName = "",
         lastName = "",
         nickname = "Nick",
         idColor = IdColor.ofIdentity("01234567"),
         verificationLevel = VerificationLevel.UNVERIFIED,
         workVerificationLevel = WorkVerificationLevel.NONE,
-        identityType = IdentityType.NORMAL,
+        identityType = IdentityType.REGULAR,
         acquaintanceLevel = AcquaintanceLevel.DIRECT,
         activityState = IdentityState.ACTIVE,
         syncState = ContactSyncState.INITIAL,
         featureMask = 511u,
         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
-        isArchived = false,
+        conversationVisibility = ConversationVisibility.NORMAL,
         androidContactLookupInfo = null,
         localAvatarExpires = null,
         isRestored = false,
@@ -93,7 +97,7 @@ class ReflectedContactSyncTaskTest {
     )
 
     private val instrumentedTestModule = module {
-        factory<MultiDeviceManager> { coreServiceManager.multiDeviceManager }
+        factory<MultiDeviceManager> { multiDeviceManager }
     }
 
     @get:Rule
@@ -106,27 +110,21 @@ class ReflectedContactSyncTaskTest {
         databaseProvider = TestDatabaseProvider()
         taskCodec = TransactionAckTaskCodec()
         val myIdentity = "00000000"
-        val identityProviderMock = mockk<IdentityProvider> {
-            every { getIdentity() } returns Identity(myIdentity)
-            every { getIdentityString() } returns myIdentity
-        }
-        val identityStoreMock = mockk<IdentityStore> {
-            every { getIdentity() } returns Identity(myIdentity)
-            every { getIdentityString() } returns myIdentity
-        }
-        coreServiceManager = TestCoreServiceManager(
+        val identityProviderMock = TestIdentityProvider(Identity(myIdentity))
+        multiDeviceManager = TestMultiDeviceManager(
+            isMultiDeviceActive = true,
+            isMdDisabledOrSupportsFs = false,
+        )
+        taskManager = TestTaskManager(taskCodec)
+        contactModelRepository = ModelRepositories(
             databaseProvider = databaseProvider,
             identityProvider = identityProviderMock,
-            multiDeviceManager = TestMultiDeviceManager(
-                isMultiDeviceActive = true,
-                isMdDisabledOrSupportsFs = false,
-            ),
-            taskManager = TestTaskManager(taskCodec),
-            identityStore = identityStoreMock,
-        )
-        contactModelRepository = ModelRepositories(
-            coreServiceManager = coreServiceManager,
-            identityProvider = identityProviderMock,
+            multiDeviceManager = multiDeviceManager,
+            taskManager = taskManager,
+            nonceFactory = NonceFactory(TestNonceStore()),
+            globalEventBuses = mockk(relaxed = true),
+            globalEventFlows = mockk(relaxed = true),
+            dispatcherProvider = TestDispatcherProvider(),
         ).contacts
     }
 
@@ -134,8 +132,8 @@ class ReflectedContactSyncTaskTest {
     fun testNewReflectedContact() = runTest {
         val contact = contact {
             identity = "01234567"
-            publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES) { it.toByte() }.toByteString()
-            createdAt = Date().time
+            publicKey = PUBLIC_KEY.toByteString()
+            createdAt = Instant.now().toEpochMilli()
             firstName = "0123"
             // No last name provided
             nickname = "nick"
@@ -157,14 +155,14 @@ class ReflectedContactSyncTaskTest {
                 default = unit {}
             }
             conversationCategory = ConversationCategory.DEFAULT
-            conversationVisibility = ConversationVisibility.NORMAL
+            conversationVisibility = ProtocolsConversationVisibility.NORMAL
         }
 
         testReflectedContactCreate(contact) { contactModel ->
             val data = contactModel.data!!
             assertEquals(contact.identity, data.identity)
-            assertContentEquals(ByteArray(NaCl.PUBLIC_KEY_BYTES) { it.toByte() }, data.publicKey)
-            assertEquals(contact.createdAt, data.createdAt.time)
+            assertContentEquals(PUBLIC_KEY, data.publicKey)
+            assertEquals(contact.createdAt, data.createdAt.toEpochMilli())
             assertEquals(contact.firstName, data.firstName)
             assertEquals("", data.lastName)
             assertEquals(contact.nickname, data.nickname)
@@ -205,7 +203,8 @@ class ReflectedContactSyncTaskTest {
         ReflectedContactSyncTask(
             contactSync = contact.toContactSyncCreate(),
             contactModelRepository = contactModelRepository,
-            serviceManager = ThreemaApplication.requireServiceManager(),
+            serviceManager = ServiceManager.require(),
+            globalEventBuses = mockk(relaxed = true),
         ).run()
 
         // Assert that no transaction have been executed
@@ -228,7 +227,8 @@ class ReflectedContactSyncTaskTest {
         ReflectedContactSyncTask(
             contactSync = contact.toContactSyncUpdate(),
             contactModelRepository = contactModelRepository,
-            serviceManager = ThreemaApplication.requireServiceManager(),
+            serviceManager = ServiceManager.require(),
+            globalEventBuses = mockk(relaxed = true),
         ).run()
 
         // Assert that no transaction have been executed
@@ -266,7 +266,7 @@ class ReflectedContactSyncTaskTest {
     }
 
     private fun assertNoMessagesSent() {
-        assertTrue { taskCodec.outboundMessages.isEmpty() }
+        assertTrue(taskCodec.outboundMessages.isEmpty())
     }
 
     private fun Contact.toContactSyncCreate() = contactSync {
@@ -296,7 +296,7 @@ class ReflectedContactSyncTaskTest {
         }
 
     private fun Contact.IdentityType.convert(): IdentityType = when (this) {
-        Contact.IdentityType.REGULAR -> IdentityType.NORMAL
+        Contact.IdentityType.REGULAR -> IdentityType.REGULAR
         Contact.IdentityType.WORK -> IdentityType.WORK
         Contact.IdentityType.UNRECOGNIZED -> fail("Identity type is unrecognized")
     }
@@ -304,7 +304,7 @@ class ReflectedContactSyncTaskTest {
     private fun Contact.AcquaintanceLevel.convert(): AcquaintanceLevel =
         when (this) {
             Contact.AcquaintanceLevel.DIRECT -> AcquaintanceLevel.DIRECT
-            Contact.AcquaintanceLevel.GROUP_OR_DELETED -> AcquaintanceLevel.GROUP
+            Contact.AcquaintanceLevel.GROUP_OR_DELETED -> AcquaintanceLevel.GROUP_OR_DELETED
             Contact.AcquaintanceLevel.UNRECOGNIZED -> fail("Acquaintance level is unrecognized")
         }
 

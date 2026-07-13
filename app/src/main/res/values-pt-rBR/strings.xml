@@ -31,6 +31,8 @@
     <string name="title_job_title">Cargo</string>
     <string name="title_department">Departamento</string>
     <string name="send">Enviar</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
     <string name="prefs_privacy">Privacidade</string>
     <string name="prefs_notifications">Sons e Notificações</string>
     <string name="prefs_chatdisplay">Conversa</string>
@@ -82,7 +84,8 @@
     <string name="prefs_sum_threema_push_off">Verificar se há novas mensagens usando o serviço de push do sistema</string>
     <string name="prefs_logging">Registro</string>
     <string name="prefs_title_message_log_switch">Registrar em arquivo</string>
-    <string name="prefs_title_sum_message_log_on">Os eventos e informações de rede serão registrados no arquivo debug_log.txt</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
     <string name="prefs_title_sum_message_log_off">Os eventos não serão registrados</string>
     <string name="prefs_reset_push">Redefinir token de push</string>
     <string name="prefs_sum_reset_push">Registrar novamente o dispositivo para notificações push com FCM//HMS</string>
@@ -685,7 +688,6 @@ Por favor, insira uma pergunta para a sua enquete.</string>
     <string name="new_wizard_anonymous_confirm">Você não inseriu um número de celular ou um endereço de e-mail para vincular à sua ID do ${app_name_short}. Você não aparecerá na lista de contatos de seus amigos. Você realmente quer usar o ${app_name} de forma completamente anônima?</string>
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_anonymous_confirm_phone_only">Você não inseriu um número de telefone para vincular ao seu ID do ${app_name_short}. Você, portanto, não será adicionado automaticamente às listas de contatos. Você realmente deseja usar o ${app_name} anonimamente?</string>
-    <string name="new_wizard_scan_id_backup">Ou leia o código QR da sua exportação de ID</string>
     <string name="error_saving_file">Erro ao salvar o arquivo. Verifique as permissões.</string>
     <string name="wait_one_minute">Por favor, aguarde pelo menos 10 minutos para o SMS chegar antes de fazer uma chamada.</string>
     <string name="backup_id">ID exportada</string>
@@ -768,7 +770,7 @@ Por favor, insira uma pergunta para a sua enquete.</string>
     <string name="prefs_language_override">Idioma</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
     <string name="threema_channel_intro">O Canal ${app_name_short} lhe traz todas as novidades sobre o ${app_name_short}. Você gostaria de adicionar o Canal ${app_name_short} aos seus contatos?</string>
-    <string name="quote">Citação</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
     <string name="contacts_deleted">Os contatos foram excluídos</string>
     <string name="take_photo">Tirar foto</string>
     <string name="select_from_gallery">Selecionar da galeria</string>
@@ -1211,6 +1213,7 @@ Por favor, insira uma pergunta para a sua enquete.</string>
     <string name="max_selectable_media_exceeded">Até %d objetos podem ser enviados de uma só vez.</string>
     <string name="error_unable_loading_media_thumb">Erro. Miniatura de mídia não pôde ser carregada</string>
     <string name="filter_list">Filtrar lista</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
     <string name="hint_filter_list">Insira o texto a filtrar</string>
     <string name="add">Adicionar</string>
     <string name="only_images_or_videos">Somente imagens ou vídeos podem ser selecionados</string>
@@ -1571,8 +1574,6 @@ Por favor, insira uma pergunta para a sua enquete.</string>
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="error_reporting_summary_always_ask">Pergunte sempre se deseja enviar um relatório de erros para a ${company_name}</string>
     <string name="error_detected_dialog_title">Enviar relatório anônimo</string>
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
-    <string name="crash_detected_dialog_text">Parece que o ${app_name_short} apresentou uma falha recentemente. Deseja enviar um relatório de erro anônimo?</string>
     <string name="crash_detected_dialog_remember_choice">Lembrar minha escolha</string>
     <string name="crash_detected_dialog_send_button">Enviar</string>
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
@@ -1794,6 +1795,7 @@ Por favor, insira uma pergunta para a sua enquete.</string>
         <item quantity="one">%d mensagem excluída</item>
         <item quantity="other">%d mensagens excluídas</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
     <plurals name="notifications_for_x_hours">
         <item quantity="one">Por %d hora</item>
         <item quantity="other">Por %d horas</item>

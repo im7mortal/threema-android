@@ -178,7 +178,7 @@ public class MessageDispatcher {
 
     @Nullable
     private TaskManager getTaskManager() {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager != null) {
             return serviceManager.getTaskManager();
         }

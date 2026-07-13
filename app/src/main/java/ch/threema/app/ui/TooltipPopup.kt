@@ -24,7 +24,7 @@ import ch.threema.app.R
 import ch.threema.app.emojis.EmojiTextView
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.TestUtil
+import ch.threema.base.isInDeviceTest
 import com.google.android.material.card.MaterialCardView
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -127,7 +127,7 @@ constructor(
         originLocation: IntArray? = null,
         timeoutMs: Int = 0,
     ) {
-        if (isForeverDismissed() || TestUtil.isInDeviceTest()) {
+        if (isForeverDismissed() || isInDeviceTest()) {
             return
         }
 

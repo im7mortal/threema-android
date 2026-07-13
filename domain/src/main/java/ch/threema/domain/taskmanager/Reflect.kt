@@ -52,7 +52,7 @@ fun getEncryptedIncomingMessageEnvelope(
             IncomingMessage.newBuilder()
                 .setSenderIdentity(message.fromIdentity)
                 .setMessageId(message.messageId.messageIdLong)
-                .setCreatedAt(message.date.time)
+                .setCreatedAt(message.timestamp.toEpochMilli())
                 .setTypeValue(message.type)
                 .setBody(messageBody.toByteString())
                 .setNonce(nonce.toByteString()),
@@ -73,7 +73,7 @@ fun getEncryptedOutgoingMessageEnvelope(
             OutgoingMessage.newBuilder()
                 .setConversation(getConversation(message))
                 .setMessageId(message.messageId.messageIdLong)
-                .setCreatedAt(message.date.time)
+                .setCreatedAt(message.timestamp.toEpochMilli())
                 .setTypeValue(message.type)
                 .setBody(messageBody.toByteString())
                 .addAllNonces(nonces.map { it.bytes.toByteString() }),

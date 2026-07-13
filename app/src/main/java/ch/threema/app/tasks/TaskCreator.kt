@@ -100,7 +100,7 @@ open class TaskCreator(private val serviceManager: ServiceManager) {
     }
 
     fun scheduleReflectGroupConversationCategory(groupDatabaseId: Long, isPrivateChat: Boolean): Deferred<Unit> {
-        val groupModel = serviceManager.modelRepositories.groups.getByLocalGroupDbId(groupDatabaseId)
+        val groupModel = serviceManager.modelRepositories.groups.getByGroupDatabaseId(groupDatabaseId)
         if (groupModel == null) {
             logger.error("Group model with id {} could not be found. Cannot reflect conversation category.", groupDatabaseId)
             return CompletableDeferred<Unit>().also {
@@ -112,28 +112,6 @@ open class TaskCreator(private val serviceManager: ServiceManager) {
             ReflectGroupSyncUpdateTask.ReflectGroupConversationCategoryUpdateTask(
                 groupIdentity = groupModel.groupIdentity,
                 isPrivateChat = isPrivateChat,
-            )
-        }
-    }
-
-    fun scheduleReflectConversationVisibilityPinned(identity: IdentityString, isPinned: Boolean) = scheduleTaskAsync {
-        ReflectContactSyncUpdateTask.ReflectConversationVisibilityPinnedUpdate(
-            isPinned = isPinned,
-            contactIdentity = identity,
-        )
-    }
-
-    fun scheduleReflectGroupConversationVisibilityPinned(localGroupDatabaseId: Long, isPinned: Boolean) {
-        val groupModel = serviceManager.modelRepositories.groups.getByLocalGroupDbId(localGroupDatabaseId)
-        if (groupModel == null) {
-            logger.error("Could not schedule conversation visibility pinned task as the group model could not be found")
-            return
-        }
-
-        scheduleTaskAsync {
-            ReflectGroupSyncUpdateTask.ReflectGroupConversationVisibilityPinnedUpdate(
-                isPinned = isPinned,
-                groupIdentity = groupModel.groupIdentity,
             )
         }
     }

@@ -19,6 +19,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.koin.core.component.KoinComponent
 
 private val logger = getThreemaLogger("AndroidContactChangeMonitor")
@@ -59,31 +60,30 @@ class AndroidContactChangeMonitor(
         private suspend fun onContactChange() {
             logger.info("Contact name change observed")
 
-            try {
-                GlobalListeners.onAndroidContactChangeLock.lock()
-                logger.info("Starting to update all contact names from android contacts")
+            GlobalListeners.onAndroidContactChangeMutex.withLock {
+                try {
+                    logger.info("Starting to update all contact names from android contacts")
 
-                if (synchronizeContactsService.isSynchronizationInProgress()) {
-                    logger.warn("Aborting contact name change observer as a contact synchronization is currently in progress")
-                    return
+                    if (synchronizeContactsService.isSynchronizationInProgress()) {
+                        logger.warn("Aborting contact name change observer as a contact synchronization is currently in progress")
+                        return
+                    }
+
+                    if (!synchronizedSettingsService.isSyncContacts()) {
+                        logger.warn("Contact synchronization is not enabled. Aborting.")
+                        return
+                    }
+
+                    logger.info("Updating all contact names from android contacts")
+                    val contactModels = contactModelRepository
+                        .getAll()
+                        .filter { contactModel -> contactModel.data?.androidContactLookupInfo != null }
+                        .toSet()
+                    updateContactNameUseCase.call(contactModels)
+                    logger.info("Finished updating contact names from android contacts")
+                } catch (e: Exception) {
+                    logger.error("Contact name change observer could not be run successfully", e)
                 }
-
-                if (!synchronizedSettingsService.isSyncContacts()) {
-                    logger.warn("Contact synchronization is not enabled. Aborting.")
-                    return
-                }
-
-                logger.info("Updating all contact names from android contacts")
-                val contactModels = contactModelRepository
-                    .getAll()
-                    .filter { contactModel -> contactModel.data?.androidContactLookupInfo != null }
-                    .toSet()
-                updateContactNameUseCase.call(contactModels)
-                logger.info("Finished updating contact names from android contacts")
-            } catch (e: Exception) {
-                logger.error("Contact name change observer could not be run successfully", e)
-            } finally {
-                GlobalListeners.onAndroidContactChangeLock.unlock()
             }
         }
     }

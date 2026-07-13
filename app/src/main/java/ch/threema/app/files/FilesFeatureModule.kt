@@ -11,4 +11,5 @@ val filesFeatureModule = module {
     factoryOf(::GroupProfilePictureFileHandleProvider)
     factoryOf(::ProfilePictureFileHandleProvider)
     factoryOf(::WallpaperFileHandleProvider)
+    factoryOf(TempFilesCleanupWorker::Scheduler)
 }

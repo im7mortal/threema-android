@@ -3,19 +3,23 @@ package ch.threema.app.errorreporting
 import android.os.Build
 import ch.threema.app.BuildConfig
 import ch.threema.app.BuildFlavor
+import ch.threema.logging.BaseErrorRecordStore
 import org.koin.core.module.dsl.factoryOf
+import org.koin.dsl.bind
 import org.koin.dsl.module
 
 val errorReportingModule = module {
     factoryOf(::ErrorReportingHelper)
+    factoryOf(::RecentErrorTypeIdStore)
+    factoryOf(::ErrorReportDetailsProvider)
     factoryOf(SendErrorReportWorker::Scheduler)
-    factory {
-        ErrorRecordStore(
-            recordsDirectory = ErrorRecordStore.getRecordsDirectory(get()),
+    single<ErrorRecordStore> {
+        ErrorRecordStoreImpl.create(
+            context = get(),
             timeProvider = get(),
             uuidGenerator = get(),
         )
-    }
+    } bind BaseErrorRecordStore::class
     factoryOf(::SentryService)
     factoryOf(::SentryIdProvider)
     factory {

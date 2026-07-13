@@ -6,10 +6,10 @@ import androidx.annotation.VisibleForTesting
 import androidx.core.graphics.toColorInt
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.data.models.GroupIdentity
+import ch.threema.common.sha256
+import ch.threema.data.datatypes.IdColor.Companion.INVALID_COLOR_INDEX
 import ch.threema.domain.types.IdentityString
 import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
 import java.security.NoSuchAlgorithmException
 
 private val logger = getThreemaLogger("IdColor")
@@ -128,7 +128,7 @@ class IdColor(index: Int) {
         private fun ByteArray.computeIdColor(): IdColor =
             try {
                 logger.debug("Compute id color for {}", this)
-                val firstByte = MessageDigest.getInstance("SHA-256").digest(this).first()
+                val firstByte = sha256(this).first()
                 IdColor(firstByte.getIdColorIndex())
             } catch (e: NoSuchAlgorithmException) {
                 logger.error("Could not find hashing algorithm for id color", e)

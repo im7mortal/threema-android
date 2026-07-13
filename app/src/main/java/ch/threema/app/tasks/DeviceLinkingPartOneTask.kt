@@ -14,9 +14,8 @@ import ch.threema.app.services.ContactService
 import ch.threema.app.services.UserService
 import ch.threema.app.webclient.services.WebSessionQRCodeParser
 import ch.threema.app.webclient.services.WebSessionQRCodeParserImpl
-import ch.threema.base.utils.Base64
-import ch.threema.base.utils.Base64UrlSafe
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.Base64
 import ch.threema.common.generateRandomBytes
 import ch.threema.common.nextULong
 import ch.threema.common.secureRandom
@@ -179,7 +178,11 @@ class DeviceLinkingPartOneTask(
         if (parts.size != 2 || parts[0] != MultiDeviceManager.DEVICE_JOIN_OFFER_URI_PREFIX) {
             throw DeviceLinkingInvalidQrCodeException("Invalid device join offer uri: $deviceJoinOfferUri")
         }
-        val bytes = Base64UrlSafe.decode(parts[1])
+        val bytes = try {
+            Base64.UrlSafe.decode(parts[1])
+        } catch (_: IllegalArgumentException) {
+            throw DeviceLinkingInvalidQrCodeException("Invalid base64: ${parts[1]}")
+        }
         return try {
             DeviceGroupJoinRequestOrOffer.parseFrom(bytes)
         } catch (e: InvalidProtocolBufferException) {

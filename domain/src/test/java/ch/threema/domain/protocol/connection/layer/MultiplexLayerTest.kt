@@ -22,7 +22,7 @@ import kotlin.math.pow
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
+import kotlin.test.assertIs
 
 class MultiplexLayerTest {
     @Test
@@ -77,7 +77,7 @@ class MultiplexLayerTest {
         // Assert
         assertEquals(14, handler.messages.size)
         handler.messages.forEachIndexed { idx, msg ->
-            assertTrue(msg is CspData)
+            assertIs<CspData>(msg)
             assertEquals(2.toDouble().pow(idx).toInt(), msg.bytes.size)
         }
     }
@@ -114,7 +114,7 @@ class MultiplexLayerTest {
         // Assert
         assertEquals(14, handler.messages.size)
         handler.messages.forEachIndexed { idx, msg ->
-            assertTrue(msg is CspData)
+            assertIs<CspData>(msg)
             val expectedDataLength = 2.toDouble().pow(idx).toInt()
             val expectedFrameLength = expectedDataLength + 2 // 2 bytes for length prepended
             val lengthBytes = ByteBuffer.wrap(ByteArray(2))
@@ -174,7 +174,7 @@ class MultiplexLayerTest {
         handler.messages.forEachIndexed { idx, frame ->
             val expectedSize = sizes[idx]
 
-            assertTrue(frame is CspFrame)
+            assertIs<CspFrame>(frame)
             assertEquals(expectedSize, frame.box.size)
         }
     }
@@ -206,7 +206,7 @@ class MultiplexLayerTest {
         handler.messages.forEachIndexed { idx, loginMessage ->
             val expectedSize = sizes[idx]
 
-            assertTrue(loginMessage is CspLoginMessage)
+            assertIs<CspLoginMessage>(loginMessage)
             assertEquals(expectedSize, loginMessage.bytes.size)
         }
     }

@@ -33,8 +33,8 @@ import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.dimens.GridUnit
 import ch.threema.app.usecases.conversations.AvatarIteration
 import ch.threema.data.datatypes.AvailabilityStatus
-import ch.threema.domain.models.ContactReceiverIdentifier
-import ch.threema.domain.models.ReceiverIdentifier
+import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationId
 
 private const val FLIP_ANIMATION_DURATION_MILLIS = 400
 
@@ -45,8 +45,8 @@ private const val FLIP_ANIMATION_DURATION_MILLIS = 400
 fun AvatarAsyncCheckable(
     modifier: Modifier = Modifier,
     avatarIteration: AvatarIteration = AvatarIteration.initial,
-    receiverIdentifier: ReceiverIdentifier,
-    bitmapProvider: suspend (ReceiverIdentifier) -> ImmutableBitmap?,
+    conversationId: ConversationId,
+    bitmapProvider: suspend (ConversationId) -> ImmutableBitmap?,
     contentDescription: String?,
     @DrawableRes fallbackIcon: Int,
     showWorkBadge: Boolean,
@@ -76,11 +76,11 @@ fun AvatarAsyncCheckable(
             AvatarAsync(
                 modifier = Modifier.fillMaxSize(),
                 avatarIteration = avatarIteration,
-                receiverIdentifier = receiverIdentifier,
+                conversationId = conversationId,
                 bitmapProvider = bitmapProvider,
                 contentDescription = contentDescription,
                 fallbackIcon = fallbackIcon,
-                showWorkBadge = showWorkBadge,
+                showIdentityTypeBadge = showWorkBadge,
                 availabilityStatus = availabilityStatus,
                 onClick = onClick,
             )
@@ -129,7 +129,7 @@ private fun AvatarAsyncCheckable_Preview_Unchecked() {
             }
             AvatarAsyncCheckable(
                 modifier = Modifier,
-                receiverIdentifier = ContactReceiverIdentifier(
+                conversationId = ContactConversationId(
                     identity = PreviewData.IDENTITY_OTHER_1.value,
                 ),
                 bitmapProvider = { avatarBitmap },
@@ -151,7 +151,7 @@ private fun AvatarAsyncCheckable_Preview_Checked() {
         Surface {
             AvatarAsyncCheckable(
                 modifier = Modifier,
-                receiverIdentifier = ContactReceiverIdentifier(
+                conversationId = ContactConversationId(
                     identity = PreviewData.IDENTITY_OTHER_1.value,
                 ),
                 bitmapProvider = { null },

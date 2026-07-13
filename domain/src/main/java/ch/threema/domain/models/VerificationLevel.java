@@ -7,7 +7,9 @@ import java.util.Map;
  * The level of trust that a user may have in the validity of the public key for a given contact.
  */
 public enum VerificationLevel {
-    UNVERIFIED(0), SERVER_VERIFIED(1), FULLY_VERIFIED(2);
+    UNVERIFIED(0),
+    SERVER_VERIFIED(1),
+    FULLY_VERIFIED(2);
 
     private final int code;
     private static final Map<Integer, VerificationLevel> _map = new HashMap<>();

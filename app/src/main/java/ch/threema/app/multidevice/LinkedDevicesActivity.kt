@@ -8,6 +8,7 @@ import android.content.res.ColorStateList
 import android.os.Bundle
 import android.text.method.LinkMovementMethod
 import android.view.LayoutInflater
+import android.view.MenuItem
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -28,10 +29,7 @@ import ch.threema.app.BuildFlavor
 import ch.threema.app.R
 import ch.threema.app.activities.ThreemaToolbarActivity
 import ch.threema.app.applock.CheckAppLockContract
-import ch.threema.app.listeners.PreferenceListener
-import ch.threema.app.managers.ListenerManager
 import ch.threema.app.multidevice.wizard.LinkNewDeviceWizardActivity
-import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.ui.DebouncedOnClickListener
 import ch.threema.app.ui.EmptyRecyclerView
 import ch.threema.app.ui.InsetSides
@@ -42,6 +40,7 @@ import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.linkifyWeb
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.consume
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
@@ -56,7 +55,6 @@ class LinkedDevicesActivity : ThreemaToolbarActivity() {
         logScreenVisibility(logger)
     }
 
-    private val preferenceService: PreferenceService by inject()
     private val multiDeviceManager: MultiDeviceManager by inject()
 
     private val viewModel: LinkedDevicesViewModel by viewModel()
@@ -79,10 +77,6 @@ class LinkedDevicesActivity : ThreemaToolbarActivity() {
         if (unlocked) {
             initiateLinking()
         }
-    }
-
-    private val onPreferenceChangedListener = PreferenceListener { key, value ->
-        viewModel.onPreferenceChanged(key, value)
     }
 
     override fun getLayoutResource(): Int = R.layout.activity_linked_devices
@@ -111,11 +105,7 @@ class LinkedDevicesActivity : ThreemaToolbarActivity() {
                         viewModel.updateLinkDeviceButtonEnabled()
                         return
                     }
-                    if (ConfigUtils.hasProtection(preferenceService)) {
-                        checkLockToInitiateLinkingLauncher.launch()
-                    } else {
-                        initiateLinking()
-                    }
+                    checkLockToInitiateLinkingLauncher.launch()
                 }
             },
         )
@@ -130,7 +120,6 @@ class LinkedDevicesActivity : ThreemaToolbarActivity() {
         initDevicesList()
 
         startObservers()
-        startPreferenceListener()
     }
 
     override fun handleDeviceInsets() {
@@ -235,10 +224,6 @@ class LinkedDevicesActivity : ThreemaToolbarActivity() {
         }
     }
 
-    private fun startPreferenceListener() {
-        ListenerManager.preferenceListeners.add(onPreferenceChangedListener)
-    }
-
     private fun setIsLoading(isLoading: Boolean) {
         devicesListRefreshLayout.isRefreshing = isLoading
     }
@@ -306,10 +291,11 @@ class LinkedDevicesActivity : ThreemaToolbarActivity() {
         }.show()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        ListenerManager.preferenceListeners.remove(onPreferenceChangedListener)
-    }
+    override fun onOptionsItemSelected(item: MenuItem) =
+        when (item.itemId) {
+            android.R.id.home -> consume { finish() }
+            else -> super.onOptionsItemSelected(item)
+        }
 
     companion object {
         private const val PERMISSION_REQUEST_CAMERA = 1

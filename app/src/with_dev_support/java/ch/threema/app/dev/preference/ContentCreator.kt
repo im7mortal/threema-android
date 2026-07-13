@@ -12,7 +12,6 @@ import ch.threema.app.services.UserService
 import ch.threema.base.crypto.NonceFactory
 import ch.threema.base.crypto.NonceScope
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.common.now
 import ch.threema.data.repositories.EmojiReactionsRepository
 import ch.threema.data.storage.DbEmojiReaction
 import ch.threema.domain.models.MessageId
@@ -27,7 +26,7 @@ import ch.threema.storage.models.MessageState
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.group.GroupMessageModel
 import ch.threema.storage.models.group.GroupModelOld
-import java.util.Date
+import java.time.Instant
 import java.util.UUID
 import kotlin.random.Random
 import kotlin.random.nextInt
@@ -138,7 +137,7 @@ class ContentCreator(
     ): List<DbEmojiReaction> {
         val userIdentity = userService.identity!!
         val reactionIdentities = mutableListOf<String>()
-        val groupMessageStates = mutableMapOf<String, Any>()
+        val groupMessageStates = mutableMapOf<String, String?>()
 
         members.forEach { memberIdentity ->
             if (Random.nextDouble() > 0.3) {
@@ -169,7 +168,7 @@ class ContentCreator(
     }
 
     private fun createGroupText(
-        messageStates: Map<String, Any>,
+        messageStates: Map<String, String?>,
         reactions: List<Pair<String, Set<String>>>,
     ): String {
         val stateTexts = messageStates
@@ -315,7 +314,7 @@ class ContentCreator(
                     messageId,
                     identity,
                     reaction,
-                    Date(),
+                    Instant.now(),
                 )
             }
         }
@@ -345,7 +344,7 @@ class ContentCreator(
         text: String,
         senderIdentity: IdentityString,
         userIdentity: IdentityString,
-        groupMessageStates: Map<String, Any>,
+        groupMessageStates: Map<String, String?>,
         groupModel: GroupModelOld,
     ): GroupMessageModel = GroupMessageModel().apply {
         groupId = groupModel.id
@@ -362,9 +361,9 @@ class ContentCreator(
         isOutbox: Boolean,
         state: MessageState? = null,
     ) {
-        val now = now()
+        val now = Instant.now()
         uid = UUID.randomUUID().toString()
-        apiMessageId = MessageId.random().toString()
+        messageId = MessageId.random()
         this.isOutbox = isOutbox
         this.type = MessageType.TEXT
         bodyAndQuotedMessageId = text

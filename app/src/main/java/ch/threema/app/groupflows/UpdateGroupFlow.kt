@@ -1,7 +1,7 @@
 package ch.threema.app.groupflows
 
-import ch.threema.app.managers.ListenerManager
-import ch.threema.app.preference.service.PreferenceService
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.GroupEvent
 import ch.threema.app.profilepicture.CheckedProfilePicture
 import ch.threema.app.profilepicture.GroupProfilePictureUploader
 import ch.threema.app.profilepicture.GroupProfilePictureUploader.GroupProfilePictureUploadResult
@@ -13,7 +13,6 @@ import ch.threema.app.tasks.GroupUpdateTask
 import ch.threema.app.tasks.ReflectLocalGroupUpdate
 import ch.threema.app.tasks.ReflectionResult
 import ch.threema.app.utils.OutgoingCspMessageServices
-import ch.threema.app.utils.ShortcutUtil
 import ch.threema.app.utils.executor.BackgroundTask
 import ch.threema.app.voip.groupcall.GroupCallManager
 import ch.threema.base.utils.getThreemaLogger
@@ -83,9 +82,9 @@ class UpdateGroupFlow(
     private val outgoingCspMessageServices: OutgoingCspMessageServices,
     private val groupProfilePictureUploader: GroupProfilePictureUploader,
     private val fileService: FileService,
-    private val preferenceService: PreferenceService,
     private val taskManager: TaskManager,
     private val connection: ServerConnection,
+    private val globalEventBuses: GlobalEventBuses,
 ) : BackgroundTask<GroupFlowResult> {
     private val multiDeviceManager by lazy { outgoingCspMessageServices.multiDeviceManager }
 
@@ -110,7 +109,7 @@ class UpdateGroupFlow(
         }
 
         val groupFlowResult = if (multiDeviceManager.isMultiDeviceActive) {
-            if (connection.connectionState != ConnectionState.LOGGEDIN) {
+            if (connection.connectionState != ConnectionState.LOGGED_IN) {
                 return GroupFlowResult.Failure.Network
             }
             runBlocking {
@@ -248,7 +247,7 @@ class UpdateGroupFlow(
         val groupProfilePictureHasChanged = when (groupChanges.profilePictureChange) {
             is GroupChanges.ProfilePictureChange.Set -> {
                 logger.info("Set profile picture")
-                val oldGroupProfilePicture = fileService.getGroupProfilePictureBytes(groupModel)
+                val oldGroupProfilePicture = fileService.getGroupProfilePictureBytes(groupModel.getDatabaseId())
                 fileService.writeGroupProfilePicture(
                     groupModel,
                     groupChanges.profilePictureChange.profilePicture.bytes,
@@ -258,7 +257,7 @@ class UpdateGroupFlow(
 
             is GroupChanges.ProfilePictureChange.Remove -> {
                 logger.info("Remove profile picture")
-                val hadGroupProfilePicture = fileService.hasGroupProfilePicture(groupModel)
+                val hadGroupProfilePicture = fileService.hasGroupProfilePicture(groupModel.getDatabaseId())
                 fileService.removeGroupProfilePicture(groupModel)
                 hadGroupProfilePicture
             }
@@ -267,11 +266,7 @@ class UpdateGroupFlow(
         }
         if (groupProfilePictureHasChanged) {
             logger.info("Group profile picture has changed")
-            ListenerManager.groupListeners.handle { it.onUpdatePhoto(groupModel.groupIdentity) }
-            ShortcutUtil.updateShareTargetShortcut(
-                outgoingCspMessageServices.groupService.createReceiver(groupModel),
-                preferenceService.getContactNameFormat(),
-            )
+            globalEventBuses.groups.emit(GroupEvent.GroupProfilePictureUpdated(groupModel.groupIdentity))
         }
 
         groupChanges.name?.let { groupModel.persistName(it) }

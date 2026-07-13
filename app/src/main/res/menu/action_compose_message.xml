@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <item
         android:id="@+id/menu_message_quote"
-        android:icon="@drawable/ic_quote_outline"
+        android:icon="@drawable/ic_reply"
         android:orderInCategory="10"
-        android:title="@string/quote"
+        android:title="@string/reply_to_message"
         android:visible="false"
         app:iconTint="?attr/colorPrimary"
         app:showAsAction="always" />
@@ -22,7 +21,7 @@
 
     <item
         android:id="@+id/menu_message_forward"
-        android:icon="@drawable/ic_forward_outline"
+        android:icon="@drawable/ic_forward"
         android:orderInCategory="20"
         android:title="@string/forward_message"
         app:iconTint="?attr/colorPrimary"
@@ -30,7 +29,7 @@
 
     <item
         android:id="@+id/menu_message_edit"
-        android:icon="@drawable/ic_edit_file_name"
+        android:icon="@drawable/ic_edit"
         android:orderInCategory="25"
         android:title="@string/edit_message"
         app:iconTint="?attr/colorPrimary"

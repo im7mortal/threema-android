@@ -2,6 +2,7 @@
 <resources>
 
     <!-- general dimensions for uniform margins and paddings -->
+    <dimen name="grid_unit_x0_25">2dp</dimen>
     <dimen name="grid_unit_x0_5">4dp</dimen>
     <dimen name="grid_unit_x1">8dp</dimen>
     <dimen name="grid_unit_x1_5">12dp</dimen>
@@ -17,6 +18,7 @@
     <dimen name="grid_unit_x15">120dp</dimen>
 
     <!-- adaptive dimensions for margins and paddings depending on screen width -->
+    <dimen name="dynamic_grid_unit_x0_25">2dp</dimen>
     <dimen name="dynamic_grid_unit_x0_5">4dp</dimen>
     <dimen name="dynamic_grid_unit_x1">8dp</dimen>
     <dimen name="dynamic_grid_unit_x1_5">12dp</dimen>
@@ -86,15 +88,15 @@
     <dimen name="blue_header_text_size">14sp</dimen>
     <dimen name="blue_header_text_big_size">18sp</dimen>
 
-    <!-- ballot choice list -->
-    <dimen name="ballotchoice_list_item_height">40dp</dimen>
-    <dimen name="ballotchoice_list_entry_height">44sp</dimen>
-    <dimen name="ballotchoice_bottom_margin">54dp</dimen>
+    <!-- poll choice list -->
+    <dimen name="poll_choice_list_item_height">40dp</dimen>
+    <dimen name="poll_choice_list_entry_height">44sp</dimen>
+    <dimen name="poll_choice_bottom_margin">54dp</dimen>
 
-    <!-- ballot choice list -->
-    <dimen name="ballot_matrix_cell_border">2dp</dimen>
-    <dimen name="ballot_matrix_cell_height">40dp</dimen>
-    <dimen name="ballot_matrix_cell_width">44dp</dimen>
+    <!-- poll choice list -->
+    <dimen name="poll_matrix_cell_border">2dp</dimen>
+    <dimen name="poll_matrix_cell_height">40dp</dimen>
+    <dimen name="poll_matrix_cell_width">44dp</dimen>
 
     <dimen name="listitem_min_height_first_line">24dp</dimen>
     <dimen name="listitem_min_height_second_line">20dp</dimen>
@@ -108,7 +110,7 @@
     <dimen name="listitem_globalsearch_height">80dp</dimen>
     <dimen name="tablet_additional_padding_horizontal">0dp</dimen>
 
-    <!-- new ballot wizard -->
+    <!-- new poll wizard -->
     <dimen name="wizard_footer_height">48dp</dimen>
 
     <dimen name="contact_detail_avatar_height">220dp</dimen>
@@ -129,7 +131,7 @@
     <!-- message fragment width - used for multi pane layout -->
     <dimen name="message_fragment_width">0dp</dimen>
 
-    <dimen name="ballot_matrix_label_maxwidth">150dp</dimen>
+    <dimen name="poll_matrix_label_maxwidth">150dp</dimen>
 
     <!-- for keyboard aware layout -->
     <!-- minimum height to be considered a soft keyboard -->
@@ -166,7 +168,6 @@
 
     <!-- media attacher button dimensions -->
     <dimen name="media_attach_button_radius">10dp</dimen>
-    <dimen name="media_attach_button_height">92dp</dimen>
     <dimen name="media_attach_button_width">76dp</dimen>
     <dimen name="media_attach_button_stroke_width">1.2dp</dimen>
     <dimen name="media_attach_control_panel_shadow_size">3dp</dimen>
@@ -220,12 +221,14 @@
     <dimen name="incoming_call_slider_height">74dp</dimen>
     <dimen name="incoming_call_slider_margin_bottom">64dp</dimen>
 
-    <!-- mediaviewer dimensions -->
-    <dimen name="mediaviewer_caption_border_bottom">72dp</dimen>
-    <dimen name="mediaviewer_caption_border_horizontal">16dp</dimen>
-    <dimen name="mediaviewer_caption_background_radius">12dp</dimen>
-    <dimen name="mediaviewer_caption_container_padding_vertical">8dp</dimen>
-    <dimen name="mediaviewer_play_button_radius">20dp</dimen>
+    <!-- media viewer dimensions -->
+    <dimen name="media_viewer_caption_border_bottom">24dp</dimen>
+    <dimen name="media_viewer_caption_border_bottom_for_playable_media">72dp</dimen>
+    <dimen name="media_viewer_caption_border_horizontal">16dp</dimen>
+    <dimen name="media_viewer_caption_background_radius">12dp</dimen>
+    <dimen name="media_viewer_caption_container_padding_vertical">8dp</dimen>
+    <dimen name="media_viewer_caption_max_height">40dp</dimen>
+    <dimen name="media_viewer_play_button_radius">20dp</dimen>
 
     <!-- message list item swipe background -->
     <dimen name="swipe_icon_inset">28dp</dimen>

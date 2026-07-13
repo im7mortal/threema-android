@@ -117,6 +117,9 @@
             android:key="@string/preferences__webclient_debug"
             android:summary="@string/webclient_prefs_debug_tool_summary"
             android:title="@string/webclient_diagnostics" />
+        <Preference
+            android:key="@string/preferences__contacts_diagnostics"
+            android:title="Contacts Diagnostics" />
     </PreferenceCategory>
     <PreferenceCategory
         android:key="pref_key_reset"

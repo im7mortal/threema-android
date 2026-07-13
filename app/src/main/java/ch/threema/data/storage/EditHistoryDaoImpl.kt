@@ -22,7 +22,7 @@ class EditHistoryDaoImpl(
             put(DbEditHistoryEntry.COLUMN_MESSAGE_UID, entry.messageUid)
             put(DbEditHistoryEntry.COLUMN_MESSAGE_ID, entry.messageId)
             put(DbEditHistoryEntry.COLUMN_TEXT, entry.text)
-            put(DbEditHistoryEntry.COLUMN_EDITED_AT, entry.editedAt.time)
+            put(DbEditHistoryEntry.COLUMN_EDITED_AT, entry.editedAt.toEpochMilli())
         }
 
         val table = when (messageModel) {
@@ -77,7 +77,7 @@ class EditHistoryDaoImpl(
                 ),
             )
             val editedAt =
-                cursor.getDate(getColumnIndexOrThrow(cursor, DbEditHistoryEntry.COLUMN_EDITED_AT))
+                cursor.getInstant(getColumnIndexOrThrow(cursor, DbEditHistoryEntry.COLUMN_EDITED_AT))
             result.add(
                 DbEditHistoryEntry(
                     uid = uid,

@@ -41,12 +41,12 @@ import ch.threema.android.context
 import ch.threema.android.showToast
 import ch.threema.app.BuildFlavor
 import ch.threema.app.R
-import ch.threema.app.compose.common.SpacerVertical
-import ch.threema.app.compose.common.ThemedText
 import ch.threema.app.compose.common.buttons.ButtonIconInfo
 import ch.threema.app.compose.common.buttons.TextButtonNeutral
 import ch.threema.app.compose.common.buttons.TextButtonPrimary
 import ch.threema.app.compose.common.buttons.primary.ButtonPrimaryWebsite
+import ch.threema.app.compose.common.spacer.SpacerVertical
+import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.preview.PreviewThreemaAll
 import ch.threema.app.compose.theme.ThreemaTheme
 import ch.threema.app.compose.theme.ThreemaThemePreview
@@ -75,9 +75,7 @@ class WorkIntroActivity : ThreemaActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            ThreemaTheme(
-                isDarkTheme = true,
-            ) {
+            ThreemaTheme {
                 WorkIntroContent(
                     onClickSignIn = ::onClickedSignIn,
                     onClickLearnMore = ::onClickLearnMore,
@@ -191,7 +189,7 @@ private fun WorkIntroContent(
                     modifier = Modifier.fillMaxWidth(
                         fraction = 0.7f,
                     ),
-                    painter = painterResource(R.drawable.logo_main_white),
+                    painter = painterResource(R.drawable.logo_main),
                     contentDescription = stringResource(R.string.app_name),
                 )
 
@@ -229,8 +227,7 @@ private fun WorkIntroContent(
                         locale = currentLocaleOrDefault(),
                     ),
                     leadingIcon = ButtonIconInfo(
-                        icon = R.drawable.ic_arrow_right,
-                        contentDescription = null,
+                        iconRes = R.drawable.ic_arrow_right,
                     ),
                 )
 
@@ -254,8 +251,7 @@ private fun WorkIntroContent(
                         locale = currentLocaleOrDefault(),
                     ),
                     leadingIcon = ButtonIconInfo(
-                        icon = R.drawable.ic_arrow_right,
-                        contentDescription = null,
+                        iconRes = R.drawable.ic_arrow_right,
                     ),
                 )
 
@@ -294,8 +290,7 @@ private fun WorkIntroContent(
                     locale = currentLocaleOrDefault(),
                 ),
                 leadingIcon = ButtonIconInfo(
-                    icon = R.drawable.ic_arrow_right,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_arrow_right,
                 ),
             )
 
@@ -318,9 +313,7 @@ private fun pickFlavoredText(
 @PreviewThreemaAll
 @Composable
 private fun WorkIntroContent_Preview() {
-    ThreemaThemePreview(
-        isDarkTheme = true,
-    ) {
+    ThreemaThemePreview {
         WorkIntroContent(
             onClickSignIn = {},
             onClickLearnMore = {},
@@ -332,9 +325,7 @@ private fun WorkIntroContent_Preview() {
 @PreviewFontScale
 @Composable
 private fun WorkIntroContent_Preview_Scale() {
-    ThreemaThemePreview(
-        isDarkTheme = true,
-    ) {
+    ThreemaThemePreview {
         WorkIntroContent(
             onClickSignIn = {},
             onClickLearnMore = {},

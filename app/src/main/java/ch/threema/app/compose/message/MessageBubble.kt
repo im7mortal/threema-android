@@ -28,17 +28,17 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import ch.threema.app.R
-import ch.threema.app.compose.common.ThemedText
 import ch.threema.app.compose.common.colorReferenceResource
 import ch.threema.app.compose.common.interop.InteropEmojiConversationTextView
+import ch.threema.app.compose.common.spacer.SpacerRemainingHorizontal
+import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.theme.AppTypography
 import ch.threema.app.messagedetails.MessageUiModel
 import ch.threema.app.ui.BottomSheetItem
 import ch.threema.app.ui.CustomTextSelectionCallback
 import ch.threema.app.utils.LinkifyUtil
 import ch.threema.app.utils.LocaleUtil
-import ch.threema.common.now
-import java.util.Date
+import java.time.Instant
 
 @Composable
 fun MessageBubble(
@@ -156,7 +156,7 @@ fun CompleteMessageBubble(
 @Composable
 fun DeletedMessageBubble(
     isOutbox: Boolean,
-    date: Date,
+    date: Instant,
     linkifyListener: LinkifyUtil.LinkifyListener,
     onClick: (() -> Unit)? = null,
 ) {
@@ -183,7 +183,7 @@ const val CONTENT_ALPHA_BOTTOM_ROW = 0.6f
 @Composable
 fun MessageBubbleFooter(
     shouldShowEditedLabel: Boolean,
-    date: Date? = null,
+    date: Instant? = null,
     isOutbox: Boolean,
     @DrawableRes deliveryIconRes: Int? = null,
     @StringRes deliveryIconContentDescriptionRes: Int? = null,
@@ -209,10 +209,10 @@ fun MessageBubbleFooter(
                 ),
             )
         }
-        Spacer(modifier = Modifier.weight(1f))
+        SpacerRemainingHorizontal()
         date?.let {
             Spacer(modifier = Modifier.size(4.dp))
-            val formattedDate = LocaleUtil.formatTimeStampString(LocalContext.current, it.time, true)
+            val formattedDate = LocaleUtil.formatTimeStampString(LocalContext.current, date, true)
             ThemedText(
                 modifier = stringResource(R.string.cd_created_at).let { string ->
                     Modifier.semantics {
@@ -254,7 +254,7 @@ private fun MessageBubble_Preview() {
         footerContent = { contentColor: Color ->
             MessageBubbleFooter(
                 shouldShowEditedLabel = true,
-                date = now(),
+                date = Instant.now(),
                 isOutbox = true,
                 deliveryIconRes = R.drawable.ic_mark_read,
                 contentColor = contentColor,

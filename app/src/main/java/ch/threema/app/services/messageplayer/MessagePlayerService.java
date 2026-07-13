@@ -11,8 +11,10 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.lang.ref.WeakReference;
 
 import ch.threema.app.messagereceiver.MessageReceiver;
+import ch.threema.base.SessionScoped;
 import ch.threema.storage.models.AbstractMessageModel;
 
+@SessionScoped
 public interface MessagePlayerService {
     MessagePlayer createPlayer(AbstractMessageModel m, @Nullable WeakReference<Activity> activityWeakReference, MessageReceiver<?> messageReceiver, @Nullable ListenableFuture<MediaController> mediaControllerFuture);
 

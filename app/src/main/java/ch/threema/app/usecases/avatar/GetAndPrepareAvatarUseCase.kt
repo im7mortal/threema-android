@@ -7,11 +7,11 @@ import ch.threema.app.glide.AvatarOptions
 import ch.threema.app.services.avatarcache.AvatarCacheService
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.DispatcherProvider
-import ch.threema.data.models.GroupIdentity
-import ch.threema.domain.models.ContactReceiverIdentifier
-import ch.threema.domain.models.DistributionListReceiverIdentifier
-import ch.threema.domain.models.GroupReceiverIdentifier
-import ch.threema.domain.models.ReceiverIdentifier
+import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationId
+import ch.threema.data.datatypes.DistributionListConversationId
+import ch.threema.data.datatypes.GroupConversationId
+import ch.threema.data.repositories.GroupModelRepository
 import kotlinx.coroutines.withContext
 
 private val logger = getThreemaLogger("GetAndPrepareAvatarUseCase")
@@ -19,21 +19,22 @@ private val logger = getThreemaLogger("GetAndPrepareAvatarUseCase")
 class GetAndPrepareAvatarUseCase(
     private val avatarCacheService: AvatarCacheService,
     private val dispatcherProvider: DispatcherProvider,
+    private val groupModelRepository: GroupModelRepository,
 ) {
 
     /**
-     *  Load the avatar bitmap data for the given [receiverIdentifier] and prepare it **for display** by uploading data into the GPUs vRAM.
+     *  Load the avatar bitmap data for the given [conversationId] and prepare it **for display** by uploading data into the GPUs vRAM.
      *
      *  Devices with hardware acceleration benefit from this bitmap preparation. On devices without hardware acceleration, this preparation is
      *  effectively no-op.
      *
      *  @see [Bitmap.prepareToDraw]
      */
-    suspend fun call(receiverIdentifier: ReceiverIdentifier): ImmutableBitmap? = withContext(dispatcherProvider.io) {
-        val bitmap: Bitmap? = when (receiverIdentifier) {
-            is ContactReceiverIdentifier -> getContactAvatar(receiverIdentifier)
-            is GroupReceiverIdentifier -> getGroupAvatar(receiverIdentifier)
-            is DistributionListReceiverIdentifier -> getDistributionListAvatar(receiverIdentifier)
+    suspend fun call(conversationId: ConversationId): ImmutableBitmap? = withContext(dispatcherProvider.io) {
+        val bitmap: Bitmap? = when (conversationId) {
+            is ContactConversationId -> getContactAvatar(conversationId)
+            is GroupConversationId -> getGroupAvatar(conversationId)
+            is DistributionListConversationId -> getDistributionListAvatar(conversationId)
         }
         try {
             bitmap?.prepareToDraw()
@@ -43,19 +44,19 @@ class GetAndPrepareAvatarUseCase(
         bitmap?.toImmutableBitmap()
     }
 
-    private fun getContactAvatar(contactReceiverIdentifier: ContactReceiverIdentifier): Bitmap? =
+    private fun getContactAvatar(contactConversationId: ContactConversationId): Bitmap? =
         avatarCacheService.getIdentityAvatar(
             /* identity = */
-            contactReceiverIdentifier.identity,
+            contactConversationId.identity,
             /* options = */
             AvatarOptions.PRESET_DEFAULT_FALLBACK,
         )
 
-    private fun getGroupAvatar(groupReceiverIdentifier: GroupReceiverIdentifier): Bitmap? {
-        val groupIdentity = GroupIdentity(
-            creatorIdentity = groupReceiverIdentifier.groupCreatorIdentity,
-            groupId = groupReceiverIdentifier.groupApiId,
-        )
+    private fun getGroupAvatar(groupConversationId: GroupConversationId): Bitmap? {
+        val groupIdentity = groupModelRepository
+            .getByGroupDatabaseId(groupDatabaseId = groupConversationId.groupDatabaseId)
+            ?.groupIdentity
+            ?: return null
         return avatarCacheService.getGroupAvatar(
             /* groupIdentity = */
             groupIdentity,
@@ -64,9 +65,9 @@ class GetAndPrepareAvatarUseCase(
         )
     }
 
-    private fun getDistributionListAvatar(distributionListReceiverIdentifier: DistributionListReceiverIdentifier): Bitmap? =
+    private fun getDistributionListAvatar(distributionListConversationId: DistributionListConversationId): Bitmap? =
         avatarCacheService.getDistributionListAvatarLow(
             /* distributionListId = */
-            distributionListReceiverIdentifier.id,
+            distributionListConversationId.distributionListId,
         )
 }

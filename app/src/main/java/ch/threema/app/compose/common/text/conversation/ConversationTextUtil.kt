@@ -8,8 +8,8 @@ object ConversationTextUtil {
      *  Truncate the given [text] to a maximum length of characters counting every multi-char emoji sequence as **one** character. The effective count
      *  of characters in the result may exceed the passed [maxLength] due to contained emojis.
      *
-     *  Because the [EmojiParser] is used to to determine emoji character-sequences, this implementation works across all Java versions with
-     *  potentially older unicode definitions.
+     *  Because the [EmojiParser] is used to determine emoji character-sequences, this implementation works across all Java versions with
+     *  potentially older Unicode definitions.
      *
      *  This truncation logic is especially useful for views that want to truncate a string that potentially contains emojis, but would like to
      *  present the given [maxLength] in **visual characters**.

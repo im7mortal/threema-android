@@ -84,9 +84,9 @@ public class AvatarListItemUtil {
             );
         }
 
-        // Set work badge
-        boolean isWork = contactService.showBadge(conversationModel.getContact());
-        holder.avatarView.setWorkBadgeVisible(isWork);
+        // Show/hide identity type badge
+        boolean isIdentityTypeBadgeVisible = contactService.showIdentityTypeBadge(conversationModel.getContact());
+        holder.avatarView.setIdentityTypeBadgeVisible(isIdentityTypeBadgeVisible);
     }
 
     public static <S> void loadAvatar(
@@ -102,9 +102,9 @@ public class AvatarListItemUtil {
         }
 
         if (subject instanceof String) {
-            holder.avatarView.setWorkBadgeVisible(((ContactService) avatarService).showBadge((String) subject));
+            holder.avatarView.setIdentityTypeBadgeVisible(((ContactService) avatarService).showIdentityTypeBadge((String) subject));
         } else {
-            holder.avatarView.setWorkBadgeVisible(false);
+            holder.avatarView.setIdentityTypeBadgeVisible(false);
         }
 
         AvatarOptions options;

@@ -1,18 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
-        <shape xmlns:android="http://schemas.android.com/apk/res/android"
-            android:shape="rectangle">
+        <shape android:shape="rectangle">
             <solid android:color="@android:color/transparent" />
             <stroke
-                android:width="0.5dp"
-                android:color="@color/wizard_alpha_background" />
-            <corners android:radius="2dp" />
+                android:width="1dp"
+                android:color="?attr/colorOnSurface" />
+            <corners android:radius="4dp" />
         </shape>
     </item>
-    <item>
-        <bitmap
-            android:src="@drawable/ic_next_alpha"
-            android:gravity="right" />
+    <item
+        android:width="20dp"
+        android:height="20dp"
+        android:gravity="end|center_vertical"
+        android:right="12dp">
+        <vector
+            android:width="24dp"
+            android:height="24dp"
+            android:viewportWidth="960"
+            android:viewportHeight="960">
+            <path
+                android:fillColor="?attr/colorOnSurface"
+                android:pathData="M579,480 L285,186q-15,-15 -14.5,-35.5T286,115q15,-15 35.5,-15t35.5,15l307,308q12,12 18,27t6,30q0,15 -6,30t-18,27L356,845q-15,15 -35,14.5T286,844q-15,-15 -15,-35.5t15,-35.5l293,-293Z" />
+        </vector>
     </item>
 </layer-list>

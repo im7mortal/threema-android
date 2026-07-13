@@ -78,7 +78,7 @@ class LeaveGroupFlow(
 
         // First, reflect the leave (if md is active)
         if (multiDeviceManager.isMultiDeviceActive) {
-            if (connection.connectionState != ConnectionState.LOGGEDIN) {
+            if (connection.connectionState != ConnectionState.LOGGED_IN) {
                 return GroupFlowResult.Failure.Network
             }
             when (val reflectionResult = reflect()) {

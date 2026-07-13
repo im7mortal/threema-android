@@ -6,7 +6,7 @@
 # Arguments:
 #
 # - `JAVA_VERSION`: Set this to the desired Java version (e.g. 21)
-# - `SDK_VERSION`: Set this to the desired Android SDK version (e.g. `35`)
+# - `SDK_VERSION`: Set this to the desired Android SDK version (e.g. `36`)
 # - `NDK_VERSION`: Set this to the desired Android NDK version (e.g. `25.2.9519653`)
 # - `BUILD_TOOLS_VERSION`: Set this to the desired build tools version (e.g. `35.0.0`)
 # - `RUST_VERSION`: Set this to the desired Rust version (e.g. `1.80`)
@@ -15,7 +15,7 @@ FROM docker.io/debian:trixie-slim
 
 # Arguments
 ARG JAVA_VERSION=21
-ARG SDK_VERSION=35
+ARG SDK_VERSION=36
 ARG BUILD_TOOLS_VERSION=35.0.0
 ARG NDK_VERSION=28.2.13676358
 ARG RUST_VERSION

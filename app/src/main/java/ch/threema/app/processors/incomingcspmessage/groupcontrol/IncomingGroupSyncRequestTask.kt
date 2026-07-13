@@ -21,7 +21,7 @@ import ch.threema.domain.taskmanager.TRANSACTION_TTL_MAX
 import ch.threema.domain.taskmanager.TransactionScope
 import ch.threema.domain.taskmanager.TriggerSource
 import ch.threema.domain.taskmanager.createTransaction
-import java.util.Date
+import java.time.Instant
 
 private val logger = getThreemaLogger("IncomingGroupSyncRequestTask")
 
@@ -137,7 +137,7 @@ private suspend fun answerGroupSyncRequest(
                 sender,
                 OutgoingCspGroupMessageCreator(
                     MessageId.random(),
-                    Date(),
+                    Instant.now(),
                     group,
                 ) {
                     GroupSetupMessage().apply {

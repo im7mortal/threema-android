@@ -27,7 +27,7 @@ class WorkDoNotDisturbUtilTest {
         )
         timeProvider
         doNotDisturbUtil = WorkDoNotDisturbUtil(
-            context = mockk {
+            appContext = mockk {
                 every { getString(R.string.preferences__working_days_enable) } returns KEY_DAYS_ENABLED
                 every { getString(R.string.preferences__working_days) } returns KEY_WORKING_DAYS
                 every { getString(R.string.preferences__work_time_start) } returns KEY_WORK_TIME_START

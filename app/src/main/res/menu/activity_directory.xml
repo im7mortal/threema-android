@@ -15,7 +15,7 @@
 
     <item
         android:id="@+id/menu_category"
-        android:icon="@drawable/ic_filter_list_black_24dp"
+        android:icon="@drawable/ic_filter_list"
         app:iconTint="?attr/colorOnSurface"
         android:orderInCategory="60"
         android:title="@string/filter_list"

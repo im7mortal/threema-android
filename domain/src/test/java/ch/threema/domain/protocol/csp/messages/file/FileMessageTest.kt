@@ -164,9 +164,9 @@ open class FileMessageTest {
         assertEquals(fileData.renderingType, actual.renderingType)
         assertEquals(fileData.caption, actual.caption)
         assertEquals(fileData.correlationId, actual.correlationId)
-        assertEquals(fileData.metaData.size, actual.metaData.size)
-        fileData.metaData.forEach { (key, value) ->
-            assertEquals(value, actual.metaData[key])
+        assertEquals(fileData.metaData!!.size, actual.metaData!!.size)
+        fileData.metaData!!.forEach { (key, value) ->
+            assertEquals(value, actual.metaData!![key])
         }
     }
 }

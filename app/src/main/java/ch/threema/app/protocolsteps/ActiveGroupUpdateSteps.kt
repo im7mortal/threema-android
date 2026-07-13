@@ -11,7 +11,7 @@ import ch.threema.app.utils.OutgoingCspMessageServices
 import ch.threema.app.utils.runBundledMessagesSendSteps
 import ch.threema.app.voip.groupcall.GroupCallManager
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.GroupModel
 import ch.threema.data.models.GroupModelData
 import ch.threema.data.repositories.ContactModelRepository
@@ -24,7 +24,7 @@ import ch.threema.domain.protocol.csp.messages.GroupSetupMessage
 import ch.threema.domain.protocol.csp.messages.groupcall.GroupCallStartMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.ProtocolException
-import java.util.Date
+import java.time.Instant
 import kotlin.jvm.Throws
 
 private val logger = getThreemaLogger("ActiveGroupUpdateSteps")
@@ -183,7 +183,7 @@ private fun createGroupSetup(
     receivers,
     OutgoingCspGroupMessageCreator(
         messageId,
-        Date(),
+        Instant.now(),
         groupIdentity,
     ) {
         GroupSetupMessage().apply {
@@ -200,7 +200,7 @@ private fun createGroupName(
     receivers,
     OutgoingCspGroupMessageCreator(
         messageId,
-        Date(),
+        Instant.now(),
         groupModelData.groupIdentity,
     ) {
         GroupNameMessage().apply {
@@ -217,7 +217,9 @@ private fun createGroupProfilePictureMessage(
     groupProfilePictureUploader: GroupProfilePictureUploader,
     messageId: MessageId,
 ): OutgoingCspMessageHandle {
-    val currentGroupProfilePicture = fileService.getGroupProfilePictureBytes(groupModel)?.let { bytes -> RawProfilePicture(bytes) }
+    val currentGroupProfilePicture = fileService
+        .getGroupProfilePictureBytes(groupModel.getDatabaseId())
+        ?.let { bytes -> RawProfilePicture(bytes) }
 
     when (expectedProfilePictureChange) {
         is ExpectedProfilePictureChange.Set -> {
@@ -285,7 +287,7 @@ private fun getSetProfilePictureMessageHandle(
         receivers,
         OutgoingCspGroupMessageCreator(
             messageId,
-            Date(),
+            Instant.now(),
             groupIdentity,
         ) {
             GroupSetProfilePictureMessage().apply {
@@ -306,7 +308,7 @@ private fun getDeleteProfilePictureMessageHandle(
         receivers,
         OutgoingCspGroupMessageCreator(
             messageId,
-            Date(),
+            Instant.now(),
             groupIdentity,
         ) {
             GroupDeleteProfilePictureMessage()
@@ -325,7 +327,7 @@ private suspend fun createGroupCallStartMessage(
             receivers,
             OutgoingCspGroupMessageCreator(
                 messageId,
-                Date(),
+                Instant.now(),
                 groupModel.groupIdentity,
             ) {
                 GroupCallStartMessage(it)

@@ -3,10 +3,8 @@ package ch.threema.app.utils;
 import android.content.Context;
 import android.content.Intent;
 import android.location.Location;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.SystemClock;
 
 import org.slf4j.Logger;
 
@@ -18,9 +16,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.app.AppConstants;
 import ch.threema.app.BuildConfig;
-import ch.threema.app.ThreemaApplication;
-import ch.threema.app.activities.ComposeMessageActivity;
-import ch.threema.app.home.HomeActivity;
 import ch.threema.app.fragments.composemessage.ComposeMessageFragment;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.mediaattacher.MediaFilterQuery;
@@ -33,19 +28,19 @@ import ch.threema.app.services.DistributionListService;
 import ch.threema.app.services.GroupService;
 import ch.threema.app.services.MessageService;
 import ch.threema.common.models.Coordinates;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.data.models.GroupModel;
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.ContactModel;
-import ch.threema.storage.models.DistributionListMessageModel;
-import ch.threema.storage.models.group.GroupMessageModel;
 import ch.threema.storage.models.group.GroupModelOld;
 import ch.threema.storage.models.WebClientSessionModel;
-import ch.threema.storage.models.ballot.BallotChoiceModel;
-import ch.threema.storage.models.ballot.BallotModel;
+import ch.threema.storage.models.poll.PollChoiceModel;
+import ch.threema.storage.models.poll.PollModel;
 
 import static android.app.PendingIntent.FLAG_MUTABLE;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class IntentDataUtil {
     private static final Logger logger = getThreemaLogger("IntentDataUtil");
@@ -76,8 +71,7 @@ public class IntentDataUtil {
     public static final String INTENT_DATA_PAYLOAD = "payload";
 
     private static final String INTENT_HIDE_AFTER_UNLOCK = "hide_after_unlock";
-    private static final String INTENT_DATA_BALLOT_ID = "ballot_id";
-    private static final String INTENT_DATA_BALLOT_CHOICE_ID = "ballot_choide_id";
+    private static final String INTENT_DATA_POLL_ID = "ballot_id";
 
     public static final int PENDING_INTENT_FLAG_MUTABLE = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? FLAG_MUTABLE : 0;
 
@@ -87,10 +81,6 @@ public class IntentDataUtil {
 
     public static void append(ContactModel contactModel, Intent intent) {
         intent.putExtra(AppConstants.INTENT_DATA_CONTACT, contactModel.getIdentity());
-    }
-
-    public static void append(String identity, Intent intent) {
-        intent.putExtra(AppConstants.INTENT_DATA_CONTACT, identity);
     }
 
     public static void append(@NonNull GroupModelOld groupModel, @NonNull Intent intent) {
@@ -111,7 +101,7 @@ public class IntentDataUtil {
         intent.putExtra(INTENT_DATA_LOCATION_LAT, coordinates.getLatitude());
         intent.putExtra(INTENT_DATA_LOCATION_LNG, coordinates.getLongitude());
         intent.putExtra(INTENT_DATA_LOCATION_PROVIDER, provider);
-        if (TestUtil.isEmptyOrNull(poiName)) {
+        if (isNullOrEmpty(poiName)) {
             intent.putExtra(INTENT_DATA_LOCATION_NAME, poiAddress);
         } else {
             intent.putExtra(INTENT_DATA_LOCATION_NAME, poiName);
@@ -122,7 +112,6 @@ public class IntentDataUtil {
         intent.putExtra(INTENT_DATA_ABSTRACT_MESSAGE_ID, abstractMessageModel.getId());
         intent.putExtra(INTENT_DATA_ABSTRACT_MESSAGE_TYPE, abstractMessageModel.getClass().toString());
     }
-
 
     public static void append(WebClientSessionModel model, Intent intent) {
         intent.putExtra(INTENT_DATA_WEB_CLIENT_SESSION_MODEL_ID, model.getId());
@@ -221,7 +210,7 @@ public class IntentDataUtil {
         return intent.getStringArrayExtra(INTENT_DATA_CONTACTS);
     }
 
-    public static long getGroupId(@Nullable Intent intent) {
+    public static long getGroupDatabaseId(@Nullable Intent intent) {
         if (intent != null && intent.hasExtra(AppConstants.INTENT_DATA_GROUP_DATABASE_ID)) {
             return intent.getLongExtra(AppConstants.INTENT_DATA_GROUP_DATABASE_ID, -1L);
         }
@@ -243,25 +232,13 @@ public class IntentDataUtil {
         return null;
     }
 
-    public static void append(@NonNull BallotModel ballotModel, @NonNull Intent intent) {
-        intent.putExtra(INTENT_DATA_BALLOT_ID, ballotModel.getId());
+    public static void append(@NonNull PollModel pollModel, @NonNull Intent intent) {
+        intent.putExtra(INTENT_DATA_POLL_ID, pollModel.getId());
     }
 
-    public static int getBallotId(Intent intent) {
-        if (intent.hasExtra(INTENT_DATA_BALLOT_ID)) {
-            return intent.getIntExtra(INTENT_DATA_BALLOT_ID, 0);
-        }
-
-        return 0;
-    }
-
-    public static void append(BallotChoiceModel ballotChoiceModel, Intent intent) {
-        intent.putExtra(INTENT_DATA_BALLOT_CHOICE_ID, ballotChoiceModel.getId());
-    }
-
-    public static int getBallotChoiceId(Intent intent) {
-        if (intent.hasExtra(INTENT_DATA_BALLOT_CHOICE_ID)) {
-            return intent.getIntExtra(INTENT_DATA_BALLOT_CHOICE_ID, 0);
+    public static int getPollId(Intent intent) {
+        if (intent.hasExtra(INTENT_DATA_POLL_ID)) {
+            return intent.getIntExtra(INTENT_DATA_POLL_ID, 0);
         }
 
         return 0;
@@ -276,15 +253,18 @@ public class IntentDataUtil {
         return intent.getIntExtra(INTENT_DATA_ABSTRACT_MESSAGE_ID, 0);
     }
 
+    @Nullable
     public static ArrayList<Integer> getAbstractMessageIds(Intent intent) {
         return intent.getIntegerArrayListExtra(INTENT_DATA_ABSTRACT_MESSAGE_IDS);
     }
 
+    @Nullable
     public static ArrayList<String> getAbstractMessageTypes(Intent intent) {
         return intent.getStringArrayListExtra(INTENT_DATA_ABSTRACT_MESSAGE_TYPES);
     }
 
-    public static AbstractMessageModel getAbstractMessageModel(Intent intent, MessageService messageService) {
+    @Nullable
+    public static AbstractMessageModel getAbstractMessageModel(@Nullable Intent intent, @Nullable MessageService messageService) {
         if (intent != null && messageService != null) {
 
             int id = getAbstractMessageId(intent);
@@ -295,23 +275,30 @@ public class IntentDataUtil {
         return null;
     }
 
+    @NonNull
     public static ArrayList<AbstractMessageModel> getAbstractMessageModels(Intent intent, MessageService messageService) {
         ArrayList<Integer> messageIDs = getAbstractMessageIds(intent);
         ArrayList<String> messageTypes = getAbstractMessageTypes(intent);
+        if (messageIDs == null || messageTypes == null) {
+            return new ArrayList<>();
+        }
         ArrayList<AbstractMessageModel> messageModels = new ArrayList<>(messageIDs.size());
 
         Iterator<Integer> ids = messageIDs.iterator();
         Iterator<String> types = messageTypes.iterator();
 
         while (ids.hasNext() && types.hasNext()) {
-            messageModels.add(messageService.getMessageModelFromId(ids.next(), types.next()));
+            var messageModel = messageService.getMessageModelFromId(ids.next(), types.next());
+            if (messageModel != null) {
+                messageModels.add(messageModel);
+            }
         }
         return messageModels;
     }
 
     @Nullable
-    public static MessageReceiver getMessageReceiverFromIntent(Context context, Intent intent) {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+    public static MessageReceiver<?> getMessageReceiverFromIntent(Context context, Intent intent) {
+        ServiceManager serviceManager = ServiceManager.get();
         ContactService contactService;
         GroupService groupService;
         DistributionListService distributionListService;
@@ -325,7 +312,7 @@ public class IntentDataUtil {
         }
 
         String identity = ContactUtil.getIdentityFromViewIntent(context, intent);
-        if (!TestUtil.isEmptyOrNull(identity)) {
+        if (!isNullOrEmpty(identity)) {
             return contactService.createReceiver(contactService.getByIdentity(identity));
         }
 
@@ -390,9 +377,10 @@ public class IntentDataUtil {
      *
      * @return ArrayList of MessageReceivers
      */
-    public static ArrayList<MessageReceiver> getMessageReceiversFromIntent(Intent intent) {
+    @Nullable
+    public static ArrayList<MessageReceiver> getMessageReceiversFromIntent(@NonNull Intent intent) {
         ArrayList<MessageReceiver> messageReceivers = new ArrayList<>();
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         ContactService contactService;
         GroupService groupService;
         DistributionListService distributionListService;
@@ -426,7 +414,7 @@ public class IntentDataUtil {
         return messageReceivers;
     }
 
-    public static Intent addMessageReceiverToIntent(Intent intent, MessageReceiver messageReceiver) {
+    public static void addMessageReceiverToIntent(@NonNull Intent intent, @NonNull MessageReceiver messageReceiver) {
         switch (messageReceiver.getType()) {
             case MessageReceiver.Type_CONTACT:
                 intent.putExtra(AppConstants.INTENT_DATA_CONTACT, ((ContactMessageReceiver) messageReceiver).getContact().getIdentity());
@@ -440,8 +428,6 @@ public class IntentDataUtil {
             default:
                 break;
         }
-
-        return intent;
     }
 
     /**
@@ -482,7 +468,7 @@ public class IntentDataUtil {
     }
 
     public static AbstractMessageModel getMessageModelFromReceiver(Intent intent, MessageReceiver messageReceiver) {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         MessageService messageService;
         try {
             messageService = serviceManager.getMessageService();
@@ -511,41 +497,6 @@ public class IntentDataUtil {
         return intent.hasExtra(INTENT_DATA_PAYLOAD) ?
             intent.getByteArrayExtra(INTENT_DATA_PAYLOAD)
             : null;
-    }
-
-    public static Intent getComposeIntentForReceivers(Context context, ArrayList<MessageReceiver> receivers) {
-        Intent intent;
-
-        if (!receivers.isEmpty()) {
-            intent = addMessageReceiverToIntent(new Intent(context, ComposeMessageActivity.class), receivers.get(0));
-            intent.putExtra(AppConstants.INTENT_DATA_EDITFOCUS, Boolean.TRUE);
-        } else {
-            intent = HomeActivity.createIntent(context);
-        }
-
-        // fix for <4.1 - keeps android from re-using existing intent and stripping extras
-        intent.setData((Uri.parse("foobar://" + SystemClock.elapsedRealtime())));
-        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        intent.putExtra(AppConstants.INTENT_DATA_TIMESTAMP, SystemClock.elapsedRealtime());
-
-        return intent;
-    }
-
-    public static Intent getJumpToMessageIntent(Context context, AbstractMessageModel messageModel) {
-        Intent intent = new Intent(context, ComposeMessageActivity.class);
-        intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-
-        if (messageModel instanceof GroupMessageModel) {
-            intent.putExtra(AppConstants.INTENT_DATA_GROUP_DATABASE_ID, (long) ((GroupMessageModel) messageModel).getGroupId());
-        } else if (messageModel instanceof DistributionListMessageModel) {
-            intent.putExtra(AppConstants.INTENT_DATA_DISTRIBUTION_LIST_ID, ((DistributionListMessageModel) messageModel).getDistributionListId());
-        } else {
-            intent.putExtra(AppConstants.INTENT_DATA_CONTACT, messageModel.getIdentity());
-        }
-        intent.putExtra(ComposeMessageFragment.EXTRA_API_MESSAGE_ID, messageModel.getApiMessageId());
-        intent.putExtra(ComposeMessageFragment.EXTRA_SEARCH_QUERY, " ");
-
-        return intent;
     }
 
     public static MediaFilterQuery getLastMediaFilterFromIntent(Intent intent) {

@@ -2,17 +2,16 @@ package ch.threema.app.usecases
 
 import app.cash.turbine.test
 import ch.threema.app.compose.conversation.models.GroupCallUiModel
-import ch.threema.app.test.unconfinedTestDispatcherProvider
 import ch.threema.app.usecases.groups.WatchGroupCallsUseCase
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.voip.groupcall.GroupCallDescription
 import ch.threema.app.voip.groupcall.GroupCallManager
 import ch.threema.app.voip.groupcall.sfu.CallId
 import ch.threema.common.emptyByteArray
-import ch.threema.common.now
 import ch.threema.data.datatypes.LocalGroupId
 import ch.threema.testhelpers.expectItem
 import ch.threema.testhelpers.nonSecureRandomArray
+import ch.threema.testhelpers.unconfinedTestDispatcherProvider
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -160,8 +159,8 @@ class WatchGroupCallsUseCaseTest {
             sfuBaseUrl = "",
             callId = callId,
             gck = emptyByteArray(),
-            startedAt = now().time.toULong(),
-            processedAt = now().time.toULong(),
+            startedAt = System.currentTimeMillis().toULong(),
+            processedAt = System.currentTimeMillis().toULong(),
         )
     }
 

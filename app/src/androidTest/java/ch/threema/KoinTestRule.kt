@@ -1,6 +1,6 @@
 package ch.threema
 
-import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.core.app.ApplicationProvider
 import org.junit.rules.TestWatcher
 import org.junit.runner.Description
 import org.koin.android.ext.koin.androidContext
@@ -16,7 +16,7 @@ class KoinTestRule(
     override fun starting(description: Description) {
         if (getKoinApplicationOrNull() == null) {
             startKoin {
-                androidContext(InstrumentationRegistry.getInstrumentation().targetContext.applicationContext)
+                androidContext(ApplicationProvider.getApplicationContext())
                 modules(modules)
             }
         } else {

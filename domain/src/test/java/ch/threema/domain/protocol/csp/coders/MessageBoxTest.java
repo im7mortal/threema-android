@@ -1,16 +1,16 @@
 package ch.threema.domain.protocol.csp.coders;
 
 import ch.threema.base.ThreemaException;
-import ch.threema.base.utils.Utils;
 import ch.threema.domain.models.MessageId;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.*;
-import java.util.Date;
+import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static ch.threema.common.JavaCompat.hexToByteArray;
 
 public class MessageBoxTest {
 
@@ -18,14 +18,14 @@ public class MessageBoxTest {
 
     private static final String TEST_FROM_IDENTITY = "AAAAAAAA";
     private static final String TEST_TO_IDENTITY = "BBBBBBBB";
-    private static final byte[] TEST_MESSAGE_ID = Utils.hexStringToByteArray("0001020304050607");
-    private static final Date TEST_DATE = new Date(TEST_DATE_UNIX * 1000);
+    private static final byte[] TEST_MESSAGE_ID = hexToByteArray("0001020304050607");
+    private static final Instant TEST_DATE = Instant.ofEpochMilli(TEST_DATE_UNIX * 1000);
     private static final String TEST_NICKNAME = "Nickname";
-    private static final byte[] TEST_METADATA_BOX = Utils.hexStringToByteArray("000102030405060708090a0b0c0d0e0f101112");
-    private static final byte[] TEST_NONCE = Utils.hexStringToByteArray("000102030405060708090a0b0c0d0e0f1011121314151617");
-    private static final byte[] TEST_BOX = Utils.hexStringToByteArray("000102030405060708090a0b0c0d0e0f10111213");
+    private static final byte[] TEST_METADATA_BOX = hexToByteArray("000102030405060708090a0b0c0d0e0f101112");
+    private static final byte[] TEST_NONCE = hexToByteArray("000102030405060708090a0b0c0d0e0f1011121314151617");
+    private static final byte[] TEST_BOX = hexToByteArray("000102030405060708090a0b0c0d0e0f10111213");
 
-    private static final byte[] EXPECTED_BINARY = Utils.hexStringToByteArray(
+    private static final byte[] EXPECTED_BINARY = hexToByteArray(
         "414141414141414142424242424242420001020304050607003d8f6000001300" +
             "4e69636b6e616d65000000000000000000000000000000000000000000000000" +
             "000102030405060708090a0b0c0d0e0f101112000102030405060708090a0b0c" +
@@ -47,7 +47,7 @@ public class MessageBoxTest {
         Assertions.assertEquals(TEST_FROM_IDENTITY, decodedMessage.getFromIdentity());
         Assertions.assertEquals(TEST_TO_IDENTITY, decodedMessage.getToIdentity());
         Assertions.assertArrayEquals(TEST_MESSAGE_ID, decodedMessage.getMessageId().getMessageId());
-        Assertions.assertEquals(TEST_DATE, decodedMessage.getDate());
+        Assertions.assertEquals(TEST_DATE, decodedMessage.getTimestamp());
         Assertions.assertEquals(0, decodedMessage.getFlags());
         Assertions.assertEquals(TEST_NICKNAME, decodedMessage.getPushFromName());
         Assertions.assertArrayEquals(TEST_METADATA_BOX, decodedMessage.getMetadataBox().getBox());
@@ -80,7 +80,7 @@ public class MessageBoxTest {
         testMessage.setFromIdentity(TEST_FROM_IDENTITY);
         testMessage.setToIdentity(TEST_TO_IDENTITY);
         testMessage.setMessageId(messageId);
-        testMessage.setDate(TEST_DATE);
+        testMessage.setTimestamp(TEST_DATE);
         testMessage.setFlags(0);
         testMessage.setPushFromName(TEST_NICKNAME);
         testMessage.setMetadataBox(new MetadataBox(TEST_METADATA_BOX));

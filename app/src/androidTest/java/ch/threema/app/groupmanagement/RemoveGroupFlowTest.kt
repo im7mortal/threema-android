@@ -7,11 +7,13 @@ import ch.threema.app.tasks.ReflectGroupSyncDeleteTask
 import ch.threema.app.testutils.TestHelpers
 import ch.threema.app.testutils.clearDatabaseAndCaches
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationVisibility
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.ContactModelData
-import ch.threema.data.models.GroupIdentity
 import ch.threema.data.models.GroupModel
 import ch.threema.data.models.GroupModelData
 import ch.threema.domain.helpers.ControlledTaskManager
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.ContactSyncState
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
@@ -22,8 +24,8 @@ import ch.threema.domain.models.VerificationLevel
 import ch.threema.domain.models.WorkVerificationLevel
 import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
-import ch.threema.storage.models.ContactModel
-import java.util.Date
+import ch.threema.test.TestData.PUBLIC_KEY
+import java.time.Instant
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertIs
@@ -38,21 +40,22 @@ class RemoveGroupFlowTest : GroupFlowTest() {
 
     private val initialContactData = ContactModelData(
         identity = PreviewData.IDENTITY_OTHER_1.value,
-        publicKey = ByteArray(32),
-        createdAt = Date(),
+        publicKey = PUBLIC_KEY,
+        createdAt = Instant.now(),
+        lastUpdateAt = null,
         firstName = "",
         lastName = "",
         verificationLevel = VerificationLevel.SERVER_VERIFIED,
         workVerificationLevel = WorkVerificationLevel.NONE,
         nickname = null,
-        identityType = IdentityType.NORMAL,
-        acquaintanceLevel = ContactModel.AcquaintanceLevel.DIRECT,
+        identityType = IdentityType.REGULAR,
+        acquaintanceLevel = AcquaintanceLevel.DIRECT,
         activityState = IdentityState.ACTIVE,
         syncState = ContactSyncState.INITIAL,
         featureMask = 255u,
         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
-        isArchived = false,
+        conversationVisibility = ConversationVisibility.NORMAL,
         profilePictureBlobId = null,
         androidContactLookupInfo = null,
         localAvatarExpires = null,
@@ -67,10 +70,10 @@ class RemoveGroupFlowTest : GroupFlowTest() {
     private val myInitialGroupModelData = GroupModelData(
         groupIdentity = GroupIdentity(myContact.identity, 42),
         name = "MyExistingGroup",
-        createdAt = Date(),
+        createdAt = Instant.now(),
         synchronizedAt = null,
-        lastUpdate = Date(),
-        isArchived = false,
+        lastUpdate = Instant.now(),
+        conversationVisibility = ConversationVisibility.NORMAL,
         groupDescription = null,
         groupDescriptionChangedAt = null,
         otherMembers = emptySet(),

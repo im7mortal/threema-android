@@ -4,7 +4,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.services.MessageService
-import ch.threema.app.utils.DispatcherProvider
+import ch.threema.common.DispatcherProvider
 import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.MessageType
 import kotlinx.coroutines.withContext

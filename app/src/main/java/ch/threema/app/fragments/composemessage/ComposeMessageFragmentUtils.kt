@@ -15,10 +15,10 @@ import ch.threema.app.services.ContactService
 import ch.threema.app.services.MessageService
 import ch.threema.app.services.UserService
 import ch.threema.app.ui.LongToast
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.app.utils.MessageUtil
 import ch.threema.app.utils.NameUtil
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.data.repositories.EmojiReactionsRepository
 import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.group.GroupMessageModel

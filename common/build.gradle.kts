@@ -22,6 +22,9 @@ dependencies {
     // JSON
     implementation(libs.kotlinx.serialization.json)
 
+    // Annotations
+    compileOnly(libs.compose.annotation)
+
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

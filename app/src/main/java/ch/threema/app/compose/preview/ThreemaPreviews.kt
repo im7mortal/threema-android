@@ -42,7 +42,7 @@ private const val BASE_SPEC_FOLDABLE = "width=673dp,height=841dp"
     device = "spec:$BASE_SPEC_PHONE,orientation=landscape",
     locale = LOCALE,
 )
-annotation class PreviewThreemaPhone
+annotation class PreviewThreemaPhoneAll
 
 @Preview(
     name = "default",
@@ -64,6 +64,14 @@ annotation class PreviewThreemaPhone
     device = "spec:$BASE_SPEC_TABLET,orientation=portrait",
     locale = LOCALE,
 )
+@Preview(
+    name = "landscape",
+    group = GROUP_NAME_TABLET,
+    device = "spec:$BASE_SPEC_TABLET,orientation=landscape",
+    locale = LOCALE,
+)
+annotation class PreviewThreemaTabletAll
+
 @Preview(
     name = "landscape",
     group = GROUP_NAME_TABLET,
@@ -98,9 +106,17 @@ annotation class PreviewThreemaTablet
     device = "spec:$BASE_SPEC_FOLDABLE,orientation=landscape",
     locale = LOCALE,
 )
+annotation class PreviewThreemaFoldableAll
+
+@Preview(
+    name = "landscape",
+    group = GROUP_NAME_FOLDABLE,
+    device = "spec:$BASE_SPEC_FOLDABLE,orientation=landscape",
+    locale = LOCALE,
+)
 annotation class PreviewThreemaFoldable
 
-@PreviewThreemaPhone
-@PreviewThreemaTablet
-@PreviewThreemaFoldable
+@PreviewThreemaPhoneAll
+@PreviewThreemaTabletAll
+@PreviewThreemaFoldableAll
 annotation class PreviewThreemaAll

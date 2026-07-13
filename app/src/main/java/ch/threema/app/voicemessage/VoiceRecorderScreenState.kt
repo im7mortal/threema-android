@@ -1,7 +1,7 @@
 package ch.threema.app.voicemessage
 
 import android.media.AudioManager
-import android.net.Uri
+import java.io.File
 import kotlin.time.Duration
 
 data class VoiceRecorderScreenState(
@@ -11,6 +11,7 @@ data class VoiceRecorderScreenState(
     companion object {
         fun initial() = VoiceRecorderScreenState(
             mediaState = MediaState.Record(
+                file = null,
                 isRecording = false,
                 duration = Duration.ZERO,
             ),
@@ -21,20 +22,23 @@ data class VoiceRecorderScreenState(
 
 sealed interface MediaState {
 
+    val file: File?
+
     /**
      *  @param duration The current duration of the recorder (only accurate to one full second)
      */
     data class Record(
+        override val file: File?,
         val isRecording: Boolean,
         val duration: Duration,
     ) : MediaState
 
     data class FinishedRecording(
-        val uri: Uri,
+        override val file: File,
     ) : MediaState
 
     data class Playback(
-        val uri: Uri,
+        override val file: File,
         val isPlaying: Boolean,
         val duration: Duration,
     ) : MediaState

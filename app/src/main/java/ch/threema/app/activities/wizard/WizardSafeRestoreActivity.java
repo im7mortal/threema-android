@@ -3,12 +3,13 @@ package ch.threema.app.activities.wizard;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
-import android.os.AsyncTask;
+import android.graphics.Paint;
 import android.os.Bundle;
 import android.text.InputFilter;
 import android.text.InputType;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import org.koin.java.KoinJavaComponent;
@@ -18,15 +19,17 @@ import java.io.IOException;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.android.ToastDuration;
 import ch.threema.app.R;
-import ch.threema.app.activities.wizard.components.WizardButtonXml;
+import ch.threema.app.activities.ThreemaAppCompatActivity;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.dialogs.GenericProgressDialog;
 import ch.threema.app.dialogs.PasswordEntryDialog;
 import ch.threema.app.dialogs.SimpleStringAlertDialog;
 import ch.threema.app.dialogs.WizardDialog;
 import ch.threema.app.dialogs.WizardSafeSearchPhoneDialog;
+import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.ActivityService;
 import ch.threema.app.threemasafe.ThreemaSafeAdvancedDialog;
 import ch.threema.app.threemasafe.ThreemaSafeMDMConfig;
@@ -36,9 +39,9 @@ import ch.threema.app.ui.InsetSides;
 import ch.threema.app.ui.LongToast;
 import ch.threema.app.ui.SpacingValues;
 import ch.threema.app.ui.ViewExtensionsKt;
+import ch.threema.app.ui.interop.TextButtonPrimaryXml;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.DialogUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.utils.executor.BackgroundExecutor;
 import ch.threema.app.utils.executor.BackgroundTask;
 import ch.threema.app.workers.WorkSyncWorker;
@@ -54,8 +57,9 @@ import ch.threema.domain.protocol.csp.ProtocolDefines;
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.protocolsteps.ApplicationSetupStepsKt.runApplicationSetupSteps;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
-public class WizardSafeRestoreActivity extends WizardBackgroundActivity implements
+public class WizardSafeRestoreActivity extends ThreemaAppCompatActivity implements
     PasswordEntryDialog.PasswordEntryDialogClickListener,
     WizardSafeSearchPhoneDialog.WizardSafeSearchPhoneDialogCallback,
     WizardDialog.WizardDialogCallback,
@@ -74,6 +78,8 @@ public class WizardSafeRestoreActivity extends WizardBackgroundActivity implemen
 
     @NonNull
     private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
+    @NonNull
+    private final ActivityService activityService = KoinJavaComponent.get(ActivityService.class);
 
     private final BackgroundExecutor executor = new BackgroundExecutor();
 
@@ -120,11 +126,13 @@ public class WizardSafeRestoreActivity extends WizardBackgroundActivity implemen
         this.identityEditText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         this.identityEditText.setFilters(new InputFilter[]{new InputFilter.AllCaps(), new InputFilter.LengthFilter(ProtocolDefines.IDENTITY_LEN)});
 
-        findViewById(R.id.forgot_id).setOnClickListener(v ->
+        final @NonNull TextView forgotId = findViewById(R.id.forgot_id);
+        forgotId.setPaintFlags(forgotId.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG);
+        forgotId.setOnClickListener(v ->
             WizardSafeSearchPhoneDialog.newInstance().show(getSupportFragmentManager(), DIALOG_TAG_FORGOT_ID)
         );
 
-        final @NonNull WizardButtonXml advancedOptionsButtonCompose = findViewById(R.id.advanced_options_compose);
+        final @NonNull TextButtonPrimaryXml advancedOptionsButtonCompose = findViewById(R.id.advanced_options_compose);
         if (ConfigUtils.isWorkRestricted() && safeMDMConfig.isRestoreExpertSettingsDisabled()) {
             advancedOptionsButtonCompose.setVisibility(View.GONE);
         } else {
@@ -151,19 +159,25 @@ public class WizardSafeRestoreActivity extends WizardBackgroundActivity implemen
 
     @Override
     protected void onPause() {
-        ActivityService.activityPaused(this);
+        activityService.pause(this);
         super.onPause();
     }
 
     @Override
     protected void onResume() {
-        ActivityService.activityResumed(this);
+        activityService.resume(this);
         super.onResume();
     }
 
     @Override
+    protected void onDestroy() {
+        activityService.destroy(this);
+        super.onDestroy();
+    }
+
+    @Override
     public void onUserInteraction() {
-        ActivityService.activityUserInteract(this);
+        activityService.userInteract(this);
         super.onUserInteraction();
     }
 
@@ -179,7 +193,8 @@ public class WizardSafeRestoreActivity extends WizardBackgroundActivity implemen
             0,
             0,
             0,
-            PasswordEntryDialog.ForgotHintType.SAFE
+            PasswordEntryDialog.ForgotHintType.SAFE,
+            null
         );
         dialogFragment.show(getSupportFragmentManager(), DIALOG_TAG_PASSWORD);
     }
@@ -202,34 +217,34 @@ public class WizardSafeRestoreActivity extends WizardBackgroundActivity implemen
             }
         }
 
-        if (TestUtil.isEmptyOrNull(identity)) {
+        if (isNullOrEmpty(identity)) {
             Toast.makeText(this, R.string.invalid_threema_id, Toast.LENGTH_LONG).show();
             return;
         }
 
-        if (TestUtil.isEmptyOrNull(password)) {
+        if (isNullOrEmpty(password)) {
             LongToast.makeText(this, R.string.wrong_backupid_or_password_or_no_internet_connection, Toast.LENGTH_LONG).show();
             return;
         }
 
-        dependencies.getPreferenceService().setLatestVersion(this);
+        dependencies.getPreferenceService().setLatestVersion();
 
-        new AsyncTask<Void, Void, String>() {
+        new LifecycleAwareAsyncTask<Void, String>() {
             @Override
             protected void onPreExecute() {
                 GenericProgressDialog.newInstance(R.string.restore, R.string.please_wait).show(getSupportFragmentManager(), DIALOG_TAG_PROGRESS);
                 try {
-                    dependencies.getServiceManager().stopConnection();
+                    ServiceManager.require().stopConnection();
                 } catch (InterruptedException e) {
-                    this.cancel(true);
+                    DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_PROGRESS, true);
+                    // TODO(ANDR-4447): The error message should be localized
+                    showFailureMessage("Backup cancelled");
+                    cancel();
                 }
             }
 
             @Override
-            protected String doInBackground(Void... voids) {
-                if (this.isCancelled()) {
-                    return "Backup cancelled";
-                }
+            protected String doInBackground(Void params) {
                 dependencies.getPreferenceService().setThreemaSafeEnabled(false);
                 try {
                     var threemaSafeService = dependencies.getThreemaSafeService();
@@ -251,32 +266,31 @@ public class WizardSafeRestoreActivity extends WizardBackgroundActivity implemen
             }
 
             @Override
-            protected void onCancelled(String failureMessage) {
-                this.onPostExecute(failureMessage);
-            }
-
-            @Override
             protected void onPostExecute(String failureMessage) {
                 DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_PROGRESS, true);
 
                 if (failureMessage == null) {
                     runApplicationSetupStepsAndFinish();
                 } else {
-                    var message = getString(R.string.safe_restore_failed);
-                    if (!failureMessage.equals(ERROR_WITHOUT_DETAILS)) {
-                        message += ". " + failureMessage;
-                    }
-                    LongToast.makeText(
-                        WizardSafeRestoreActivity.this,
-                        message,
-                        Toast.LENGTH_LONG
-                    ).show();
-                    if (safeMDMConfig.isRestoreForced()) {
-                        finish();
-                    }
+                    showFailureMessage(failureMessage);
                 }
             }
-        }.execute();
+
+            private void showFailureMessage(@NonNull String failureMessage) {
+                var message = getString(R.string.safe_restore_failed);
+                if (!failureMessage.equals(ERROR_WITHOUT_DETAILS)) {
+                    message += ". " + failureMessage;
+                }
+                LongToast.makeText(
+                    WizardSafeRestoreActivity.this,
+                    message,
+                    Toast.LENGTH_LONG
+                ).show();
+                if (safeMDMConfig.isRestoreForced()) {
+                    finish();
+                }
+            }
+        }.execute(this, null);
     }
 
     private void runApplicationSetupStepsAndFinish() {
@@ -288,7 +302,7 @@ public class WizardSafeRestoreActivity extends WizardBackgroundActivity implemen
 
             @Override
             public Boolean runInBackground() {
-                return runApplicationSetupSteps(dependencies.getServiceManager());
+                return runApplicationSetupSteps(ServiceManager.require());
             }
 
             @Override
@@ -310,7 +324,8 @@ public class WizardSafeRestoreActivity extends WizardBackgroundActivity implemen
                 R.string.please_wait
             ).show(getSupportFragmentManager(), DIALOG_TAG_WORK_SYNC);
 
-            WorkSyncWorker.Companion.performOneTimeWorkSync(
+            WorkSyncWorker.Scheduler workSyncWorkerScheduler = KoinJavaComponent.get(WorkSyncWorker.Scheduler.class);
+            workSyncWorkerScheduler.performOneTimeWorkSync(
                 WizardSafeRestoreActivity.this,
                 () -> {
                     // On success
@@ -343,8 +358,7 @@ public class WizardSafeRestoreActivity extends WizardBackgroundActivity implemen
             WizardDialog wizardDialog = WizardDialog.newInstance(
                 R.string.safe_managed_password_confirm,
                 R.string.accept,
-                R.string.real_not_now,
-                WizardDialog.Highlight.NONE
+                R.string.real_not_now
             );
             wizardDialog.show(getSupportFragmentManager(), DIALOG_TAG_PASSWORD_PRESET_CONFIRM);
         } else {
@@ -359,9 +373,9 @@ public class WizardSafeRestoreActivity extends WizardBackgroundActivity implemen
             true
         ).show(getSupportFragmentManager(), "d");
         try {
-            dependencies.getServiceManager().startConnection();
-        } catch (ThreemaException e) {
-            logger.error("Exception", e);
+            ServiceManager.require().startConnection();
+        } catch (Exception e) {
+            logger.error("Unexpectedly failed to start connection", e);
         }
         ConfigUtils.scheduleAppRestart(getApplicationContext(), 3000);
     }

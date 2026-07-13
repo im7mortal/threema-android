@@ -8,7 +8,7 @@ import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.types.IdentityString
-import java.util.Date
+import java.time.Instant
 import kotlinx.serialization.Serializable
 
 class OutgoingContactEditMessageTask(
@@ -16,7 +16,7 @@ class OutgoingContactEditMessageTask(
     private val messageModelId: Int,
     private val messageId: MessageId,
     private val editedText: String,
-    private val editedAt: Date,
+    private val editedAt: Instant,
 ) : OutgoingCspMessageTask() {
     override val type: String = "OutgoingContactEditMessageTask"
 
@@ -26,7 +26,7 @@ class OutgoingContactEditMessageTask(
 
         val editMessage = EditMessage(
             EditMessageData(
-                messageId = messageModel.messageId!!.messageIdLong,
+                messageId = messageModel.messageId!!,
                 text = editedText,
             ),
         )
@@ -46,7 +46,7 @@ class OutgoingContactEditMessageTask(
         messageModelId = messageModelId,
         messageId = messageId.messageId,
         editedText = editedText,
-        editedAt = editedAt.time,
+        editedAt = editedAt.toEpochMilli(),
     )
 
     @Serializable
@@ -63,7 +63,7 @@ class OutgoingContactEditMessageTask(
                 messageModelId = messageModelId,
                 messageId = MessageId(messageId),
                 editedText = editedText,
-                editedAt = Date(editedAt),
+                editedAt = Instant.ofEpochMilli(editedAt),
             )
     }
 }

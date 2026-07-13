@@ -1,17 +1,10 @@
 package ch.threema.common
 
 import java.time.Instant
-import java.util.Date
+import java.time.LocalDate
+import java.time.ZoneId
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-
-fun now() = Date()
-
-operator fun Date.minus(other: Date): Duration = (time - other.time).milliseconds
-
-operator fun Date.plus(duration: Duration) = Date(time + duration.inWholeMilliseconds)
-
-operator fun Date.minus(duration: Duration) = Date(time - duration.inWholeMilliseconds)
 
 operator fun Instant.minus(other: Instant): Duration = (toEpochMilli() - other.toEpochMilli()).milliseconds
 
@@ -19,7 +12,9 @@ operator fun Instant.plus(duration: Duration): Instant = Instant.ofEpochMilli(to
 
 operator fun Instant.minus(duration: Duration): Instant = Instant.ofEpochMilli(toEpochMilli() - duration.inWholeMilliseconds)
 
-fun Instant.toDate(): Date = Date.from(this)
+@JvmOverloads
+fun Instant.isSameDayAs(other: Instant, zoneId: ZoneId = ZoneId.systemDefault()) =
+    LocalDate.ofInstant(this, zoneId) == LocalDate.ofInstant(other, zoneId)
 
 /**
  *  If the duration exceeds one hour, a string in the form of `h:mm:ss` will be returned. If not, it will just return `mm:ss`.

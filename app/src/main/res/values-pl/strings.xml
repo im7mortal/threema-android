@@ -31,6 +31,8 @@
     <string name="title_job_title">Nazwa stanowiska</string>
     <string name="title_department">Dział</string>
     <string name="send">Wyślij</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
     <string name="prefs_privacy">Prywatność</string>
     <string name="prefs_notifications">Powiadomienia</string>
     <string name="prefs_chatdisplay">Czat</string>
@@ -82,7 +84,8 @@
     <string name="prefs_sum_threema_push_off">Sprawdzaj nowe wiadomości, stosując usługę push systemu</string>
     <string name="prefs_logging">Logowanie</string>
     <string name="prefs_title_message_log_switch">Zapisuje logi do pliku</string>
-    <string name="prefs_title_sum_message_log_on">Logi wydarzeń będą zapisywane do pliku debug_log.txt</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
     <string name="prefs_title_sum_message_log_off">Wydarzenia nie będą zapisywały logów</string>
     <string name="prefs_reset_push">Zresetuj push token</string>
     <string name="prefs_sum_reset_push">Zarejestruj urządzenie ponownie, aby uzyskać powiadomienia typu \"push\" z użyciem FCM/HMS</string>
@@ -691,7 +694,6 @@ podanie wyłącznie imienia lub pseudonimu. Jeśli nie ustawisz pseudonimu, będ
     <string name="new_wizard_anonymous_confirm">Nie podano ani numeru komórki, ani adresu e-mail do połączenia z twoim ID w ${app_name_short}. Nie pojawisz się na listach kontaktów swoich znajomych. Naprawdę chcesz używać ${app_name} anonimowo?</string>
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_anonymous_confirm_phone_only">Nie udało Ci się wprowadzić numeru telefonu w celu powiązania go z identyfikatorem ${app_name_short}. Zatem nie wpiszemy Cię automatycznie na listy kontaktów. Czy naprawdę chcesz anonimowo korzystać z aplikacji ${app_name}?</string>
-    <string name="new_wizard_scan_id_backup">Lub zeskanuj kod QR swojego eksportu</string>
     <string name="error_saving_file">Błąd zapisywania pliku. Sprawdź pozwolenia.</string>
     <string name="wait_one_minute">Poczekaj co najmniej 10 minut na nadejście SMS-a, zanim rozpoczniesz rozmowę.</string>
     <string name="backup_id">Wyeksportowany identyfikator</string>
@@ -774,7 +776,7 @@ podanie wyłącznie imienia lub pseudonimu. Jeśli nie ustawisz pseudonimu, będ
     <string name="prefs_language_override">Język</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
     <string name="threema_channel_intro">Kanał ${app_name_short} dostarcza wiadomości na temat wszystkich rzeczy związanych z aplikacją ${app_name_short}. Czy chcesz subskrybować kanał ${app_name_short} oraz dodać go do swoich kontaktów? Jest bezpłatny i w każdej chwili możesz anulować subskrypcję.</string>
-    <string name="quote">Cytat</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
     <string name="contacts_deleted">Kontakty zostały usunięte</string>
     <string name="take_photo">Zrób zdjęcie</string>
     <string name="select_from_gallery">Wybierz z galerii</string>
@@ -1216,6 +1218,7 @@ podanie wyłącznie imienia lub pseudonimu. Jeśli nie ustawisz pseudonimu, będ
     <string name="max_selectable_media_exceeded">Możesz wysłać maksymalnie %d obieky(-ów) naraz</string>
     <string name="error_unable_loading_media_thumb">Błąd. Nie udało się wczytać miniaturki pliku multimedialnego</string>
     <string name="filter_list">Lista filtrów</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
     <string name="hint_filter_list">Wprowadź tekst filtru</string>
     <string name="add">Dodaj</string>
     <string name="only_images_or_videos">Można wybrać tylko obrazy lub filmy</string>
@@ -1576,8 +1579,6 @@ podanie wyłącznie imienia lub pseudonimu. Jeśli nie ustawisz pseudonimu, będ
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="error_reporting_summary_always_ask">Za każdym razem pytaj, czy wysłać zgłoszenie błędu do ${company_name}</string>
     <string name="error_detected_dialog_title">Wyślij anonimowe zgłoszenie</string>
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
-    <string name="crash_detected_dialog_text">Wygląda na to, że aplikacja ${app_name_short} niedawno uległa awarii. Czy chcesz przesłać anonimowe zgłoszenie błędu?</string>
     <string name="crash_detected_dialog_remember_choice">Zapamiętaj mój wybór</string>
     <string name="crash_detected_dialog_send_button">Wyślij</string>
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
@@ -1827,6 +1828,7 @@ podanie wyłącznie imienia lub pseudonimu. Jeśli nie ustawisz pseudonimu, będ
         <item quantity="many">Usunięto %d wiadomości</item>
         <item quantity="other">Usunięto %d wiadomości</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
     <plurals name="notifications_for_x_hours">
         <item quantity="one">Przez %d godzinę</item>
         <item quantity="few">Przez %d godziny</item>

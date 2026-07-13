@@ -3,7 +3,6 @@ package ch.threema.domain.helpers;
 import ch.threema.base.crypto.NaCl;
 
 import androidx.annotation.NonNull;
-import ch.threema.base.utils.Utils;
 import ch.threema.domain.models.BasicContact;
 import ch.threema.domain.models.Contact;
 import ch.threema.domain.models.IdentityState;
@@ -14,14 +13,16 @@ import ch.threema.domain.protocol.ThreemaFeature;
 import ch.threema.domain.stores.IdentityStore;
 import ch.threema.libthreema.CryptoException;
 
+import static ch.threema.common.JavaCompat.hexToByteArray;
+
 public class DummyUsers {
-    public static final User ALICE = new User("000ALICE", Utils.hexStringToByteArray("6eda2ebb8527ff5bd0e8719602f710c13e162a3be612de0ad2a2ff66f5050630"));
-    public static final User BOB = new User("00000BOB", Utils.hexStringToByteArray("533058227925006d86bb8dd88b0442ed73fbc49216b6e94b0870a7761d979eca"));
+    public static final User ALICE = new User("000ALICE", hexToByteArray("6eda2ebb8527ff5bd0e8719602f710c13e162a3be612de0ad2a2ff66f5050630"));
+    public static final User BOB = new User("00000BOB", hexToByteArray("533058227925006d86bb8dd88b0442ed73fbc49216b6e94b0870a7761d979eca"));
 
     private static final long featureMask = new ThreemaFeature.Builder()
         .audio(true)
         .group(true)
-        .ballot(true)
+        .poll(true)
         .file(true)
         .voip(true)
         .videocalls(true)
@@ -53,7 +54,7 @@ public class DummyUsers {
                 NaCl.derivePublicKey(user.privateKey),
                 featureMask,
                 IdentityState.ACTIVE,
-                IdentityType.NORMAL,
+                IdentityType.REGULAR,
                 VerificationLevel.UNVERIFIED,
                 WorkVerificationLevel.NONE,
                 null,

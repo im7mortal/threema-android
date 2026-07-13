@@ -1,49 +1,49 @@
 package ch.threema.app.processors.reflectedoutgoingmessage
 
 import ch.threema.app.messagereceiver.MessageReceiver
-import ch.threema.app.services.ballot.BallotService
-import ch.threema.app.utils.BallotUtil
+import ch.threema.app.services.poll.PollService
+import ch.threema.app.utils.PollUtil
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.models.MessageId
-import ch.threema.domain.protocol.csp.messages.ballot.BallotData
-import ch.threema.domain.protocol.csp.messages.ballot.BallotDataChoice
-import ch.threema.domain.protocol.csp.messages.ballot.BallotId
-import ch.threema.domain.protocol.csp.messages.ballot.BallotSetupInterface
+import ch.threema.domain.protocol.csp.messages.poll.PollData
+import ch.threema.domain.protocol.csp.messages.poll.PollDataChoice
+import ch.threema.domain.protocol.csp.messages.poll.PollId
+import ch.threema.domain.protocol.csp.messages.poll.PollSetupInterface
 import ch.threema.domain.taskmanager.TriggerSource
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.ballot.BallotChoiceModel
-import ch.threema.storage.models.ballot.BallotModel
+import ch.threema.storage.models.poll.PollChoiceModel
+import ch.threema.storage.models.poll.PollModel
 
 private val logger = getThreemaLogger("ReflectedOutgoingPollUtils")
 
 fun handleReflectedOutgoingPoll(
-    pollSetupMessage: BallotSetupInterface,
+    pollSetupMessage: PollSetupInterface,
     messageId: MessageId,
     messageReceiver: MessageReceiver<*>,
-    ballotService: BallotService,
+    pollService: PollService,
 ) {
-    val ballotId = pollSetupMessage.ballotId ?: run {
+    val pollId = pollSetupMessage.pollId ?: run {
         logger.warn("Received poll setup message without id")
         return
     }
 
-    val ballotData = pollSetupMessage.ballotData ?: run {
+    val pollData = pollSetupMessage.pollData ?: run {
         logger.warn("Received poll setup message without data")
         return
     }
 
-    when (ballotData.state) {
-        BallotData.State.OPEN -> handleReflectedOutgoingOpenPoll(
-            ballotId,
-            ballotData,
+    when (pollData.state) {
+        PollData.State.OPEN -> handleReflectedOutgoingOpenPoll(
+            pollId,
+            pollData,
             messageId,
             messageReceiver,
         )
 
-        BallotData.State.CLOSED -> handleReflectedOutgoingClosedPoll(
-            ballotId,
-            pollSetupMessage.ballotCreatorIdentity,
-            ballotService,
+        PollData.State.CLOSED -> handleReflectedOutgoingClosedPoll(
+            pollId,
+            pollSetupMessage.pollCreatorIdentity,
+            pollService,
             messageId,
         )
 
@@ -52,62 +52,62 @@ fun handleReflectedOutgoingPoll(
 }
 
 private fun handleReflectedOutgoingOpenPoll(
-    ballotId: BallotId,
-    ballotData: BallotData,
+    pollId: PollId,
+    pollData: PollData,
     messageId: MessageId,
     messageReceiver: MessageReceiver<*>,
 ) {
-    BallotUtil.createBallot(
+    PollUtil.createPoll(
         messageReceiver,
-        ballotData.description,
-        ballotData.type.toModelType(),
-        ballotData.assessmentType.toModelType(),
-        ballotData.choiceList.map(BallotDataChoice::toBallotChoiceModel),
-        ballotId,
+        pollData.description,
+        pollData.type.toModelType(),
+        pollData.assessmentType.toModelType(),
+        pollData.choiceList.map(PollDataChoice::toPollChoiceModel),
+        pollId,
         messageId,
         TriggerSource.SYNC,
     ) ?: run {
-        logger.error("Ballot model is null")
+        logger.error("Poll model is null")
         return
     }
 }
 
 private fun handleReflectedOutgoingClosedPoll(
-    ballotId: BallotId,
-    ballotCreatorIdentity: IdentityString?,
-    ballotService: BallotService,
+    pollId: PollId,
+    pollCreatorIdentity: IdentityString?,
+    pollService: PollService,
     messageId: MessageId,
 ) {
-    val ballotModel = ballotService[ballotId.toString(), ballotCreatorIdentity] ?: run {
+    val pollModel = pollService[pollId.toString(), pollCreatorIdentity] ?: run {
         logger.error(
-            "Ballot model not found for id {} and creator {}",
-            ballotId,
-            ballotCreatorIdentity,
+            "Poll model not found for id {} and creator {}",
+            pollId,
+            pollCreatorIdentity,
         )
         return
     }
 
-    BallotUtil.closeBallot(
+    PollUtil.closePoll(
         null,
-        ballotModel,
-        ballotService,
+        pollModel,
+        pollService,
         messageId,
         TriggerSource.SYNC,
     )
 }
 
-private fun BallotData.Type.toModelType(): BallotModel.Type = when (this) {
-    BallotData.Type.RESULT_ON_CLOSE -> BallotModel.Type.RESULT_ON_CLOSE
-    BallotData.Type.INTERMEDIATE -> BallotModel.Type.INTERMEDIATE
+private fun PollData.Type.toModelType(): PollModel.Type = when (this) {
+    PollData.Type.RESULT_ON_CLOSE -> PollModel.Type.RESULT_ON_CLOSE
+    PollData.Type.INTERMEDIATE -> PollModel.Type.INTERMEDIATE
 }
 
-private fun BallotData.AssessmentType.toModelType(): BallotModel.Assessment = when (this) {
-    BallotData.AssessmentType.SINGLE -> BallotModel.Assessment.SINGLE_CHOICE
-    BallotData.AssessmentType.MULTIPLE -> BallotModel.Assessment.MULTIPLE_CHOICE
+private fun PollData.AssessmentType.toModelType(): PollModel.Assessment = when (this) {
+    PollData.AssessmentType.SINGLE -> PollModel.Assessment.SINGLE_CHOICE
+    PollData.AssessmentType.MULTIPLE -> PollModel.Assessment.MULTIPLE_CHOICE
 }
 
-private fun BallotDataChoice.toBallotChoiceModel(): BallotChoiceModel = BallotChoiceModel()
+private fun PollDataChoice.toPollChoiceModel(): PollChoiceModel = PollChoiceModel()
     .setName(this.name)
     .setOrder(this.order)
     .setVoteCount(this.totalVotes)
-    .setApiBallotChoiceId(this.id)
+    .setApiPollChoiceId(this.id)

@@ -1,7 +1,7 @@
 package ch.threema.data.repositories
 
 import android.database.sqlite.SQLiteException
-import ch.threema.app.managers.CoreServiceManager
+import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.base.SessionScoped
 import ch.threema.base.ThreemaException
 import ch.threema.base.utils.getThreemaLogger
@@ -10,9 +10,10 @@ import ch.threema.data.models.EditHistoryListModel
 import ch.threema.data.models.toDataType
 import ch.threema.data.storage.DbEditHistoryEntry
 import ch.threema.data.storage.EditHistoryDao
+import ch.threema.domain.taskmanager.TaskManager
 import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.MessageType
-import java.util.Date
+import java.time.Instant
 
 private val logger = getThreemaLogger("EditHistoryRepository")
 
@@ -20,15 +21,17 @@ private val logger = getThreemaLogger("EditHistoryRepository")
 class EditHistoryRepository(
     private val cache: ModelTypeCache<String, EditHistoryListModel>,
     private val editHistoryDao: EditHistoryDao,
-    private val coreServiceManager: CoreServiceManager,
+    private val multiDeviceManager: MultiDeviceManager,
+    private val taskManager: TaskManager,
 ) {
     fun getByMessageUid(messageUid: String): EditHistoryListModel? {
         return cache.getOrCreate(messageUid) {
             logger.debug("Load edit history for message {} from database", messageUid)
             EditHistoryListModel(
-                editHistoryDao.findAllByMessageUid(messageUid)
+                data = editHistoryDao.findAllByMessageUid(messageUid)
                     .map { it.toDataType() },
-                coreServiceManager,
+                multiDeviceManager = multiDeviceManager,
+                taskManager = taskManager,
             )
         }
     }
@@ -60,7 +63,7 @@ class EditHistoryRepository(
                     messageUid = message.uid!!,
                     messageId = message.id,
                     text = oldText,
-                    editedAt = message.editedAt ?: message.createdAt ?: Date(),
+                    editedAt = message.editedAt ?: message.createdAt ?: Instant.now(),
                 )
 
                 val uid = editHistoryDao.create(historyEntry, message)

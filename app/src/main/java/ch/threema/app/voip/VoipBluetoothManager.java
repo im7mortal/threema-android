@@ -40,7 +40,6 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.preference.service.PreferenceService;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.voip.services.VoipCallService;
 import ch.threema.app.voip.services.VoipStateService;
 import ch.threema.app.voip.util.AppRTCUtils;
@@ -49,6 +48,7 @@ import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static android.bluetooth.BluetoothDevice.BOND_BONDED;
 import static android.bluetooth.BluetoothDevice.DEVICE_TYPE_CLASSIC;
+import static ch.threema.common.JavaCompat.areEqual;
 
 /**
  * VoipBluetoothManager manages functions related to Bluetooth devices in
@@ -192,7 +192,7 @@ public class VoipBluetoothManager {
                     break;
                 case BluetoothHeadset.STATE_DISCONNECTED:
                     String disconnectedBluetoothDeviceAddress = getDeviceAddressFromIntent(intent);
-                    if (TestUtil.compare(connectedBluetoothDeviceAddress, disconnectedBluetoothDeviceAddress)) {
+                    if (areEqual(connectedBluetoothDeviceAddress, disconnectedBluetoothDeviceAddress)) {
                         logger.info(
                             "The connected bluetooth device '{}' is now disconnected",
                             disconnectedBluetoothDeviceAddress

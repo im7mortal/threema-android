@@ -6,7 +6,6 @@ import android.appwidget.AppWidgetProvider;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.SystemClock;
 import android.widget.RemoteViews;
 
 import org.slf4j.Logger;
@@ -62,13 +61,16 @@ public class WidgetProvider extends AppWidgetProvider {
             // It should be in the same layout used to instantiate the RemoteViews
             // object above.
             views.setEmptyView(R.id.widget_list, R.id.empty_view);
-
             Intent itemIntent = new Intent(context, ComposeMessageActivity.class);
             itemIntent.setAction(ACTION_OPEN);
             itemIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
-            itemIntent.setData((Uri.parse("foobar://" + SystemClock.elapsedRealtime())));
             itemIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-            PendingIntent itemPendingIntent = PendingIntent.getActivity(context, 0, itemIntent, PendingIntent.FLAG_UPDATE_CURRENT | PENDING_INTENT_FLAG_MUTABLE);
+            PendingIntent itemPendingIntent = PendingIntent.getActivity(
+                context,
+                0,
+                itemIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PENDING_INTENT_FLAG_MUTABLE
+            );
             views.setPendingIntentTemplate(R.id.widget_list, itemPendingIntent);
 
             // Tell the AppWidgetManager to perform an update on the current app widget

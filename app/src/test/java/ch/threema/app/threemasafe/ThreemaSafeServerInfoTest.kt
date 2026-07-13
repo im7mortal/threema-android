@@ -1,6 +1,6 @@
 package ch.threema.app.threemasafe
 
-import ch.threema.app.ThreemaApplication
+import ch.threema.app.managers.ServiceManager
 import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
@@ -15,13 +15,13 @@ class ThreemaSafeServerInfoTest {
     @BeforeTest
     fun setUp() {
         // TODO(ANDR-4219): We have to mock ServiceManager, as it is sneakily referenced somewhere deep down the stack. This needs to be cleaned up.
-        mockkObject(ThreemaApplication)
-        every { ThreemaApplication.getServiceManager() } returns null
+        mockkObject(ServiceManager)
+        every { ServiceManager.get() } returns null
     }
 
     @AfterTest
     fun tearDown() {
-        unmockkObject(ThreemaApplication)
+        unmockkObject(ServiceManager)
     }
 
     @Test

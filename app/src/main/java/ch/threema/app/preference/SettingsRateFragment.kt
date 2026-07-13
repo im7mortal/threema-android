@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import androidx.core.net.toUri
 import ch.threema.android.ToastDuration
+import ch.threema.android.isInstalledFromPlayStore
 import ch.threema.android.showToast
 import ch.threema.app.BuildConfig
 import ch.threema.app.BuildFlavor
@@ -67,7 +68,7 @@ class SettingsRateFragment : ThreemaPreferenceFragment(), RateDialogClickListene
             BuildFlavor.LicenseType.GOOGLE,
             BuildFlavor.LicenseType.NONE,
             -> true
-            BuildFlavor.LicenseType.GOOGLE_WORK -> ConfigUtils.isInstalledFromPlayStore(requireContext())
+            BuildFlavor.LicenseType.GOOGLE_WORK -> isInstalledFromPlayStore(requireContext())
             else -> false
         }
 

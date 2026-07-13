@@ -94,7 +94,7 @@ public class ModifyGroupHandler extends MessageReceiver {
         final Integer groupId = Integer.parseInt(args.get(Receiver.ID).asStringValue().toString());
 
         // Get group
-        final GroupModel groupModel = this.groupModelRepository.getByLocalGroupDbId(groupId);
+        final GroupModel groupModel = this.groupModelRepository.getByGroupDatabaseId(groupId);
         if (groupModel == null) {
             this.failed(temporaryId, Protocol.ERROR_INVALID_GROUP);
             return;

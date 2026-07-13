@@ -35,12 +35,17 @@ import ch.threema.app.utils.AdapterUtil;
 import ch.threema.app.utils.ContactUtil;
 import ch.threema.app.utils.MessageUtil;
 import ch.threema.app.utils.NameUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.utils.ViewUtil;
+import ch.threema.data.datatypes.ContactConversationId;
+import ch.threema.data.datatypes.ConversationId;
 import ch.threema.domain.models.Contact;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.MessageModel;
+
 import java.util.stream.Collectors;
+
+import static ch.threema.common.JavaCompat.isNullOrBlank;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class UserListAdapter extends FilterableListAdapter {
     private final @NonNull Context context;
@@ -184,7 +189,9 @@ public class UserListAdapter extends FilterableListAdapter {
 
         String lastMessageDateString = null;
         ContactMessageReceiver messageReceiver = this.contactService.createReceiver(contactModel);
-        if (conversationCategoryService != null && !conversationCategoryService.isPrivateChat(messageReceiver.getUniqueIdString())) {
+
+        final @NonNull ConversationId conversationId = new ContactConversationId(contactModel.getIdentity());
+        if (conversationCategoryService != null && !conversationCategoryService.isMarkedAsPrivate(conversationId)) {
             final @Nullable MessageModel messageModel = messageReceiver.getLastMessage();
             if (messageModel != null) {
                 lastMessageDateString = MessageUtil.getDisplayDate(
@@ -203,7 +210,7 @@ public class UserListAdapter extends FilterableListAdapter {
 
         ViewUtil.show(
             holder.lastMessageView,
-            !TestUtil.isEmptyOrNull(lastMessageDateString));
+            !isNullOrEmpty(lastMessageDateString));
 
         // load avatars asynchronously
         AvatarListItemUtil.loadAvatar(
@@ -265,7 +272,7 @@ public class UserListAdapter extends FilterableListAdapter {
             // noinspection unchecked
             contactModels = (List<ContactModel>) results.values;
             if (filterResultsListener != null) {
-                filterResultsListener.onResultsAvailable(TestUtil.isBlankOrNull(constraint) ? 0 : results.count);
+                filterResultsListener.onResultsAvailable(isNullOrBlank(constraint) ? 0 : results.count);
             }
             notifyDataSetChanged();
         }

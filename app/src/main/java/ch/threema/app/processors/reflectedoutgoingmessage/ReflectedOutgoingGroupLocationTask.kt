@@ -1,6 +1,7 @@
 package ch.threema.app.processors.reflectedoutgoingmessage
 
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.managers.ServiceManager
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.protocol.csp.messages.location.GroupLocationMessage
@@ -10,7 +11,9 @@ import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.LocationDataModel
 import ch.threema.storage.models.data.MessageContentsType
 import ch.threema.storage.models.group.GroupMessageModel
-import java.util.Date
+import java.time.Instant
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("ReflectedOutgoingGroupLocationTask")
 
@@ -22,7 +25,9 @@ internal class ReflectedOutgoingGroupLocationTask(
     message = GroupLocationMessage.fromReflected(outgoingMessage),
     type = CspE2eMessageType.GROUP_LOCATION,
     serviceManager = serviceManager,
-) {
+),
+    KoinComponent {
+    private val globalEventBuses: GlobalEventBuses by inject()
     private val messageService by lazy { serviceManager.messageService }
 
     override fun processOutgoingMessage() {
@@ -39,7 +44,7 @@ internal class ReflectedOutgoingGroupLocationTask(
         val groupMessageModel: GroupMessageModel = messageReceiver.createLocalModel(
             MessageType.LOCATION,
             MessageContentsType.LOCATION,
-            Date(outgoingMessage.createdAt),
+            Instant.ofEpochMilli(outgoingMessage.createdAt),
         )
         groupMessageModel.locationData = LocationDataModel(
             latitude = message.latitude,
@@ -48,6 +53,6 @@ internal class ReflectedOutgoingGroupLocationTask(
             poi = message.poi,
         )
         messageService.save(groupMessageModel)
-        ListenerManager.messageListeners.handle { it.onNew(groupMessageModel) }
+        globalEventBuses.messages.emit(MessageEvent.NewMessage(groupMessageModel))
     }
 }

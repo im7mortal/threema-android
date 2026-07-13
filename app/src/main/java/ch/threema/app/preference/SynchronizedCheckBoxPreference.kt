@@ -3,7 +3,7 @@ package ch.threema.app.preference
 import android.content.Context
 import android.util.AttributeSet
 import androidx.preference.CheckBoxPreference
-import ch.threema.app.ThreemaApplication
+import ch.threema.app.managers.ServiceManager
 import ch.threema.app.preference.service.SynchronizedBooleanSetting
 import ch.threema.base.utils.getThreemaLogger
 import kotlinx.coroutines.CoroutineScope
@@ -28,7 +28,7 @@ class SynchronizedCheckBoxPreference : CheckBoxPreference {
     private var stateCollector: Job? = null
 
     init {
-        val serviceManager = ThreemaApplication.getServiceManager()
+        val serviceManager = ServiceManager.get()
         if (serviceManager != null) {
             synchronizedSetting = serviceManager.synchronizedSettingsService.getSynchronizedBooleanSettingByKey(key)
 

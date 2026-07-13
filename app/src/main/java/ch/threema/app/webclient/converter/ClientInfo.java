@@ -22,6 +22,7 @@ import ch.threema.app.services.UserService;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.webclient.exceptions.ConversionException;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.toHexString;
 
 @AnyThread
 public class ClientInfo extends Converter {
@@ -70,7 +71,7 @@ public class ClientInfo extends Converter {
         @Nullable String pushToken
     ) throws ConversionException {
         // Services
-        final ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        final ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             throw new ConversionException("Could not get service manager");
         }
@@ -106,7 +107,7 @@ public class ClientInfo extends Converter {
         } else {
             // If we don't have a push token, then we use the Threema Gateway for wakeup calls
             data.put(PUSH_TOKEN, String.format("threema-gateway;%s;%s",
-                userService.getIdentity(), ch.threema.base.utils.Utils.byteArrayToHexString(userService.getPublicKey())));
+                userService.getIdentity(), toHexString(userService.getPublicKey())));
         }
 
         // Work stuff

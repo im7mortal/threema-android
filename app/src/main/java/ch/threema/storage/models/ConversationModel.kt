@@ -4,17 +4,26 @@ import ch.threema.app.messagereceiver.ContactMessageReceiver
 import ch.threema.app.messagereceiver.DistributionListMessageReceiver
 import ch.threema.app.messagereceiver.GroupMessageReceiver
 import ch.threema.app.messagereceiver.MessageReceiver
-import ch.threema.app.utils.ConversationUtil.getContactConversationUid
-import ch.threema.app.utils.ConversationUtil.getDistributionListConversationUid
-import ch.threema.app.utils.ConversationUtil.getGroupConversationUid
+import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationId
+import ch.threema.data.datatypes.ConversationVisibility
+import ch.threema.data.datatypes.DistributionListConversationId
+import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.data.models.GroupModel
-import ch.threema.domain.types.ConversationUID
 import ch.threema.storage.models.group.GroupModelOld
-import java.util.Date
+import java.time.Instant
 
 class ConversationModel(
     @JvmField var messageReceiver: MessageReceiver<*>,
 ) {
+
+    val id: ConversationId = when {
+        isContactConversation -> ContactConversationId(identity = contact!!.identity)
+        isGroupConversation -> GroupConversationId(groupDatabaseId = group!!.id.toLong())
+        isDistributionListConversation -> DistributionListConversationId(distributionListId = distributionList!!.id)
+        else -> error("Can not determine id of conversation model for receiver of type ${messageReceiver.type}")
+    }
+
     val isContactConversation: Boolean
         get() = messageReceiver.type == MessageReceiver.Type_CONTACT
 
@@ -24,12 +33,20 @@ class ConversationModel(
     val isDistributionListConversation: Boolean
         get() = messageReceiver.type == MessageReceiver.Type_DISTRIBUTION_LIST
 
+    @Deprecated("Use new contact model instead")
     val contact: ContactModel?
         get() = when {
             isContactConversation -> (messageReceiver as ContactMessageReceiver).contact
             else -> null
         }
 
+    val contactModel: ch.threema.data.models.ContactModel?
+        get() = when {
+            isContactConversation -> (messageReceiver as ContactMessageReceiver).contactModel
+            else -> null
+        }
+
+    @Deprecated("Use new group model instead")
     val group: GroupModelOld?
         get() = when {
             isGroupConversation -> (messageReceiver as GroupMessageReceiver).group
@@ -66,41 +83,24 @@ class ConversationModel(
     var isUnreadTagged: Boolean = false
 
     @JvmField
-    var isArchived: Boolean = false
-
-    val uid: ConversationUID
-        get() = when {
-            isContactConversation -> getContactConversationUid(contact!!.identity)
-            isGroupConversation -> getGroupConversationUid(group!!.id.toLong())
-            isDistributionListConversation -> getDistributionListConversationUid(distributionList!!.id)
-            else -> error("Can not determine uid of conversation model for receiver od type ${messageReceiver.type}")
-        }
+    var conversationVisibility: ConversationVisibility = ConversationVisibility.NORMAL
 
     // Only used by the web-client
     var position: Int = -1
 
     @JvmField
-    var lastUpdate: Date? = null
-
-    @JvmField
-    var isTyping: Boolean = false
-
-    @JvmField
-    var isPinTagged: Boolean = false
+    var lastUpdate: Instant? = null
 
     /**
      * @return Return the date used for sorting. Corresponds to [lastUpdate] if set.
      */
-    val sortDate: Date
-        get() = when {
-            lastUpdate != null -> lastUpdate!!
-            else -> Date(0)
-        }
+    val sortDate: Instant
+        get() = lastUpdate ?: Instant.EPOCH
 
     fun hasUnreadMessage(): Boolean = unreadCount > 0
 
     val receiverModel: ReceiverModel
         get() = contact ?: group ?: distributionList ?: throw IllegalStateException("ConversationModel is missing a ReceiverModel")
 
-    override fun toString(): String = receiverModel.identifier.toString()
+    override fun toString(): String = id.toString()
 }

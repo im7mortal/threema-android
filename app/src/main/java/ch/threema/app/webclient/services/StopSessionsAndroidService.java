@@ -7,6 +7,7 @@ import android.os.IBinder;
 import org.slf4j.Logger;
 
 import ch.threema.app.ThreemaApplication;
+import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.webclient.services.instance.DisconnectContext;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
@@ -22,7 +23,7 @@ public class StopSessionsAndroidService extends Service {
     public void onCreate() {
         super.onCreate();
         try {
-            sessionService = ThreemaApplication.getServiceManager().getWebClientServiceManager().getSessionService();
+            sessionService = ServiceManager.require().getWebClientServiceManager().getSessionService();
         } catch (Exception e) {
             logger.error("Exception", e);
         }

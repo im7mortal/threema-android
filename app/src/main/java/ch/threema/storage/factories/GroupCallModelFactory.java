@@ -9,12 +9,11 @@ import androidx.annotation.Nullable;
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase;
 
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
@@ -110,10 +109,10 @@ public class GroupCallModelFactory extends ModelFactory {
             Long startedAt = cursorHelper.getLong(GroupCallModel.COLUMN_STARTED_AT);
             Long processedAt = cursorHelper.getLong(GroupCallModel.COLUMN_PROCESSED_AT);
             if (startedAt == null) {
-                startedAt = new Date().getTime();
+                startedAt = Instant.now().toEpochMilli();
             }
             if (processedAt == null) {
-                processedAt = new Date().getTime();
+                processedAt = Instant.now().toEpochMilli();
             }
 
             return protocolVersion == null || groupId == null || baseUrl == null || callId == null || gck == null

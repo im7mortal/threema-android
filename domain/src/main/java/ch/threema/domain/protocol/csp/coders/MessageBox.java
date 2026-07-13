@@ -6,15 +6,15 @@ import org.slf4j.Logger;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.util.Date;
+import java.time.Instant;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.InputStreamExtensionsKt.readLittleEndianInt;
 import static ch.threema.common.InputStreamExtensionsKt.readLittleEndianShort;
 import static ch.threema.common.OutputStreamExtensionsKt.writeLittleEndianInt;
 import static ch.threema.common.OutputStreamExtensionsKt.writeLittleEndianShort;
+import static ch.threema.common.StringExtensionsKt.truncateUTF8StringToByteArray;
 
-import ch.threema.base.utils.Utils;
 import ch.threema.domain.protocol.connection.data.CspMessage;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
 import ch.threema.domain.models.MessageId;
@@ -29,7 +29,7 @@ public class MessageBox implements Serializable {
     private String fromIdentity;
     private String toIdentity;
     private MessageId messageId;
-    private Date date;
+    private Instant timestamp;
     private int flags;
     private String pushFromName;
     private MetadataBox metadataBox;
@@ -48,7 +48,7 @@ public class MessageBox implements Serializable {
             bos.write(fromIdentity.getBytes());
             bos.write(toIdentity.getBytes());
             bos.write(messageId.getMessageId());
-            writeLittleEndianInt(bos, (int) (date.getTime() / 1000));
+            writeLittleEndianInt(bos, (int) (timestamp.getEpochSecond()));
             bos.write(flags);
             bos.write(0);    /* reserved */
 
@@ -59,7 +59,9 @@ public class MessageBox implements Serializable {
             writeLittleEndianShort(bos, metadataLen);
 
             byte[] pushFromNameBytesT = new byte[ProtocolDefines.PUSH_FROM_LEN];
-            byte[] pushFromNameBytes = Utils.truncateUTF8StringToByteArray(pushFromName, ProtocolDefines.PUSH_FROM_LEN);
+            byte[] pushFromNameBytes = pushFromName != null
+                ? truncateUTF8StringToByteArray(pushFromName, ProtocolDefines.PUSH_FROM_LEN)
+                : new byte[0];
             System.arraycopy(pushFromNameBytes, 0, pushFromNameBytesT, 0, pushFromNameBytes.length);
             bos.write(pushFromNameBytesT);
 
@@ -109,7 +111,7 @@ public class MessageBox implements Serializable {
         message.setMessageId(new MessageId(messageId));
 
         int dateTs = readLittleEndianInt(bis);
-        message.setDate(new Date((long) dateTs * 1000));
+        message.setTimestamp(Instant.ofEpochMilli((long) dateTs * 1000));
 
         message.setFlags(bis.read());
 
@@ -168,12 +170,12 @@ public class MessageBox implements Serializable {
         this.messageId = messageId;
     }
 
-    public Date getDate() {
-        return date;
+    public Instant getTimestamp() {
+        return timestamp;
     }
 
-    public void setDate(Date date) {
-        this.date = date;
+    public void setTimestamp(Instant timestamp) {
+        this.timestamp = timestamp;
     }
 
     public int getFlags() {

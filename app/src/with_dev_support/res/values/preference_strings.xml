@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preferences__dev_reset_dismissed_problems" translatable="false">pref_dev_reset_dismissed_problems</string>
+    <string name="preferences__dev_reset_one_time_hints" translatable="false">pref_dev_reset_one_time_hints</string>
+    <string name="preferences__dev_create_messages_with_reactions" translatable="false">pref_dev_create_create_messages_with_reactions</string>
+    <string name="preferences__dev_create_text_messages" translatable="false">pref_dev_create_create_text_messages</string>
+    <string name="preferences__dev_create_nonces" translatable="false">pref_dev_create_nonces</string>
+    <string name="preferences__generate_test_quotes" translatable="false">pref_key_generate_test_quotes</string>
+    <string name="preferences__generate_voip_messages" translatable="false">pref_key_generate_voip_messages</string>
+    <string name="preferences__open_pattern_library" translatable="false">pref_key_open_pattern_library</string>
+    <string name="preferences__open_android_contact_sync_debug_activity" translatable="false">pref_open_android_contact_sync_debug_activity</string>
+    <string name="preferences__remove_menu" translatable="false">pref_key_remove_menu</string>
+    <string name="preferences__cause_crash" translatable="false">pref_key_cause_crash</string>
+    <string name="preferences__record_unexpected_error" translatable="false">pref_key_report_unexpected_error</string>
+    <string name="preferences__clear_recent_error_type_ids" translatable="false">pref_key_clear_recent_error_type_ids</string>
+</resources>

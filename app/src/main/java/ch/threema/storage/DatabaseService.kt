@@ -1,22 +1,22 @@
 package ch.threema.storage
 
-import ch.threema.app.stores.IdentityProvider
-import ch.threema.storage.factories.BallotChoiceModelFactory
-import ch.threema.storage.factories.BallotModelFactory
-import ch.threema.storage.factories.BallotVoteModelFactory
+import ch.threema.data.IdentityProvider
 import ch.threema.storage.factories.ContactModelFactory
 import ch.threema.storage.factories.DistributionListMemberModelFactory
 import ch.threema.storage.factories.DistributionListMessageModelFactory
 import ch.threema.storage.factories.DistributionListModelFactory
-import ch.threema.storage.factories.GroupBallotModelFactory
 import ch.threema.storage.factories.GroupCallModelFactory
 import ch.threema.storage.factories.GroupMemberModelFactory
 import ch.threema.storage.factories.GroupMessageModelFactory
 import ch.threema.storage.factories.GroupModelFactory
-import ch.threema.storage.factories.IdentityBallotModelFactory
+import ch.threema.storage.factories.GroupPollModelFactory
+import ch.threema.storage.factories.IdentityPollModelFactory
 import ch.threema.storage.factories.IncomingGroupSyncRequestLogModelFactory
 import ch.threema.storage.factories.MessageModelFactory
 import ch.threema.storage.factories.OutgoingGroupSyncRequestLogModelFactory
+import ch.threema.storage.factories.PollChoiceModelFactory
+import ch.threema.storage.factories.PollModelFactory
+import ch.threema.storage.factories.PollVoteModelFactory
 import ch.threema.storage.factories.RejectedGroupMessageFactory
 
 @Deprecated("Use Koin to inject model factories directly")
@@ -54,20 +54,20 @@ class DatabaseService(
     val incomingGroupSyncRequestLogModelFactory: IncomingGroupSyncRequestLogModelFactory by lazy {
         IncomingGroupSyncRequestLogModelFactory(databaseProvider)
     }
-    val ballotModelFactory: BallotModelFactory by lazy {
-        BallotModelFactory(databaseProvider)
+    val pollModelFactory: PollModelFactory by lazy {
+        PollModelFactory(databaseProvider)
     }
-    val ballotChoiceModelFactory: BallotChoiceModelFactory by lazy {
-        BallotChoiceModelFactory(databaseProvider)
+    val pollChoiceModelFactory: PollChoiceModelFactory by lazy {
+        PollChoiceModelFactory(databaseProvider)
     }
-    val ballotVoteModelFactory: BallotVoteModelFactory by lazy {
-        BallotVoteModelFactory(databaseProvider)
+    val pollVoteModelFactory: PollVoteModelFactory by lazy {
+        PollVoteModelFactory(databaseProvider)
     }
-    val identityBallotModelFactory: IdentityBallotModelFactory by lazy {
-        IdentityBallotModelFactory(databaseProvider)
+    val identityPollModelFactory: IdentityPollModelFactory by lazy {
+        IdentityPollModelFactory(databaseProvider)
     }
-    val groupBallotModelFactory: GroupBallotModelFactory by lazy {
-        GroupBallotModelFactory(databaseProvider)
+    val groupPollModelFactory: GroupPollModelFactory by lazy {
+        GroupPollModelFactory(databaseProvider)
     }
     val groupCallModelFactory: GroupCallModelFactory by lazy {
         GroupCallModelFactory(databaseProvider)

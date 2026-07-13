@@ -1,10 +1,8 @@
 package ch.threema.app.threemasafe;
 
 import android.annotation.SuppressLint;
-import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.text.Editable;
@@ -24,6 +22,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 import androidx.appcompat.app.ActionBar;
+import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.R;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.home.HomeActivity;
@@ -33,17 +32,18 @@ import ch.threema.app.dialogs.GenericProgressDialog;
 import ch.threema.app.fragments.wizard.WizardFragment1;
 import ch.threema.app.threemasafe.usecases.CheckBadPasswordUseCase;
 import ch.threema.app.ui.InsetSides;
-import ch.threema.app.ui.SimpleTextWatcher;
+import ch.threema.android.textwatchers.SimpleTextWatcher;
 import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.DialogUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.base.ThreemaException;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.threemasafe.ThreemaSafeServiceImpl.MIN_PW_LENGTH;
 import static ch.threema.app.threemasafe.usecases.CheckBadPasswordUseCase.Result.BAD_PASSWORD;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrBlank;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class ThreemaSafeConfigureActivity extends ThreemaToolbarActivity implements ThreemaSafeAdvancedDialog.WizardDialogCallback, GenericAlertDialog.DialogClickListener {
     private static final Logger logger = getThreemaLogger("ThreemaSafeConfigureActivity");
@@ -173,8 +173,8 @@ public class ThreemaSafeConfigureActivity extends ThreemaToolbarActivity impleme
 
     @SuppressLint("StaticFieldLeak")
     private void saveChangesAndExit(final String safePassword) {
-        if (!TestUtil.isEmptyOrNull(safePassword)) {
-            new AsyncTask<Void, Void, Boolean>() {
+        if (!isNullOrEmpty(safePassword)) {
+            new LifecycleAwareAsyncTask<Void, Boolean>() {
                 byte[] masterkey;
 
                 @Override
@@ -183,7 +183,7 @@ public class ThreemaSafeConfigureActivity extends ThreemaToolbarActivity impleme
                 }
 
                 @Override
-                protected Boolean doInBackground(Void... voids) {
+                protected Boolean doInBackground(Void params) {
                     masterkey = dependencies.getThreemaSafeService().deriveMasterKey(safePassword, dependencies.getUserService().getIdentity());
                     if (badPasswordUseCase.call(safePassword) == BAD_PASSWORD) {
                         return false;
@@ -215,7 +215,7 @@ public class ThreemaSafeConfigureActivity extends ThreemaToolbarActivity impleme
                         finish();
                     }
                 }
-            }.execute();
+            }.execute(this, null);
         } else {
             dependencies.getThreemaSafeService().storeMasterKey(new byte[0]);
             finish();
@@ -281,7 +281,7 @@ public class ThreemaSafeConfigureActivity extends ThreemaToolbarActivity impleme
             this.password2layout.setError(null);
         } else {
             this.password1layout.setError(null);
-            if (!TestUtil.isBlankOrNull(this.password2.getText())) {
+            if (!isNullOrBlank(this.password2.getText())) {
                 this.password2layout.setError(passwordsMatch ? null : getString(R.string.passwords_dont_match));
             } else {
                 this.password2layout.setError(null);
@@ -305,9 +305,9 @@ public class ThreemaSafeConfigureActivity extends ThreemaToolbarActivity impleme
     public void onYes(@Nullable String tag, @Nullable Object data) {
         if (!DIALOG_TAG_UNSAFE_PASSWORD_WORK.equals(tag)) {
             if (updatePasswordOnly) {
-                new AsyncTask<Void, Void, Boolean>() {
+                new LifecycleAwareAsyncTask<Void, Boolean>() {
                     @Override
-                    protected Boolean doInBackground(Void... voids) {
+                    protected Boolean doInBackground(Void params) {
                         return deleteExistingBackup();
                     }
 
@@ -315,7 +315,7 @@ public class ThreemaSafeConfigureActivity extends ThreemaToolbarActivity impleme
                     protected void onPostExecute(Boolean success) {
                         storeKeyAndFinish((byte[]) data);
                     }
-                }.execute();
+                }.execute(this, null);
             } else {
                 storeKeyAndFinish((byte[]) data);
             }

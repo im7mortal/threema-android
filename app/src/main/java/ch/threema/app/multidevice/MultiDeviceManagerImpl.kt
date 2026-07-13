@@ -3,12 +3,10 @@ package ch.threema.app.multidevice
 import android.os.Build
 import androidx.annotation.AnyThread
 import androidx.annotation.WorkerThread
-import ch.threema.app.ThreemaApplication
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.multidevice.linking.DeviceLinkingCancelledException
 import ch.threema.app.multidevice.linking.DeviceLinkingStatus
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.ServerMessageService
 import ch.threema.app.services.UserService
 import ch.threema.app.stores.EncryptedPreferenceStore
 import ch.threema.app.stores.PreferenceStore
@@ -18,6 +16,7 @@ import ch.threema.app.tasks.FSRefreshStepsTask
 import ch.threema.app.tasks.TaskCreator
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.toHexString
+import ch.threema.data.repositories.ServerMessageModelRepository
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.protocol.D2mProtocolDefines
 import ch.threema.domain.protocol.Version
@@ -40,7 +39,6 @@ import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.protobuf.csp.e2e.fs.Terminate
 import ch.threema.storage.models.ContactModel
 import ch.threema.storage.models.ServerMessageModel
-import java.util.Date
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -66,7 +64,7 @@ const val IS_FS_SUPPORTED_WITH_MD = false // TODO(ANDR-2519): Remove when md sup
 class MultiDeviceManagerImpl(
     private val preferenceStore: PreferenceStore,
     private val encryptedPreferenceStore: EncryptedPreferenceStore,
-    private val serverMessageService: ServerMessageService,
+    private val serverMessageModelRepository: ServerMessageModelRepository,
     private val version: Version,
 ) : MultiDeviceManager {
     private var reconnectHandle: ReconnectableServerConnection? = null
@@ -279,7 +277,7 @@ class MultiDeviceManagerImpl(
         //  (no messages can be sent or received) or to reset the App (see SE-137)
         logger.error("Device slot mismatch")
         // In this case we just connect to the chat server to allow continuing using the device
-        val serviceManager = ThreemaApplication.getServiceManager()
+        val serviceManager = ServiceManager.get()
         if (serviceManager != null) {
             removeMultiDeviceLocally(serviceManager)
             // Enable FS again
@@ -301,7 +299,7 @@ class MultiDeviceManagerImpl(
         logger.warn("Reconnect is not allowed: {}", msg)
 
         val message = ServerMessageModel(msg, ServerMessageModel.TYPE_ERROR)
-        serverMessageService.saveIncomingServerMessage(message)
+        serverMessageModelRepository.saveServerMessage(message)
     }
 
     override fun reconnect() {
@@ -468,7 +466,7 @@ class MultiDeviceManagerImpl(
         persistedProperties!!.let { properties ->
             if (properties.registrationTime == null) {
                 logger.debug("Set time of first registration")
-                persistedProperties = properties.withRegistrationTime(Date().time.toULong())
+                persistedProperties = properties.withRegistrationTime(System.currentTimeMillis().toULong())
             } else {
                 logger.debug("Registration time already set. Ignore ServerInfo")
             }

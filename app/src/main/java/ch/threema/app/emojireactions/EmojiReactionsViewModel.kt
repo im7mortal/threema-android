@@ -15,25 +15,23 @@ class EmojiReactionsViewModel(
 ) : BaseViewModel<EmojiReactionsViewState, Unit>() {
     private var emojiReactionsModel: EmojiReactionsModel? = null
 
-    override fun initialize() = runInitialization {
-        emojiReactionsModel = getMessageModel()
-            ?.let { messageModel ->
-                emojiReactionsRepository.getReactionsByMessage(messageModel)
-            }
-
-        EmojiReactionsViewState(
-            emojiReactions = emojiReactionsModel?.data ?: emptyList(),
-        )
-    }
-
-    override suspend fun onActive() {
-        runAction {
+    override suspend fun initialize(): EmojiReactionsViewState {
+        runWhenActive {
             emojiReactionsModel?.dataFlow?.collect { reactions ->
                 updateViewState {
                     copy(emojiReactions = reactions ?: emptyList())
                 }
             }
         }
+
+        emojiReactionsModel = getMessageModel()
+            ?.let { messageModel ->
+                emojiReactionsRepository.getReactionsByMessage(messageModel)
+            }
+
+        return EmojiReactionsViewState(
+            emojiReactions = emojiReactionsModel?.data ?: emptyList(),
+        )
     }
 
     private fun getMessageModel(): AbstractMessageModel? =

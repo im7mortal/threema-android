@@ -1,14 +1,11 @@
 package ch.threema.app.tasks
 
-import android.content.Context
 import androidx.work.await
-import ch.threema.app.ThreemaApplication
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.multidevice.linking.DeviceLinkingCancelledException
 import ch.threema.app.multidevice.linking.DeviceLinkingDataCollector
 import ch.threema.app.multidevice.linking.DeviceLinkingException
-import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ContactsSyncAdapterService
 import ch.threema.app.webclient.services.instance.DisconnectContext
 import ch.threema.app.workers.AutoDeleteWorker
@@ -39,11 +36,12 @@ class DeviceLinkingPartTwoTask(
     private val serviceManager: ServiceManager,
     private val taskCancelledSignal: Deferred<Unit>,
 ) : ActiveTask<Result<Unit>>, KoinComponent {
-    private val preferenceService: PreferenceService by lazy { serviceManager.preferenceService }
     private val multiDeviceManager: MultiDeviceManager by lazy { serviceManager.multiDeviceManager }
     private val multiDeviceKeys: MultiDeviceKeys by lazy { multiDeviceManager.propertiesProvider.get().keys }
     private val deviceLinkingDataCollector by lazy { DeviceLinkingDataCollector(serviceManager) }
     private val autoDeleteWorkerScheduler: AutoDeleteWorker.Scheduler by inject()
+    private val workSyncWorkerScheduler: WorkSyncWorker.Scheduler by inject()
+    private val contactUpdateWorkerScheduler: ContactUpdateWorker.Scheduler by inject()
 
     override val type: String = "DeviceLinkingPartTwoTask"
 
@@ -70,11 +68,10 @@ class DeviceLinkingPartTwoTask(
         var awaitOutsideCancelSignalJob: Job? = null
 
         val stateChangingProcesses = getStateChangingProcesses()
-        val context = ThreemaApplication.getAppContext()
 
         val transferDataAndWaitForCloseJob = launch(start = CoroutineStart.LAZY) {
             try {
-                pauseStateChangingProcesses(context, stateChangingProcesses)
+                pauseStateChangingProcesses(stateChangingProcesses)
                 transferEssentialData()
                 rendezvousConnection.closedSignal.await()
                 linkingPartTwoResultDeferred.complete(Result.success(Unit))
@@ -82,7 +79,7 @@ class DeviceLinkingPartTwoTask(
                 linkingPartTwoResultDeferred.completeExceptionally(exception)
             } finally {
                 awaitOutsideCancelSignalJob?.cancel()
-                resumeStateChangingProcesses(context, stateChangingProcesses)
+                resumeStateChangingProcesses(stateChangingProcesses)
             }
         }
 
@@ -148,25 +145,23 @@ class DeviceLinkingPartTwoTask(
     )
 
     private suspend fun pauseStateChangingProcesses(
-        context: Context,
         processes: List<StateChangingProcess>,
     ) {
         logger.info("Pause state changing processes")
         processes.forEach { process ->
             logger.info("Pause '{}'", process.name)
-            process.pause(context)
+            process.pause()
         }
     }
 
     private suspend fun resumeStateChangingProcesses(
-        context: Context,
         processes: List<StateChangingProcess>,
     ) {
         logger.info("Resume state changing processes")
         processes.forEach { process ->
             if (process.resume != null) {
                 logger.info("Resume '{}'", process.name)
-                process.resume.invoke(context)
+                process.resume.invoke()
             } else {
                 logger.info("Do not resume '{}'", process.name)
             }
@@ -181,30 +176,28 @@ class DeviceLinkingPartTwoTask(
         ContactsSyncAdapterService.enableSync()
     }
 
-    @Suppress("unused")
-    private suspend fun pauseAutoDeleteWorker(context: Context) {
+    private suspend fun pauseAutoDeleteWorker() {
         autoDeleteWorkerScheduler.cancelAutoDeleteAwait()
     }
 
-    @Suppress("unused")
-    private fun resumeAutoDeleteWorker(context: Context) {
+    private fun resumeAutoDeleteWorker() {
         autoDeleteWorkerScheduler.scheduleAutoDelete()
     }
 
-    private suspend fun pauseWorkSync(context: Context) {
-        WorkSyncWorker.cancelPeriodicWorkSyncAwait(context)
+    private suspend fun pauseWorkSync() {
+        workSyncWorkerScheduler.cancelPeriodicWorkSyncAwait()
     }
 
-    private fun resumeWorkSync(context: Context) {
-        WorkSyncWorker.schedulePeriodicWorkSync(context, preferenceService)
+    private fun resumeWorkSync() {
+        workSyncWorkerScheduler.schedulePeriodicWorkSync()
     }
 
-    private suspend fun pauseIdentityStatesSync(context: Context) {
-        ContactUpdateWorker.cancelPeriodicSync(context).await()
+    private suspend fun pauseIdentityStatesSync() {
+        contactUpdateWorkerScheduler.cancelPeriodicSync().await()
     }
 
-    private fun resumeIdentityStatesSync(context: Context) {
-        ContactUpdateWorker.schedulePeriodicSync(context, preferenceService)
+    private fun resumeIdentityStatesSync() {
+        contactUpdateWorkerScheduler.schedulePeriodicSync()
     }
 
     private fun pauseWebClientSessions() {
@@ -218,6 +211,6 @@ class DeviceLinkingPartTwoTask(
 
 private data class StateChangingProcess(
     val name: String,
-    val pause: suspend (Context) -> Unit,
-    val resume: (suspend (Context) -> Unit)?,
+    val pause: suspend () -> Unit,
+    val resume: (suspend () -> Unit)?,
 )

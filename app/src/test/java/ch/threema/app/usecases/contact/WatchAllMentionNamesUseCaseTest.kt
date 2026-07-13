@@ -1,16 +1,20 @@
 package ch.threema.app.usecases.contact
 
 import app.cash.turbine.test
-import ch.threema.app.managers.ListenerManager
-import ch.threema.app.test.unconfinedTestDispatcherProvider
+import ch.threema.app.eventbus.events.ContactEvent
+import ch.threema.app.eventbus.events.ProfileEvent
 import ch.threema.app.usecases.contacts.WatchAllMentionNamesUseCase
+import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.MentionNameData
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.domain.stores.IdentityStore
+import ch.threema.domain.types.Identity
 import ch.threema.testhelpers.expectItem
+import ch.threema.testhelpers.unconfinedTestDispatcherProvider
 import io.mockk.every
 import io.mockk.mockk
 import kotlin.test.Test
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
 import testdata.TestData
 
@@ -35,6 +39,10 @@ class WatchAllMentionNamesUseCaseTest {
         every { contactModelRepositoryMock.getAll() } returns listOf(contact1, contact2)
 
         val useCase = WatchAllMentionNamesUseCase(
+            globalEventFlows = mockk {
+                every { contacts } returns MutableSharedFlow()
+                every { profiles } returns MutableSharedFlow()
+            },
             contactModelRepository = contactModelRepositoryMock,
             identityStore = identityStoreMock,
             dispatcherProvider = unconfinedTestDispatcherProvider(),
@@ -87,6 +95,10 @@ class WatchAllMentionNamesUseCaseTest {
         every { contactModelRepositoryMock.getAll() } returns listOf(contact1, contact2)
 
         val useCase = WatchAllMentionNamesUseCase(
+            globalEventFlows = mockk {
+                every { contacts } returns MutableSharedFlow()
+                every { profiles } returns MutableSharedFlow()
+            },
             contactModelRepository = contactModelRepositoryMock,
             identityStore = identityStoreMock,
             dispatcherProvider = unconfinedTestDispatcherProvider(),
@@ -129,6 +141,10 @@ class WatchAllMentionNamesUseCaseTest {
             every { getAll() } returns emptyList()
         }
         val useCase = WatchAllMentionNamesUseCase(
+            globalEventFlows = mockk {
+                every { contacts } returns MutableSharedFlow()
+                every { profiles } returns MutableSharedFlow()
+            },
             contactModelRepository = contactModelRepositoryMock,
             identityStore = identityStoreMock,
             dispatcherProvider = unconfinedTestDispatcherProvider(),
@@ -162,6 +178,10 @@ class WatchAllMentionNamesUseCaseTest {
             every { getAll() } returns emptyList()
         }
         val useCase = WatchAllMentionNamesUseCase(
+            globalEventFlows = mockk {
+                every { contacts } returns MutableSharedFlow()
+                every { profiles } returns MutableSharedFlow()
+            },
             contactModelRepository = contactModelRepositoryMock,
             identityStore = identityStoreMock,
             dispatcherProvider = unconfinedTestDispatcherProvider(),
@@ -190,7 +210,13 @@ class WatchAllMentionNamesUseCaseTest {
             identity = TestData.Identities.OTHER_1,
         )
         every { contactModelRepositoryMock.getAll() } returns listOf(contact1)
+        val contactEvents = MutableSharedFlow<ContactEvent>()
+        val profileEvents = MutableSharedFlow<ProfileEvent>()
         val useCase = WatchAllMentionNamesUseCase(
+            globalEventFlows = mockk {
+                every { contacts } returns contactEvents
+                every { profiles } returns profileEvents
+            },
             contactModelRepository = contactModelRepositoryMock,
             identityStore = identityStoreMock,
             dispatcherProvider = unconfinedTestDispatcherProvider(),
@@ -215,9 +241,7 @@ class WatchAllMentionNamesUseCaseTest {
             )
 
             // User changes own nickname
-            ListenerManager.profileListeners.handle {
-                it.onNicknameChanged("NicknameNew")
-            }
+            profileEvents.emit(ProfileEvent.NicknameUpdated("NicknameNew"))
             expectItem(
                 listOf(
                     MentionNameData.Contact(
@@ -238,9 +262,7 @@ class WatchAllMentionNamesUseCaseTest {
                 identity = TestData.Identities.OTHER_2,
             )
             every { contactModelRepositoryMock.getAll() } returns listOf(contact1, contact2)
-            ListenerManager.contactListeners.handle {
-                it.onNew(contact2.identity)
-            }
+            contactEvents.emit(ContactEvent.NewContact(Identity(contact2.identity)))
             expectItem(
                 listOf(
                     MentionNameData.Contact(
@@ -265,12 +287,10 @@ class WatchAllMentionNamesUseCaseTest {
             // Update existing contact
             val contact1Updated = TestData.createContactModel(
                 identity = TestData.Identities.OTHER_1,
-                isArchived = true,
+                conversationVisibility = ConversationVisibility.ARCHIVED,
             )
             every { contactModelRepositoryMock.getAll() } returns listOf(contact1Updated, contact2)
-            ListenerManager.contactListeners.handle {
-                it.onModified(contact1Updated.identity)
-            }
+            contactEvents.emit(ContactEvent.ContactUpdated(Identity(contact1Updated.identity)))
             expectItem(
                 listOf(
                     MentionNameData.Contact(
@@ -294,9 +314,7 @@ class WatchAllMentionNamesUseCaseTest {
 
             // Remove the first contact
             every { contactModelRepositoryMock.getAll() } returns listOf(contact2)
-            ListenerManager.contactListeners.handle {
-                it.onRemoved(contact1Updated.identity)
-            }
+            contactEvents.emit(ContactEvent.ContactRemoved(Identity(contact1Updated.identity)))
             expectItem(
                 listOf(
                     MentionNameData.Contact(
@@ -315,9 +333,7 @@ class WatchAllMentionNamesUseCaseTest {
             // Edge-Case: Identity not present anymore
             every { identityStoreMock.getIdentity() } returns null
             every { identityStoreMock.getIdentityString() } returns null
-            ListenerManager.profileListeners.handle {
-                it.onNicknameChanged("NicknameOld")
-            }
+            profileEvents.emit(ProfileEvent.NicknameUpdated("NicknameOld"))
             expectItem(
                 listOf(
                     MentionNameData.Contact(
@@ -332,9 +348,7 @@ class WatchAllMentionNamesUseCaseTest {
             // Edge-Case: Identity is present again
             every { identityStoreMock.getIdentity() } returns TestData.Identities.ME
             every { identityStoreMock.getIdentityString() } returns TestData.Identities.ME.value
-            ListenerManager.profileListeners.handle {
-                it.onNicknameChanged("NicknameOld")
-            }
+            profileEvents.emit(ProfileEvent.NicknameUpdated("NicknameOld"))
             expectItem(
                 listOf(
                     MentionNameData.Contact(

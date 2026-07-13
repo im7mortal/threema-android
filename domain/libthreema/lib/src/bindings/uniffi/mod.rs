@@ -3,6 +3,8 @@ use std::sync::Arc;
 
 use logging::{LogDispatcher, LogLevel, init_logging};
 
+pub mod config;
+pub mod create_identity;
 pub mod crypto;
 pub mod d2d_rendezvous;
 pub mod https;

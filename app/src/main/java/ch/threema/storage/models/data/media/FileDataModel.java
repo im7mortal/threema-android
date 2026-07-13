@@ -1,27 +1,18 @@
 package ch.threema.storage.models.data.media;
 
-import android.util.JsonWriter;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.slf4j.Logger;
 
-import java.io.IOException;
-import java.io.StringWriter;
-import java.util.Iterator;
+import java.util.HashMap;
 import java.util.Map;
 
 import ch.threema.app.utils.FileUtil;
-import ch.threema.app.utils.JsonUtil;
-import ch.threema.app.utils.ListReader;
 import ch.threema.app.utils.MimeUtil;
-import ch.threema.app.utils.ElapsedTimeFormatter;
-import ch.threema.app.utils.TestUtil;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
-import ch.threema.base.utils.Utils;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
 
 public class FileDataModel implements MediaMessageDataInterface {
@@ -32,15 +23,28 @@ public class FileDataModel implements MediaMessageDataInterface {
     public static final String METADATA_KEY_HEIGHT = "h";
     public static final String METADATA_KEY_ANIMATED = "a";
 
+    /**
+     * When a message of type "image" is received, it is transformed into a file message, because the "image" type is deprecated.
+     * Image messages use a non-static nonce for encryption, so in order to decrypt the blob of this file, the nonce is stored in the
+     * metaData object using this key.
+     * Once the blob is downloaded and decrypted, the metaData value is no longer needed.
+     * This key is not part of the protocol, it is only used locally by the Android app.
+     */
+    public static final String METADATA_KEY_LEGACY_NONCE = "_legacy_nonce";
+
     private byte[] fileBlobId;
     private byte[] encryptionKey;
     private String mimeType;
+    @Nullable
     private String thumbnailMimeType;
     private long fileSize;
-    private @Nullable String fileName;
-    private @FileData.RenderingType int renderingType;
+    @Nullable
+    private String fileName;
+    @FileData.RenderingType
+    private int renderingType;
     private boolean isDownloaded;
     private String caption;
+    @Nullable
     private Map<String, Object> metaData;
 
     /**
@@ -67,13 +71,13 @@ public class FileDataModel implements MediaMessageDataInterface {
         byte[] fileBlobId,
         byte[] encryptionKey,
         String mimeType,
-        String thumbnailMimeType,
+        @Nullable String thumbnailMimeType,
         long fileSize,
         @Nullable String fileName,
         @FileData.RenderingType int renderingType,
         String caption,
         boolean isDownloaded,
-        Map<String, Object> metaData
+        @Nullable Map<String, Object> metaData
     ) {
         this.fileBlobId = fileBlobId;
         this.encryptionKey = encryptionKey;
@@ -90,13 +94,13 @@ public class FileDataModel implements MediaMessageDataInterface {
     // outgoing
     public FileDataModel(
         String mimeType,
-        String thumbnailMimeType,
+        @Nullable String thumbnailMimeType,
         long fileSize,
         @Nullable String fileName,
         @FileData.RenderingType int renderingType,
         String caption,
         boolean isDownloaded,
-        Map<String, Object> metaData
+        @Nullable Map<String, Object> metaData
     ) {
         this.mimeType = mimeType;
         this.thumbnailMimeType = thumbnailMimeType;
@@ -149,6 +153,12 @@ public class FileDataModel implements MediaMessageDataInterface {
     @Override
     public void isDownloaded(boolean isDownloaded) {
         this.isDownloaded = isDownloaded;
+        if (isDownloaded && metaData != null && metaData.containsKey(METADATA_KEY_LEGACY_NONCE)) {
+            // Once the file is downloaded, we don't need the nonce anymore and can discard it
+            var newMetaData = new HashMap<>(metaData);
+            newMetaData.remove(METADATA_KEY_LEGACY_NONCE);
+            metaData = newMetaData;
+        }
     }
 
     @Override
@@ -173,7 +183,7 @@ public class FileDataModel implements MediaMessageDataInterface {
         return this.thumbnailMimeType;
     }
 
-    public void setThumbnailMimeType(String thumbnailMimeType) {
+    public void setThumbnailMimeType(@Nullable String thumbnailMimeType) {
         this.thumbnailMimeType = thumbnailMimeType;
     }
 
@@ -193,15 +203,17 @@ public class FileDataModel implements MediaMessageDataInterface {
         return this.renderingType;
     }
 
+    @Nullable
     public String getCaption() {
         return this.caption;
     }
 
+    @Nullable
     public Map<String, Object> getMetaData() {
         return this.metaData;
     }
 
-    public void setMetaData(Map<String, Object> metaData) {
+    public void setMetaData(@Nullable Map<String, Object> metaData) {
         this.metaData = metaData;
     }
 
@@ -252,16 +264,6 @@ public class FileDataModel implements MediaMessageDataInterface {
     }
 
     /**
-     * Return a formatted string representing the duration as provided by the respective metadata field
-     * in the format of hours:minutes:seconds
-     *
-     * @return Formatted duration string or 00:00 in case of error
-     */
-    public @NonNull String getDurationString() {
-        return ElapsedTimeFormatter.secondsToString(getDurationSeconds());
-    }
-
-    /**
      * Return the duration in SECONDS as set in the metadata field.
      */
     public long getDurationSeconds() {
@@ -293,101 +295,37 @@ public class FileDataModel implements MediaMessageDataInterface {
         return 0L;
     }
 
-    private void fromString(String s) {
-        if (TestUtil.isEmptyOrNull(s)) {
-            return;
-        }
-
-        try {
-            ListReader reader = new ListReader(JsonUtil.convertArray(s));
-            this.fileBlobId = reader.nextStringAsByteArray();
-            this.encryptionKey = reader.nextStringAsByteArray();
-            this.mimeType = reader.nextString();
-            this.fileSize = reader.nextInteger();
-            this.fileName = reader.nextString();
-            try {
-                Integer typeId = reader.nextInteger();
-                if (typeId != null) {
-                    this.renderingType = typeId;
-                }
-            } catch (ClassCastException ignore) {
-                // ignore very old filedatamodel without rendering type
-            }
-            this.isDownloaded = reader.nextBool();
-            this.caption = reader.nextString();
-            this.thumbnailMimeType = reader.nextString();
-            this.metaData = reader.nextMap();
-        } catch (Exception e) {
-            // Ignore error, just log
-            logger.error("Extract file data model", e);
-        }
-    }
-
     @Override
     public String toString() {
-        StringWriter sw = new StringWriter();
-        JsonWriter j = new JsonWriter(sw);
-
         try {
-            j.beginArray();
-            j
-                .value(Utils.byteArrayToHexString(this.getBlobId()))
-                .value(Utils.byteArrayToHexString(this.getEncryptionKey()))
-                .value(this.mimeType)
-                .value(this.fileSize)
-                .value(this.fileName)
-                .value(this.renderingType)
-                .value(this.isDownloaded)
-                .value(this.caption)
-                .value(this.thumbnailMimeType);
-
-            // Always write the meta data object
-            JsonWriter metaDataObject = j.beginObject();
-            if (this.metaData != null) {
-                Iterator<String> keys = this.metaData.keySet().iterator();
-
-                while (keys.hasNext()) {
-                    String key = keys.next();
-                    Object value = this.metaData.get(key);
-
-                    metaDataObject.name(key);
-
-                    try {
-                        if (value instanceof Integer) {
-                            metaDataObject.value((Integer) value);
-                        } else if (value instanceof Float) {
-                            metaDataObject.value((Float) value);
-                        } else if (value instanceof Double) {
-                            metaDataObject.value((Double) value);
-                        } else if (value instanceof Boolean) {
-                            metaDataObject.value((Boolean) value);
-                        } else if (value == null) {
-                            metaDataObject.nullValue();
-                        } else {
-                            metaDataObject.value(value.toString());
-                        }
-                    } catch (IOException x) {
-                        logger.error("Failed to write meta data", x);
-                        // Write a NULL
-                        metaDataObject.nullValue();
-                    }
-                }
-            }
-            j.endObject();
-            j.endArray();
-        } catch (Exception x) {
-            logger.error("Exception", x);
+            return FileDataModelSerializer.serializeFileDataBody(
+                fileBlobId,
+                encryptionKey,
+                mimeType,
+                fileSize,
+                fileName,
+                renderingType,
+                isDownloaded,
+                caption,
+                thumbnailMimeType,
+                metaData
+            );
+        } catch (Exception e) {
+            logger.error("Failed to encode file data model", e);
             return null;
         }
-
-        return sw.toString();
     }
 
     @NonNull
     public static FileDataModel create(@NonNull String s) {
-        FileDataModel m = new FileDataModel();
-        m.fromString(s);
-        return m;
+        if (s.isEmpty()) {
+            return createEmpty();
+        }
+        FileDataModel model = FileDataModelSerializer.deserializeFileDataBody(s);
+        if (model == null) {
+            return createEmpty();
+        }
+        return model;
     }
 
     /**

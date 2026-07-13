@@ -4,7 +4,7 @@ import ch.threema.app.tasks.GroupCreateTask
 import ch.threema.app.tasks.archive.recovery.handlers.GroupCreateTaskRecoveryHandler
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
+import kotlin.test.assertIs
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -52,7 +52,7 @@ class GroupCreateTaskRecoveryHandlerTest {
             encodedTask = oldEncodedTask,
         )
 
-        assertTrue(task is GroupCreateTask)
+        assertIs<GroupCreateTask>(task)
         val reEncodedTask = Json.encodeToString(task.serialize())
         assertEquals(newEncodedTask, reEncodedTask)
     }

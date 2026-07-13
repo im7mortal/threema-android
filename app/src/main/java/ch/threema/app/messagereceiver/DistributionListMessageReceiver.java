@@ -1,28 +1,29 @@
 package ch.threema.app.messagereceiver;
 
-import android.content.Intent;
 import android.graphics.Bitmap;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import ch.threema.app.AppConstants;
 import ch.threema.app.services.ContactService;
 import ch.threema.app.services.DistributionListService;
 import ch.threema.app.services.MessageService;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.base.crypto.SymmetricEncryptionResult;
 import ch.threema.data.datatypes.ContactNameFormat;
+import ch.threema.data.datatypes.ConversationId;
+import ch.threema.data.datatypes.DistributionListConversationId;
+import ch.threema.data.datatypes.NotificationTriggerPolicyOverride;
 import ch.threema.domain.models.MessageId;
-import ch.threema.domain.protocol.csp.messages.ballot.BallotData;
-import ch.threema.domain.protocol.csp.messages.ballot.BallotVote;
+import ch.threema.domain.protocol.csp.messages.poll.PollData;
+import ch.threema.domain.protocol.csp.messages.poll.PollVote;
 import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.storage.DatabaseService;
 import ch.threema.storage.models.AbstractMessageModel;
@@ -30,7 +31,7 @@ import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.DistributionListMessageModel;
 import ch.threema.storage.models.DistributionListModel;
 import ch.threema.storage.models.MessageType;
-import ch.threema.storage.models.ballot.BallotModel;
+import ch.threema.storage.models.poll.PollModel;
 import ch.threema.storage.models.data.MessageContentsType;
 
 public class DistributionListMessageReceiver implements MessageReceiver<DistributionListMessageModel> {
@@ -69,14 +70,23 @@ public class DistributionListMessageReceiver implements MessageReceiver<Distribu
         return this.affectedMessageReceivers;
     }
 
+    @NonNull
     @Override
-    public DistributionListMessageModel createLocalModel(final MessageType type, @MessageContentsType int messageContentsType, final Date postedAt) {
+    public DistributionListMessageModel createLocalModel(
+        @Nullable final MessageId messageId,
+        final MessageType type,
+        @MessageContentsType int messageContentsType,
+        final Instant postedAt
+    ) {
         DistributionListMessageModel m = new DistributionListMessageModel();
+        if (type != null && type.getRequiresMessageId()) {
+            m.setMessageId(messageId != null ? messageId : MessageId.random());
+        }
         m.setDistributionListId(this.getDistributionList().getId());
         m.setType(type);
         m.setMessageContentsType(messageContentsType);
         m.setPostedAt(postedAt);
-        m.setCreatedAt(new Date());
+        m.setCreatedAt(Instant.now());
         m.setSaved(false);
         m.setUid(UUID.randomUUID().toString());
 
@@ -85,12 +95,12 @@ public class DistributionListMessageReceiver implements MessageReceiver<Distribu
 
     @Override
     @Deprecated
-    public DistributionListMessageModel createAndSaveStatusModel(final String statusBody, final Date postedAt) {
+    public DistributionListMessageModel createAndSaveStatusModel(final String statusBody, final Instant postedAt) {
         DistributionListMessageModel m = new DistributionListMessageModel(true);
         m.setDistributionListId(this.getDistributionList().getId());
         m.setType(MessageType.TEXT);
         m.setPostedAt(postedAt);
-        m.setCreatedAt(new Date());
+        m.setCreatedAt(Instant.now());
         m.setSaved(true);
         m.setUid(UUID.randomUUID().toString());
         m.setBody(statusBody);
@@ -105,13 +115,13 @@ public class DistributionListMessageReceiver implements MessageReceiver<Distribu
         this.databaseService.getDistributionListMessageModelFactory().createOrUpdate(save);
     }
 
-    private void initializeMessageModel() {
-        distributionListService.setIsArchived(distributionListModel, false);
+    private void unarchiveDistributionListModel() {
+        distributionListService.unarchive(distributionListModel);
     }
 
     @Override
     public void createAndSendTextMessage(@NonNull DistributionListMessageModel messageModel) {
-        initializeMessageModel();
+        unarchiveDistributionListModel();
         bumpLastUpdate();
     }
 
@@ -119,7 +129,7 @@ public class DistributionListMessageReceiver implements MessageReceiver<Distribu
     public void createAndSendLocationMessage(
         final @NonNull DistributionListMessageModel messageModel
     ) {
-        initializeMessageModel();
+        unarchiveDistributionListModel();
         bumpLastUpdate();
     }
 
@@ -138,18 +148,17 @@ public class DistributionListMessageReceiver implements MessageReceiver<Distribu
                 );
             }
         }
-        initializeMessageModel();
+        unarchiveDistributionListModel();
 
         // Note that lastUpdate must not be bumped, as it is bumped by message service when the
         // file message is created
     }
 
     @Override
-    public void createAndSendBallotSetupMessage(
-        @NonNull BallotData ballotData,
-        @NonNull BallotModel ballotModel,
+    public void createAndSendPollSetupMessage(
+        @NonNull PollData pollData,
+        @NonNull PollModel pollModel,
         @NonNull DistributionListMessageModel abstractMessageModel,
-        @Nullable MessageId messageId,
         @Nullable Collection<String> recipientIdentities,
         @NonNull TriggerSource triggerSource
     ) {
@@ -157,9 +166,9 @@ public class DistributionListMessageReceiver implements MessageReceiver<Distribu
     }
 
     @Override
-    public void createAndSendBallotVoteMessage(
-        BallotVote[] votes,
-        BallotModel ballotModel,
+    public void createAndSendPollVoteMessage(
+        PollVote[] votes,
+        PollModel pollModel,
         @NonNull TriggerSource triggerSource
     ) {
         // Not supported in distribution lists
@@ -211,11 +220,6 @@ public class DistributionListMessageReceiver implements MessageReceiver<Distribu
     }
 
     @Override
-    public void prepareIntent(@NonNull Intent intent) {
-        intent.putExtra(AppConstants.INTENT_DATA_DISTRIBUTION_LIST_ID, this.getDistributionList().getId());
-    }
-
-    @Override
     public Bitmap getNotificationAvatar() {
         return distributionListService.getAvatar(distributionListModel.getId(), false);
     }
@@ -228,18 +232,6 @@ public class DistributionListMessageReceiver implements MessageReceiver<Distribu
     @Override
     public Bitmap getAvatar() {
         return distributionListService.getAvatar(distributionListModel.getId(), true, true);
-    }
-
-    @Deprecated
-    @Override
-    public int getUniqueId() {
-        return 0;
-    }
-
-    @NonNull
-    @Override
-    public String getUniqueIdString() {
-        return this.distributionListService.getUniqueIdString(this.distributionListModel);
     }
 
     @Override
@@ -289,6 +281,18 @@ public class DistributionListMessageReceiver implements MessageReceiver<Distribu
     @EmojiReactionsSupport
     public int getEmojiReactionSupport() {
         return Reactions_NONE;
+    }
+
+    @Nullable
+    @Override
+    public NotificationTriggerPolicyOverride getNotificationTriggerPolicyOverrideOrNull() {
+        return null;
+    }
+
+    @NonNull
+    @Override
+    public ConversationId getConversationId() {
+        return new DistributionListConversationId(distributionListModel.getId());
     }
 
     @Override

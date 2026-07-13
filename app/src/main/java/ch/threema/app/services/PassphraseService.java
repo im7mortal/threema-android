@@ -19,6 +19,7 @@ import androidx.core.content.ContextCompat;
 import ch.threema.app.R;
 import ch.threema.app.activities.DummyActivity;
 import ch.threema.app.home.HomeActivity;
+import ch.threema.app.notifications.NotificationRequestCodes;
 import ch.threema.app.passphrase.PassphraseLockActivity;
 import ch.threema.app.notifications.NotificationChannels;
 import ch.threema.app.notifications.NotificationIDs;
@@ -87,9 +88,14 @@ public class PassphraseService extends Service {
             Intent.FLAG_ACTIVITY_SINGLE_TOP);
         notificationIntent.setAction(Long.toString(System.currentTimeMillis()));
 
-        Intent stopIntent = PassphraseLockActivity.createIntent(this);
-        stopIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
-        PendingIntent stopPendingIntent = PendingIntent.getActivity(this, (int) System.currentTimeMillis(), stopIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Intent lockIntent = PassphraseLockActivity.createIntent(this);
+        lockIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
+        PendingIntent stopPendingIntent = PendingIntent.getActivity(
+            this,
+            NotificationRequestCodes.LOCK_PASSPHRASE,
+            lockIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
 
         TaskStackBuilder stackBuilder = TaskStackBuilder.create(this);
         // Adds the back stack
@@ -97,14 +103,17 @@ public class PassphraseService extends Service {
         // Adds the Intent to the top of the stack
         stackBuilder.addNextIntent(notificationIntent);
         // Gets a PendingIntent containing the entire back stack
-        PendingIntent pendingIntent = stackBuilder.getPendingIntent((int) System.currentTimeMillis(), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent pendingIntent = stackBuilder.getPendingIntent(
+            NotificationRequestCodes.HOME_ACTIVITY,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, NotificationChannels.NOTIFICATION_CHANNEL_PASSPHRASE)
             .setSmallIcon(R.drawable.ic_noti_passguard)
             .setContentTitle(getString(R.string.app_name))
             .setContentText(getString(R.string.masterkey_is_unlocked))
             .setPriority(Notification.PRIORITY_MIN)
-            .addAction(R.drawable.ic_lock_grey600_24dp, getString(R.string.title_lock), stopPendingIntent);
+            .addAction(R.drawable.ic_lock_filled, getString(R.string.title_lock), stopPendingIntent);
 
         if (pendingIntent != null) {
             builder.setContentIntent(pendingIntent);
@@ -114,7 +123,8 @@ public class PassphraseService extends Service {
             this,
             NotificationIDs.PASSPHRASE_SERVICE_NOTIFICATION_ID,
             builder.build(),
-            FG_SERVICE_TYPE);
+            FG_SERVICE_TYPE
+        );
     }
 
     private static void removePersistentNotification(Context context) {

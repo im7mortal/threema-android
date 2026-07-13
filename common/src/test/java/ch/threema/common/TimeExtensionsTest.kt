@@ -1,10 +1,13 @@
 package ch.threema.common
 
 import java.time.Instant
-import java.util.Date
+import java.time.OffsetDateTime
+import java.time.ZoneOffset
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
@@ -12,30 +15,6 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 class TimeExtensionsTest {
-    @Test
-    fun `difference between dates`() {
-        val date1 = Date(11L * 60 * 60 * 1000)
-        val date2 = Date(9L * 60 * 60 * 1000)
-
-        assertEquals(2.hours, date1 - date2)
-    }
-
-    @Test
-    fun `date minus a duration`() {
-        val date1 = Date(11L * 60 * 60 * 1000)
-        val date2 = Date(9L * 60 * 60 * 1000)
-
-        assertEquals(date2, date1 - 2.hours)
-    }
-
-    @Test
-    fun `date plus a duration`() {
-        val date1 = Date(11L * 60 * 60 * 1000)
-        val date2 = Date(9L * 60 * 60 * 1000)
-
-        assertEquals(date1, date2 + 2.hours)
-    }
-
     @Test
     fun `difference between instants`() {
         val instant1 = Instant.ofEpochMilli(11L * 60 * 60 * 1000)
@@ -106,5 +85,30 @@ class TimeExtensionsTest {
         assertEquals(1, 1L.toNonNegativeTimestamp())
         assertEquals(1355270400000L, 1355270400000L.toNonNegativeTimestamp())
         assertEquals(Long.MAX_VALUE, Long.MAX_VALUE.toNonNegativeTimestamp())
+    }
+
+    @Test
+    fun `is same day as`() {
+        run {
+            // 2 hours apart but within the same UTC day
+            val time1 = OffsetDateTime.of(2026, 2, 24, 10, 0, 0, 0, ZoneOffset.UTC).toInstant()
+            val time2 = OffsetDateTime.of(2026, 2, 24, 12, 0, 0, 0, ZoneOffset.UTC).toInstant()
+            assertTrue(time1.isSameDayAs(time2, zoneId = ZoneOffset.UTC))
+            assertFalse(time1.isSameDayAs(time2, zoneId = ZoneOffset.ofHours(-12)))
+            assertTrue(time1.isSameDayAs(time2, zoneId = ZoneOffset.ofHours(-4)))
+            assertTrue(time1.isSameDayAs(time2, zoneId = ZoneOffset.ofHours(4)))
+            assertFalse(time1.isSameDayAs(time2, zoneId = ZoneOffset.ofHours(12)))
+        }
+
+        run {
+            // 2 hours apart but not within the same UTC day
+            val time1 = OffsetDateTime.of(2026, 2, 24, 23, 0, 0, 0, ZoneOffset.UTC).toInstant()
+            val time2 = OffsetDateTime.of(2026, 2, 25, 1, 0, 0, 0, ZoneOffset.UTC).toInstant()
+            assertFalse(time1.isSameDayAs(time2, zoneId = ZoneOffset.UTC))
+            assertTrue(time1.isSameDayAs(time2, zoneId = ZoneOffset.ofHours(-12)))
+            assertTrue(time1.isSameDayAs(time2, zoneId = ZoneOffset.ofHours(-4)))
+            assertTrue(time1.isSameDayAs(time2, zoneId = ZoneOffset.ofHours(4)))
+            assertTrue(time1.isSameDayAs(time2, zoneId = ZoneOffset.ofHours(12)))
+        }
     }
 }

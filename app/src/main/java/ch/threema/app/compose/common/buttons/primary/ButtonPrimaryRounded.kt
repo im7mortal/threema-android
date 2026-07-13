@@ -43,9 +43,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import ch.threema.app.R
-import ch.threema.app.compose.common.SpacerHorizontal
-import ch.threema.app.compose.common.ThemedText
 import ch.threema.app.compose.common.buttons.ButtonIconInfo
+import ch.threema.app.compose.common.spacer.SpacerHorizontal
+import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.dimens.GridUnit
 import ch.threema.app.utils.compose.stringResourceOrNull
@@ -131,7 +131,7 @@ private fun ButtonPrimaryRoundedBase(
         if (icon != null) {
             Icon(
                 modifier = Modifier.size(20.dp),
-                painter = painterResource(icon.icon),
+                painter = painterResource(icon.iconRes),
                 contentDescription = stringResourceOrNull(icon.contentDescription),
                 tint = LocalContentColor.current,
             )
@@ -205,8 +205,7 @@ fun ButtonPrimaryRounded_Preview_Leading_Icon() {
                 onClick = {},
                 text = "Sign In",
                 icon = ButtonIconInfo(
-                    icon = R.drawable.ic_language_outline,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_language_outline,
                 ),
             )
         }
@@ -224,8 +223,7 @@ fun ButtonPrimaryRounded_Preview_Leading_Icon_Loading() {
                 text = "Sign In",
                 isLoading = true,
                 icon = ButtonIconInfo(
-                    icon = R.drawable.ic_language_outline,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_language_outline,
                 ),
             )
         }
@@ -242,8 +240,7 @@ fun ButtonPrimaryRounded_Preview_Disabled() {
                 onClick = {},
                 text = "Sign In",
                 icon = ButtonIconInfo(
-                    icon = R.drawable.ic_language_outline,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_language_outline,
                 ),
                 enabled = false,
             )
@@ -261,8 +258,7 @@ fun ButtonPrimaryRounded_Preview_Disabled_Loading() {
                 onClick = {},
                 text = "Sign In",
                 icon = ButtonIconInfo(
-                    icon = R.drawable.ic_language_outline,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_language_outline,
                 ),
                 enabled = false,
                 isLoading = true,
@@ -314,8 +310,7 @@ fun ButtonPrimaryRounded_Preview_DynamicColors() {
                 onClick = {},
                 text = "Sign In",
                 icon = ButtonIconInfo(
-                    icon = R.drawable.ic_language_outline,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_language_outline,
                 ),
             )
         }
@@ -332,8 +327,7 @@ fun ButtonPrimaryRounded_Preview_DynamicColors_Loading() {
                 onClick = {},
                 text = "Sign In",
                 icon = ButtonIconInfo(
-                    icon = R.drawable.ic_language_outline,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_language_outline,
                 ),
                 isLoading = true,
             )
@@ -351,8 +345,7 @@ fun ButtonPrimaryRounded_Preview_DynamicColors_Disabled() {
                 onClick = {},
                 text = "Sign In",
                 icon = ButtonIconInfo(
-                    icon = R.drawable.ic_language_outline,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_language_outline,
                 ),
                 enabled = false,
             )
@@ -370,8 +363,7 @@ fun ButtonPrimaryRounded_Preview_DynamicColors_Disabled_Loading() {
                 onClick = {},
                 text = "Sign In",
                 icon = ButtonIconInfo(
-                    icon = R.drawable.ic_language_outline,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_language_outline,
                 ),
                 enabled = false,
                 isLoading = true,
@@ -393,8 +385,7 @@ fun ButtonPrimaryRounded_Preview_DynamicColors_Dark() {
                 onClick = {},
                 text = "Sign In",
                 icon = ButtonIconInfo(
-                    icon = R.drawable.ic_language_outline,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_language_outline,
                 ),
             )
         }
@@ -414,8 +405,7 @@ fun ButtonPrimaryRounded_Preview_DynamicColors_Dark_Loading() {
                 onClick = {},
                 text = "Sign In",
                 icon = ButtonIconInfo(
-                    icon = R.drawable.ic_language_outline,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_language_outline,
                 ),
                 isLoading = true,
             )

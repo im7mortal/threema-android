@@ -9,6 +9,7 @@ import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationManagerCompat
 import ch.threema.android.exists
 import ch.threema.android.setSound
+import ch.threema.data.datatypes.ConversationId
 
 object NotificationChannels {
 
@@ -76,6 +77,7 @@ object NotificationChannels {
     /**
      * Ensure notification channels and groups are created. Upgrade if necessary
      */
+    @JvmStatic
     fun createOrMigrateNotificationChannels(context: Context) {
         NotificationChannelSetup(context).createOrUpdateNotificationChannels()
     }
@@ -84,23 +86,28 @@ object NotificationChannels {
     fun doesPerConversationChannelExist(context: Context, uid: String): Boolean =
         NotificationManagerCompat.from(context).exists(uid)
 
-    fun deletePerConversationChannel(context: Context, uid: String) {
-        NotificationManagerCompat.from(context).safelyDeleteChannel(uid)
+    @JvmStatic
+    fun deletePerConversationChannel(context: Context, conversationId: ConversationId) {
+        val channelId: String = conversationId.obfuscated.value
+        NotificationManagerCompat
+            .from(context)
+            .safelyDeleteChannel(channelId)
     }
 
+    @JvmStatic
     @RequiresApi(Build.VERSION_CODES.O)
     fun getPerConversationChannelSettingsIntent(
         context: Context,
         chatName: String?,
-        uid: String,
+        conversationId: ConversationId,
         isGroupChat: Boolean,
     ): Intent {
         val notificationManager = NotificationManagerCompat.from(context)
-
+        val channelId: String = conversationId.obfuscated.value
         // check if a channel for specified ID exists - if not, create it before creating the intent
-        if (!notificationManager.exists(uid)) {
+        if (!notificationManager.exists(channelId)) {
             notificationManager.createChannel(
-                channelId = uid,
+                channelId = channelId,
                 channelName = chatName,
                 channelImportance = NotificationManagerCompat.IMPORTANCE_MAX,
                 parentChannelId = if (isGroupChat) NOTIFICATION_CHANNEL_GROUP_CHATS_DEFAULT else NOTIFICATION_CHANNEL_CHATS_DEFAULT,
@@ -113,16 +120,16 @@ object NotificationChannels {
                 setSound(Settings.System.DEFAULT_NOTIFICATION_URI, AudioAttributes.USAGE_NOTIFICATION)
             }
         }
-
         val intent = Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
-        intent.putExtra(Settings.EXTRA_CHANNEL_ID, uid)
+        intent.putExtra(Settings.EXTRA_CHANNEL_ID, channelId)
         intent.putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            intent.putExtra(Settings.EXTRA_CONVERSATION_ID, uid)
+            intent.putExtra(Settings.EXTRA_CONVERSATION_ID, conversationId.obfuscated.value)
         }
         return intent
     }
 
+    @JvmStatic
     fun recreateNotificationChannels(context: Context) {
         with(NotificationChannelSetup(context)) {
             deleteAll()

@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.java.library)
     alias(libs.plugins.java.testFixtures)
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.mavenPublish)
     alias(libs.plugins.jacoco)
 }
@@ -22,6 +23,7 @@ dependencies {
     implementation(libs.slf4j.api)
     implementation(libs.eddsa)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.jna)
 
     compileOnly(libs.compose.annotation)
@@ -29,9 +31,9 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.slf4j.simple)
     testImplementation(libs.kotlin.test)
     testImplementation(project(":test-helpers"))
+    testFixturesImplementation(project(":common"))
 }
 
 sourceSets {

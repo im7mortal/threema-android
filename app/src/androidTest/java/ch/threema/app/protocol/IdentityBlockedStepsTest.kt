@@ -8,15 +8,15 @@ import ch.threema.app.protocolsteps.IdentityBlockedSteps
 import ch.threema.app.services.BlockedIdentitiesService
 import ch.threema.app.services.GroupService
 import ch.threema.app.testutils.TestHelpers.TestContact
+import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.models.ContactModel
 import ch.threema.data.models.ContactModelData
 import ch.threema.data.repositories.ContactModelRepository
-import ch.threema.domain.stores.ContactStore
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.storage.models.group.GroupModelOld
 import io.mockk.every
 import io.mockk.mockk
-import java.util.Date
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.junit.Assume.assumeTrue
@@ -33,7 +33,6 @@ class IdentityBlockedStepsTest {
     private val inLeftGroup = TestContact("--------")
 
     private lateinit var contactModelRepositoryMock: ContactModelRepository
-    private lateinit var contactStoreMock: ContactStore
     private lateinit var groupServiceMock: GroupService
     private lateinit var blockedIdentitiesServiceMock: BlockedIdentitiesService
     private lateinit var noBlockUnknownSynchronizedSettingsServiceMock: SynchronizedSettingsService
@@ -47,7 +46,6 @@ class IdentityBlockedStepsTest {
         )
 
         contactModelRepositoryMock = getContactModelRepositoryMock()
-        contactStoreMock = getContactStoreMock()
         groupServiceMock = getGroupServiceMock()
         blockedIdentitiesServiceMock = mockk {
             every { isBlocked(any()) } answers {
@@ -153,7 +151,6 @@ class IdentityBlockedStepsTest {
     private fun runIdentityBlockedSteps(identity: String, synchronizedSettingsService: SynchronizedSettingsService) =
         IdentityBlockedSteps(
             contactModelRepository = contactModelRepositoryMock,
-            contactStore = contactStoreMock,
             groupService = groupServiceMock,
             blockedIdentitiesService = blockedIdentitiesServiceMock,
             synchronizedSettingsService = synchronizedSettingsService,
@@ -164,17 +161,11 @@ class IdentityBlockedStepsTest {
 
         every { getByIdentity(unknownContact.identity) } returns null
 
-        every { getByIdentity(inGroup.identity) } returns getContactModelMock(inGroup, AcquaintanceLevel.GROUP)
+        every { getByIdentity(inGroup.identity) } returns getContactModelMock(inGroup, AcquaintanceLevel.GROUP_OR_DELETED)
 
-        every { getByIdentity(inNoGroup.identity) } returns getContactModelMock(inNoGroup, AcquaintanceLevel.GROUP)
+        every { getByIdentity(inNoGroup.identity) } returns getContactModelMock(inNoGroup, AcquaintanceLevel.GROUP_OR_DELETED)
 
-        every { getByIdentity(inLeftGroup.identity) } returns getContactModelMock(inLeftGroup, AcquaintanceLevel.GROUP)
-    }
-
-    private fun getContactStoreMock(): ContactStore = mockk {
-        every { isSpecialContact(any()) } answers {
-            firstArg<String>() == specialContact.identity
-        }
+        every { getByIdentity(inLeftGroup.identity) } returns getContactModelMock(inLeftGroup, AcquaintanceLevel.GROUP_OR_DELETED)
     }
 
     private fun getGroupServiceMock(): GroupService = mockk {
@@ -197,7 +188,8 @@ class IdentityBlockedStepsTest {
         val contactModelData = ContactModelData(
             identity = contact.identity,
             publicKey = contact.publicKey,
-            createdAt = Date(),
+            createdAt = Instant.now(),
+            lastUpdateAt = null,
             firstName = "",
             lastName = "",
             nickname = null,
@@ -211,7 +203,7 @@ class IdentityBlockedStepsTest {
             featureMask = 0u,
             readReceiptPolicy = mockk(),
             typingIndicatorPolicy = mockk(),
-            isArchived = false,
+            conversationVisibility = ConversationVisibility.NORMAL,
             androidContactLookupInfo = null,
             localAvatarExpires = null,
             isRestored = false,

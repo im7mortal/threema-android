@@ -35,7 +35,7 @@ public class MessageSendingServiceExponentialBackOff implements MessageSendingSe
                     logger.error("Sending message failed", e);
                     messageSendingServiceState.exception(e, 0);
                     if (isHttpAuthError(e) && ConfigUtils.isOnPremBuild()) {
-                        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+                        ServiceManager serviceManager = ServiceManager.get();
                         if (serviceManager != null) {
                             serviceManager.getApiService().invalidateAuthToken();
                         }
@@ -53,7 +53,7 @@ public class MessageSendingServiceExponentialBackOff implements MessageSendingSe
             }
 
             @Override
-            public void exception(Exception e, int currentRetry) {
+            public void failed() {
                 synchronized (backoffFutures) {
                     backoffFutures.remove(process.getMessageModel().getUid());
                 }

@@ -1,9 +1,11 @@
 package ch.threema.app.usecases.conversations
 
 import app.cash.turbine.test
+import ch.threema.app.eventbus.events.ContactEvent
+import ch.threema.app.eventbus.events.GroupEvent
 import ch.threema.app.managers.ListenerManager
 import ch.threema.app.services.ConversationService
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.repositories.GroupModelRepository
 import ch.threema.domain.models.GroupId
 import ch.threema.testhelpers.expectItem
@@ -11,6 +13,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
 import testdata.TestData
 
@@ -33,6 +36,7 @@ class WatchAvatarIterationsUseCaseTest {
         val useCase = WatchAvatarIterationsUseCase(
             conversationService = conversationService,
             groupModelRepository = groupModelRepositoryMock,
+            globalEventFlows = mockk(relaxed = true),
         )
 
         // act / assert
@@ -40,8 +44,8 @@ class WatchAvatarIterationsUseCaseTest {
             // Expect the initial items
             expectItem(
                 expected = mapOf(
-                    contactConversation.receiverModel.identifier to AvatarIteration.initial,
-                    groupConversation.receiverModel.identifier to AvatarIteration.initial,
+                    contactConversation.id to AvatarIteration.initial,
+                    groupConversation.id to AvatarIteration.initial,
                 ),
             )
 
@@ -64,9 +68,14 @@ class WatchAvatarIterationsUseCaseTest {
         val conversationService = mockk<ConversationService> {
             every { getAll(false) } returns listOf(contactConversation, groupConversation)
         }
+        val contactEvents = MutableSharedFlow<ContactEvent>()
         val useCase = WatchAvatarIterationsUseCase(
             conversationService = conversationService,
             groupModelRepository = groupModelRepositoryMock,
+            globalEventFlows = mockk {
+                every { contacts } returns contactEvents
+                every { groups } returns mockk(relaxed = true)
+            },
         )
 
         // act / assert
@@ -74,15 +83,13 @@ class WatchAvatarIterationsUseCaseTest {
             // Expect the initial items
             expectItem(
                 expected = mapOf(
-                    contactConversation.receiverModel.identifier to AvatarIteration.initial,
-                    groupConversation.receiverModel.identifier to AvatarIteration.initial,
+                    contactConversation.id to AvatarIteration.initial,
+                    groupConversation.id to AvatarIteration.initial,
                 ),
             )
 
             // Avatar of an existing contact changed
-            ListenerManager.contactListeners.handle {
-                it.onAvatarChanged(TestData.Identities.OTHER_1.value)
-            }
+            contactEvents.emit(ContactEvent.ContactProfilePictureUpdated(TestData.Identities.OTHER_1))
             val nextIterationsMap1 = awaitItem()
                 .mapValues { mapEntry ->
                     // unbox AvatarIteration value class for asserting
@@ -90,8 +97,8 @@ class WatchAvatarIterationsUseCaseTest {
                 }
             assertEquals(
                 expected = mapOf(
-                    contactConversation.receiverModel.identifier to 1,
-                    groupConversation.receiverModel.identifier to 0,
+                    contactConversation.id to 1,
+                    groupConversation.id to 0,
                 ),
                 actual = nextIterationsMap1,
             )
@@ -103,9 +110,7 @@ class WatchAvatarIterationsUseCaseTest {
                 newContactConversation,
                 groupConversation,
             )
-            ListenerManager.contactListeners.handle {
-                it.onAvatarChanged(TestData.Identities.OTHER_2.value)
-            }
+            contactEvents.emit(ContactEvent.ContactProfilePictureUpdated(TestData.Identities.OTHER_2))
             val nextIterationsMap2 = awaitItem()
                 .mapValues { mapEntry ->
                     // unbox AvatarIteration value class for asserting
@@ -113,9 +118,9 @@ class WatchAvatarIterationsUseCaseTest {
                 }
             assertEquals(
                 expected = mapOf(
-                    contactConversation.receiverModel.identifier to 1,
-                    newContactConversation.receiverModel.identifier to 1,
-                    groupConversation.receiverModel.identifier to 0,
+                    contactConversation.id to 1,
+                    newContactConversation.id to 1,
+                    groupConversation.id to 0,
                 ),
                 actual = nextIterationsMap2,
             )
@@ -131,9 +136,9 @@ class WatchAvatarIterationsUseCaseTest {
                 }
             assertEquals(
                 expected = mapOf(
-                    contactConversation.receiverModel.identifier to 2,
-                    newContactConversation.receiverModel.identifier to 2,
-                    groupConversation.receiverModel.identifier to 0,
+                    contactConversation.id to 2,
+                    newContactConversation.id to 2,
+                    groupConversation.id to 0,
                 ),
                 actual = nextIterationsMap3,
             )
@@ -149,9 +154,9 @@ class WatchAvatarIterationsUseCaseTest {
                 }
             assertEquals(
                 expected = mapOf(
-                    contactConversation.receiverModel.identifier to 3,
-                    newContactConversation.receiverModel.identifier to 3,
-                    groupConversation.receiverModel.identifier to 0,
+                    contactConversation.id to 3,
+                    newContactConversation.id to 3,
+                    groupConversation.id to 0,
                 ),
                 actual = nextIterationsMap4,
             )
@@ -167,9 +172,9 @@ class WatchAvatarIterationsUseCaseTest {
                 }
             assertEquals(
                 expected = mapOf(
-                    contactConversation.receiverModel.identifier to 4,
-                    newContactConversation.receiverModel.identifier to 4,
-                    groupConversation.receiverModel.identifier to 0,
+                    contactConversation.id to 4,
+                    newContactConversation.id to 4,
+                    groupConversation.id to 0,
                 ),
                 actual = nextIterationsMap5,
             )
@@ -182,6 +187,7 @@ class WatchAvatarIterationsUseCaseTest {
     @Test
     fun `should increment group receiver iteration`() = runTest {
         // arrange
+        val groupEvents = MutableSharedFlow<GroupEvent>()
         val groupModelRepositoryMock = mockk<GroupModelRepository>()
         val contactConversation = TestData.createContactConversationModel(
             identity = TestData.Identities.OTHER_1,
@@ -196,6 +202,10 @@ class WatchAvatarIterationsUseCaseTest {
         val useCase = WatchAvatarIterationsUseCase(
             conversationService = conversationServiceMock,
             groupModelRepository = groupModelRepositoryMock,
+            globalEventFlows = mockk {
+                every { contacts } returns mockk(relaxed = true)
+                every { groups } returns groupEvents
+            },
         )
 
         // act / assert
@@ -203,15 +213,13 @@ class WatchAvatarIterationsUseCaseTest {
             // Expect the initial items
             expectItem(
                 expected = mapOf(
-                    contactConversation.receiverModel.identifier to AvatarIteration.initial,
-                    groupConversation.receiverModel.identifier to AvatarIteration.initial,
+                    contactConversation.id to AvatarIteration.initial,
+                    groupConversation.id to AvatarIteration.initial,
                 ),
             )
 
             // Group photo of an existing group was changed
-            ListenerManager.groupListeners.handle {
-                it.onUpdatePhoto(groupConversation.groupModel!!.groupIdentity)
-            }
+            groupEvents.emit(GroupEvent.GroupProfilePictureUpdated(groupConversation.groupModel!!.groupIdentity))
             val nextIterationsMap1 = awaitItem()
                 .mapValues { mapEntry ->
                     // unbox AvatarIteration value class for asserting
@@ -219,8 +227,8 @@ class WatchAvatarIterationsUseCaseTest {
                 }
             assertEquals(
                 expected = mapOf(
-                    contactConversation.receiverModel.identifier to 0,
-                    groupConversation.receiverModel.identifier to 1,
+                    contactConversation.id to 0,
+                    groupConversation.id to 1,
                 ),
                 actual = nextIterationsMap1,
             )
@@ -235,9 +243,7 @@ class WatchAvatarIterationsUseCaseTest {
                 groupConversation,
                 newGroupConversation,
             )
-            ListenerManager.groupListeners.handle {
-                it.onUpdatePhoto(newGroupConversation.groupModel!!.groupIdentity)
-            }
+            groupEvents.emit(GroupEvent.GroupProfilePictureUpdated(newGroupConversation.groupModel!!.groupIdentity))
             val nextIterationsMap2 = awaitItem()
                 .mapValues { mapEntry ->
                     // unbox AvatarIteration value class for asserting
@@ -245,9 +251,9 @@ class WatchAvatarIterationsUseCaseTest {
                 }
             assertEquals(
                 expected = mapOf(
-                    contactConversation.receiverModel.identifier to 0,
-                    groupConversation.receiverModel.identifier to 1,
-                    newGroupConversation.receiverModel.identifier to 1,
+                    contactConversation.id to 0,
+                    groupConversation.id to 1,
+                    newGroupConversation.id to 1,
                 ),
                 actual = nextIterationsMap2,
             )
@@ -255,9 +261,7 @@ class WatchAvatarIterationsUseCaseTest {
             // A group photo listener event with an unknown group identity
             val unknownGroupIdentity = GroupIdentity(creatorIdentity = "00000000", groupId = GroupId().toLong())
             every { groupModelRepositoryMock.getByGroupIdentity(unknownGroupIdentity) } returns null
-            ListenerManager.groupListeners.handle {
-                it.onUpdatePhoto(unknownGroupIdentity)
-            }
+            groupEvents.emit(GroupEvent.GroupProfilePictureUpdated(unknownGroupIdentity))
             expectNoEvents()
 
             // Expect no more
@@ -274,6 +278,7 @@ class WatchAvatarIterationsUseCaseTest {
         val useCase = WatchAvatarIterationsUseCase(
             conversationService = conversationService,
             groupModelRepository = mockk<GroupModelRepository>(),
+            globalEventFlows = mockk(relaxed = true),
         )
 
         // act / assert

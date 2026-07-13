@@ -3,6 +3,7 @@ package ch.threema.app.stores
 import ch.threema.base.crypto.NaCl
 import ch.threema.domain.stores.IdentityStore
 import ch.threema.domain.types.IdentityString
+import ch.threema.localcrypto.exceptions.CryptoException
 
 // TODO(ANDR-4067): This class should be removed
 @Deprecated("Do not use this class, it only exists as a workaround")
@@ -23,8 +24,11 @@ class ReadonlyInMemoryIdentityStore(
 
     override fun getPublicNickname() = identity
 
-    override fun calcSharedSecret(publicKey: ByteArray): ByteArray =
+    override fun calcSharedSecret(publicKey: ByteArray): ByteArray? = try {
         NaCl(privateKey, publicKey).sharedSecret
+    } catch (_: CryptoException) {
+        null
+    }
 
     override fun encryptData(plaintext: ByteArray, nonce: ByteArray, receiverPublicKey: ByteArray): ByteArray? {
         throw NotImplementedError()

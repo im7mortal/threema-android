@@ -2,7 +2,8 @@ package ch.threema.app.processors.reflectedoutgoingmessage
 
 import androidx.core.util.component1
 import androidx.core.util.component2
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.utils.QuoteUtil
 import ch.threema.base.utils.getThreemaLogger
@@ -11,6 +12,8 @@ import ch.threema.protobuf.common.CspE2eMessageType
 import ch.threema.protobuf.d2d.OutgoingMessage
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.MessageContentsType
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("ReflectedOutgoingGroupTextTask")
 
@@ -22,7 +25,9 @@ internal class ReflectedOutgoingGroupTextTask(
     message = GroupTextMessage.fromReflected(outgoingMessage),
     type = CspE2eMessageType.GROUP_TEXT,
     serviceManager = serviceManager,
-) {
+),
+    KoinComponent {
+    private val globalEventBuses: GlobalEventBuses by inject()
     private val messageService by lazy { serviceManager.messageService }
 
     override fun processOutgoingMessage() {
@@ -45,6 +50,6 @@ internal class ReflectedOutgoingGroupTextTask(
         messageModel.body = body
         messageModel.quotedMessageId = messageId
         messageService.save(messageModel)
-        ListenerManager.messageListeners.handle { it.onNew(messageModel) }
+        globalEventBuses.messages.emit(MessageEvent.NewMessage(messageModel))
     }
 }

@@ -23,7 +23,7 @@ public class VoipMediaButtonReceiver extends BroadcastReceiver {
 
         VoipStateService stateService;
         try {
-            ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+            ServiceManager serviceManager = ServiceManager.get();
             if (serviceManager != null) {
                 stateService = serviceManager.getVoipStateService();
             } else {

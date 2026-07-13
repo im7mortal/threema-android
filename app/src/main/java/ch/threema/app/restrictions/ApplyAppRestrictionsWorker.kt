@@ -482,23 +482,13 @@ class ApplyAppRestrictionsWorker(
         }
     }
 
-    companion object {
-        /**
-         * The lifetime source tag that is used for the lifetime service.
-         */
-        private const val LIFETIME_SOURCE_TAG = "ApplyAppRestrictionsWorker"
-
-        /**
-         * The unique name of the work.
-         */
-        private const val UNIQUE_WORK_NAME = "ApplyAppRestrictions"
-
+    class Scheduler(
+        private val workManager: WorkManager,
+    ) {
         /**
          * Enqueues the app restriction worker as expedited one time work request.
          */
-        fun applyAppRestrictions(context: Context) {
-            val workManager = WorkManager.getInstance(context)
-
+        fun applyAppRestrictions() {
             if (workManager.isWorkAlreadyEnqueued(UNIQUE_WORK_NAME, withinNext = 30.seconds)) {
                 // No need to enqueue another work request as there already is one instance that will soon start.
                 return
@@ -533,5 +523,17 @@ class ApplyAppRestrictionsWorker(
                 backoffDelay = 5.minutes,
             )
         }
+    }
+
+    companion object {
+        /**
+         * The lifetime source tag that is used for the lifetime service.
+         */
+        private const val LIFETIME_SOURCE_TAG = "ApplyAppRestrictionsWorker"
+
+        /**
+         * The unique name of the work.
+         */
+        private const val UNIQUE_WORK_NAME = "ApplyAppRestrictions"
     }
 }

@@ -39,7 +39,7 @@ class EmojiReactionsDaoImpl(
             table = table,
             whereClause = "${DbEmojiReaction.COLUMN_MESSAGE_ID} = ? AND ${DbEmojiReaction.COLUMN_EMOJI_SEQUENCE} = ? AND " +
                 "${DbEmojiReaction.COLUMN_SENDER_IDENTITY} = ?",
-            whereArgs = arrayOf(entry.messageId, entry.emojiSequence, entry.senderIdentity),
+            whereArgs = arrayOf<Any>(entry.messageId, entry.emojiSequence, entry.senderIdentity),
         )
         logger.debug("{} entries removed for reaction {}", removedEntries, entry)
     }
@@ -236,7 +236,7 @@ class EmojiReactionsDaoImpl(
                     DbEmojiReaction.COLUMN_EMOJI_SEQUENCE,
                 ),
             )
-            val reactedAt = cursor.getDate(
+            val reactedAt = cursor.getInstant(
                 getColumnIndexOrThrow(
                     cursor,
                     DbEmojiReaction.COLUMN_REACTED_AT,
@@ -292,6 +292,6 @@ class EmojiReactionsDaoImpl(
         put(DbEmojiReaction.COLUMN_MESSAGE_ID, messageId)
         put(DbEmojiReaction.COLUMN_SENDER_IDENTITY, senderIdentity)
         put(DbEmojiReaction.COLUMN_EMOJI_SEQUENCE, emojiSequence)
-        put(DbEmojiReaction.COLUMN_REACTED_AT, reactedAt.time)
+        put(DbEmojiReaction.COLUMN_REACTED_AT, reactedAt.toEpochMilli())
     }
 }

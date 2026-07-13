@@ -3,15 +3,12 @@ package ch.threema.app.tasks
 import ch.threema.app.BuildConfig
 import ch.threema.app.services.ContactService.ProfilePictureUploadData
 import ch.threema.app.services.ConversationCategoryService
-import ch.threema.app.services.ConversationService
-import ch.threema.app.utils.ContactUtil
 import ch.threema.data.datatypes.AvailabilityStatus
-import ch.threema.data.datatypes.NotificationTriggerPolicyOverride
-import ch.threema.data.datatypes.NotificationTriggerPolicyOverride.MutedIndefinite
-import ch.threema.data.datatypes.NotificationTriggerPolicyOverride.MutedIndefiniteExceptMentions
-import ch.threema.data.datatypes.NotificationTriggerPolicyOverride.MutedUntil
-import ch.threema.data.datatypes.NotificationTriggerPolicyOverride.NotMuted
+import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverridePolicy
+import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.models.ContactModelData
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
 import ch.threema.domain.models.ReadReceiptPolicy
@@ -31,9 +28,8 @@ import ch.threema.protobuf.d2d.sync.Contact
 import ch.threema.protobuf.d2d.sync.ContactKt
 import ch.threema.protobuf.d2d.sync.ContactKt.deprecatedNotificationSoundPolicyOverride
 import ch.threema.protobuf.d2d.sync.ConversationCategory
-import ch.threema.protobuf.d2d.sync.ConversationVisibility
+import ch.threema.protobuf.d2d.sync.ConversationVisibility as ProtocolsConversationVisibility
 import ch.threema.protobuf.d2d.sync.contact
-import ch.threema.storage.models.ContactModel
 import com.google.protobuf.kotlin.toByteString
 
 abstract class ReflectContactSyncTask<TransactionResult, TaskResult>() : ReflectSyncTask<TransactionResult, TaskResult>(
@@ -45,7 +41,6 @@ abstract class ReflectContactSyncTask<TransactionResult, TaskResult>() : Reflect
 }
 
 fun ContactModelData.toFullSyncContact(
-    conversationService: ConversationService? = null,
     conversationCategoryService: ConversationCategoryService? = null,
     contactDefinedProfilePictureUpload: ProfilePictureUploadData? = null,
     userDefinedProfilePictureUpload: ProfilePictureUploadData? = null,
@@ -54,7 +49,7 @@ fun ContactModelData.toFullSyncContact(
     return contact {
         identity = data.identity
         publicKey = data.publicKey.toByteString()
-        createdAt = data.createdAt.time
+        createdAt = data.createdAt.toEpochMilli()
         firstName = data.firstName
         lastName = data.lastName
         data.nickname?.let { nickname = it }
@@ -74,7 +69,7 @@ fun ContactModelData.toFullSyncContact(
         contactDefinedProfilePicture = contactDefinedProfilePictureUpload.toDeltaImage()
         userDefinedProfilePicture = userDefinedProfilePictureUpload.toDeltaImage()
         conversationCategory = data.getSyncConversationCategory(conversationCategoryService)
-        conversationVisibility = data.getSyncConversationVisibility(conversationService)
+        conversationVisibility = data.getProtocolsConversationVisibility()
 
         if (BuildConfig.AVAILABILITY_STATUS_ENABLED && data.availabilityStatus != AvailabilityStatus.None) {
             workAvailabilityStatus = data.availabilityStatus.toProtocolModel()
@@ -97,14 +92,14 @@ private fun ContactModelData.getSyncWorkVerificationLevel(): Contact.WorkVerific
 
 private fun ContactModelData.getSyncIdentityType(): Contact.IdentityType =
     when (this.identityType) {
-        IdentityType.NORMAL -> Contact.IdentityType.REGULAR
+        IdentityType.REGULAR -> Contact.IdentityType.REGULAR
         IdentityType.WORK -> Contact.IdentityType.WORK
     }
 
 private fun ContactModelData.getSyncAcquaintanceLevel(): Contact.AcquaintanceLevel =
     when (this.acquaintanceLevel) {
-        ContactModel.AcquaintanceLevel.DIRECT -> Contact.AcquaintanceLevel.DIRECT
-        ContactModel.AcquaintanceLevel.GROUP -> Contact.AcquaintanceLevel.GROUP_OR_DELETED
+        AcquaintanceLevel.DIRECT -> Contact.AcquaintanceLevel.DIRECT
+        AcquaintanceLevel.GROUP_OR_DELETED -> Contact.AcquaintanceLevel.GROUP_OR_DELETED
     }
 
 private fun ContactModelData.getSyncActivityState(): Contact.ActivityState =
@@ -143,22 +138,18 @@ private fun ContactModelData.getSyncTypingIndicatorPolicyOverride(): Contact.Typ
     }
 
 private fun ContactModelData.getSyncNotificationTriggerPolicyOverride(): Contact.NotificationTriggerPolicyOverride {
-    val notificationTriggerPolicyOverride = NotificationTriggerPolicyOverride.fromDbValueContact(this.notificationTriggerPolicyOverride)
     return ContactKt.notificationTriggerPolicyOverride {
-        when (notificationTriggerPolicyOverride) {
-            NotMuted -> default = unit {}
-
-            MutedIndefinite -> policy = ContactKt.NotificationTriggerPolicyOverrideKt.policy {
-                policy = Contact.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.NEVER
-            }
-
-            MutedIndefiniteExceptMentions -> throw IllegalStateException(
-                "Contact receivers can never have this setting",
-            )
-
-            is MutedUntil -> policy = ContactKt.NotificationTriggerPolicyOverrideKt.policy {
-                policy = Contact.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.NEVER
-                expiresAt = notificationTriggerPolicyOverride.utcMillis
+        if (notificationTriggerPolicyOverride == null) {
+            default = unit {}
+        } else {
+            when (notificationTriggerPolicyOverride.policy) {
+                ContactNotificationTriggerPolicyOverridePolicy.NEVER ->
+                    policy = ContactKt.NotificationTriggerPolicyOverrideKt.policy {
+                        policy = Contact.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.NEVER
+                        notificationTriggerPolicyOverride.expiresAt?.toEpochMilli()?.let { expiresAtLong ->
+                            expiresAt = expiresAtLong
+                        }
+                    }
             }
         }
     }
@@ -168,35 +159,22 @@ private fun ContactModelData.getSyncNotificationTriggerPolicyOverride(): Contact
 private fun ContactModelData.getSyncConversationCategory(
     conversationCategoryService: ConversationCategoryService?,
 ): ConversationCategory {
-    return conversationCategoryService
-        ?.getConversationCategory(ContactUtil.getUniqueIdString(identity))
-        ?: ConversationCategory.DEFAULT
+    val isMarkedAsPrivate = conversationCategoryService?.isMarkedAsPrivate(
+        conversationId = ContactConversationId(
+            identity = identity,
+        ),
+    )
+    return if (isMarkedAsPrivate == true) {
+        ConversationCategory.PROTECTED
+    } else {
+        ConversationCategory.DEFAULT
+    }
 }
 
-private fun ContactModelData.getSyncConversationVisibility(
-    conversationService: ConversationService?,
-): ConversationVisibility {
-    // TODO(ANDR-3035): Use conversation visibility from the new contact model
-    if (conversationService == null) {
-        return ConversationVisibility.NORMAL
-    }
-
-    // Check whether the contact is archived. In case it is archived, it can't be pinned.
-    if (isArchived) {
-        return ConversationVisibility.ARCHIVED
-    }
-
-    // In case there is a conversation with the contact: Check the pin tag, otherwise it is normal
-    conversationService.getAll(true).find { it.contact?.identity == identity }?.let {
-        return if (it.isPinTagged) {
-            ConversationVisibility.PINNED
-        } else {
-            ConversationVisibility.NORMAL
-        }
-    }
-
-    // In case there is no conversation with the contact: The visibility is normal.
-    return ConversationVisibility.NORMAL
+private fun ContactModelData.getProtocolsConversationVisibility(): ProtocolsConversationVisibility = when (conversationVisibility) {
+    ConversationVisibility.NORMAL -> ProtocolsConversationVisibility.NORMAL
+    ConversationVisibility.ARCHIVED -> ProtocolsConversationVisibility.ARCHIVED
+    ConversationVisibility.PINNED -> ProtocolsConversationVisibility.PINNED
 }
 
 private fun ProfilePictureUploadData?.toDeltaImage(): DeltaImage {

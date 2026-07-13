@@ -42,21 +42,20 @@ import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
 import ch.threema.app.AppConstants;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.actions.LocationMessageSendAction;
 import ch.threema.app.actions.SendAction;
 import ch.threema.app.activities.EditSendContactActivity;
 import ch.threema.app.activities.ImagePaintActivity;
 import ch.threema.app.activities.SendMediaActivity;
 import ch.threema.app.activities.ThreemaActivity;
-import ch.threema.app.activities.ballot.BallotWizardActivity;
-import ch.threema.app.camera.CameraUtil;
+import ch.threema.app.activities.poll.PollWizardActivity;
 import ch.threema.app.camera.QRScannerActivity;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.dialogs.GenericAlertDialog;
+import ch.threema.app.eventbus.GlobalEventBuses;
+import ch.threema.app.eventbus.events.ActionEvent;
 import ch.threema.app.fragments.composemessage.ComposeMessageFragment;
 import ch.threema.app.location.LocationPickerActivity;
-import ch.threema.app.managers.ListenerManager;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.messagereceiver.DistributionListMessageReceiver;
 import ch.threema.app.messagereceiver.GroupMessageReceiver;
@@ -72,7 +71,9 @@ import ch.threema.app.utils.IntentDataUtil;
 import ch.threema.app.utils.LocaleUtil;
 import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.RuntimeUtil;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
 import ch.threema.app.messagereceiver.SendingPermissionValidationResult;
 
 import static ch.threema.app.AppConstants.MAX_BLOB_SIZE;
@@ -99,7 +100,7 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
 
     private ConstraintLayout sendPanel;
     private LinearLayout attachPanel;
-    private ControlPanelButton attachGalleryButton, attachLocationButton, attachQRButton, attachBallotButton, attachContactButton, attachDrawingButton, attachFileButton, sendButton, editButton, cancelButton, attachFromExternalCameraButton;
+    private ControlPanelButton attachGalleryButton, attachLocationButton, attachQRButton, attachPollButton, attachContactButton, attachDrawingButton, attachFileButton, sendButton, editButton, cancelButton, attachFromExternalCameraButton;
     private Button selectCounterButton;
     private ImageView moreArrowView;
     private HorizontalScrollView scrollView;
@@ -108,6 +109,8 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
 
     @NonNull
     private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
+    @NonNull
+    private final GlobalEventBuses globalEventBuses = KoinJavaComponent.get(GlobalEventBuses.class);
 
     private final ActivityResultLauncher<Intent> fileSelectedResultLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
         result -> {
@@ -224,7 +227,7 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
         this.attachLocationButton = attachPanel.findViewById(R.id.attach_location);
         this.attachFileButton = attachPanel.findViewById(R.id.attach_file);
         this.attachQRButton = attachPanel.findViewById(R.id.attach_qr_code);
-        this.attachBallotButton = attachPanel.findViewById(R.id.attach_poll);
+        this.attachPollButton = attachPanel.findViewById(R.id.attach_poll);
         this.attachContactButton = attachPanel.findViewById(R.id.attach_contact);
         this.attachDrawingButton = attachPanel.findViewById(R.id.attach_drawing);
         this.attachFromExternalCameraButton = attachPanel.findViewById(R.id.attach_system_camera);
@@ -247,11 +250,6 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
             }
         });
 
-        // If the media grid is shown, we don't need the gallery button
-        if (dependencies.getPreferenceService().isShowImageAttachPreviewsEnabled() && ConfigUtils.isVideoImagePermissionGranted(this)) {
-            this.attachGalleryButton.setVisibility(View.GONE);
-        }
-
         // If gl es version 3.0 or newer is not supported, we cannot send a location
         if (ConfigUtils.getSupportedGlEsVersion(this) < 3.0) {
             this.attachLocationButton.setVisibility(View.GONE);
@@ -259,7 +257,7 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
 
         if (messageReceiver instanceof DistributionListMessageReceiver ||
             (messageReceiver instanceof GroupMessageReceiver && dependencies.getGroupService().isNotesGroup(((GroupMessageReceiver) messageReceiver).getGroup()))) {
-            this.attachBallotButton.setVisibility(View.GONE);
+            this.attachPollButton.setVisibility(View.GONE);
         }
     }
 
@@ -268,7 +266,7 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
         attachLocationButton.setOnClickListener(this);
         attachFileButton.setOnClickListener(this);
         attachQRButton.setOnClickListener(this);
-        attachBallotButton.setOnClickListener(this);
+        attachPollButton.setOnClickListener(this);
         attachContactButton.setOnClickListener(this);
         attachDrawingButton.setOnClickListener(this);
         sendButton.setOnClickListener(this);
@@ -325,7 +323,7 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
                 editButton.setLabelText(R.string.edit_and_send);
             }
             selectCounterButton.setText(String.format(LocaleUtil.getCurrentLocale(this), "%d", count));
-            selectCounterButton.setContentDescription(ConfigUtils.getSafeQuantityString(this, R.plurals.selection_counter_label, count, count));
+            selectCounterButton.setContentDescription(getResources().getQuantityString(R.plurals.selection_counter_label, count, count));
 
         } else if (BottomSheetBehavior.from(bottomSheetLayout).getState() == STATE_EXPANDED) {
             controlPanel.animate().translationY(
@@ -360,8 +358,8 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
             if (attachLocationButton.getVisibility() == View.VISIBLE) {
                 AnimationUtil.bubbleAnimate(attachLocationButton, animDelay += animDelayDiff);
             }
-            if (attachBallotButton.getVisibility() == View.VISIBLE) {
-                AnimationUtil.bubbleAnimate(attachBallotButton, animDelay += animDelayDiff);
+            if (attachPollButton.getVisibility() == View.VISIBLE) {
+                AnimationUtil.bubbleAnimate(attachPollButton, animDelay += animDelayDiff);
             }
             AnimationUtil.bubbleAnimate(attachContactButton, animDelay += animDelayDiff);
             AnimationUtil.bubbleAnimate(attachDrawingButton, animDelay += animDelayDiff);
@@ -381,7 +379,7 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
                 attachFile();
             }
         } else if (id == R.id.attach_poll) {
-            createBallot();
+            createPoll();
         } else if (id == R.id.attach_qr_code) {
             if (ConfigUtils.requestCameraPermissions(this, null, PERMISSION_REQUEST_QR_READER)) {
                 attachQR(v);
@@ -508,7 +506,7 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
                 case REQUEST_CODE_QR_SCANNER:
                     final @Nullable String scanResult = QRScannerActivity.extractResult(intent);
                     if (scanResult != null) {
-                        ListenerManager.qrCodeScanListener.handle(listener -> listener.onScanCompleted(scanResult));
+                        globalEventBuses.getActions().emit(new ActionEvent.QrCodeScanned(scanResult));
                         finish();
                     }
                     break;
@@ -520,7 +518,7 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
                 case CONTACT_PICKER_INTENT:
                     editContact(intent.getData());
                     break;
-                case ThreemaActivity.ACTIVITY_ID_CREATE_BALLOT:
+                case ThreemaActivity.ACTIVITY_ID_CREATE_POLL:
                     finish();
                     break;
                 case ThreemaActivity.ACTIVITY_ID_SEND_MEDIA:
@@ -560,7 +558,7 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
     public void onEdit(final List<Uri> uriList, boolean asFiles) {
         ArrayList<MediaItem> mediaItems = MediaItem.getFromUris(uriList, this, asFiles);
         if (!mediaItems.isEmpty()) {
-            var draft = dependencies.getDraftManager().get(messageReceiver.getUniqueIdString());
+            var draft = dependencies.getDraftManager().get(messageReceiver.getConversationId());
             if (draft != null) {
                 mediaItems.get(0).setCaption(draft.getText());
             }
@@ -627,10 +625,10 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
         startActivityForResult(intent, ThreemaActivity.ACTIVITY_ID_SEND_MEDIA);
     }
 
-    private void createBallot() {
-        Intent intent = new Intent(this, BallotWizardActivity.class);
+    private void createPoll() {
+        Intent intent = new Intent(this, PollWizardActivity.class);
         IntentDataUtil.addMessageReceiverToIntent(intent, messageReceiver);
-        startActivityForResult(intent, ThreemaActivity.ACTIVITY_ID_CREATE_BALLOT);
+        startActivityForResult(intent, ThreemaActivity.ACTIVITY_ID_CREATE_POLL);
     }
 
     private void launchPlacePicker() {
@@ -656,7 +654,7 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
     }
 
     private void attachDrawing() {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             logger.error("Service manager is null");
             return;

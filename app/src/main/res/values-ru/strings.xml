@@ -32,6 +32,12 @@
     <string name="title_job_title">Должность</string>
     <string name="title_department">Подразделение</string>
     <string name="send">Отправить</string>
+    <string name="prefs_linked_devices">Привязанные устройства</string>
+    <string name="prefs_community_and_sharing">Сообщество и обмен</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <string name="prefs_advanced">Расширенные</string>
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
+    <string name="prefs_about">О приложении</string>
     <string name="prefs_privacy">Приватность</string>
     <string name="prefs_notifications">Уведомления</string>
     <string name="prefs_chatdisplay">Чат</string>
@@ -83,7 +89,10 @@
     <string name="prefs_sum_threema_push_off">Проверять наличие новых сообщений с помощью системной службы push-уведомлений</string>
     <string name="prefs_logging">Ведение журнала</string>
     <string name="prefs_title_message_log_switch">Запись журнала</string>
-    <string name="prefs_title_sum_message_log_on">События и информация о сети будут записываться в файл debug_log.txt</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_on_since">Журналирование системной активности с %1$s (%2$s)</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_forced_on">Ведётся журналирование системной активности. Удалите файл «%1$s», чтобы отключить ведение журнала. (%2$s)</string>
     <string name="prefs_title_sum_message_log_off">События не будут записываться</string>
     <string name="prefs_reset_push">Сброс push-метки</string>
     <string name="prefs_sum_reset_push">Повторно зарегистрировать устройство для получения push-уведомлений с помощью FCM/HMS</string>
@@ -193,6 +202,7 @@
     <string name="attach_camera">Камера</string>
     <string name="menu_restore">Восстановить из резервной копии</string>
     <string name="restore_id_hint">Введите или вставьте текстовую строку экспорта ID для восстановления</string>
+    <string name="restore_id_string_label">Текстовая строка экспорта ID</string>
     <string name="location_placeholder">Местоположение</string>
     <string name="video_placeholder">Видео</string>
     <string name="audio_placeholder">Аудио</string>
@@ -345,8 +355,11 @@
     <string name="status_rename_group">Группа переименована в «%1$s»</string>
     <string name="status_group_new_photo">Аватар группы обновлён.</string>
     <string name="status_group_new_member">«%1$s» добавлен(а) в группу.</string>
+    <string name="status_group_you_were_added">Вас добавили в группу.</string>
     <string name="status_group_member_left">«%1$s» покинул(а) группу.</string>
+    <string name="status_group_you_left">Вы покинули группу.</string>
     <string name="status_group_member_kicked">«%1$s» исключен(а) из группы.</string>
+    <string name="status_group_you_were_removed">Вас исключили из группы.</string>
     <string name="can_not_send_no_group_members">Вы не можете отправить сообщение в пустую группу</string>
     <string name="you_are_not_a_member_of_this_group">Вы не являетесь участником этой группы</string>
     <string name="title_public_nickname">Псевдоним</string>
@@ -480,6 +493,7 @@
     <string name="ballot_result_final">Окончательный результат</string>
     <string name="invalid_cannot_send">Вы не можете отправлять сообщения недействительному контакту</string>
     <string name="ballot_answer_count_error">Задайте не менее двух вариантов ответов для этого опроса.</string>
+    <string name="ballot_removed">Опрос удалён</string>
     <string name="contact_state_inactive">Неактивный</string>
     <string name="contact_state_invalid">Недействительный</string>
     <string name="back">Назад</string>
@@ -686,7 +700,6 @@
     <string name="new_wizard_anonymous_confirm">Вы не указали ни номера мобильного телефона, ни адреса электронной почты для привязки к вашему ${app_name_short} ID. Вы не появитесь в списке контактов ваших друзей. Вы действительно хотите использовать ${app_name} анонимно?</string>
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_anonymous_confirm_phone_only">Вы не указали номер мобильного телефона для привязки к своему ${app_name_short} ID. Вы не появитесь в списке контактов ваших друзей. Вы действительно хотите использовать ${app_name} анонимно?</string>
-    <string name="new_wizard_scan_id_backup">Или сканируйте QR-код своего экспорта ID</string>
     <string name="error_saving_file">Ошибка сохранения файла. Проверьте разрешения.</string>
     <string name="wait_one_minute">Пожалуйста, подождите SMS не менее 10 минут, прежде чем запросить звонок.</string>
     <string name="backup_id">Экспортированный ID</string>
@@ -769,7 +782,8 @@
     <string name="prefs_language_override">Язык</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
     <string name="threema_channel_intro">Канал ${app_name_short} предоставляет вам новости обо всех событиях ${app_name_short}. Подписаться на канал ${app_name_short} и добавить его в список контактов? Это бесплатно и вы можете отписаться в любое время.</string>
-    <string name="quote">Цитировать</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
+    <string name="reply_to_message">Ответить</string>
     <string name="contacts_deleted">Контакты были удалены</string>
     <string name="take_photo">Сфотографировать</string>
     <string name="select_from_gallery">Выбрать из галереи</string>
@@ -1211,7 +1225,10 @@
     <string name="max_selectable_media_exceeded">Одновременно можно отправить не более %d объектов.</string>
     <string name="error_unable_loading_media_thumb">Произошла ошибка. Невозможно загрузить миниатюру мультимедиа.</string>
     <string name="filter_list">Список фильтров</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
+    <string name="search_list">Поисковый запрос</string>
     <string name="hint_filter_list">Введите текст фильтра</string>
+    <string name="hint_search_list">Введите текст для поиска</string>
     <string name="add">Добавить</string>
     <string name="only_images_or_videos">Можно выбирать только изображения или видео</string>
     <string name="media_gallery_gifs">GIF-файлы</string>
@@ -1571,10 +1588,11 @@
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="error_reporting_summary_always_ask">Каждый раз запрашивать отправку отчёта об ошибке в ${company_name}</string>
     <string name="error_detected_dialog_title">Отправить анонимный отчёт</string>
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
-    <string name="crash_detected_dialog_text">Похоже, в ${app_name_short} недавно произошёл сбой. Отправить анонимный отчёт об ошибке?</string>
+    <string name="crash_detected_dialog_text">Похоже, недавно возникла проблема. Отправить анонимный отчёт об ошибке?</string>
     <string name="crash_detected_dialog_remember_choice">Запомнить выбор</string>
     <string name="crash_detected_dialog_send_button">Отправить</string>
+    <string name="error_reporting_learn_more_button">Узнать больше</string>
+    <string name="error_reporting_details_button">Технические сведения</string>
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
     <string name="prefs_error_reporting_id">Анонимный ID устройства</string>
     <!-- The %s is a placeholder for an ID. It must be left as-is. -->
@@ -1605,6 +1623,7 @@
     <!-- Button label on dialog when configuring a backup, shown on dialog that lets the user choose how they want to select the backup folder. This option lets them bypass the file picker and use the default Documents folder instead -->
     <string name="backup_path_selection_documents">Использовать папку «Documents»</string>
     <!-- accessibility -->
+    <string name="cd_menu_more">Дополнительные настройки</string>
     <string name="cd_edited">сообщение было изменено</string>
     <string name="cd_created_at">создано: %s</string>
     <string name="cd_edited_at">изменено: %s</string>
@@ -1751,7 +1770,6 @@
     <string name="edit_availability_status_modal_optional_message_placeholder">На совещании</string>
     <string name="edit_availability_status_modal_optional_message_description">Установите своё сообщение для статусов «Занят» или «Недоступен».</string>
     <string name="edit_availability_status_modal_optional_message_too_long">Текст слишком длинный, сократите его</string>
-    <string name="edit_availability_status_did_change">Статус доступности изменён</string>
     <string name="tooltip_title_availability_status">Статус доступности</string>
     <string name="tooltip_text_availability_status_in_chat">Прежде чем отправлять сообщение, узнайте, занят и доступен ли собеседник. Вы можете установить свой статус в профиле.</string>
     <string name="tooltip_text_availability_status_in_profile">Установите свой статус, чтобы показать, когда вы заняты или недоступны.</string>
@@ -1837,6 +1855,8 @@
         <item quantity="many">%d сообщений удалено</item>
         <item quantity="other">%d сообщений удалено</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
+    <string name="notifications_for_one_week">На 1 неделю</string>
     <plurals name="notifications_for_x_hours">
         <item quantity="one">На %d час</item>
         <item quantity="few">На %d часа</item>

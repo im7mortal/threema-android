@@ -112,9 +112,9 @@ class AppStartupMonitorImpl : AppStartupMonitor {
         systemStatuses.delegate = createInitialPendingSystemsFlow()
     }
 
-    override fun observeSystems() = systemStatuses
+    override fun watchSystems() = systemStatuses
 
-    override fun observePendingSystems(): StateFlow<Set<AppSystem>> =
+    override fun watchPendingSystems(): StateFlow<Set<AppSystem>> =
         systemStatuses.mapState { statuses ->
             buildSet {
                 statuses.forEach { (system, status) ->
@@ -151,7 +151,7 @@ class AppStartupMonitorImpl : AppStartupMonitor {
         errors.first { it.isEmpty() }
     }
 
-    override fun observeErrors(): StateFlow<Set<AppStartupError>> = errors
+    override fun watchErrors(): StateFlow<Set<AppStartupError>> = errors
 
     override fun hasErrors() = errors.value.isNotEmpty()
 

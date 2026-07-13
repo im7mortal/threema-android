@@ -1,13 +1,12 @@
 package ch.threema.domain.fs;
 
-import java.security.SecureRandom;
 import java.util.Arrays;
 
 import androidx.annotation.NonNull;
 import ch.threema.base.ThreemaException;
-import ch.threema.base.utils.Utils;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
 
+import static ch.threema.common.ByteArrayExtensionsKt.toHexString;
 import static ch.threema.common.SecureRandomExtensionsKt.generateRandomBytes;
 import static ch.threema.common.SecureRandomExtensionsKt.secureRandom;
 
@@ -41,7 +40,7 @@ public class DHSessionId implements Comparable<DHSessionId> {
      */
     @Override
     public @NonNull String toString() {
-        return Utils.byteArrayToHexString(this.value);
+        return toHexString(this.value);
     }
 
     @Override

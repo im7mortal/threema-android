@@ -13,7 +13,7 @@ import ch.threema.app.services.BlockedIdentitiesService
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.DispatcherProvider
+import ch.threema.common.DispatcherProvider
 import com.bumptech.glide.Glide
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

@@ -161,7 +161,7 @@ class GroupSyncRequestMessageTest {
 
         // assert
         assertEquals(incomingMessageId, groupSyncRequestMessage.messageId)
-        assertEquals(incomingMessageCreatedAt, groupSyncRequestMessage.date.time)
+        assertEquals(incomingMessageCreatedAt, groupSyncRequestMessage.timestamp.toEpochMilli())
         assertEquals(incomingMessageSenderIdentity, groupSyncRequestMessage.fromIdentity)
 
         assertEquals(creatorIdentity, groupSyncRequestMessage.groupCreator)
@@ -190,7 +190,7 @@ class GroupSyncRequestMessageTest {
 
         // assert
         assertEquals(outgoingMessageId, groupSyncRequestMessage.messageId)
-        assertEquals(outgoingMessageCreatedAt, groupSyncRequestMessage.date.time)
+        assertEquals(outgoingMessageCreatedAt, groupSyncRequestMessage.timestamp.toEpochMilli())
 
         assertEquals(creatorIdentity, groupSyncRequestMessage.groupCreator)
         assertEquals(groupId.toLong(), groupSyncRequestMessage.apiGroupId.toLong())

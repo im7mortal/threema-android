@@ -1,5 +1,6 @@
 package ch.threema.common.files
 
+import ch.threema.common.deleteOrThrow
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileNotFoundException
@@ -40,9 +41,7 @@ class SimpleFileHandle(
         if (!file.exists()) {
             return
         }
-        if (!file.delete()) {
-            throw IOException("Failed to delete file")
-        }
+        file.deleteOrThrow()
     }
 
     override fun equals(other: Any?): Boolean {

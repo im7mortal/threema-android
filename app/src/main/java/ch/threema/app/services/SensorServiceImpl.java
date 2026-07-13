@@ -25,6 +25,7 @@ public class SensorServiceImpl implements SensorService, SensorEventListener {
     private final SensorManager sensorManager;
     private Sensor proximitySensor, accelerometerSensor;
     private static boolean isFlatOnTable = true;
+    private static Boolean isOnEar = null;
     private final Map<String, Object> instanceMap = new HashMap<>();
 
     public SensorServiceImpl(Context context) {
@@ -73,6 +74,7 @@ public class SensorServiceImpl implements SensorService, SensorEventListener {
 
     @Override
     public void registerSensors(String tag, SensorListener sensorListener, boolean useAccelerometer) {
+        isOnEar = null;
         if (hasSensors()) {
             synchronized (instanceMap) {
                 if (!instanceMap.containsKey(tag)) {
@@ -92,6 +94,7 @@ public class SensorServiceImpl implements SensorService, SensorEventListener {
 
     @Override
     public void unregisterSensors(String tag) {
+        isOnEar = null;
         synchronized (instanceMap) {
             if (!instanceMap.isEmpty()) {
                 instanceMap.remove(tag);
@@ -107,6 +110,7 @@ public class SensorServiceImpl implements SensorService, SensorEventListener {
 
     @Override
     public void unregisterAllSensors() {
+        isOnEar = null;
         synchronized (instanceMap) {
             instanceMap.clear();
             releaseWakelock();
@@ -129,6 +133,11 @@ public class SensorServiceImpl implements SensorService, SensorEventListener {
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor == this.proximitySensor) {
             boolean onEar = isNear(event.values[0]) && !isFlatOnTable;
+
+            if (isOnEar != null && isOnEar == onEar) {
+                return;
+            }
+            isOnEar = onEar;
 
             logger.info("Proximity Sensor changed. onEar: {}", onEar);
 

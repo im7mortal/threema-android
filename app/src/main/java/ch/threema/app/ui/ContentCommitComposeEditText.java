@@ -16,14 +16,13 @@ import androidx.annotation.NonNull;
 import androidx.core.view.inputmethod.EditorInfoCompat;
 import androidx.core.view.inputmethod.InputConnectionCompat;
 
-import org.slf4j.Logger;
-
 import java.util.ArrayList;
 import java.util.Collections;
 
 import ch.threema.app.AppConstants;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.activities.SendMediaActivity;
+import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.services.MessageService;
@@ -31,13 +30,9 @@ import ch.threema.app.utils.BitmapUtil;
 import ch.threema.app.utils.IconUtil;
 import ch.threema.app.utils.IntentDataUtil;
 import ch.threema.app.utils.MimeUtil;
-import ch.threema.base.ThreemaException;
-import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
 
 public class ContentCommitComposeEditText extends ComposeEditText {
-    private static final Logger logger = getThreemaLogger("ContentCommitComposeEditText");
-
     private MessageReceiver messageReceiver;
     private MessageService messageService;
     private PreferenceService preferenceService;
@@ -62,12 +57,12 @@ public class ContentCommitComposeEditText extends ComposeEditText {
     }
 
     private void init() {
-        try {
-            this.messageService = ThreemaApplication.getServiceManager().getMessageService();
-            this.preferenceService = ThreemaApplication.getServiceManager().getPreferenceService();
-        } catch (ThreemaException | NullPointerException e) {
-            logger.debug("MessageService not available");
+        var serviceManager = ServiceManager.get();
+        if (serviceManager == null) {
+            return;
         }
+        this.messageService = serviceManager.getMessageService();
+        this.preferenceService = serviceManager.getPreferenceService();
     }
 
     @Override

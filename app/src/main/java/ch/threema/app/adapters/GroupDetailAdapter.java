@@ -189,7 +189,7 @@ public class GroupDetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
             itemHolder.idView.setText(displayableContactOrUser.getIdentity());
             AdapterUtil.styleContact(itemHolder.nameView, displayableContactOrUser.getIdentityState());
             itemHolder.avatarView.setImageBitmap(avatar);
-            itemHolder.avatarView.setWorkBadgeVisible(displayableGroupParticipant.getDisplayableContactOrUser().getShowBadge());
+            itemHolder.avatarView.setIdentityTypeBadgeVisible(displayableGroupParticipant.getDisplayableContactOrUser().getShowBadge());
             itemHolder.view.setOnClickListener(v -> onClickListener.onGroupMemberClick(v, displayableContactOrUser.getIdentity()));
 
             boolean isCreator = displayableGroupParticipant instanceof DisplayableGroupParticipant.Creator;
@@ -212,7 +212,9 @@ public class GroupDetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
 
             if (groupMembers != null && !groupMembers.isEmpty()) {
                 headerHolder.groupMembersTitleView.setVisibility(View.VISIBLE);
-                headerHolder.groupMembersTitleView.setText(ConfigUtils.getSafeQuantityString(context, R.plurals.number_of_group_members, groupMembers.size(), groupMembers.size()));
+                headerHolder.groupMembersTitleView.setText(
+                    context.getResources().getQuantityString(R.plurals.number_of_group_members, groupMembers.size(), groupMembers.size())
+                );
             } else {
                 headerHolder.groupMembersTitleView.setVisibility(View.GONE);
             }
@@ -298,7 +300,7 @@ public class GroupDetailAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
      */
     private void showGroupDescTimestamp() {
         headerHolder.groupDescChangedDate.setText(context.getString(R.string.changed_group_desc_date)
-            + LocaleUtil.formatTimeStampString(context, groupDetailViewModel.getGroupDescTimestamp().getTime(), false));
+            + LocaleUtil.formatTimeStampString(context, groupDetailViewModel.getGroupDescTimestamp(), false));
         headerHolder.groupDescChangedDate.setVisibility(View.VISIBLE);
     }
 

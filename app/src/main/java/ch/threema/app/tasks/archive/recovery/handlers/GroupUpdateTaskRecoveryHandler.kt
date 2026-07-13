@@ -5,7 +5,7 @@ import ch.threema.app.protocolsteps.PredefinedMessageIds
 import ch.threema.app.tasks.GroupUpdateTask
 import ch.threema.app.tasks.archive.recovery.TaskRecoveryHandler
 import ch.threema.common.decodeArray
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.domain.models.MessageId
 import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec

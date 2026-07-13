@@ -11,7 +11,7 @@ pub use handshake::ServerInfo;
 pub use post_handshake::*;
 
 use crate::{
-    d2m::{D2mProtocolError, InternalEncodingErrorCause, InternalErrorCause},
+    d2m::{D2mProtocolError, D2mProtocolInternalEncodingErrorCause, D2mProtocolInternalErrorCause},
     utils::{
         bytes::{ByteReader as _, ByteWriter, OwnedVecByteReader, OwnedVecByteWriter},
         debug::{Name, debug_slice_length},
@@ -110,15 +110,15 @@ pub(super) trait PayloadEncoder: Sized + Name {
         writer: &mut TWriter,
     ) -> Result<(), D2mProtocolError> {
         let mut buffer = writer.write_in_place(message.encoded_len()).map_err(|error| {
-            D2mProtocolError::InternalError(InternalErrorCause::EncodingFailed {
+            D2mProtocolError::InternalError(D2mProtocolInternalErrorCause::EncodingFailed {
                 name: Self::NAME,
-                source: InternalEncodingErrorCause::ByteWriterError(error),
+                source: D2mProtocolInternalEncodingErrorCause::ByteWriterError(error),
             })
         })?;
         message.encode(&mut buffer).map_err(|error| {
-            D2mProtocolError::InternalError(InternalErrorCause::EncodingFailed {
+            D2mProtocolError::InternalError(D2mProtocolInternalErrorCause::EncodingFailed {
                 name: Self::NAME,
-                source: InternalEncodingErrorCause::ProtobufEncodeError(error),
+                source: D2mProtocolInternalEncodingErrorCause::ProtobufEncodeError(error),
             })
         })?;
         Ok(())
@@ -141,9 +141,9 @@ pub(super) trait PayloadEncoder: Sized + Name {
                 writer.write(&PAYLOAD_HEADER_RESERVED)
             })
             .map_err(|error| {
-                D2mProtocolError::InternalError(InternalErrorCause::EncodingFailed {
+                D2mProtocolError::InternalError(D2mProtocolInternalErrorCause::EncodingFailed {
                     name: Self::NAME,
-                    source: InternalEncodingErrorCause::ByteWriterError(error),
+                    source: D2mProtocolInternalEncodingErrorCause::ByteWriterError(error),
                 })
             })?;
 

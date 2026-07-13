@@ -101,6 +101,18 @@ pub struct WorkContext {
 
 /// General flavour of the application.
 #[derive(Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify, serde::Deserialize),
+    serde(
+        tag = "flavor",
+        content = "value",
+        rename_all = "kebab-case",
+        rename_all_fields = "camelCase"
+    ),
+    tsify(from_wasm_abi)
+)]
 pub enum Flavor {
     /// Consumer application.
     Consumer,
@@ -114,11 +126,11 @@ pub enum Flavor {
 #[cfg_attr(test, derive(PartialEq))]
 pub enum UrlError {
     /// URL is invalid.
-    #[error("Invalid URL")]
+    #[error("Invalid URL: {0}")]
     InvalidUrl(&'static str),
 
     /// URL is not a valid base URL (must end with a trailing slash).
-    #[error("Invalid base URL")]
+    #[error("Invalid base URL: {0}")]
     InvalidBaseUrl(&'static str),
 
     /// URL uses an unexpected scheme.
@@ -409,7 +421,7 @@ mod device_group_id_template_url {
 }
 
 mod blob_id_template_url {
-    use data_encoding::HEXLOWER;
+    use data_encoding::HEXLOWER_PERMISSIVE;
 
     use crate::common::{BlobId, config::Url};
 
@@ -424,14 +436,14 @@ mod blob_id_template_url {
             .expect("Blob ID should contain at least one byte");
         url.map_placeholders(|key| match key {
             PREFIX_8 => Some(format!("{prefix:x}")),
-            FULL => Some(HEXLOWER.encode(&blob_id.0)),
+            FULL => Some(HEXLOWER_PERMISSIVE.encode(&blob_id.0)),
             _ => None,
         })
     }
 }
 
 mod device_group_id_and_blob_id_template_url {
-    use data_encoding::HEXLOWER;
+    use data_encoding::HEXLOWER_PERMISSIVE;
 
     use crate::common::{
         BlobId,
@@ -456,7 +468,7 @@ mod device_group_id_and_blob_id_template_url {
             },
             device_group_id_template_url::PREFIX_8 => Some(format!("{device_group_path_key_prefix:x}")),
             blob_id_template_url::PREFIX_8 => Some(format!("{blob_id_prefix:x}")),
-            blob_id_template_url::FULL => Some(HEXLOWER.encode(&blob_id.0)),
+            blob_id_template_url::FULL => Some(HEXLOWER_PERMISSIVE.encode(&blob_id.0)),
             _ => None,
         })
     }
@@ -465,6 +477,12 @@ mod device_group_id_and_blob_id_template_url {
 /// Chat server address (for non multi-device/legacy connections) with placeholders.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Record))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify, serde::Deserialize),
+    serde(rename_all = "camelCase"),
+    tsify(from_wasm_abi)
+)]
 pub struct ChatServerAddress {
     /// Hostname of the chat server.
     pub hostname: String,
@@ -746,10 +764,16 @@ impl TryFrom<String> for url_type {
 /// Version of an OnPrem configuration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString)]
 #[cfg_attr(feature = "uniffi", derive(uniffi::Enum))]
+#[cfg_attr(
+    feature = "wasm",
+    derive(tsify::Tsify, serde::Deserialize),
+    tsify(from_wasm_abi)
+)]
 pub enum OnPremConfigVersion {
     /// Initial version... kinda. Historically, backwards compatible changes have not triggered a minor
     /// version bump.
     #[strum(serialize = "1.0")]
+    #[cfg_attr(feature = "wasm", serde(rename = "1.0"))]
     V1_0,
 }
 
@@ -892,9 +916,6 @@ pub struct OnPremConfig {
     /// Blob server configuration.
     pub blob_server: BlobServerConfig,
 
-    /// Legacy work server URL.
-    pub work_server_legacy_url: WorkServerLegacyBaseUrl,
-
     /// Work server URL.
     pub work_server_url: WorkServerBaseUrl,
 
@@ -1022,7 +1043,6 @@ impl OnPremConfig {
                     download_url: BlobServerDownloadUrl(config.blob_server.download_url),
                     done_url: BlobServerDoneUrl(config.blob_server.done_url),
                 },
-                work_server_legacy_url: WorkServerLegacyBaseUrl(config.work_server.base_url.clone()),
                 work_server_url: WorkServerBaseUrl(config.work_server.base_url),
                 gateway_avatar_server_url: GatewayAvatarBaseServerUrl(config.gateway_avatar_server.base_url),
                 safe_server_url: SafeServerBaseUrl(config.safe_server.base_url),
@@ -1464,18 +1484,23 @@ impl Config {
                 },
             }),
 
-            predefined_contacts: HashMap::new(),
+            predefined_contacts: [PredefinedContact::testing()]
+                .into_iter()
+                .map(|contact| (contact.identity, contact))
+                .collect(),
         }
     }
 }
 impl From<OnPremConfig> for Config {
     fn from(config: OnPremConfig) -> Self {
+        // Note: For OnPrem, the work legacy and non-legacy endpoints are identical.
+        let work_server_legacy_url = WorkServerLegacyBaseUrl(config.work_server_url.0.clone());
         Self {
             chat_server_address: config.chat_server_address,
             chat_server_public_keys: config.chat_server_public_keys,
             directory_server_url: config.directory_server_url,
             blob_server: config.blob_server,
-            work_server_legacy_url: config.work_server_legacy_url,
+            work_server_legacy_url,
             work_server_url: config.work_server_url,
             gateway_avatar_server_url: config.gateway_avatar_server_url,
             safe_server_url: config.safe_server_url,
@@ -1683,9 +1708,6 @@ mod tests {
                                 .to_owned()
                         )?,
                     },
-                    work_server_legacy_url: WorkServerLegacyBaseUrl::try_from(
-                        "https://work.onprem.example.threema.ch/".to_owned()
-                    )?,
                     work_server_url: WorkServerBaseUrl::try_from(
                         "https://work.onprem.example.threema.ch/".to_owned()
                     )?,
@@ -1734,9 +1756,6 @@ mod tests {
                                 .to_owned()
                         )?,
                     },
-                    work_server_legacy_url: WorkServerLegacyBaseUrl::try_from(
-                        "https://work.onprem.example.threema.ch/".to_owned()
-                    )?,
                     work_server_url: WorkServerBaseUrl::try_from(
                         "https://work.onprem.example.threema.ch/".to_owned()
                     )?,

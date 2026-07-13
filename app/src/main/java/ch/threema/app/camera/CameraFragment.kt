@@ -64,11 +64,11 @@ import ch.threema.app.camera.ShutterButtonView.ShutterButtonListener
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.ui.LessObnoxiousMediaActionSound
 import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.app.utils.LocaleUtil
 import ch.threema.app.utils.RuntimeUtil
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.common.consume
 import com.google.android.material.progressindicator.CircularProgressIndicator
 import java.io.File

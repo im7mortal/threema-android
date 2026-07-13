@@ -5,10 +5,10 @@ import android.content.Context;
 import androidx.annotation.NonNull;
 import ch.threema.app.R;
 import ch.threema.app.ui.listitemholder.ComposeMessageHolder;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.LinkifyUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.storage.models.AbstractMessageModel;
+
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class FirstUnreadChatAdapterDecorator extends ChatAdapterDecorator {
     private final int unreadMessagesCount;
@@ -27,9 +27,9 @@ public class FirstUnreadChatAdapterDecorator extends ChatAdapterDecorator {
 
     @Override
     protected void configureChatMessage(final ComposeMessageHolder holder, Context context, final int position) {
-        String s = ConfigUtils.getSafeQuantityString(context, R.plurals.unread_messages, unreadMessagesCount, unreadMessagesCount);
+        String s = context.getResources().getQuantityString(R.plurals.unread_messages, unreadMessagesCount, unreadMessagesCount);
 
-        if (this.showHide(holder.bodyTextView, !TestUtil.isEmptyOrNull(s))) {
+        if (this.showHide(holder.bodyTextView, !isNullOrEmpty(s))) {
             holder.bodyTextView.setText(s);
         }
     }

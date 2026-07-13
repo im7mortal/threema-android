@@ -4,7 +4,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="@dimen/wizard_contents_padding"
+    android:padding="@dimen/grid_unit_x3"
+    android:background="@null"
     android:scrollbarStyle="outsideOverlay">
 
     <LinearLayout
@@ -13,27 +14,24 @@
         android:orientation="vertical">
 
         <TextView
-            android:id="@+id/safe_enable_subtitle"
-            style="@style/WizardDialogTitleText"
-            android:layout_width="wrap_content"
+            style="@style/MaterialAlertDialog.Material3.Title.Text"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
             android:gravity="center_horizontal"
-            android:text="@string/safe_configure_choose_server" />
+            android:maxLines="2"
+            android:text="@string/safe_advanced_options" />
 
         <TextView
             android:id="@+id/safe_enable_explain"
-            style="@style/WizardSmallText"
+            style="@style/MaterialAlertDialog.Material3.Body.Text"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
             android:layout_marginTop="@dimen/grid_unit_x2"
-            android:gravity="center_horizontal"
             android:text="@string/flavored__safe_configure_server_explain" />
 
         <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/safe_switch_server"
-            style="@style/WizardSwitch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/grid_unit_x3"
@@ -46,7 +44,7 @@
             android:id="@+id/safe_server_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="@dimen/grid_unit_x1"
             android:orientation="vertical"
             android:visibility="gone"
             tools:visibility="visible">
@@ -56,32 +54,27 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 app:hintAnimationEnabled="false"
-                app:hintEnabled="false">
+                app:hintEnabled="false"
+                app:prefixText="https://">
 
-                <ch.threema.app.ui.PrefixEditText
+                <ch.threema.app.ui.ThreemaTextInputEditText
                     android:id="@+id/safe_edit_server"
-                    style="@style/WizardEditText"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
+                    android:layout_height="wrap_content"
                     android:hint="@string/safe_enter_server_address_explain"
                     android:imeOptions="actionDone"
                     android:inputType="textWebEditText"
-                    android:singleLine="true"
-                    android:tag="https://">
-
-                    <requestFocus />
-                </ch.threema.app.ui.PrefixEditText>
+                    android:singleLine="true" />
 
             </com.google.android.material.textfield.TextInputLayout>
 
             <TextView
                 android:id="@+id/safe_credentials_title"
+                style="@style/MaterialAlertDialog.Material3.Body.Text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/grid_unit_x1"
-                android:text="@string/safe_configure_server_credentials_title"
-                android:textColor="?attr/colorOnBackground"
-                android:textSize="16sp" />
+                android:layout_marginTop="@dimen/grid_unit_x2"
+                android:text="@string/safe_configure_server_credentials_title" />
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/safe_username"
@@ -93,7 +86,6 @@
 
                 <ch.threema.app.ui.ThreemaTextInputEditText
                     android:id="@+id/safe_edit_username"
-                    style="@style/WizardEditText"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:hint="@string/username_hint"
@@ -110,21 +102,19 @@
                 android:id="@+id/safe_server_password"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/grid_unit_x0_5"
+                android:layout_marginTop="@dimen/grid_unit_x1"
                 app:hintAnimationEnabled="false"
                 app:hintEnabled="false"
                 app:passwordToggleEnabled="true">
 
                 <ch.threema.app.ui.ThreemaTextInputEditText
                     android:id="@+id/safe_edit_server_password"
-                    style="@style/WizardEditText"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:hint="@string/password_hint"
                     android:imeOptions="actionDone"
                     android:inputType="textWebPassword"
-                    android:singleLine="true"
-                    android:tag="https://">
+                    android:singleLine="true">
 
                 </ch.threema.app.ui.ThreemaTextInputEditText>
 
@@ -135,25 +125,22 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/grid_unit_x4"
+            android:layout_marginTop="@dimen/grid_unit_x3"
+            android:gravity="end"
             android:orientation="horizontal">
 
-            <ch.threema.app.activities.wizard.components.WizardButtonXml
+            <ch.threema.app.ui.interop.TextButtonPrimaryXml
                 android:id="@+id/cancel_compose"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="@dimen/grid_unit_x0_5"
-                android:layout_weight="1"
-                app:wizardButton_style="wizardButton_inverse"
-                app:wizardButton_text="@string/cancel" />
+                android:layout_marginEnd="@dimen/grid_unit_x1"
+                app:textButtonPrimary_text="@string/cancel" />
 
-            <ch.threema.app.activities.wizard.components.WizardButtonXml
+            <ch.threema.app.ui.interop.TextButtonPrimaryXml
                 android:id="@+id/ok_compose"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="@dimen/grid_unit_x0_5"
-                android:layout_weight="1"
-                app:wizardButton_text="@string/ok" />
+                app:textButtonPrimary_text="@string/ok" />
 
         </LinearLayout>
 

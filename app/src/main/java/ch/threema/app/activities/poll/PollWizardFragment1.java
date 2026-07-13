@@ -1,0 +1,369 @@
+package ch.threema.app.activities.poll;
+
+import android.os.Bundle;
+import android.text.Editable;
+import android.text.format.DateFormat;
+import android.text.format.DateUtils;
+import android.view.KeyEvent;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.inputmethod.EditorInfo;
+import android.widget.EditText;
+import android.widget.ImageButton;
+import android.widget.LinearLayout;
+
+import com.google.android.material.datepicker.MaterialDatePicker;
+import com.google.android.material.timepicker.MaterialTimePicker;
+
+import org.slf4j.Logger;
+
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.List;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import ch.threema.app.R;
+import ch.threema.app.adapters.poll.PollWizard1Adapter;
+import ch.threema.app.dialogs.FormatTextEntryDialog;
+import ch.threema.android.textwatchers.SimpleTextWatcher;
+import ch.threema.app.utils.EditTextUtil;
+import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import ch.threema.storage.models.poll.PollChoiceModel;
+
+import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
+import static com.google.android.material.timepicker.TimeFormat.CLOCK_12H;
+import static com.google.android.material.timepicker.TimeFormat.CLOCK_24H;
+
+public class PollWizardFragment1 extends PollWizardFragment implements PollWizardActivity.PollWizardCallback, PollWizard1Adapter.OnChoiceListener {
+    private static final Logger logger = getThreemaLogger("PollWizardFragment1");
+
+    private static final String DIALOG_TAG_SELECT_DATE = "selectDate";
+    private static final String DIALOG_TAG_SELECT_TIME = "selectTime";
+    private static final String DIALOG_TAG_SELECT_DATETIME = "selectDateTime";
+    private static final String DIALOG_TAG_EDIT_ANSWER = "editAnswer";
+
+    private RecyclerView choiceRecyclerView;
+    private List<PollChoiceModel> pollChoiceModelList;
+    private PollWizard1Adapter listAdapter = null;
+    private ImageButton createChoiceButton;
+    private EditText createChoiceEditText;
+    private Long originalTimeInUtc = null;
+    private LinearLayoutManager choiceRecyclerViewLayoutManager;
+    private int lastVisiblePollPosition;
+    private int editItemPosition = -1;
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        logScreenVisibility(this, logger);
+    }
+
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+
+        ViewGroup rootView = (ViewGroup) inflater.inflate(R.layout.fragment_poll_wizard1, container, false);
+
+        this.choiceRecyclerView = rootView.findViewById(R.id.poll_list);
+        this.choiceRecyclerViewLayoutManager = new LinearLayoutManager(getActivity());
+        this.choiceRecyclerView.setLayoutManager(choiceRecyclerViewLayoutManager);
+        this.choiceRecyclerView.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
+            @Override
+            public void onLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft, int oldTop, int oldRight, int oldBottom) {
+                if (bottom < oldBottom) {
+                    choiceRecyclerView.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                choiceRecyclerView.smoothScrollToPosition(lastVisiblePollPosition);
+                            } catch (IllegalArgumentException ignored) {
+                            }
+                        }
+                    });
+                }
+            }
+        });
+        this.choiceRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
+                super.onScrollStateChanged(recyclerView, newState);
+                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                    lastVisiblePollPosition = choiceRecyclerViewLayoutManager.findLastVisibleItemPosition();
+                }
+            }
+        });
+        int moveUpDown = ItemTouchHelper.UP | ItemTouchHelper.DOWN;
+        ItemTouchHelper.Callback swipeCallback = new ItemTouchHelper.SimpleCallback(moveUpDown, 0) {
+            @Override
+            public boolean onMove(@NonNull RecyclerView recyclerView, @NonNull RecyclerView.ViewHolder viewHolder, @NonNull RecyclerView.ViewHolder target) {
+                int fromPosition = viewHolder.getAdapterPosition();
+                int toPosition = target.getAdapterPosition();
+                if (fromPosition < toPosition) {
+                    for (int i = fromPosition; i < toPosition; i++) {
+                        Collections.swap(pollChoiceModelList, i, i + 1);
+                    }
+                } else {
+                    for (int i = fromPosition; i > toPosition; i--) {
+                        Collections.swap(pollChoiceModelList, i, i - 1);
+                    }
+                }
+                listAdapter.notifyItemMoved(fromPosition, toPosition);
+                return true;
+            }
+
+            @Override
+            public boolean isItemViewSwipeEnabled() {
+                return false;
+            }
+
+            @Override
+            public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
+            }
+        };
+        ItemTouchHelper itemTouchHelper = new ItemTouchHelper(swipeCallback);
+        itemTouchHelper.attachToRecyclerView(choiceRecyclerView);
+
+        this.createChoiceEditText = rootView.findViewById(R.id.create_choice_name);
+        this.createChoiceEditText.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == getResources().getInteger(R.integer.ime_wizard_add_choice) || actionId == EditorInfo.IME_ACTION_NEXT || (event.getAction() == KeyEvent.ACTION_DOWN && event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
+                createChoice();
+            }
+            return false;
+        });
+        this.createChoiceEditText.addTextChangedListener(new SimpleTextWatcher() {
+            @Override
+            public void afterTextChanged(@NonNull Editable editable) {
+                if (createChoiceButton != null) {
+                    createChoiceButton.setEnabled(editable.length() > 0);
+                }
+            }
+        });
+        this.createChoiceButton = rootView.findViewById(R.id.create_choice);
+        this.createChoiceButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                createChoice();
+            }
+        });
+        this.createChoiceButton.setEnabled(false);
+
+        ImageButton addDateButton = rootView.findViewById(R.id.add_date);
+        addDateButton.setOnClickListener(v -> {
+            final MaterialDatePicker<Long> datePicker = MaterialDatePicker.Builder.datePicker()
+                .setTitleText(R.string.select_date)
+                .setSelection(originalTimeInUtc != null ? originalTimeInUtc : MaterialDatePicker.todayInUtcMilliseconds())
+                .build();
+            datePicker.addOnPositiveButtonClickListener(selection -> {
+                Long date = datePicker.getSelection();
+                if (date != null) {
+                    originalTimeInUtc = date;
+                    createDateChoice(false);
+                }
+            });
+            if (isAdded()) {
+                datePicker.show(getParentFragmentManager(), DIALOG_TAG_SELECT_DATE);
+            }
+        });
+
+        ImageButton addDateTimeButton = rootView.findViewById(R.id.add_time);
+        addDateTimeButton.setOnClickListener(v -> {
+            final MaterialDatePicker<Long> datePicker = MaterialDatePicker.Builder.datePicker()
+                .setTitleText(R.string.select_date)
+                .setSelection(originalTimeInUtc != null ? originalTimeInUtc : MaterialDatePicker.todayInUtcMilliseconds())
+                .build();
+            datePicker.addOnPositiveButtonClickListener(selection -> {
+                Long date = datePicker.getSelection();
+                if (date != null) {
+                    originalTimeInUtc = date;
+                    final MaterialTimePicker timePicker = new MaterialTimePicker.Builder()
+                        .setTitleText(R.string.select_time)
+                        .setHour(0)
+                        .setMinute(0)
+                        .setTimeFormat(DateFormat.is24HourFormat(getContext()) ? CLOCK_24H : CLOCK_12H)
+                        .build();
+                    timePicker.addOnPositiveButtonClickListener(v1 -> {
+                        originalTimeInUtc += timePicker.getHour() * DateUtils.HOUR_IN_MILLIS;
+                        originalTimeInUtc += timePicker.getMinute() * DateUtils.MINUTE_IN_MILLIS;
+                        createDateChoice(true);
+                    });
+                    if (isAdded()) {
+                        timePicker.show(getParentFragmentManager(), DIALOG_TAG_SELECT_TIME);
+                    }
+                }
+            });
+            if (isAdded()) {
+                datePicker.show(getParentFragmentManager(), DIALOG_TAG_SELECT_DATETIME);
+            }
+        });
+
+        initAdapter();
+
+        return rootView;
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        handleDeviceInsetsAndImeAnimation(view);
+    }
+
+    private void handleDeviceInsetsAndImeAnimation(@NonNull final View fragmentView) {
+        // Display the input field on top of the opened keyboard
+        final @NonNull LinearLayout contentLayout = fragmentView.findViewById(R.id.layout_wizard2);
+        ViewCompat.setOnApplyWindowInsetsListener(contentLayout, (view, windowInsets) -> {
+            final @NonNull Insets imeInsets = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
+            final @NonNull Insets otherInsets = windowInsets.getInsets(
+                WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()
+            );
+            int bottom = getResources().getDimensionPixelSize(R.dimen.wizard_footer_height);
+            if (imeInsets.bottom > 0) {
+                bottom += (imeInsets.bottom - otherInsets.bottom);
+            }
+            view.setPadding(0, 0, 0, bottom);
+            return windowInsets;
+        });
+    }
+
+    private void createDateChoice(boolean showTime) {
+        if (createChoiceEditText != null) {
+            int format = DateUtils.FORMAT_UTC | DateUtils.FORMAT_ABBREV_WEEKDAY | DateUtils.FORMAT_SHOW_WEEKDAY | DateUtils.FORMAT_SHOW_DATE;
+            if (showTime) {
+                format |= DateUtils.FORMAT_SHOW_TIME;
+            }
+            if (!isSameYear(originalTimeInUtc)) {
+                format |= DateUtils.FORMAT_SHOW_YEAR;
+            }
+            String dateString = DateUtils.formatDateTime(getContext(), originalTimeInUtc, format);
+            createChoiceEditText.setText(dateString);
+            createChoice();
+        }
+    }
+
+    private void initAdapter() {
+        if (this.getPollActivity() != null) {
+            this.pollChoiceModelList = this.getPollActivity().getPollChoiceModelList();
+            this.listAdapter = new PollWizard1Adapter(this.pollChoiceModelList);
+            this.listAdapter.setOnChoiceListener(this);
+            this.choiceRecyclerView.setAdapter(this.listAdapter);
+        }
+    }
+
+    @Override
+    public void onEditClicked(int position) {
+        this.editItemPosition = position;
+        FormatTextEntryDialog alertDialog = FormatTextEntryDialog.newInstance(
+            R.string.edit_answer, 0,
+            R.string.ok,
+            R.string.cancel,
+            pollChoiceModelList.get(position).getName(),
+            5, new FormatTextEntryDialog.FormatTextEntryDialogClickListener() {
+                @Override
+                public void onYes(String text) {
+                    if (!isNullOrEmpty(text)) {
+                        synchronized (pollChoiceModelList) {
+                            if (editItemPosition != -1) {
+                                pollChoiceModelList.get(editItemPosition).setName(text);
+                                listAdapter.notifyItemChanged(editItemPosition);
+                            }
+                            editItemPosition = -1;
+                        }
+                    }
+                    createChoiceEditText.requestFocus();
+                }
+
+                @Override
+                public void onNo() {
+                    createChoiceEditText.requestFocus();
+                }
+            });
+        alertDialog.show(getParentFragmentManager(), DIALOG_TAG_EDIT_ANSWER);
+    }
+
+    @Override
+    public void onRemoveClicked(int position) {
+        synchronized (pollChoiceModelList) {
+            pollChoiceModelList.remove(position);
+            listAdapter.notifyItemRemoved(position);
+        }
+    }
+
+    /**
+     * Create a new Choice with a Input Alert.
+     */
+    private void createChoice() {
+        if (createChoiceEditText.getText() != null) {
+            String text = createChoiceEditText.getText().toString();
+            if (!isNullOrEmpty(text)) {
+                createChoice(text.trim(), PollChoiceModel.Type.Text);
+                int insertPosition = this.pollChoiceModelList.size() - 1;
+                listAdapter.notifyItemInserted(insertPosition);
+                choiceRecyclerView.smoothScrollToPosition(insertPosition);
+                createChoiceEditText.setText("");
+                createChoiceEditText.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        createChoiceEditText.requestFocus();
+                    }
+                });
+            } else {
+                // show keyboard on empty click
+                if (this.getPollActivity() != null) {
+                    EditTextUtil.showSoftKeyboard(this.createChoiceEditText);
+                }
+            }
+        }
+    }
+
+    public void saveUnsavedData() {
+        createChoice();
+    }
+
+    private void createChoice(String name, PollChoiceModel.Type type) {
+        PollChoiceModel choiceModel = new PollChoiceModel();
+        choiceModel.setName(name);
+        choiceModel.setType(type);
+
+        synchronized (this.pollChoiceModelList) {
+            this.pollChoiceModelList.add(choiceModel);
+        }
+    }
+
+    @Override
+    void updateView() {
+        initAdapter();
+    }
+
+    private boolean isSameYear(long dateInMillis) {
+        Calendar cal = Calendar.getInstance();
+        cal.setTimeInMillis(dateInMillis);
+        Calendar cal1 = Calendar.getInstance();
+
+        return cal1.get(Calendar.YEAR) == cal.get(Calendar.YEAR);
+    }
+
+    @Override
+    public void onMissingTitle() {
+        /**/
+    }
+
+    @Override
+    public void onPageSelected(int page) {
+        if (page == 0) {
+            this.createChoiceEditText.clearFocus();
+            this.createChoiceEditText.setFocusableInTouchMode(false);
+            this.createChoiceEditText.setFocusable(false);
+        } else {
+            this.createChoiceEditText.setFocusableInTouchMode(true);
+            this.createChoiceEditText.setFocusable(true);
+            this.createChoiceEditText.requestFocus();
+        }
+    }
+}

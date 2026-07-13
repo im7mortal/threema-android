@@ -2,30 +2,30 @@ package ch.threema.app.contacts
 
 import androidx.annotation.WorkerThread
 import ch.threema.app.DangerousTest
-import ch.threema.app.TestCoreServiceManager
 import ch.threema.app.TestMultiDevicePropertyProvider
-import ch.threema.app.ThreemaApplication
+import ch.threema.app.TestNonceStore
 import ch.threema.app.asynctasks.AndroidContactLinkPolicy
 import ch.threema.app.asynctasks.ContactSyncPolicy
 import ch.threema.app.asynctasks.DeleteContactServices
 import ch.threema.app.asynctasks.MarkContactAsDeletedBackgroundTask
-import ch.threema.app.managers.CoreServiceManager
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.multidevice.PersistedMultiDeviceProperties
 import ch.threema.app.multidevice.linking.DeviceLinkingStatus
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.UserService
-import ch.threema.app.stores.IdentityProvider
 import ch.threema.app.tasks.ReflectContactSyncUpdateTask
 import ch.threema.app.tasks.TaskCreator
 import ch.threema.app.utils.executor.BackgroundExecutor
-import ch.threema.base.crypto.NaCl
+import ch.threema.base.crypto.NonceFactory
+import ch.threema.common.DispatcherProvider
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.models.ContactModelData
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.data.repositories.ModelRepositories
 import ch.threema.domain.helpers.TransactionAckTaskCodec
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.ContactSyncState
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
@@ -37,20 +37,19 @@ import ch.threema.domain.protocol.connection.d2m.socket.D2mSocketCloseListener
 import ch.threema.domain.protocol.connection.data.DeviceId
 import ch.threema.domain.protocol.connection.data.InboundD2mMessage.DevicesInfo
 import ch.threema.domain.protocol.csp.fs.ForwardSecurityMessageProcessor
-import ch.threema.domain.stores.IdentityStore
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.QueueSendCompleteListener
 import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.taskmanager.TaskManager
 import ch.threema.domain.types.Identity
-import ch.threema.storage.TestDatabaseProvider
 import ch.threema.storage.factories.ContactModelFactory
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel
+import ch.threema.test.TestData.PUBLIC_KEY
+import ch.threema.test.TestDatabaseProvider
+import ch.threema.test.TestIdentityProvider
 import ch.threema.testhelpers.MUST_NOT_BE_CALLED
-import io.mockk.every
 import io.mockk.mockk
-import java.util.Date
+import java.time.Instant
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -141,26 +140,26 @@ class MarkContactAsDeletedBackgroundTaskTest {
         }
     }
 
-    private lateinit var coreServiceManager: CoreServiceManager
     private lateinit var contactModelRepository: ContactModelRepository
     private lateinit var deleteContactServices: DeleteContactServices
     private val testContactModelData = ContactModelData(
         identity = "12345678",
-        publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES),
-        createdAt = Date(),
+        publicKey = PUBLIC_KEY,
+        createdAt = Instant.now(),
+        lastUpdateAt = null,
         firstName = "1234",
         lastName = "5678",
         nickname = null,
         verificationLevel = VerificationLevel.FULLY_VERIFIED,
         workVerificationLevel = WorkVerificationLevel.NONE,
-        identityType = IdentityType.NORMAL,
+        identityType = IdentityType.REGULAR,
         acquaintanceLevel = AcquaintanceLevel.DIRECT,
         activityState = IdentityState.ACTIVE,
         syncState = ContactSyncState.INITIAL,
         featureMask = 0u,
         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
-        isArchived = false,
+        conversationVisibility = ConversationVisibility.NORMAL,
         androidContactLookupInfo = null,
         localAvatarExpires = null,
         isRestored = false,
@@ -175,26 +174,10 @@ class MarkContactAsDeletedBackgroundTaskTest {
     @BeforeTest
     fun before() {
         databaseProvider = TestDatabaseProvider()
-        val serviceManager = ThreemaApplication.requireServiceManager()
+        val serviceManager = ServiceManager.require()
         testTaskCodec = TransactionAckTaskCodec()
         val myIdentity = "00000000"
-        val identityProviderMock = mockk<IdentityProvider> {
-            every { getIdentity() } returns Identity(myIdentity)
-            every { getIdentityString() } returns myIdentity
-        }
-        val identityStoreMock = mockk<IdentityStore> {
-            every { getIdentity() } returns Identity(myIdentity)
-            every { getIdentityString() } returns myIdentity
-        }
-        coreServiceManager = TestCoreServiceManager(
-            databaseProvider = databaseProvider,
-            identityProvider = identityProviderMock,
-            preferenceStore = serviceManager.preferenceStore,
-            encryptedPreferenceStore = serviceManager.encryptedPreferenceStore,
-            multiDeviceManager = multiDeviceManager,
-            taskManager = testTaskManager,
-            identityStore = identityStoreMock,
-        )
+        val identityProviderMock = TestIdentityProvider(Identity(myIdentity))
         deleteContactServices = DeleteContactServices(
             serviceManager.userService,
             serviceManager.contactService,
@@ -210,8 +193,14 @@ class MarkContactAsDeletedBackgroundTaskTest {
             ContactModelFactory(databaseProvider, identityProviderMock),
         )
         contactModelRepository = ModelRepositories(
-            coreServiceManager = coreServiceManager,
+            databaseProvider = databaseProvider,
             identityProvider = identityProviderMock,
+            multiDeviceManager = multiDeviceManager,
+            taskManager = testTaskManager,
+            nonceFactory = NonceFactory(TestNonceStore()),
+            globalEventBuses = mockk(relaxed = true),
+            globalEventFlows = mockk(relaxed = true),
+            dispatcherProvider = DispatcherProvider.default,
         ).contacts
 
         // Add a contact "from sync". This has no side effects and does not reflect the contact.
@@ -237,7 +226,7 @@ class MarkContactAsDeletedBackgroundTaskTest {
         ).await()
 
         // Assert that the contact's acquaintance level is "group" now
-        assertEquals(AcquaintanceLevel.GROUP, contactModel.data?.acquaintanceLevel)
+        assertEquals(AcquaintanceLevel.GROUP_OR_DELETED, contactModel.data?.acquaintanceLevel)
     }
 
     @Test

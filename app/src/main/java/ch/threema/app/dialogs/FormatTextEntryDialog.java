@@ -19,7 +19,7 @@ import androidx.appcompat.app.AppCompatDialog;
 import ch.threema.app.R;
 import ch.threema.app.emojis.EmojiEditText;
 import ch.threema.app.services.ActivityService;
-import ch.threema.app.ui.SimpleTextWatcher;
+import ch.threema.android.textwatchers.SimpleTextWatcher;
 import ch.threema.app.utils.DialogUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 

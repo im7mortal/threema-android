@@ -7,8 +7,8 @@ import ch.threema.app.GlobalAppState
 import ch.threema.app.di.awaitSessionScopeReady
 import ch.threema.app.di.getOrNull
 import ch.threema.app.services.LifetimeService
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -20,6 +20,7 @@ import org.koin.core.component.get
 private val logger = getThreemaLogger("AppProcessLifecycleObserver")
 
 class AppProcessLifecycleObserver(
+    private val globalAppState: GlobalAppState,
     private val reloadAppRestrictions: () -> Unit,
     dispatcherProvider: DispatcherProvider,
 ) : DefaultLifecycleObserver, KoinComponent {
@@ -87,7 +88,7 @@ class AppProcessLifecycleObserver(
 
     override fun onResume(owner: LifecycleOwner) {
         logger.info("*** Lifecycle: App now resumed")
-        GlobalAppState.isAppResumed = true
+        globalAppState.isAppResumed = true
 
         connectionHolder.acquire()
 
@@ -96,7 +97,7 @@ class AppProcessLifecycleObserver(
 
     override fun onPause(owner: LifecycleOwner) {
         logger.info("*** Lifecycle: App now paused")
-        GlobalAppState.isAppResumed = false
+        globalAppState.isAppResumed = false
 
         connectionHolder.release()
     }

@@ -4,6 +4,8 @@ import android.content.ContentValues;
 
 import android.database.Cursor;
 
+import org.slf4j.Logger;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -11,6 +13,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.app.services.DistributionListService;
+import ch.threema.data.datatypes.ConversationVisibility;
 import ch.threema.storage.CursorHelper;
 import ch.threema.storage.DatabaseCreationProvider;
 import ch.threema.storage.DatabaseProvider;
@@ -18,7 +21,11 @@ import ch.threema.storage.DatabaseUtil;
 import ch.threema.storage.QueryBuilder;
 import ch.threema.storage.models.DistributionListModel;
 
+import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
 public class DistributionListModelFactory extends ModelFactory {
+    private static final Logger logger = getThreemaLogger("DistributionListModelFactory");
+
     public DistributionListModelFactory(DatabaseProvider databaseProvider) {
         super(databaseProvider, DistributionListModel.TABLE);
     }
@@ -84,12 +91,22 @@ public class DistributionListModelFactory extends ModelFactory {
         //convert default
         new CursorHelper(cursor, getColumnIndexCache()).current(
             (CursorHelper.Callback) cursorHelper -> {
+                Integer conversationVisibilityValue = cursorHelper.getInt(DistributionListModel.COLUMN_CONVERSATION_VISIBILITY);
+                if (conversationVisibilityValue == null) {
+                    throw new IllegalStateException("Conversation visibility value is null");
+                }
+                ConversationVisibility conversationVisibility = ConversationVisibility.deserialize(conversationVisibilityValue);
+                if (conversationVisibility == null) {
+                    logger.error("Could not read conversation visibility with value {}", conversationVisibilityValue);
+                    conversationVisibility = ConversationVisibility.NORMAL;
+                }
+
                 distributionListModel
                     .setId(cursorHelper.getLong(DistributionListModel.COLUMN_ID))
                     .setName(cursorHelper.getString(DistributionListModel.COLUMN_NAME))
-                    .setCreatedAt(cursorHelper.getDate(DistributionListModel.COLUMN_CREATED_AT))
-                    .setLastUpdate(cursorHelper.getDate(DistributionListModel.COLUMN_LAST_UPDATE))
-                    .setArchived(cursorHelper.getBoolean(DistributionListModel.COLUMN_IS_ARCHIVED))
+                    .setCreatedAt(cursorHelper.getInstant(DistributionListModel.COLUMN_CREATED_AT))
+                    .setLastUpdate(cursorHelper.getInstant(DistributionListModel.COLUMN_LAST_UPDATE))
+                    .setConversationVisibility(conversationVisibility)
                     .setAdHocDistributionList(cursorHelper.getBoolean(DistributionListModel.COLUMN_IS_ADHOC_DISTRIBUTION_LIST));
 
                 return false;
@@ -130,9 +147,9 @@ public class DistributionListModelFactory extends ModelFactory {
     private ContentValues buildContentValues(@NonNull DistributionListModel distributionListModel) {
         ContentValues contentValues = new ContentValues();
         contentValues.put(DistributionListModel.COLUMN_NAME, distributionListModel.getName());
-        contentValues.put(DistributionListModel.COLUMN_CREATED_AT, distributionListModel.getCreatedAt() != null ? distributionListModel.getCreatedAt().getTime() : null);
-        contentValues.put(DistributionListModel.COLUMN_LAST_UPDATE, distributionListModel.getLastUpdate() != null ? distributionListModel.getLastUpdate().getTime() : null);
-        contentValues.put(DistributionListModel.COLUMN_IS_ARCHIVED, distributionListModel.isArchived());
+        contentValues.put(DistributionListModel.COLUMN_CREATED_AT, distributionListModel.getCreatedAt() != null ? distributionListModel.getCreatedAt().toEpochMilli() : null);
+        contentValues.put(DistributionListModel.COLUMN_LAST_UPDATE, distributionListModel.getLastUpdate() != null ? distributionListModel.getLastUpdate().toEpochMilli() : null);
+        contentValues.put(DistributionListModel.COLUMN_CONVERSATION_VISIBILITY, distributionListModel.getConversationVisibility().getSerializedValue());
         contentValues.put(DistributionListModel.COLUMN_IS_ADHOC_DISTRIBUTION_LIST, distributionListModel.isAdHocDistributionList());
         return contentValues;
     }
@@ -259,7 +276,7 @@ public class DistributionListModelFactory extends ModelFactory {
                     "`" + DistributionListModel.COLUMN_NAME + "` VARCHAR, " +
                     "`" + DistributionListModel.COLUMN_CREATED_AT + "` BIGINT, " +
                     "`" + DistributionListModel.COLUMN_LAST_UPDATE + "` INTEGER, " +
-                    "`" + DistributionListModel.COLUMN_IS_ARCHIVED + "` TINYINT DEFAULT 0, " +
+                    "`" + DistributionListModel.COLUMN_CONVERSATION_VISIBILITY + "` INTEGER DEFAULT 0 NOT NULL, " +
                     "`" + DistributionListModel.COLUMN_IS_ADHOC_DISTRIBUTION_LIST + "` TINYINT DEFAULT 0 " +
                     ");"
             };

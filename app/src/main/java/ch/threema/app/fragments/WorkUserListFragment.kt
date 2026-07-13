@@ -20,9 +20,9 @@ import ch.threema.app.services.BlockedIdentitiesService
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.domain.models.IdentityState
 import com.bumptech.glide.Glide
 import kotlin.getValue
@@ -66,7 +66,7 @@ class WorkUserListFragment : RecipientListFragment() {
                 false,
             ) as RelativeLayout
             header.findViewById<TextView>(R.id.name).text = preferenceService.getWorkOrganization()
-                ?.getName()
+                ?.name
                 ?: getString(R.string.work_directory_title)
             header.findViewById<ImageView>(R.id.avatar).setImageResource(R.drawable.ic_business)
             header.setOnClickListener { _ ->

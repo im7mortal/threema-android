@@ -8,13 +8,13 @@ import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.types.IdentityString
-import java.util.Date
+import java.time.Instant
 import kotlinx.serialization.Serializable
 
 class OutgoingGroupDeleteMessageTask(
     private val messageModelId: Int,
     private val messageId: MessageId,
-    private val deletedAt: Date,
+    private val deletedAt: Instant,
     private val recipientIdentities: Set<IdentityString>,
 ) : OutgoingCspMessageTask() {
     override val type: String = "OutgoingGroupDeleteMessageTask"
@@ -23,7 +23,7 @@ class OutgoingGroupDeleteMessageTask(
         val message = getGroupMessageModel(messageModelId)
             ?: throw ThreemaException("No group message model found for messageModelId=$messageModelId")
 
-        val deletedMessageIdLong = message.messageId!!.messageIdLong
+        val deletedMessageId = message.messageId!!
 
         val group = groupService.getById(message.groupId)
             ?: throw ThreemaException("No group model found for groupId=${message.groupId}")
@@ -34,12 +34,12 @@ class OutgoingGroupDeleteMessageTask(
             null,
             deletedAt,
             messageId,
-            createAbstractMessage = { createDeleteMessage(deletedMessageIdLong) },
+            createAbstractMessage = { createDeleteMessage(deletedMessageId) },
             handle,
         )
     }
 
-    private fun createDeleteMessage(messageId: Long): GroupDeleteMessage {
+    private fun createDeleteMessage(messageId: MessageId): GroupDeleteMessage {
         val deleteMessage = GroupDeleteMessage(
             DeleteMessageData(messageId = messageId),
         )
@@ -49,7 +49,7 @@ class OutgoingGroupDeleteMessageTask(
     override fun serialize(): SerializableTaskData = OutgoingGroupDeleteMessageData(
         messageModelId = messageModelId,
         messageId = messageId.messageId,
-        deletedAt = deletedAt.time,
+        deletedAt = deletedAt.toEpochMilli(),
         recipientIdentities = recipientIdentities,
     )
 
@@ -64,7 +64,7 @@ class OutgoingGroupDeleteMessageTask(
             OutgoingGroupDeleteMessageTask(
                 messageModelId = messageModelId,
                 messageId = MessageId(messageId),
-                deletedAt = Date(deletedAt),
+                deletedAt = Instant.ofEpochMilli(deletedAt),
                 recipientIdentities = recipientIdentities,
             )
     }

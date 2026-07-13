@@ -25,6 +25,7 @@ import ch.threema.app.webclient.services.instance.MessageUpdater;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.data.datatypes.ContactNameFormat;
+import ch.threema.data.datatypes.ConversationId;
 
 /**
  * Listen for changes that require the entire list of contacts to be refreshed in Threema Web.
@@ -144,7 +145,7 @@ public class ReceiversUpdateHandler extends MessageUpdater {
         }
 
         @Override
-        public void onNotificationSettingChanged(String uid) {
+        public void onNotificationSettingChanged(ConversationId conversationId) {
             logger.debug("ContactSettingsListener: onNotificationSettingChanged");
             // TODO
         }

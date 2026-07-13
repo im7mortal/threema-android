@@ -2,9 +2,10 @@ package ch.threema.app.compose.theme.dimens
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.booleanResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import ch.threema.app.R
 
 private const val GRID_BASE = 8
 
@@ -34,11 +35,8 @@ object GridUnit {
 val Dp.responsive: Dp
     @Composable
     @ReadOnlyComposable
-    get() {
-        val screenWidthDp: Int = LocalConfiguration.current.screenWidthDp
-        val factor: Float = when {
-            screenWidthDp >= 600 -> 2.0f
-            else -> 1.0f
-        }
-        return this.times(factor)
-    }
+    get() = if (isTabletLayout()) times(2.0f) else this
+
+@Composable
+@ReadOnlyComposable
+fun isTabletLayout(): Boolean = booleanResource(R.bool.tablet_layout)

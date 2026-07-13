@@ -7,28 +7,23 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.provider.ContactsContract;
-import android.text.format.DateUtils;
 import android.widget.ImageView;
 
 import com.bumptech.glide.RequestManager;
 
-import org.jetbrains.annotations.Unmodifiable;
 import org.slf4j.Logger;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -41,8 +36,9 @@ import androidx.annotation.WorkerThread;
 import androidx.core.content.ContextCompat;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
+import ch.threema.app.eventbus.GlobalEventBuses;
+import ch.threema.app.eventbus.events.ContactEvent;
 import ch.threema.app.glide.AvatarOptions;
-import ch.threema.app.managers.ListenerManager;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.messagereceiver.ContactMessageReceiver;
 import ch.threema.app.multidevice.MultiDeviceManager;
@@ -50,21 +46,21 @@ import ch.threema.app.preference.service.SynchronizedSettingsService;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.routines.UpdateFeatureLevelRoutine;
 import ch.threema.app.services.avatarcache.AvatarCacheService;
-import ch.threema.app.services.license.LicenseService;
 import ch.threema.app.stores.DatabaseContactStore;
 import ch.threema.app.tasks.TaskCreator;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.ContactUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.ShortcutUtil;
 import ch.threema.base.ThreemaException;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
+import ch.threema.data.datatypes.ConversationVisibility;
 import ch.threema.data.models.ContactModelData;
 import ch.threema.data.models.ModelDeletedException;
 import ch.threema.data.repositories.ContactModelRepository;
 import ch.threema.domain.fs.DHSession;
+import ch.threema.domain.models.AcquaintanceLevel;
 import ch.threema.domain.models.Contact;
 import ch.threema.domain.models.IdentityState;
 import ch.threema.domain.models.IdentityType;
@@ -76,14 +72,12 @@ import ch.threema.domain.protocol.api.APIConnector;
 import ch.threema.domain.stores.IdentityStore;
 import ch.threema.domain.taskmanager.ActiveTaskCodec;
 import ch.threema.domain.taskmanager.TriggerSource;
-import ch.threema.localcrypto.exceptions.MasterKeyLockedException;
 import ch.threema.storage.DatabaseProvider;
 import ch.threema.storage.DatabaseService;
 import ch.threema.storage.DatabaseUtil;
 import ch.threema.storage.QueryBuilder;
 import ch.threema.storage.factories.ContactModelFactory;
 import ch.threema.storage.models.ContactModel;
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel;
 import ch.threema.storage.models.group.GroupMemberModel;
 import ch.threema.storage.models.group.GroupModelOld;
 import ch.threema.storage.models.access.AccessModel;
@@ -93,8 +87,6 @@ import static ch.threema.app.glide.AvatarOptions.DefaultAvatarPolicy.CUSTOM_AVAT
 
 public class ContactServiceImpl implements ContactService {
     private static final Logger logger = getThreemaLogger("ContactServiceImpl");
-
-    private static final int TYPING_RECEIVE_TIMEOUT = (int) DateUtils.SECOND_IN_MILLIS * 15;
 
     @NonNull
     private final Context context;
@@ -117,43 +109,17 @@ public class ContactServiceImpl implements ContactService {
     private final BlockedIdentitiesService blockedIdentitiesService;
     private final ProfilePictureRecipientsService profilePictureRecipientsService;
     private final FileService fileService;
-    private final LicenseService licenseService;
     private final APIConnector apiConnector;
     @NonNull
     private final TaskCreator taskCreator;
     @NonNull
     private final MultiDeviceManager multiDeviceManager;
-    private final Timer typingTimer;
-    private final Map<String, TimerTask> typingTimerTasks;
-
     @NonNull
     private final ContactModelRepository contactModelRepository;
-
-    private final List<String> typingIdentities = new ArrayList<>();
+    @NonNull
+    private final GlobalEventBuses globalEventBuses;
 
     private ContactModel me;
-
-    public final static byte[] THREEMA_PUBLIC_KEY = new byte[]{ // *THREEMA
-        58, 56, 101, 12, 104, 20, 53, -67, 31, -72, 73, -114, 33, 58, 41, 25,
-        -80, -109, -120, -11, -128, 58, -92, 70, 64, -32, -9, 6, 50, 106, -122, 92,
-    };
-
-    public final static byte[] SUPPORT_PUBLIC_KEY = new byte[]{ // *SUPPORT
-        15, -108, 77, 24, 50, 75, 33, 50, -58, 29, -114, 64, -81, -50, 96, -96,
-        -21, -41, 1, -69, 17, -24, -101, -23, 73, 114, -44, 34, -98, -108, 114, 42,
-    };
-
-    public final static byte[] MY_DATA_PUBLIC_KEY = new byte[]{ // *MY3DATA
-        59, 1, -123, 79, 36, 115, 110, 45, 13, 45, -61, -121, -22, -14, -64, 39,
-        60, 80, 73, 5, 33, 71, 19, 35, 105, -65, 57, 96, -48, -96, -65, 2
-    };
-
-    // These are public keys of identities that will be immediately trusted (three green dots)
-    public final static byte[][] TRUSTED_PUBLIC_KEYS = {
-        THREEMA_PUBLIC_KEY,
-        SUPPORT_PUBLIC_KEY,
-        MY_DATA_PUBLIC_KEY,
-    };
 
     public ContactServiceImpl(
         @NonNull Context context,
@@ -169,11 +135,11 @@ public class ContactServiceImpl implements ContactService {
         ProfilePictureRecipientsService profilePictureRecipientsService,
         FileService fileService,
         CacheService cacheService,
-        LicenseService licenseService,
         APIConnector apiConnector,
         @NonNull ContactModelRepository contactModelRepository,
         @NonNull TaskCreator taskCreator,
-        @NonNull MultiDeviceManager multiDeviceManager
+        @NonNull MultiDeviceManager multiDeviceManager,
+        @NonNull GlobalEventBuses globalEventBuses
     ) {
 
         this.context = context;
@@ -188,13 +154,11 @@ public class ContactServiceImpl implements ContactService {
         this.blockedIdentitiesService = blockedIdentitiesService;
         this.profilePictureRecipientsService = profilePictureRecipientsService;
         this.fileService = fileService;
-        this.licenseService = licenseService;
         this.apiConnector = apiConnector;
         this.contactModelRepository = contactModelRepository;
         this.taskCreator = taskCreator;
         this.multiDeviceManager = multiDeviceManager;
-        this.typingTimer = new Timer();
-        this.typingTimerTasks = new HashMap<>();
+        this.globalEventBuses = globalEventBuses;
         this.contactModelCache = cacheService.getContactModelCache();
     }
 
@@ -561,69 +525,6 @@ public class ContactServiceImpl implements ContactService {
     }
 
     @Override
-    public void setIsTyping(final @NonNull String identity, final boolean isTyping) {
-        // cancel old timer task
-        synchronized (typingTimerTasks) {
-            TimerTask oldTimerTask = typingTimerTasks.get(identity);
-            if (oldTimerTask != null) {
-                oldTimerTask.cancel();
-                typingTimerTasks.remove(identity);
-            }
-        }
-
-        // get the cached model
-        final @Nullable ContactModel contact = this.getByIdentity(identity);
-        synchronized (this.typingIdentities) {
-            boolean contains = this.typingIdentities.contains(identity);
-            if (isTyping) {
-                if (!contains) {
-                    this.typingIdentities.add(identity);
-                }
-            } else {
-                if (contains) {
-                    this.typingIdentities.remove(identity);
-                }
-            }
-        }
-
-        if (contact != null) {
-            ListenerManager.contactTypingListeners.handle(listener -> listener.onContactIsTyping(contact, isTyping));
-        }
-
-        // schedule a new timer task to reset typing state after timeout if necessary
-        if (isTyping) {
-            synchronized (typingTimerTasks) {
-                TimerTask newTimerTask = new TimerTask() {
-                    @Override
-                    public void run() {
-                        synchronized (typingIdentities) {
-                            typingIdentities.remove(identity);
-                        }
-
-                        if (contact != null) {
-                            ListenerManager.contactTypingListeners.handle(listener -> listener.onContactIsTyping(contact, false));
-                        }
-
-                        synchronized (typingTimerTasks) {
-                            typingTimerTasks.remove(identity);
-                        }
-                    }
-                };
-
-                typingTimerTasks.put(identity, newTimerTask);
-                typingTimer.schedule(newTimerTask, TYPING_RECEIVE_TIMEOUT);
-            }
-        }
-    }
-
-    @Override
-    public boolean isTyping(String identity) {
-        synchronized (this.typingIdentities) {
-            return this.typingIdentities.contains(identity);
-        }
-    }
-
-    @Override
     public void sendTypingIndicator(String toIdentity, boolean isTyping) {
         ContactModel contactModel = getByIdentity(toIdentity);
         if (contactModel == null) {
@@ -673,18 +574,22 @@ public class ContactServiceImpl implements ContactService {
     }
 
     @Override
-    public void setIsArchived(
+    public void unarchive(
         @NonNull String identity,
-        boolean isArchived,
         @NonNull TriggerSource triggerSource
     ) {
         final ch.threema.data.models.ContactModel contactModel = contactModelRepository.getByIdentity(identity);
         if (contactModel == null) {
-            logger.warn(
-                "Cannot set isArchived={} for identity '{}' because contact model is null",
-                isArchived,
-                identity
-            );
+            logger.warn("Cannot unarchive '{}' because contact model is null", identity);
+            return;
+        }
+        ContactModelData contactModelData = contactModel.getData();
+        if (contactModelData == null) {
+            logger.warn("Cannot unarchive '{}' because contact model data is null", identity);
+            return;
+        }
+        if (contactModelData.conversationVisibility != ConversationVisibility.ARCHIVED) {
+            logger.info("Not unarchiving '{}' as it is currently not archived", identity);
             return;
         }
 
@@ -692,14 +597,14 @@ public class ContactServiceImpl implements ContactService {
             switch (triggerSource) {
                 case LOCAL:
                 case REMOTE:
-                    contactModel.setIsArchivedFromLocalOrRemote(isArchived);
+                    contactModel.setConversationVisibilityFromLocalOrRemote(ConversationVisibility.NORMAL);
                     break;
                 case SYNC:
-                    contactModel.setIsArchivedFromSync(isArchived);
+                    contactModel.setConversationVisibilityFromSync(ConversationVisibility.NORMAL);
                     break;
             }
         } catch (ModelDeletedException e) {
-            logger.warn("Could not set isArchived={} because model has been deleted", isArchived, e);
+            logger.warn("Could not unarchive contact {} because model has been deleted", identity, e);
         }
     }
 
@@ -707,10 +612,10 @@ public class ContactServiceImpl implements ContactService {
     public void bumpLastUpdate(@NonNull String identity) {
         logger.info("Bump last update for contact with identity {}", identity);
         if (getByIdentity(identity) != null) {
-            Date lastUpdate = new Date();
+            Instant lastUpdate = Instant.now();
             invalidateCache(identity);
             databaseService.getContactModelFactory().setLastUpdate(identity, lastUpdate);
-            ListenerManager.contactListeners.handle(listener -> listener.onModified(identity));
+            globalEventBuses.getContacts().emit(ContactEvent.ContactUpdated.javaCreate(identity));
         } else {
             logger.warn(
                 "Could not bump last update because the contact with identity {} is null",
@@ -721,7 +626,7 @@ public class ContactServiceImpl implements ContactService {
 
     @Nullable
     @Override
-    public Date getLastUpdate(@NonNull String identity) {
+    public Instant getLastUpdate(@NonNull String identity) {
         ContactModel contactModel = getByIdentity(identity);
         if (contactModel != null) {
             return contactModel.getLastUpdate();
@@ -735,7 +640,7 @@ public class ContactServiceImpl implements ContactService {
         if (getByIdentity(identity) != null) {
             invalidateCache(identity);
             databaseService.getContactModelFactory().setLastUpdate(identity, null);
-            ListenerManager.contactListeners.handle(listener -> listener.onModified(identity));
+            globalEventBuses.getContacts().emit(ContactEvent.ContactUpdated.javaCreate(identity));
         }
     }
 
@@ -846,7 +751,7 @@ public class ContactServiceImpl implements ContactService {
     public ContactMessageReceiver createReceiver(ContactModel contact) {
         // Note that at this point we can assume that the service manager exists, as the contact
         // service is obviously created.
-        ServiceManager serviceManager = ThreemaApplication.requireServiceManager();
+        ServiceManager serviceManager = ServiceManager.require();
 
         return new ContactMessageReceiver(
             contact,
@@ -919,7 +824,7 @@ public class ContactServiceImpl implements ContactService {
         @NonNull final String identity,
         @Nullable byte[] avatar,
         @NonNull TriggerSource triggerSource
-    ) throws IOException, MasterKeyLockedException {
+    ) {
         ContactModel contactModel = getByIdentity(identity);
         if (contactModel == null) {
             logger.error("Cannot set user defined profile for unknown identity {}", identity);
@@ -947,8 +852,7 @@ public class ContactServiceImpl implements ContactService {
         if (this.userService.isMe(contactModel.getIdentity())) {
             logger.error("The users profile picture must not be set via contact service");
         } else {
-            ListenerManager.contactListeners.handle(listener -> listener.onAvatarChanged(contactModel.getIdentity()));
-            ShortcutUtil.updateShareTargetShortcut(createReceiver(contactModel), preferenceService.getContactNameFormat());
+            globalEventBuses.getContacts().emit(ContactEvent.ContactProfilePictureUpdated.javaCreate(contactModel.getIdentity()));
         }
 
         return true;
@@ -968,7 +872,7 @@ public class ContactServiceImpl implements ContactService {
             if (triggerSource != TriggerSource.SYNC && multiDeviceManager.isMultiDeviceActive()) {
                 taskCreator.scheduleUserDefinedProfilePictureUpdate(identity);
             }
-            ListenerManager.contactListeners.handle(listener -> listener.onAvatarChanged(identity));
+            globalEventBuses.getContacts().emit(ContactEvent.ContactProfilePictureUpdated.javaCreate(identity));
             return true;
         }
 
@@ -1007,13 +911,13 @@ public class ContactServiceImpl implements ContactService {
     }
 
     @Override
-    public boolean showBadge(@Nullable ContactModel contactModel) {
+    public boolean showIdentityTypeBadge(@Nullable ContactModel contactModel) {
         if (contactModel != null) {
             if (ConfigUtils.isWorkBuild()) {
                 if (userService.isMe(contactModel.getIdentity())) {
                     return false;
                 }
-                return contactModel.getIdentityType() == IdentityType.NORMAL && !ContactUtil.isEchoEchoOrGatewayContact(contactModel);
+                return contactModel.getIdentityType() == IdentityType.REGULAR && !ContactUtil.isEchoEchoOrGatewayContact(contactModel);
             } else {
                 return contactModel.getIdentityType() == IdentityType.WORK;
             }
@@ -1022,12 +926,12 @@ public class ContactServiceImpl implements ContactService {
     }
 
     @Override
-    public boolean showBadge(@NonNull ContactModelData contactModelData) {
+    public boolean showIdentityTypeBadge(@NonNull ContactModelData contactModelData) {
         if (ConfigUtils.isWorkBuild()) {
             if (userService.isMe(contactModelData.identity)) {
                 return false;
             }
-            return contactModelData.identityType == IdentityType.NORMAL
+            return contactModelData.identityType == IdentityType.REGULAR
                 && !ContactUtil.isEchoEchoOrGatewayContact(contactModelData.identity);
         } else {
             return contactModelData.identityType == IdentityType.WORK;
@@ -1035,8 +939,8 @@ public class ContactServiceImpl implements ContactService {
     }
 
     @Override
-    public boolean showBadge(@Nullable String identity) {
-        return showBadge(getByIdentity(identity));
+    public boolean showIdentityTypeBadge(@Nullable String identity) {
+        return showIdentityTypeBadge(getByIdentity(identity));
     }
 
     /**
@@ -1128,7 +1032,7 @@ public class ContactServiceImpl implements ContactService {
 
                 apiConnector.reportJunk(identityStore, identity, contactModelData.nickname);
 
-                spammerContactModel.setAcquaintanceLevelFromLocal(AcquaintanceLevel.GROUP);
+                spammerContactModel.setAcquaintanceLevelFromLocal(AcquaintanceLevel.GROUP_OR_DELETED);
 
                 if (onSuccess != null) {
                     RuntimeUtil.runOnUiThread(() -> onSuccess.accept(null));
@@ -1152,7 +1056,7 @@ public class ContactServiceImpl implements ContactService {
             return ForwardSecuritySessionState.unsupportedByRemote();
         }
         try {
-            DHSession session = ThreemaApplication.requireServiceManager().getDHSessionStore()
+            DHSession session = ServiceManager.require().getDhSessionStore()
                 .getBestDHSession(
                     userService.getIdentity(),
                     contactModel.getIdentity(),
@@ -1190,7 +1094,7 @@ public class ContactServiceImpl implements ContactService {
             );
          */
         final @NonNull String query = "SELECT " + ContactModel.COLUMN_IDENTITY + " FROM " + ContactModel.TABLE + " AS co WHERE "
-            + ContactModel.COLUMN_ACQUAINTANCE_LEVEL + " = " + AcquaintanceLevel.GROUP.ordinal() + " AND ( "
+            + ContactModel.COLUMN_ACQUAINTANCE_LEVEL + " = " + AcquaintanceLevel.GROUP_OR_DELETED.ordinal() + " AND ( "
             + "NOT EXISTS ("
             + " SELECT 1 FROM " + GroupMemberModel.TABLE + " AS gm WHERE"
             + " gm." + GroupMemberModel.COLUMN_IDENTITY + " = co." + ContactModel.COLUMN_IDENTITY
@@ -1215,14 +1119,6 @@ public class ContactServiceImpl implements ContactService {
         } catch (Exception exception) {
             logger.error("Failed to query for deleted contacts", exception);
             return new HashSet<>();
-        }
-    }
-
-    @Override
-    @NonNull
-    public final @Unmodifiable Set<String> getTypingIdentities() {
-        synchronized (typingIdentities) {
-            return Set.copyOf(typingIdentities);
         }
     }
 }

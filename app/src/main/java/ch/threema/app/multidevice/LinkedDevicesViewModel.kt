@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -62,6 +63,14 @@ class LinkedDevicesViewModel(
 
     private var updateDeviceListJob: Job? = null
     private var dropDeviceJob: Job? = null
+
+    init {
+        viewModelScope.launch {
+            preferenceStore.watchLong(PreferenceStore.PREFS_MD_MEDIATOR_MAX_SLOTS)
+                .drop(1)
+                .collect(::onMaxDeviceSlotsChanged)
+        }
+    }
 
     fun initState() {
         if (mdManager.isMultiDeviceActive) {
@@ -169,14 +178,13 @@ class LinkedDevicesViewModel(
         }
     }
 
-    fun onPreferenceChanged(key: String, value: Any?) {
-        val currentState = _viewState.value
-        if (key != PreferenceStore.PREFS_MD_MEDIATOR_MAX_SLOTS || currentState !is LinkedDevicesUiState.Devices) {
-            return
-        }
-        val updatedMaxSlots: Long = (value as? Long?) ?: 0L
-        _viewState.update {
-            currentState.copy(maxDeviceSlots = updatedMaxSlots)
+    private fun onMaxDeviceSlotsChanged(updatedMaxSlots: Long) {
+        _viewState.update { currentState ->
+            if (currentState is LinkedDevicesUiState.Devices) {
+                currentState.copy(maxDeviceSlots = updatedMaxSlots)
+            } else {
+                currentState
+            }
         }
     }
 

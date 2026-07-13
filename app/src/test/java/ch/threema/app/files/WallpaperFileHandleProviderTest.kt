@@ -2,6 +2,7 @@ package ch.threema.app.files
 
 import ch.threema.common.files.FallbackFileHandle
 import ch.threema.common.files.SimpleFileHandle
+import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.localcrypto.MasterKeyProvider
 import ch.threema.testhelpers.createTempDirectory
 import io.mockk.every
@@ -67,19 +68,20 @@ class WallpaperFileHandleProviderTest {
 
     @Test
     fun `get chat wallpaper`() {
-        val fileHandle = wallpaperFileHandleProvider.get(uniqueId = "ABCD1234")
-
+        val fileHandle = wallpaperFileHandleProvider.get(
+            ContactConversationId(identity = "ABCD1234"),
+        )
         assertEquals(
             EncryptedFileHandle(
                 masterKeyProvider = masterKeyProviderMock,
                 file = FallbackFileHandle(
                     primaryFile = SimpleFileHandle(
                         directory = File(userDataDirectoryMock, ".wallpapers"),
-                        name = ".w-ABCD1234",
+                        name = ".w-NXHAH6OFNMTK2J3Y4LG57YQUJ7JCPWKUO64DRS2MGUV2QYOWQGKQ",
                     ),
                     fallbackFile = SimpleFileHandle(
                         directory = File(legacyUserDataDirectoryMock, ".wallpaper"),
-                        name = ".w-ABCD1234.nomedia",
+                        name = ".w-NXHAH6OFNMTK2J3Y4LG57YQUJ7JCPWKUO64DRS2MGUV2QYOWQGKQ.nomedia",
                     ),
                 ),
             ),

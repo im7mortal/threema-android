@@ -52,11 +52,6 @@ public class DisableBatteryOptimizationsActivity extends ThreemaActivity impleme
     public static final String EXTRA_CANCEL_LABEL = "cancel";
 
     /**
-     * Set this to true if the activity is called from the wizard. Default false.
-     */
-    public static final String EXTRA_WIZARD = "wizard";
-
-    /**
      * Set this to true to disable the rationale dialog before guiding the user through the disable process
      */
     public static final String EXTRA_DISABLE_RATIONALE = "disable_rationale";
@@ -81,11 +76,6 @@ public class DisableBatteryOptimizationsActivity extends ThreemaActivity impleme
         }
 
         Intent intent = getIntent();
-
-        final boolean usedInWizard = intent.getBooleanExtra(EXTRA_WIZARD, false);
-        if (usedInWizard) {
-            setTheme(R.style.Theme_Threema_Wizard_Translucent);
-        }
 
         if (ConfigUtils.getMIUIVersion() >= 11) {
             String bodyText = getString(R.string.miui_battery_optimization, getString(R.string.app_name));

@@ -3,7 +3,7 @@ package ch.threema.app.processors.incomingcspmessage.conversation
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.processors.incomingcspmessage.IncomingCspMessageSubTask
 import ch.threema.app.processors.incomingcspmessage.ReceiveStepsResult
-import ch.threema.domain.protocol.csp.messages.ballot.PollSetupMessage
+import ch.threema.domain.protocol.csp.messages.poll.PollSetupMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.TriggerSource
 

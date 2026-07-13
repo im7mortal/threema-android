@@ -1,5 +1,6 @@
 package ch.threema.domain.protocol.csp.messages
 
+import ch.threema.domain.models.MessageId
 import ch.threema.domain.protocol.csp.messages.protobuf.ProtobufDataInterface
 import ch.threema.protobuf.csp.e2e.EditMessage
 import com.google.protobuf.InvalidProtocolBufferException
@@ -9,14 +10,17 @@ class EditMessageData(
     val messageId: Long,
     val text: String,
 ) : ProtobufDataInterface<EditMessage> {
+
+    constructor(messageId: MessageId, text: String) : this(messageId.messageIdLong, text)
+
     companion object {
         @JvmStatic
         fun fromProtobuf(rawProtobufMessage: ByteArray): EditMessageData {
             try {
                 val protobufMessage = EditMessage.parseFrom(rawProtobufMessage)
                 return EditMessageData(
-                    protobufMessage.messageId,
-                    protobufMessage.text,
+                    messageId = protobufMessage.messageId,
+                    text = protobufMessage.text,
                 )
             } catch (e: InvalidProtocolBufferException) {
                 throw BadMessageException("Invalid EditMessage protobuf data", e)

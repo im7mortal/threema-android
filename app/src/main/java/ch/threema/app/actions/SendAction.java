@@ -1,14 +1,10 @@
 package ch.threema.app.actions;
 
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.managers.ServiceManager;
 
 public abstract class SendAction {
     public interface ActionHandler {
         default void onError(String errorMessage) {
-        }
-
-        default void onWarning(String warning, boolean continueAction) {
         }
 
         default void onProgress(int progress, int total) {
@@ -21,7 +17,7 @@ public abstract class SendAction {
     private final ServiceManager serviceManager;
 
     public SendAction() {
-        this.serviceManager = ThreemaApplication.getServiceManager();
+        this.serviceManager = ServiceManager.get();
     }
 
     protected ServiceManager getServiceManager() {

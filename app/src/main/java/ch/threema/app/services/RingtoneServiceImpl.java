@@ -16,21 +16,20 @@ import java.util.Map;
 import ch.threema.app.R;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.RingtoneUtil;
+import ch.threema.data.datatypes.ConversationId;
+import ch.threema.data.datatypes.ConversationIdObfuscated;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 public class RingtoneServiceImpl implements RingtoneService {
     private final static Logger logger = getThreemaLogger("RingtoneServiceImpl");
-    @NonNull
-    private final NotificationPreferenceService notificationPreferenceService;
-    @NonNull
-    private Map<String, String> ringtones = new HashMap<>();
+
+    private final @NonNull NotificationPreferenceService notificationPreferenceService;
+    private @NonNull Map<ConversationIdObfuscated, String> ringtoneURIs = new HashMap<>();
     private final boolean supportsNotificationChannels = ConfigUtils.supportsNotificationChannels();
 
-    public RingtoneServiceImpl(
-        @NonNull NotificationPreferenceService notificationPreferenceService
-    ) {
+    public RingtoneServiceImpl(@NonNull NotificationPreferenceService notificationPreferenceService) {
         this.notificationPreferenceService = notificationPreferenceService;
-
         init();
     }
 
@@ -39,39 +38,38 @@ public class RingtoneServiceImpl implements RingtoneService {
         if (supportsNotificationChannels) {
             // Set empty hash map as notification channels are supported and therefore ringtones
             // won't be managed by us.
-            HashMap<String, String> emptyRingtones = new HashMap<>();
+            final HashMap<ConversationIdObfuscated, String> emptyRingtones = new HashMap<>();
             notificationPreferenceService.setLegacyRingtones(emptyRingtones);
-            ringtones = emptyRingtones;
+            ringtoneURIs = emptyRingtones;
         } else {
-            ringtones = new HashMap<>(notificationPreferenceService.getLegacyRingtones());
+            ringtoneURIs = notificationPreferenceService.getLegacyRingtones();
         }
     }
 
     @Override
-    public void setRingtone(String uniqueId, Uri ringtoneUri) {
+    public void setRingtone(@NonNull ConversationId conversationId, @Nullable Uri ringtoneUri) {
         if (supportsNotificationChannels) {
             logger.error("Cannot set ringtone if notification channels are supported");
             return;
         }
 
         String ringtone = null;
-
         if (ringtoneUri != null) {
             ringtone = ringtoneUri.toString();
         }
 
         if (ringtoneUri != null && RingtoneManager.isDefault(ringtoneUri)) {
-            ringtones.remove(uniqueId);
+            ringtoneURIs.remove(conversationId.getObfuscated());
         } else {
-            ringtones.put(uniqueId, ringtone);
+            ringtoneURIs.put(conversationId.getObfuscated(), ringtone);
         }
-
-        notificationPreferenceService.setLegacyRingtones(ringtones);
+        notificationPreferenceService.setLegacyRingtones(ringtoneURIs);
     }
 
     @Override
-    public Uri getRingtoneFromUniqueId(String uniqueId) {
-        String ringtone = ringtones.get(uniqueId);
+    @Nullable
+    public Uri getRingtoneByConversationId(@NonNull ConversationId conversationId) {
+        final @Nullable String ringtone = ringtoneURIs.get(conversationId.getObfuscated());
         // check for "null" string (HTC bug)
         if (ringtone != null && !ringtone.equals(ServicesConstants.PREFERENCES_NULL)) {
             return Uri.parse(ringtone);
@@ -82,27 +80,25 @@ public class RingtoneServiceImpl implements RingtoneService {
     }
 
     @Override
-    public boolean hasCustomRingtone(String uniqueId) {
-        return ringtones.containsKey(uniqueId);
+    public boolean hasCustomRingtone(@NonNull ConversationId conversationId) {
+        return ringtoneURIs.containsKey(conversationId.getObfuscated());
     }
 
     @Override
-    public void removeCustomRingtone(String uniqueId) {
+    public void removeCustomRingtone(@NonNull ConversationId conversationId) {
         if (supportsNotificationChannels) {
             logger.warn("No need to remove custom ringtone if notification channels are supported");
         }
-
-        if (ringtones.containsKey(uniqueId)) {
-            ringtones.remove(uniqueId);
-
-            notificationPreferenceService.setLegacyRingtones(ringtones);
+        if (ringtoneURIs.containsKey(conversationId.getObfuscated())) {
+            ringtoneURIs.remove(conversationId.getObfuscated());
+            notificationPreferenceService.setLegacyRingtones(ringtoneURIs);
         }
     }
 
     @Override
-    public void resetRingtones(Context context) {
-        ringtones.clear();
-        notificationPreferenceService.setLegacyRingtones(ringtones);
+    public void resetRingtones(@NonNull Context context) {
+        ringtoneURIs.clear();
+        notificationPreferenceService.setLegacyRingtones(ringtoneURIs);
         notificationPreferenceService.setLegacyGroupNotificationSound(Uri.parse(context.getString(R.string.default_notification_sound)));
         notificationPreferenceService.setLegacyNotificationSound(Uri.parse(context.getString(R.string.default_notification_sound)));
         notificationPreferenceService.setLegacyVoipCallRingtone(RingtoneUtil.THREEMA_CALL_RINGTONE_URI);
@@ -110,66 +106,58 @@ public class RingtoneServiceImpl implements RingtoneService {
     }
 
     @Override
-    public Uri getContactRingtone(String uniqueId) {
-        if (ringtones.containsKey(uniqueId)) {
-            return getRingtoneFromUniqueId(uniqueId);
-        } else {
-            return notificationPreferenceService.getLegacyNotificationSound();
-        }
+    @Nullable
+    public Uri getContactRingtone(@NonNull ConversationId conversationId) {
+        return ringtoneURIs.containsKey(conversationId.getObfuscated())
+            ? getRingtoneByConversationId(conversationId)
+            : notificationPreferenceService.getLegacyNotificationSound();
     }
 
     @Override
-    public Uri getGroupRingtone(String uniqueId) {
-        if (ringtones.containsKey(uniqueId)) {
-            return getRingtoneFromUniqueId(uniqueId);
-        } else {
-            return notificationPreferenceService.getLegacyGroupNotificationSound();
-        }
+    @Nullable
+    public Uri getGroupRingtone(@NonNull ConversationId conversationId) {
+        return ringtoneURIs.containsKey(conversationId.getObfuscated())
+            ? getRingtoneByConversationId(conversationId)
+            : notificationPreferenceService.getLegacyGroupNotificationSound();
     }
 
     @Override
+    @Nullable
     public Uri getDefaultContactRingtone() {
-        if (supportsNotificationChannels) {
-            return null;
-        }
-
-        return notificationPreferenceService.getLegacyNotificationSound();
+        return supportsNotificationChannels
+            ? null
+            : notificationPreferenceService.getLegacyNotificationSound();
     }
 
     @Override
+    @Nullable
     public Uri getDefaultGroupRingtone() {
-        if (supportsNotificationChannels) {
-            return null;
-        }
-
-        return notificationPreferenceService.getLegacyGroupNotificationSound();
+        return supportsNotificationChannels
+            ? null
+            : notificationPreferenceService.getLegacyGroupNotificationSound();
     }
 
     @Override
-    public boolean isSilent(@Nullable String uniqueId, boolean isGroup) {
+    public boolean isSilent(@NonNull ConversationId conversationId, boolean isGroup) {
         if (supportsNotificationChannels) {
             // Note that we do not manage the sound of notifications if notification channels are
-            // supported. Therefore we always return false as we do not display this particularly.
+            // supported. Therefore, we always return false as we do not display this particularly.
             return false;
         }
-
-        if (uniqueId != null && !uniqueId.isEmpty()) {
-            Uri defaultRingtone, selectedRingtone;
-
-            if (isGroup) {
-                defaultRingtone = getDefaultGroupRingtone();
-                selectedRingtone = getGroupRingtone(uniqueId);
-            } else {
-                defaultRingtone = getDefaultContactRingtone();
-                selectedRingtone = getContactRingtone(uniqueId);
-            }
-            return !(defaultRingtone != null && defaultRingtone.equals(selectedRingtone)) && hasNoRingtone(uniqueId);
+        Uri defaultRingtone, selectedRingtone;
+        if (isGroup) {
+            defaultRingtone = getDefaultGroupRingtone();
+            selectedRingtone = getGroupRingtone(conversationId);
+        } else {
+            defaultRingtone = getDefaultContactRingtone();
+            selectedRingtone = getContactRingtone(conversationId);
         }
-        return false;
+        return !(defaultRingtone != null && defaultRingtone.equals(selectedRingtone)) &&
+            hasNoRingtone(conversationId);
     }
 
-    private boolean hasNoRingtone(String uniqueId) {
-        Uri ringtone = getRingtoneFromUniqueId(uniqueId);
+    private boolean hasNoRingtone(@NonNull ConversationId conversationId) {
+        final @Nullable Uri ringtone = getRingtoneByConversationId(conversationId);
         return (ringtone == null || ringtone.toString().equals(ServicesConstants.PREFERENCES_NULL));
     }
 }

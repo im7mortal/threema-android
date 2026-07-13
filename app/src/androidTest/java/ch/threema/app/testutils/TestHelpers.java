@@ -4,8 +4,8 @@ import android.util.Log;
 
 import ch.threema.base.crypto.NaCl;
 
+import java.time.Instant;
 import java.util.Collection;
-import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -17,7 +17,6 @@ import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.Until;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.UserService;
-import ch.threema.base.utils.Utils;
 import ch.threema.domain.helpers.InMemoryIdentityStore;
 import ch.threema.domain.models.Contact;
 import ch.threema.domain.models.BasicContact;
@@ -33,14 +32,15 @@ import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.group.GroupModelOld;
 
 import static org.junit.Assert.assertNotNull;
+import static ch.threema.common.JavaCompat.hexToByteArray;
 
 public class TestHelpers {
     private static final String TAG = "TestHelpers";
 
     public static final TestContact TEST_CONTACT = new TestContact(
         "XERCUKNS",
-        Utils.hexStringToByteArray("2bbc16092ff45ffcd0045c00f2f5e1e9597621f89360bbca23a2a2956b3c3b36"),
-        Utils.hexStringToByteArray("977aba4ab367041f6137afef69ab9676d445011ca7aca0455a5c64805b80b77a")
+        hexToByteArray("2bbc16092ff45ffcd0045c00f2f5e1e9597621f89360bbca23a2a2956b3c3b36"),
+        hexToByteArray("977aba4ab367041f6137afef69ab9676d445011ca7aca0455a5c64805b80b77a")
     );
 
     public static final class TestContact {
@@ -93,7 +93,7 @@ public class TestHelpers {
                 new ThreemaFeature.Builder()
                     .audio(true)
                     .group(true)
-                    .ballot(true)
+                    .poll(true)
                     .file(true)
                     .voip(true)
                     .videocalls(true)
@@ -103,7 +103,7 @@ public class TestHelpers {
                     .deleteMessages(true)
                     .build(),
                 IdentityState.ACTIVE,
-                IdentityType.NORMAL,
+                IdentityType.REGULAR,
                 VerificationLevel.UNVERIFIED,
                 WorkVerificationLevel.NONE,
                 null,
@@ -178,7 +178,7 @@ public class TestHelpers {
         private GroupModelOld getGroupModel(@NonNull UserState userState) {
             return new GroupModelOld()
                 .setApiGroupId(apiGroupId)
-                .setCreatedAt(new Date())
+                .setCreatedAt(Instant.now())
                 .setName(this.groupName)
                 .setCreatorIdentity(this.groupCreator.identity)
                 .setId(localGroupId)

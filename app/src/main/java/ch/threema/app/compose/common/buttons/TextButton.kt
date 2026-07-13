@@ -24,9 +24,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewDynamicColors
+import androidx.compose.ui.tooling.preview.PreviewWrapper
 import androidx.compose.ui.unit.sp
 import ch.threema.app.R
-import ch.threema.app.compose.common.ThemedText
+import ch.threema.app.compose.common.text.ThemedText
+import ch.threema.app.compose.theme.ThreemaPreviewWrapper
 import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.color.AlphaValues
 import ch.threema.app.compose.theme.dimens.GridUnit
@@ -148,7 +150,7 @@ private fun TextButtonBase(
                         24.sp.toDp()
                     },
                 ),
-                painter = painterResource(leadingIcon.icon),
+                painter = painterResource(leadingIcon.iconRes),
                 contentDescription = stringResourceOrNull(leadingIcon.contentDescription),
                 tint = LocalContentColor.current,
             )
@@ -172,7 +174,7 @@ private fun TextButtonBase(
                         24.sp.toDp()
                     },
                 ),
-                painter = painterResource(trailingIcon.icon),
+                painter = painterResource(trailingIcon.iconRes),
                 contentDescription = stringResourceOrNull(trailingIcon.contentDescription),
                 tint = LocalContentColor.current,
             )
@@ -201,8 +203,7 @@ fun TextButtonPrimary_Preview_Leading_Icon() {
             onClick = {},
             text = "Sign In",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_arrow_upward,
-                contentDescription = null,
+                iconRes = R.drawable.ic_arrow_upward,
             ),
         )
     }
@@ -217,8 +218,7 @@ fun TextButtonPrimary_Preview_Trailing_Icon() {
             onClick = {},
             text = "Sign In",
             trailingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_arrow_upward,
-                contentDescription = null,
+                iconRes = R.drawable.ic_arrow_upward,
             ),
         )
     }
@@ -233,12 +233,10 @@ fun TextButtonPrimary_Preview_Both_Icons() {
             onClick = {},
             text = "Sign In",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_arrow_upward,
-                contentDescription = null,
+                iconRes = R.drawable.ic_arrow_upward,
             ),
             trailingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_arrow_upward,
-                contentDescription = null,
+                iconRes = R.drawable.ic_arrow_upward,
             ),
         )
     }
@@ -253,8 +251,7 @@ fun TextButtonPrimary_Preview_Disabled() {
             onClick = {},
             text = "Sign In",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_arrow_upward,
-                contentDescription = null,
+                iconRes = R.drawable.ic_arrow_upward,
             ),
             enabled = false,
         )
@@ -271,8 +268,7 @@ fun TextButtonPrimary_Preview_FullWidth() {
             onClick = {},
             text = "Sign In",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_arrow_upward,
-                contentDescription = null,
+                iconRes = R.drawable.ic_arrow_upward,
             ),
         )
     }
@@ -286,8 +282,7 @@ fun TextButtonPrimary_Preview_DynamicColors() {
             onClick = {},
             text = "Sign In",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_arrow_upward,
-                contentDescription = null,
+                iconRes = R.drawable.ic_arrow_upward,
             ),
         )
     }
@@ -301,8 +296,7 @@ fun TextButtonPrimary_Preview_DynamicColors_Disabled() {
             onClick = {},
             text = "Sign In",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_arrow_upward,
-                contentDescription = null,
+                iconRes = R.drawable.ic_arrow_upward,
             ),
             enabled = false,
         )
@@ -321,8 +315,7 @@ fun TextButtonPrimary_Preview_DynamicColors_Night() {
                 onClick = {},
                 text = "Sign In",
                 leadingIcon = ButtonIconInfo(
-                    icon = R.drawable.ic_arrow_upward,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_arrow_upward,
                 ),
             )
         }
@@ -332,81 +325,72 @@ fun TextButtonPrimary_Preview_DynamicColors_Night() {
 @Preview(name = "Light")
 @Preview(name = "Dark", uiMode = UI_MODE_NIGHT_YES, showBackground = true)
 @Composable
+@PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 fun TextButtonNeutral_Preview() {
-    ThreemaThemePreview {
-        TextButtonNeutral(
-            onClick = {},
-            text = "Sign In",
-        )
-    }
+    TextButtonNeutral(
+        onClick = {},
+        text = "Sign In",
+    )
 }
 
 @Preview(name = "Light - Icon Leading")
 @Preview(name = "Dark - Icon Leading", uiMode = UI_MODE_NIGHT_YES, showBackground = true)
 @Composable
+@PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 fun TextButtonNeutral_Preview_Leading_Icon() {
-    ThreemaThemePreview {
-        TextButtonNeutral(
-            onClick = {},
-            text = "Sign In",
-            leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_arrow_upward,
-                contentDescription = null,
-            ),
-        )
-    }
+    TextButtonNeutral(
+        onClick = {},
+        text = "Sign In",
+        leadingIcon = ButtonIconInfo(
+            iconRes = R.drawable.ic_arrow_upward,
+        ),
+    )
 }
 
 @Preview(name = "Light - Disabled")
 @Preview(name = "Dark - Disabled", uiMode = UI_MODE_NIGHT_YES, showBackground = true)
 @Composable
+@PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 fun TextButtonNeutral_Preview_Disabled() {
-    ThreemaThemePreview {
-        TextButtonNeutral(
-            onClick = {},
-            text = "Sign In",
-            leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_arrow_upward,
-                contentDescription = null,
-            ),
-            enabled = false,
-        )
-    }
+    TextButtonNeutral(
+        onClick = {},
+        text = "Sign In",
+        leadingIcon = ButtonIconInfo(
+            iconRes = R.drawable.ic_arrow_upward,
+        ),
+        enabled = false,
+    )
 }
 
 @Preview(name = "Light")
 @Preview(name = "Dark (ignoring)", uiMode = UI_MODE_NIGHT_YES, showBackground = true)
 @Composable
+@PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 fun TextButtonPrimaryOverride_Preview() {
-    ThreemaThemePreview {
-        TextButtonPrimaryOverride(
-            onClick = {},
-            text = "Sign In",
-            leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_arrow_upward,
-                contentDescription = null,
-            ),
-            colorPrimaryOverride = Color.Magenta,
-        )
-    }
+    TextButtonPrimaryOverride(
+        onClick = {},
+        text = "Sign In",
+        leadingIcon = ButtonIconInfo(
+            iconRes = R.drawable.ic_arrow_upward,
+        ),
+        colorPrimaryOverride = Color.Magenta,
+    )
 }
 
 @Preview(name = "Light - Disabled")
 @Preview(name = "Dark (ignoring) - Disabled", uiMode = UI_MODE_NIGHT_YES, showBackground = true)
 @Composable
+@PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 fun TextButtonPrimaryOverride_Preview_Disabled() {
-    ThreemaThemePreview {
-        TextButtonPrimaryOverride(
-            onClick = {},
-            text = "Sign In",
-            leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_arrow_upward,
-                contentDescription = null,
-            ),
-            colorPrimaryOverride = Color.Magenta,
-            enabled = false,
-        )
-    }
+    TextButtonPrimaryOverride(
+        onClick = {},
+        text = "Sign In",
+        leadingIcon = ButtonIconInfo(
+            iconRes = R.drawable.ic_arrow_upward,
+        ),
+        colorPrimaryOverride = Color.Magenta,
+        enabled = false,
+    )
 }
 
 @PreviewDynamicColors
@@ -417,8 +401,7 @@ fun TextButtonPrimaryOverride_Preview_IgnoringDynamicColors() {
             onClick = {},
             text = "Sign In",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_arrow_upward,
-                contentDescription = null,
+                iconRes = R.drawable.ic_arrow_upward,
             ),
             colorPrimaryOverride = Color.Magenta,
         )
@@ -433,8 +416,7 @@ fun TextButtonPrimaryOverride_Preview_IgnoringDynamicColors_Disabled() {
             onClick = {},
             text = "Sign In",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_arrow_upward,
-                contentDescription = null,
+                iconRes = R.drawable.ic_arrow_upward,
             ),
             colorPrimaryOverride = Color.Magenta,
             enabled = false,

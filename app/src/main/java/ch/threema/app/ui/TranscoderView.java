@@ -10,18 +10,12 @@ import android.widget.ImageView;
 
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 
-import org.slf4j.Logger;
-
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
+import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.MessageService;
-import ch.threema.base.ThreemaException;
-import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.storage.models.AbstractMessageModel;
 
 public class TranscoderView extends FrameLayout {
-    private static final Logger logger = getThreemaLogger("TranscoderView");
-
     public static final int PROGRESS_MAX = 100;
 
     private LinearProgressIndicator transcodeProgress;
@@ -47,12 +41,7 @@ public class TranscoderView extends FrameLayout {
         LayoutInflater inflater = (LayoutInflater) context
             .getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         inflater.inflate(R.layout.conversation_list_item_transcoder_view, this);
-
-        try {
-            messageService = ThreemaApplication.getServiceManager().getMessageService();
-        } catch (ThreemaException e) {
-            logger.debug("Unable to get MessageService", e);
-        }
+        messageService = ServiceManager.require().getMessageService();
     }
 
     @Override

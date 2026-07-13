@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.os.Bundle;
-import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
@@ -23,33 +22,18 @@ import androidx.appcompat.app.AppCompatDialog;
 import ch.threema.app.R;
 import ch.threema.app.services.ActivityService;
 import ch.threema.app.ui.ComposeEditText;
-import ch.threema.app.ui.SimpleTextWatcher;
+import ch.threema.android.textwatchers.SimpleTextWatcher;
 import ch.threema.app.utils.AnimationUtil;
-import ch.threema.app.utils.TestUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class ExpandableTextEntryDialog extends ThreemaDialogFragment {
     private static final Logger logger = getThreemaLogger("ExpandableTextEntryDialog");
     private ExpandableTextEntryDialogClickListener callback;
     private Activity activity;
-    private ComposeEditText captionEditText;
-    private ComposeEditText.MentionPopupData mentionPopupData;
     private AlertDialog alertDialog;
-
-    public static ExpandableTextEntryDialog newInstance(String title, int hint, int positive, int negative, boolean expandable) {
-        ExpandableTextEntryDialog dialog = new ExpandableTextEntryDialog();
-        Bundle args = new Bundle();
-        args.putString("title", title);
-        args.putInt("message", hint);
-        args.putInt("positive", positive);
-        args.putInt("negative", negative);
-        args.putBoolean("expandable", expandable);
-
-        dialog.setArguments(args);
-        return dialog;
-    }
 
     public static ExpandableTextEntryDialog newInstance(String title, int hint, String preset, int positive, int negative, boolean expandable) {
         ExpandableTextEntryDialog dialog = new ExpandableTextEntryDialog();
@@ -151,26 +135,14 @@ public class ExpandableTextEntryDialog extends ThreemaDialogFragment {
             }
         });
 
-        if (mentionPopupData != null) {
-            this.captionEditText = editText;
-            this.captionEditText.enableMentionPopup(mentionPopupData, editTextContainer);
-            editText.setOnKeyListener((v, keyCode, event) -> {
-                if (keyCode == KeyEvent.KEYCODE_BACK) {
-                    ExpandableTextEntryDialog.this.captionEditText.dismissMentionPopup();
-                    return true;
-                }
-                return false;
-            });
-        }
-
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(activity, getTheme());
         builder.setView(dialogView);
 
-        if (!TestUtil.isEmptyOrNull(title)) {
+        if (!isNullOrEmpty(title)) {
             builder.setTitle(title);
         }
 
-        if (!TestUtil.isEmptyOrNull(subtitle)) {
+        if (!isNullOrEmpty(subtitle)) {
             subtitleText.setText(subtitle);
         } else {
             subtitleText.setVisibility(View.GONE);
@@ -180,7 +152,7 @@ public class ExpandableTextEntryDialog extends ThreemaDialogFragment {
             addCaptionText.setText(message);
         }
 
-        if (!TestUtil.isEmptyOrNull(preset)) {
+        if (!isNullOrEmpty(preset)) {
             editText.setText(preset);
             if (expandable) {
                 toggleLayout(expandButton, editTextContainer);

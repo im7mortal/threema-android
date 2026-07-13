@@ -12,7 +12,7 @@
 
         <TextView
             android:id="@+id/scooter"
-            style="@style/WizardSubTitleText"
+            style="@style/WizardTextBodyMedium"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/wizard_paragraph_height"
@@ -21,17 +21,17 @@
 
         <TextView
             android:id="@+id/wizard_id_title"
-            style="@style/WizardTitleText"
+            style="@style/WizardTextHeadlineLargeEmphasized"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/wizard_small_paragraph_height"
             android:gravity="center_horizontal"
-            android:textColor="@color/md_theme_dark_primary"
+            android:textColor="?attr/colorPrimary"
             tools:text="00000000" />
 
         <TextView
             android:id="@+id/wizard_id_explain"
-            style="@style/WizardSmallText"
+            style="@style/WizardTextBodyMedium"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/wizard_small_paragraph_height"

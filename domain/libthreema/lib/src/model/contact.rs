@@ -538,6 +538,22 @@ impl PredefinedContact {
         .collect()
     }
 
+    #[cfg(test)]
+    pub(crate) fn testing() -> Self {
+        Self {
+            identity: ThreemaId::predefined(*b"*THREEMA"),
+            special: false,
+            #[rustfmt::skip]
+            public_key: PublicKey::from([
+                0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+                0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+                0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+                0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,
+            ]),
+            nickname: "Threema Quatsch".to_owned(),
+        }
+    }
+
     pub(crate) fn update(&self, contact: &mut Contact) -> Result<(), ContactUpdateError> {
         let Self {
             identity,

@@ -5,8 +5,7 @@ import android.content.Intent;
 import org.saltyrtc.client.crypto.CryptoProvider;
 import org.slf4j.Logger;
 
-import java.security.NoSuchAlgorithmException;
-import java.util.Date;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,9 +25,13 @@ import ch.threema.app.webclient.services.instance.DisconnectContext;
 import ch.threema.app.webclient.services.instance.SessionInstanceService;
 import ch.threema.app.webclient.services.instance.SessionInstanceServiceImpl;
 import ch.threema.app.webclient.state.WebClientSessionState;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.base.utils.Utils;
+import static ch.threema.common.HashKt.sha256;
+import static ch.threema.common.JavaCompat.toHexString;
+
 import ch.threema.storage.models.WebClientSessionModel;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -250,13 +253,7 @@ public class SessionServiceImpl implements SessionService {
                         .setState(WebClientSessionModel.State.AUTHORIZED);
 
                     // Save a hash of the permanent key
-                    try {
-                        model
-                            .setKey256(Utils.byteArrayToSha256HexString(permanentKey));
-                    } catch (NoSuchAlgorithmException e) {
-                        // Should never happen
-                        logger.error("Exception", e);
-                    }
+                    model.setKey256(toHexString(sha256(permanentKey)));
 
                     SessionServiceImpl.this.update(model);
                 }
@@ -289,7 +286,7 @@ public class SessionServiceImpl implements SessionService {
 
                     // Update last connection date when connected
                     if (newState == WebClientSessionState.CONNECTED) {
-                        SessionServiceImpl.this.update(model.setLastConnection(new Date()));
+                        SessionServiceImpl.this.update(model.setLastConnection(Instant.now()));
                     }
                 }
             }
@@ -336,7 +333,7 @@ public class SessionServiceImpl implements SessionService {
                     if (model.getState() == WebClientSessionModel.State.INITIALIZING) {
                         model.setState(WebClientSessionModel.State.ERROR);
                     } else if (!removed) {
-                        model.setLastConnection(new Date());
+                        model.setLastConnection(Instant.now());
                     }
                     SessionServiceImpl.this.update(model);
 

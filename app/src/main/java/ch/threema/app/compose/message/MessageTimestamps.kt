@@ -23,9 +23,8 @@ import ch.threema.app.compose.common.colorReferenceResource
 import ch.threema.app.messagedetails.MessageTimestampsUiModel
 import ch.threema.app.utils.LocaleUtil
 import ch.threema.common.capitalize
-import ch.threema.common.now
 import ch.threema.common.plus
-import java.util.Date
+import java.time.Instant
 import kotlin.time.Duration.Companion.minutes
 
 @Composable
@@ -70,7 +69,7 @@ fun MessageTimestampsList(
             MessageTimestampsRow(
                 label = stringResource(R.string.state_dialog_created),
                 timestamp = model.createdAt,
-                iconResId = if (displayIcons) R.drawable.ic_pencil_outline else null,
+                iconResId = if (displayIcons) R.drawable.ic_pencil else null,
             )
         }
         model.sentAt?.let {
@@ -105,14 +104,14 @@ fun MessageTimestampsList(
             MessageTimestampsRow(
                 label = stringResource(R.string.state_dialog_modified),
                 timestamp = model.modifiedAt,
-                iconResId = if (displayIcons) R.drawable.ic_edit_file_name else null,
+                iconResId = if (displayIcons) R.drawable.ic_edit else null,
             )
         }
         model.editedAt?.let {
             MessageTimestampsRow(
                 label = stringResource(R.string.state_dialog_edited),
                 timestamp = model.editedAt,
-                iconResId = if (displayIcons) R.drawable.ic_edit_file_name else null,
+                iconResId = if (displayIcons) R.drawable.ic_edit else null,
             )
         }
         model.deletedAt?.let {
@@ -128,12 +127,12 @@ fun MessageTimestampsList(
 @Composable
 private fun MessageTimestampsRow(
     label: String,
-    timestamp: Date,
+    timestamp: Instant,
     @DrawableRes iconResId: Int?,
 ) {
     MessageDetailsRow(
         label = label,
-        value = LocaleUtil.formatTimeStampStringAbsolute(LocalContext.current, timestamp.time),
+        value = LocaleUtil.formatTimeStampStringAbsolute(LocalContext.current, timestamp),
         iconResId = iconResId,
     )
 }
@@ -144,14 +143,14 @@ private fun MessageTimestampsListBoxPreview_Outbox() {
     MessageTimestampsListBox(
         modifier = Modifier.padding(16.dp),
         messageTimestampsUiModel = MessageTimestampsUiModel(
-            createdAt = now(),
-            sentAt = now(),
-            receivedAt = now() + 1.minutes,
-            deliveredAt = now() + 1.minutes,
-            readAt = now() + 10.minutes,
-            modifiedAt = now() + 10.minutes,
-            editedAt = now() + 5.minutes,
-            deletedAt = now() + 15.minutes,
+            createdAt = Instant.now(),
+            sentAt = Instant.now(),
+            receivedAt = Instant.now() + 1.minutes,
+            deliveredAt = Instant.now() + 1.minutes,
+            readAt = Instant.now() + 10.minutes,
+            modifiedAt = Instant.now() + 10.minutes,
+            editedAt = Instant.now() + 5.minutes,
+            deletedAt = Instant.now() + 15.minutes,
         ),
         isOutbox = true,
     )
@@ -163,13 +162,13 @@ private fun MessageTimestampsListBoxPreview_Inbox() {
     MessageTimestampsListBox(
         modifier = Modifier.padding(16.dp),
         messageTimestampsUiModel = MessageTimestampsUiModel(
-            createdAt = now(),
-            sentAt = now(),
-            deliveredAt = now() + 1.minutes,
-            readAt = now() + 10.minutes,
-            modifiedAt = now() + 10.minutes,
-            editedAt = now() + 5.minutes,
-            deletedAt = now() + 15.minutes,
+            createdAt = Instant.now(),
+            sentAt = Instant.now(),
+            deliveredAt = Instant.now() + 1.minutes,
+            readAt = Instant.now() + 10.minutes,
+            modifiedAt = Instant.now() + 10.minutes,
+            editedAt = Instant.now() + 5.minutes,
+            deletedAt = Instant.now() + 15.minutes,
         ),
         isOutbox = false,
     )
@@ -183,13 +182,13 @@ private fun MessageTimestampsList_Preview() {
             .background(MaterialTheme.colorScheme.background)
             .padding(16.dp),
         model = MessageTimestampsUiModel(
-            createdAt = now(),
-            sentAt = now(),
-            deliveredAt = now() + 1.minutes,
-            readAt = now() + 10.minutes,
-            modifiedAt = now() + 10.minutes,
-            editedAt = now() + 5.minutes,
-            deletedAt = now() + 15.minutes,
+            createdAt = Instant.now(),
+            sentAt = Instant.now(),
+            deliveredAt = Instant.now() + 1.minutes,
+            readAt = Instant.now() + 10.minutes,
+            modifiedAt = Instant.now() + 10.minutes,
+            editedAt = Instant.now() + 5.minutes,
+            deletedAt = Instant.now() + 15.minutes,
         ),
     )
 }

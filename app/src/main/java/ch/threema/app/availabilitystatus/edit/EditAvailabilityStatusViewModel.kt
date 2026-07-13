@@ -12,9 +12,9 @@ class EditAvailabilityStatusViewModel(
     private val updateUserAvailabilityStatusUseCase: UpdateUserAvailabilityStatusUseCase,
 ) : BaseViewModel<EditAvailabilityStatusState, EditAvailabilityStatusEvent>() {
 
-    override fun initialize() = runInitialization {
+    override suspend fun initialize(): EditAvailabilityStatusState {
         val currentAvailabilityStatus = getCurrentAvailabilityStatusOrNone()
-        EditAvailabilityStatusState(
+        return EditAvailabilityStatusState(
             status = currentAvailabilityStatus,
             descriptionState = AvailabilityStatusDescriptionState.create(
                 description = when (currentAvailabilityStatus) {
@@ -74,7 +74,7 @@ class EditAvailabilityStatusViewModel(
         val currentAvailabilityStatus = getCurrentAvailabilityStatusOrNone()
         if (currentAvailabilityStatus == currentViewState.status.withTrimmedDescription()) {
             emitEvent(EditAvailabilityStatusEvent.Cancel)
-            endAction()
+            return@runAction
         }
 
         updateViewState {

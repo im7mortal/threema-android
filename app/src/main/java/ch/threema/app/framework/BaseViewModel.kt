@@ -4,17 +4,23 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ch.threema.common.awaitAtLeastOneSubscriber
 import ch.threema.common.awaitNonNull
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -27,7 +33,7 @@ import kotlinx.coroutines.launch
  *
  * The view/UI layer may interact with the view model by calling methods on it. The naming scheme for these methods is that they use the "on" prefix
  * and describe the event that triggered them, NOT what the resulting action does. So e.g. if a "Submit" button is clicked in the UI,
- * the corresponding method might be called "onSubmitButtonClicked", not "submitForm" or anything else that indicates the details of the action.
+ * the corresponding method might be called "onClickedSubmitButton", not "submitForm" or anything else that indicates the details of the action.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 abstract class BaseViewModel<ViewState : Any, ViewEvent : Any> : ViewModel() {
@@ -36,6 +42,7 @@ abstract class BaseViewModel<ViewState : Any, ViewEvent : Any> : ViewModel() {
 
     /**
      * The view model's view state. Will be `null` until the view model has completed its initialization.
+     * Once initialized, it will never be `null` again.
      */
     val viewState = _viewState.asStateFlow()
 
@@ -44,131 +51,120 @@ abstract class BaseViewModel<ViewState : Any, ViewEvent : Any> : ViewModel() {
     @JvmField
     val events = _events.asSharedFlow()
 
+    private val isActive = _viewState.subscriptionCount
+        .mapLatest { count ->
+            if (count > 0) {
+                true
+            } else {
+                // When the last subscriber disappears, we wait a few seconds in case they come back, to avoid unnecessarily deactivating
+                // and reactivating the view model. This would primarily happen when an activity is recreated due to a configuration change.
+                delay(5.seconds)
+                false
+            }
+        }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = false,
+        )
+
     init {
         viewModelScope.launch {
-            _viewState.subscriptionCount
-                .mapLatest { count ->
-                    if (count > 0) {
-                        true
-                    } else {
-                        // When the last subscriber disappears, we wait a few seconds in case they come back, to avoid unnecessarily deactivating
-                        // and reactivating the view model. This would primarily happen when an activity is recreated due to a configuration change.
-                        delay(5.seconds)
-                        false
-                    }
-                }
-                .distinctUntilChanged()
-                .collectLatest { isActive ->
-                    if (isActive) {
-                        if (_viewState.value == null) {
-                            initialize()
-                            awaitInitialized()
-                        }
-                        onActive()
-                    }
-                }
+            isActive.first { it }
+            _viewState.value = initialize()
         }
     }
 
     /**
-     * Subclasses need to implement this method to initialize the view model and its view state. To do so, the [runInitialization] method
-     * needs to be called from the implementation.
+     * Subclasses need to implement this method to initialize the view model and its view state.
      *
-     * Within the lambda passed to [runInitialization], one-time operations may be launched, and at the end, the view model's initial view state
-     * needs to be returned.
+     * Within the implementation, one-time operations may be launched, and it is the recommended place to call [runWhenActive] from.
      *
-     * The lambda may throw an exception or cancel its coroutine scope, e.g. in case of invalid parameters. In this case, it should emit an
-     * event to ensure that the screen that hosts the view model is able to react to this invalid state, e.g. by displaying an error message or
-     * by closing itself.
+     * If a view model wishes to halt itself, e.g. due to invalid parameters or encountering an exception, it should emit an appropriate event
+     * to indicate this to the hosting screen such that the screen can display an error or close itself. The [initialize] method should then
+     * suspend forever.
      */
-    protected abstract fun initialize()
+    protected abstract suspend fun initialize(): ViewState
 
     private suspend fun awaitInitialized() {
         _viewState.awaitNonNull()
     }
 
     /**
-     * Should be called from the implementation of [initialize].
+     * This helper method can be used to wrap public methods on a view model to receive events from outside
+     * and run appropriate actions, without leaking the [Job] instance returned by [launchAction].
+     * @see [launchAction]
      */
-    protected fun runInitialization(init: suspend ViewModelInitScope<ViewEvent>.() -> ViewState) {
-        viewModelScope.launch {
-            require(_viewState.value == null)
-            _viewState.value = baseViewModelScope.init()
-        }
+    protected fun runAction(action: suspend CoroutineScope.() -> Unit) {
+        launchAction(action = action)
     }
 
     /**
-     * Runs whenever the view model becomes active, i.e., when at least 1 subscriber is collecting its view state.
-     * Guaranteed to run only once the view model is initialized.
+     * Launches an action, typically initiated by an event outside the view model such as a user interaction,
+     * in the scope of the view model.
+     * The action may alter the view state or emit view events.
+     * The action will suspend if the view model is not yet initialized.
+     * By default, the action runs on the main thread.
+     * If multiple actions are run, there is no guarantee about their execution order.
+     *
+     * If you don't need the returned [Job], use [runAction] instead.
+     */
+    protected fun launchAction(
+        context: CoroutineContext = EmptyCoroutineContext,
+        action: suspend CoroutineScope.() -> Unit,
+    ): Job =
+        viewModelScope.launch(context) {
+            awaitInitialized()
+            action()
+        }
+
+    /**
+     * Runs [action] whenever the view model becomes active, i.e., when at least 1 subscriber is collecting its view state.
+     * Guaranteed to run only after the view model is initialized.
+     *
+     * This is typically called from inside [initialize], but may also be used differently.
      *
      * This can be used for operations that need to run every time the view model becomes active, or for long-running operations that should
      * remain active while the view model is active, such as collecting from other data sources or subscribing to listeners.
      *
-     * Will be cancelled when the view model becomes inactive, i.e., when all subscribers have stopped collecting the view state, with a small
+     * Will be canceled when the view model becomes inactive, i.e., when all subscribers have stopped collecting the view state, with a small
      * delay to avoid unnecessarily stopping and restarting.
      */
-    protected open suspend fun onActive() {
-        // empty by default, subclasses can override
+    protected fun runWhenActive(
+        context: CoroutineContext = EmptyCoroutineContext,
+        action: suspend CoroutineScope.() -> Unit,
+    ): Job =
+        viewModelScope.launch(context) {
+            awaitInitialized()
+            isActive.collectLatest { isActive ->
+                if (isActive) {
+                    action()
+                }
+            }
+        }
+
+    protected suspend fun updateViewState(update: ViewState.() -> ViewState) {
+        awaitInitialized()
+        _viewState.update { it!!.update() }
     }
 
     /**
-     * Performs an action, which may alter the view state or emit view events.
-     * The action will suspend if the view model is not yet initialized.
-     * By default, the action runs on the main thread.
-     * If multiple actions are run, there is no guarantee about their execution order.
+     * Emits an event.
+     * Will suspend if no subscribers are present to avoid losing events.
+     * It is possible to emit events before the view model is fully initialized.
      */
-    protected fun runAction(action: suspend ViewModelActionScope<ViewState, ViewEvent>.() -> Unit): Job {
-        return viewModelScope.launch {
-            try {
-                awaitInitialized()
-                baseViewModelScope.action()
-            } catch (_: EndAction) {
-                // nothing to do here
-            }
-        }
+    protected suspend fun emitEvent(event: ViewEvent) {
+        _events.awaitAtLeastOneSubscriber()
+        _events.emit(event)
     }
 
-    private val baseViewModelScope = object : ViewModelScope<ViewState, ViewEvent> {
-        override val currentViewState: ViewState
-            get() = _viewState.value!!
-
-        override suspend fun updateViewState(update: ViewState.() -> ViewState) {
-            _viewState.update { it!!.update() }
-        }
-
-        override suspend fun emitEvent(event: ViewEvent) {
-            _events.awaitAtLeastOneSubscriber()
-            _events.emit(event)
-        }
-
-        override fun endAction(): Nothing {
-            throw EndAction()
-        }
-    }
-
-    protected interface ViewModelBaseScope<ViewEvent : Any> {
-        /**
-         * Emits an event.
-         * Will suspend if no subscribers are present to avoid losing events.
-         */
-        suspend fun emitEvent(event: ViewEvent)
-    }
-
-    protected interface ViewModelInitScope<ViewEvent : Any> : ViewModelBaseScope<ViewEvent>
-
-    protected interface ViewModelActionScope<ViewState : Any, ViewEvent : Any> : ViewModelBaseScope<ViewEvent> {
-        val currentViewState: ViewState
-
-        /**
-         * Updates the current view state. The previous view state is provided, such that the new view state can be derived from it, if needed.
-         * Note that [update] is NOT allowed to have any side-effects, as it might be run multiple times
-         */
-        suspend fun updateViewState(update: ViewState.() -> ViewState)
-
-        fun endAction(): Nothing
-    }
-
-    protected interface ViewModelScope<ViewState : Any, ViewEvent : Any> : ViewModelInitScope<ViewEvent>, ViewModelActionScope<ViewState, ViewEvent>
-
-    private class EndAction : Throwable()
+    /**
+     * The current view state. Should only be accessed in places where it is guaranteed that the view model has been initialized,
+     * such as within the lambda passed to [runAction], [launchAction], or [runWhenActive].
+     *
+     * @throws IllegalStateException if the view model has not been initialized yet
+     */
+    protected val currentViewState: ViewState
+        get() = _viewState.value ?: error("View model not yet initialized")
 }

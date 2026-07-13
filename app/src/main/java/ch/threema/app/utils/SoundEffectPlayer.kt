@@ -8,6 +8,7 @@ import androidx.annotation.RawRes
 import androidx.core.content.getSystemService
 import ch.threema.android.Destroyable
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.logging.logAndReportError
 
 private val logger = getThreemaLogger("SoundEffectPlayer")
 
@@ -31,8 +32,7 @@ class SoundEffectPlayer(
                 mediaPlayer.start()
             }
         } catch (e: Exception) {
-            // TODO(ANDR-4545): This error should never happen, but if it does, it should be reported to Sentry
-            logger.error("Failed to play play sound effect", e)
+            logger.logAndReportError("Failed to play play sound effect", e)
         }
     }
 

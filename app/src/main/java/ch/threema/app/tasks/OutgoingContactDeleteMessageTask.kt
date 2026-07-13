@@ -8,14 +8,14 @@ import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.types.IdentityString
-import java.util.Date
+import java.time.Instant
 import kotlinx.serialization.Serializable
 
 class OutgoingContactDeleteMessageTask(
     private val toIdentity: IdentityString,
     private val messageModelId: Int,
     private val messageId: MessageId,
-    private val deletedAt: Date,
+    private val deletedAt: Instant,
 ) : OutgoingCspMessageTask() {
     override val type: String = "OutgoingContactDeleteMessageTask"
 
@@ -24,7 +24,7 @@ class OutgoingContactDeleteMessageTask(
             ?: throw ThreemaException("No contact message model found for messageModelId=$messageModelId")
 
         val deleteMessage = DeleteMessage(
-            DeleteMessageData(messageId = message.messageId!!.messageIdLong),
+            DeleteMessageData(messageId = message.messageId!!),
         )
 
         sendContactMessage(deleteMessage, null, toIdentity, messageId, deletedAt, handle)
@@ -35,7 +35,7 @@ class OutgoingContactDeleteMessageTask(
             toIdentity,
             messageModelId,
             messageId.messageId,
-            deletedAt.time,
+            deletedAt.toEpochMilli(),
         )
 
     @Serializable
@@ -50,7 +50,7 @@ class OutgoingContactDeleteMessageTask(
                 toIdentity,
                 messageModelId,
                 MessageId(messageId),
-                Date(deletedAt),
+                Instant.ofEpochMilli(deletedAt),
             )
     }
 }

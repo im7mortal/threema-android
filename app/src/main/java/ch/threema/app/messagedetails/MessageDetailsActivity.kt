@@ -26,8 +26,8 @@ import ch.threema.app.AppConstants
 import ch.threema.app.R
 import ch.threema.app.activities.RecipientListBaseActivity
 import ch.threema.app.activities.ThreemaToolbarActivity
-import ch.threema.app.compose.common.HintText
-import ch.threema.app.compose.common.SpacerVertical
+import ch.threema.app.compose.common.spacer.SpacerVertical
+import ch.threema.app.compose.common.text.HintText
 import ch.threema.app.compose.edithistory.EditHistoryList
 import ch.threema.app.compose.edithistory.EditHistoryViewModel
 import ch.threema.app.compose.message.CompleteMessageBubble
@@ -39,9 +39,6 @@ import ch.threema.app.compose.theme.dimens.GridUnit
 import ch.threema.app.dialogs.BottomSheetGridDialog
 import ch.threema.app.dialogs.GenericAlertDialog
 import ch.threema.app.dialogs.GenericAlertDialog.DialogClickListener
-import ch.threema.app.listeners.EditMessageListener
-import ch.threema.app.listeners.MessageDeletedForAllListener
-import ch.threema.app.managers.ListenerManager
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.ui.BottomSheetItem
 import ch.threema.app.ui.CustomTextSelectionCallback
@@ -75,22 +72,6 @@ class MessageDetailsActivity : ThreemaToolbarActivity(), DialogClickListener, Li
             IntentDataUtil.getAbstractMessageId(intent),
             IntentDataUtil.getAbstractMessageType(intent),
         )
-    }
-
-    private val onEditMessageListener = object : EditMessageListener {
-        override fun onEdit(message: AbstractMessageModel) {
-            if (message.uid == viewModel.uiState.value.message.uid) {
-                viewModel.refreshMessage(message)
-            }
-        }
-    }
-
-    private val onDeleteMessageListener = object : MessageDeletedForAllListener {
-        override fun onDeletedForAll(message: AbstractMessageModel) {
-            if (message.uid == viewModel.uiState.value.message.uid) {
-                viewModel.refreshMessage(message)
-            }
-        }
     }
 
     private val textSelectionCallback: CustomTextSelectionCallback =
@@ -169,9 +150,6 @@ class MessageDetailsActivity : ThreemaToolbarActivity(), DialogClickListener, Li
         initToolbar()
         initScreenContent()
 
-        ListenerManager.editMessageListener.add(onEditMessageListener)
-        ListenerManager.messageDeletedForAllListener.add(onDeleteMessageListener)
-
         return true
     }
 
@@ -220,9 +198,6 @@ class MessageDetailsActivity : ThreemaToolbarActivity(), DialogClickListener, Li
                                 MessageType.TEXT,
                                 MessageType.FILE,
                                 MessageType.LOCATION,
-                                MessageType.IMAGE,
-                                MessageType.VIDEO,
-                                MessageType.VOICEMESSAGE,
                                 -> Column {
                                     SpacerVertical(height = GridUnit.x2)
                                     CompleteMessageBubble(
@@ -294,12 +269,6 @@ class MessageDetailsActivity : ThreemaToolbarActivity(), DialogClickListener, Li
     private fun onToggleFormattingClicked(item: MenuItem) {
         item.setChecked(!item.isChecked)
         viewModel.markupText(item.isChecked)
-    }
-
-    override fun onDestroy() {
-        ListenerManager.editMessageListener.remove(onEditMessageListener)
-        ListenerManager.messageDeletedForAllListener.remove(onDeleteMessageListener)
-        super.onDestroy()
     }
 
     override fun onYes(tag: String?, data: Any?) {

@@ -5,10 +5,8 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.SystemClock;
 import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -61,11 +59,11 @@ import ch.threema.app.ui.InsetSides;
 import ch.threema.app.ui.ThreemaSearchView;
 import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.utils.ConfigUtils;
-import ch.threema.app.utils.IntentDataUtil;
 import ch.threema.app.utils.executor.BackgroundExecutor;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
+import ch.threema.data.datatypes.ContactConversationId;
 import ch.threema.domain.protocol.api.work.WorkDirectoryCategory;
 import ch.threema.domain.protocol.api.work.WorkDirectoryContact;
 import ch.threema.domain.protocol.api.work.WorkOrganization;
@@ -300,13 +298,13 @@ public class DirectoryActivity extends ThreemaToolbarActivity implements Threema
 
         if (savedInstanceState != null) {
             queryText = savedInstanceState.getString(EXTRA_QUERY_TEXT);
-            String[] checkedCategoriesJson = savedInstanceState.getStringArray(EXTRA_CHECKED_CATEGORIES);
-            if (checkedCategoriesJson != null) {
+            String[] serializedCheckedCategories = savedInstanceState.getStringArray(EXTRA_CHECKED_CATEGORIES);
+            if (serializedCheckedCategories != null) {
                 checkedCategories.clear();
-                for (String checkedCategoryJson : checkedCategoriesJson) {
+                for (String serializedCheckedCategory : serializedCheckedCategories) {
                     try {
-                        checkedCategories.add(new WorkDirectoryCategory(new JSONObject(checkedCategoryJson)));
-                    } catch (JSONException e) {
+                        checkedCategories.add(WorkDirectoryCategory.deserialize(serializedCheckedCategory));
+                    } catch (IllegalArgumentException e) {
                         logger.error("Could not restore category", e);
                     }
                 }
@@ -413,10 +411,11 @@ public class DirectoryActivity extends ThreemaToolbarActivity implements Threema
     }
 
     private void openContact(@NonNull String identity) {
-        Intent intent = new Intent(this, ComposeMessageActivity.class);
+        Intent intent = ComposeMessageActivity.createIntent(
+            this,
+            new ContactConversationId(identity)
+        );
         intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        intent.setData((Uri.parse("foobar://" + SystemClock.elapsedRealtime())));
-        IntentDataUtil.append(identity, intent);
         startActivity(intent);
     }
 
@@ -469,7 +468,7 @@ public class DirectoryActivity extends ThreemaToolbarActivity implements Threema
 
         int i = 0;
         for (WorkDirectoryCategory category : categoryList) {
-            categoryNames[i] = category.getName();
+            categoryNames[i] = category.name;
 
             categoryChecked[i] = false;
             if (category.id != null) {
@@ -503,7 +502,7 @@ public class DirectoryActivity extends ThreemaToolbarActivity implements Threema
 
                     if (!TextUtils.isEmpty(categoryId)) {
                         for (WorkDirectoryCategory checkedCategory1 : checkedCategories) {
-                            if (categoryId.equals(checkedCategory1.getId())) {
+                            if (categoryId.equals(checkedCategory1.id)) {
                                 checkedCategories.remove(checkedCategory1);
                                 chipGroup.removeView(v);
                                 updateDirectory();
@@ -594,12 +593,12 @@ public class DirectoryActivity extends ThreemaToolbarActivity implements Threema
         super.onSaveInstanceState(outState);
 
         outState.putString(EXTRA_QUERY_TEXT, queryText);
-        String[] checkedCategoriesJsons = checkedCategories
+        String[] serializedCheckedCategories = checkedCategories
             .stream()
-            .map(WorkDirectoryCategory::toJSON)
+            .map(WorkDirectoryCategory::serialize)
             .toArray(String[]::new);
-        if (checkedCategoriesJsons.length > 0) {
-            outState.putStringArray(EXTRA_CHECKED_CATEGORIES, checkedCategoriesJsons);
+        if (serializedCheckedCategories.length > 0) {
+            outState.putStringArray(EXTRA_CHECKED_CATEGORIES, serializedCheckedCategories);
         }
     }
 
@@ -634,6 +633,14 @@ public class DirectoryActivity extends ThreemaToolbarActivity implements Threema
         super.finish();
         if (animateOut) {
             overridePendingTransition(R.anim.slide_in_left_short, R.anim.slide_out_right_short);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (directoryDataSourceFactory != null) {
+            directoryDataSourceFactory.destroy();
         }
     }
 

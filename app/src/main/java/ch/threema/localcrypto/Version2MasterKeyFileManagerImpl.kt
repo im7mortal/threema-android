@@ -1,9 +1,10 @@
 package ch.threema.localcrypto
 
+import android.content.Context
 import androidx.core.util.AtomicFile
 import ch.threema.android.writeAtomically
+import ch.threema.app.files.deleteSecurely
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.common.deleteSecurely
 import ch.threema.localcrypto.models.MasterKeyStorageData
 import java.io.ByteArrayInputStream
 import java.io.DataInputStream
@@ -17,7 +18,7 @@ private val logger = getThreemaLogger("Version2MasterKeyFileManagerImpl")
  * @param unencryptedKeyFile The file that used to store the master key data in unencrypted format, before the introduction of [keyStoreCrypto]
  */
 class Version2MasterKeyFileManagerImpl(
-    private val deletionDirectory: File,
+    private val appContext: Context,
     private val keyFile: File,
     private val unencryptedKeyFile: File,
     private val encoder: Version2MasterKeyStorageEncoder,
@@ -58,10 +59,10 @@ class Version2MasterKeyFileManagerImpl(
             }
 
             logger.info("Deleting unencrypted master key file")
-            unencryptedKeyFile.deleteSecurely(deletionDirectory)
+            unencryptedKeyFile.deleteSecurely(appContext)
         } else if (unencryptedKeyCorrupted) {
             logger.info("Deleting corrupted unencrypted master key file")
-            unencryptedKeyFile.deleteSecurely(deletionDirectory)
+            unencryptedKeyFile.deleteSecurely(appContext)
         }
 
         return masterKeyStorageData

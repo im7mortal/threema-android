@@ -6,17 +6,18 @@ import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.DistributionListService
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.RingtoneService
-import ch.threema.app.usecases.WatchTypingIdentitiesUseCase
+import ch.threema.app.typingindicator.TypingIndicatorProvider
 import ch.threema.app.usecases.availabilitystatus.WatchAllContactAvailabilityStatusesUseCase
 import ch.threema.app.usecases.contacts.WatchAllMentionNamesUseCase
 import ch.threema.app.usecases.contacts.WatchContactNameFormatSettingUseCase
 import ch.threema.app.usecases.groups.WatchGroupCallsUseCase
+import ch.threema.common.TimeProvider
 
 class WatchUnarchivedConversationListItemsUseCase(
     watchUnarchivedConversationsUseCase: WatchUnarchivedConversationsUseCase,
     watchGroupCallsUseCase: WatchGroupCallsUseCase,
     conversationCategoryService: ConversationCategoryService,
-    watchTypingIdentitiesUseCase: WatchTypingIdentitiesUseCase,
+    typingIndicatorProvider: TypingIndicatorProvider,
     contactService: ContactService,
     groupService: GroupService,
     distributionListService: DistributionListService,
@@ -26,10 +27,11 @@ class WatchUnarchivedConversationListItemsUseCase(
     watchAllMentionNamesUseCase: WatchAllMentionNamesUseCase,
     watchAllContactAvailabilityStatusesUseCase: WatchAllContactAvailabilityStatusesUseCase,
     draftManager: DraftManager,
+    timeProvider: TimeProvider,
 ) : WatchConversationListItemsUseCase(
     watchConversationsUseCase = watchUnarchivedConversationsUseCase,
     watchGroupCallsUseCase = watchGroupCallsUseCase,
-    watchTypingIdentitiesUseCase = watchTypingIdentitiesUseCase,
+    typingIndicatorProvider = typingIndicatorProvider,
     watchAvatarIterationsUseCase = watchAvatarIterationsUseCase,
     watchContactNameFormatSettingUseCase = watchContactNameFormatSettingUseCase,
     watchAllMentionNamesUseCase = watchAllMentionNamesUseCase,
@@ -40,4 +42,5 @@ class WatchUnarchivedConversationListItemsUseCase(
     groupService = groupService,
     distributionListService = distributionListService,
     ringtoneService = ringtoneService,
+    timeProvider = timeProvider,
 )

@@ -23,15 +23,17 @@ import java.util.Objects;
 import androidx.annotation.NonNull;
 import ch.threema.app.R;
 import ch.threema.app.activities.wizard.WizardBaseActivity;
-import ch.threema.app.activities.wizard.components.WizardButtonXml;
+import ch.threema.app.ui.interop.ButtonPrimaryXml;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.threemasafe.ThreemaSafeAdvancedDialog;
 import ch.threema.app.threemasafe.ThreemaSafeServerInfo;
-import ch.threema.app.ui.SimpleTextWatcher;
+import ch.threema.android.textwatchers.SimpleTextWatcher;
+import ch.threema.app.ui.interop.TextButtonPrimaryXml;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.EditTextUtil;
-import ch.threema.app.utils.TestUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrBlank;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class WizardFragment1 extends WizardFragment implements ThreemaSafeAdvancedDialog.WizardDialogCallback {
     private static final Logger logger = getThreemaLogger("WizardFragment1");
@@ -70,7 +72,7 @@ public class WizardFragment1 extends WizardFragment implements ThreemaSafeAdvanc
         this.password1layout = rootView.findViewById(R.id.password1layout);
         this.password2layout = rootView.findViewById(R.id.password2layout);
 
-        if (!TestUtil.isEmptyOrNull(callback.getSafePassword())) {
+        if (!isNullOrEmpty(callback.getSafePassword())) {
             this.password1.setText(callback.getSafePassword());
             this.password2.setText(callback.getSafePassword());
         }
@@ -91,7 +93,7 @@ public class WizardFragment1 extends WizardFragment implements ThreemaSafeAdvanc
             return false;
         });
 
-        final @NonNull WizardButtonXml advancedOptionsButtonCompose = rootView.findViewById(R.id.advanced_options_compose);
+        final @NonNull TextButtonPrimaryXml advancedOptionsButtonCompose = rootView.findViewById(R.id.advanced_options_compose);
         if (ConfigUtils.isWorkRestricted() && (callback.getSafeForcePasswordEntry() || callback.getSafeSkipBackupPasswordEntry())) {
             advancedOptionsButtonCompose.setVisibility(View.GONE);
         } else {
@@ -170,7 +172,7 @@ public class WizardFragment1 extends WizardFragment implements ThreemaSafeAdvanc
             this.password2layout.setError(null);
         } else {
             this.password1layout.setError(null);
-            if (!TestUtil.isBlankOrNull(this.password2.getText())) {
+            if (!isNullOrBlank(this.password2.getText())) {
                 this.password2layout.setError(passwordsMatch ? null : getString(R.string.passwords_dont_match));
             } else {
                 this.password2layout.setError(null);

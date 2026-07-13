@@ -94,7 +94,14 @@ class UpdateContactNameUseCase(
         // We do update the contact lookup info to prevent that it deviates to much over time. According to android documentation this should not be
         // necessary, but it won't hurt either.
         if (existingAndroidContactLookupInfo != currentAndroidContactLookupInfo) {
-            logger.info("Contact lookup info is not up to date: updating android contact lookup info of {}", contactModel.identity)
+            val lookupKeyChanged = existingAndroidContactLookupInfo.lookupKey != currentAndroidContactLookupInfo.lookupKey
+            val contactIdChanged = existingAndroidContactLookupInfo.contactId != currentAndroidContactLookupInfo.contactId
+            logger.info(
+                "Contact lookup info is not up to date (lookupKeyChanged={}, contactIdChanged={}): updating android contact lookup info of {}",
+                lookupKeyChanged,
+                contactIdChanged,
+                contactModel.identity,
+            )
             contactModel.setAndroidContactLookupKey(currentAndroidContactLookupInfo)
         }
     }

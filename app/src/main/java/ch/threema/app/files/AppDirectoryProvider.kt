@@ -1,7 +1,10 @@
 package ch.threema.app.files
 
 import android.content.Context
+import ch.threema.base.utils.getThreemaLogger
 import java.io.File
+
+private val logger = getThreemaLogger("AppDirectoryProvider")
 
 class AppDirectoryProvider(
     private val context: Context,
@@ -35,15 +38,36 @@ class AppDirectoryProvider(
         get() = File(context.getExternalFilesDir(null), "data")
 
     /**
+     * Directory used for temporary files that may be shared or sent to other apps.
+     * All files in this directory will be automatically deleted after a while.
+     *
+     * Files for which a content-Uri needs to be created (using [ch.threema.app.utils.FileProviderUtil.getUriForFile]) must be placed
+     * inside this directory.
+     *
+     * For temporary files that do not need to be shareable, use [cacheDirectory] instead.
+     */
+    val shareDirectory: File
+        get() = createIfNeeded(
+            File(context.cacheDir, "share"),
+        )
+
+    /**
      * Directory used for temporary files. All files in this directory will be automatically deleted after a while.
-     * Can be used for the share dialog.
+     *
+     * For files that need to be shareable, i.e., made accessible to other apps or for which a content-Uri needs to be created,
+     * use [shareDirectory] instead.
      */
     val cacheDirectory: File
         get() = context.cacheDir
 
     private fun createIfNeeded(directory: File): File {
-        if (!directory.exists()) {
-            directory.mkdirs()
+        if (!directory.isDirectory()) {
+            if (directory.exists()) {
+                directory.delete()
+            }
+            if (!directory.mkdirs()) {
+                logger.warn("Failed to create directory {}", directory)
+            }
         }
         return directory
     }

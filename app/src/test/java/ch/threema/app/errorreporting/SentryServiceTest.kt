@@ -18,20 +18,34 @@ import kotlin.test.Test
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.Response
 
 class SentryServiceTest {
 
     private lateinit var okHttpClientMock: OkHttpClient
-    private lateinit var handleRequest: (Request) -> Response
+    private lateinit var getExpectedBody: () -> String
     private lateinit var timeProvider: TestTimeProvider
     private lateinit var sentryService: SentryService
 
     @BeforeTest
     fun setUp() {
         okHttpClientMock = mockOkHttpClient { request ->
-            handleRequest(request)
+            request.assertMethod("POST")
+            request.assertUrl("https://$HOST/api/$PROJECT_ID/envelope/")
+            request.assertHasHeader(
+                "X-Sentry-Auth",
+                "Sentry sentry_version=7, sentry_client=threema.android/1.0, sentry_key=$PUBLIC_API_KEY",
+            )
+            request.assertHasHeader(
+                "User-Agent",
+                "threema.android/1.0",
+            )
+            request.assertHasHeader(
+                "Content-Type",
+                "application/x-sentry-envelope",
+            )
+            request.assertGZippedBody(getExpectedBody())
+
+            request.respondWith(code = 200)
         }
         timeProvider = TestTimeProvider(initialTimestamp = 1_769_423_000_000L)
         sentryService = SentryService(
@@ -56,31 +70,16 @@ class SentryServiceTest {
     }
 
     @Test
-    fun `send error record`() = runTest {
-        handleRequest = { request ->
-            request.assertMethod("POST")
-            request.assertUrl("https://$HOST/api/$PROJECT_ID/envelope/")
-            request.assertHasHeader(
-                "X-Sentry-Auth",
-                "Sentry sentry_version=7, sentry_client=threema.android/1.0, sentry_key=$PUBLIC_API_KEY",
-            )
-            request.assertHasHeader(
-                "User-Agent",
-                "threema.android/1.0",
-            )
-            request.assertHasHeader(
-                "Content-Type",
-                "application/x-sentry-envelope",
-            )
-            request.assertGZippedBody(loadResource("api/requests/sentry-envelope.txt"))
-
-            request.respondWith(code = 200)
+    fun `send fatal error record with exception details`() = runTest {
+        getExpectedBody = {
+            loadResource("api/requests/sentry-envelope-with-exception.txt")
         }
 
         sentryService.sendErrorRecord(
             ErrorRecord(
                 id = UUID.fromString(ERROR_ID),
-                exceptions = listOf(
+                level = ErrorRecordLevel.FATAL,
+                exceptionDetails = listOf(
                     ErrorRecordExceptionDetails(
                         type = "RuntimeException",
                         message = "An error occurred",
@@ -116,6 +115,27 @@ class SentryServiceTest {
                             ),
                         ),
                     ),
+                ),
+                createdAt = timeProvider.get() - 10.minutes,
+            ),
+        )
+
+        verify(exactly = 1) { okHttpClientMock.newCall(any()) }
+    }
+
+    @Test
+    fun `send non-fatal error record without exception details`() = runTest {
+        getExpectedBody = {
+            loadResource("api/requests/sentry-envelope-with-message.txt")
+        }
+
+        sentryService.sendErrorRecord(
+            ErrorRecord(
+                id = UUID.fromString(ERROR_ID),
+                level = ErrorRecordLevel.ERROR,
+                message = ErrorRecordMessage(
+                    message = "This is a %s",
+                    parameters = listOf("test"),
                 ),
                 createdAt = timeProvider.get() - 10.minutes,
             ),

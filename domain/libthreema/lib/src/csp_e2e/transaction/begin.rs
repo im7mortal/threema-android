@@ -10,7 +10,7 @@ use super::commit::{CommitTransactionResponse, CommitTransactionSubtask};
 use crate::{
     common::{D2xDeviceId, keys::DeviceGroupTransactionScopeCipher, task::TaskLoop},
     crypto::aead::AeadRandomNonceAhead as _,
-    csp_e2e::{CspE2eProtocolError, D2xContext, InternalErrorCause},
+    csp_e2e::{CspE2eProtocolError, CspE2eProtocolInternalErrorCause, D2xContext},
     protobuf::{self},
     utils::{debug::Name as _, time::Duration},
 };
@@ -148,7 +148,7 @@ impl State {
                 .transaction_scope_key()
                 .0
                 .encrypt_in_place_random_nonce_ahead(b"", &mut scope)
-                .map_err(|_| InternalErrorCause::EncryptionFailed {
+                .map_err(|_| CspE2eProtocolInternalErrorCause::EncryptionFailed {
                     name: protobuf::d2d::TransactionScope::NAME,
                 })?;
             scope

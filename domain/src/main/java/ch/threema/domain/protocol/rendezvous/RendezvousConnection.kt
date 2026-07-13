@@ -2,8 +2,8 @@ package ch.threema.domain.protocol.rendezvous
 
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.chunked
-import ch.threema.libthreema.PathProcessResult
-import ch.threema.libthreema.PathStateUpdate
+import ch.threema.libthreema.RendezvousPathProcessResult
+import ch.threema.libthreema.RendezvousPathStateUpdate
 import ch.threema.libthreema.RendezvousProtocol
 import ch.threema.protobuf.d2d.join.NdToEd
 import ch.threema.protobuf.d2d.rendezvous.RendezvousInit
@@ -181,7 +181,7 @@ class RendezvousConnection private constructor(
             while (true) {
                 val (pid, incomingFrame) = multiplexedPath.read()
                 protocol.addChunks(pid, listOf(incomingFrame))
-                var result: PathProcessResult? = protocol.processFrame(pid)
+                var result: RendezvousPathProcessResult? = protocol.processFrame(pid)
 
                 while (result != null) {
                     if (result.incomingUlpData != null) {
@@ -193,7 +193,7 @@ class RendezvousConnection private constructor(
                     }
 
                     when (val update = result.stateUpdate) {
-                        is PathStateUpdate.AwaitingNominate -> {
+                        is RendezvousPathStateUpdate.AwaitingNominate -> {
                             // Check if we should nominate the path
                             // TODO(ANDR-2691): Choose the _best_ path based on the measured RTT
                             logger.debug(
@@ -212,7 +212,7 @@ class RendezvousConnection private constructor(
                             }
                         }
 
-                        is PathStateUpdate.Nominated -> {
+                        is RendezvousPathStateUpdate.Nominated -> {
                             val nominated = multiplexedPath.nominate(pid)
                             logger.info("Nomination complete, rendezvous connection established")
                             return RendezvousConnection(

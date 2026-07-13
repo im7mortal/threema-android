@@ -296,7 +296,7 @@ impl TryFrom<OutgoingMessageWithMetadataBox> for MessageWithMetadataBox {
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
-    use data_encoding::HEXLOWER;
+    use data_encoding::HEXLOWER_PERMISSIVE;
 
     use crate::{
         common::{MessageFlags, MessageId, Nonce, ThreemaId},
@@ -306,7 +306,7 @@ mod tests {
 
     #[test]
     fn valid_message() -> anyhow::Result<()> {
-        let message = HEXLOWER.decode(
+        let message = HEXLOWER_PERMISSIVE.decode(
             b"\
                 304441354d453736304850543945574489aa9a7eaff77d96cb7327680100340000000000\
                 00000000000000000000000000000000000000000000000000000000439039d79074fa4a0d0961d6\
@@ -332,7 +332,8 @@ mod tests {
         let metadata = assert_matches!(message.metadata, Some(metadata) => metadata);
         assert_eq!(
             metadata.tag,
-            TryInto::<[u8; 16]>::try_into(HEXLOWER.decode(b"439039d79074fa4a0d0961d651af57b9")?).unwrap()
+            TryInto::<[u8; 16]>::try_into(HEXLOWER_PERMISSIVE.decode(b"439039d79074fa4a0d0961d651af57b9")?)
+                .unwrap()
         );
         assert_eq!(metadata.data, 80..116);
         assert_eq!(
@@ -341,7 +342,8 @@ mod tests {
         );
         assert_eq!(
             message.message_container.tag,
-            TryInto::<[u8; 16]>::try_into(HEXLOWER.decode(b"712e263aab0c2c4a920182f01f810df0")?).unwrap()
+            TryInto::<[u8; 16]>::try_into(HEXLOWER_PERMISSIVE.decode(b"712e263aab0c2c4a920182f01f810df0")?)
+                .unwrap()
         );
         assert_eq!(message.message_container.data, 156..393);
 

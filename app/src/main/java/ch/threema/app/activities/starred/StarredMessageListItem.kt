@@ -51,12 +51,12 @@ import ch.threema.app.R
 import ch.threema.app.activities.starred.models.ConversationParticipant
 import ch.threema.app.activities.starred.models.StarredMessageUiModel
 import ch.threema.app.compose.common.LocalDayOfYear
-import ch.threema.app.compose.common.SpacerHorizontal
-import ch.threema.app.compose.common.ThemedText
 import ch.threema.app.compose.common.avatar.AvatarAsync
 import ch.threema.app.compose.common.colorReferenceResource
 import ch.threema.app.compose.common.extensions.get
 import ch.threema.app.compose.common.immutables.ImmutableBitmap
+import ch.threema.app.compose.common.spacer.SpacerHorizontal
+import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.common.text.conversation.ConversationText
 import ch.threema.app.compose.common.text.conversation.EmojiSettings
 import ch.threema.app.compose.common.text.conversation.HighlightFeature
@@ -72,18 +72,17 @@ import ch.threema.app.utils.LocaleUtil
 import ch.threema.app.utils.MimeUtil
 import ch.threema.app.utils.NameUtil
 import ch.threema.common.minus
-import ch.threema.common.now
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.datatypes.ContactNameFormat
-import ch.threema.domain.models.ContactReceiverIdentifier
-import ch.threema.domain.models.GroupReceiverIdentifier
-import ch.threema.domain.models.ReceiverIdentifier
+import ch.threema.data.datatypes.ConversationId
+import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.domain.types.Identity
 import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.MessageContentsType
-import java.util.Date
+import java.time.Instant
 import kotlin.time.Duration.Companion.days
 
 private const val FLOW_CHARACTER = "\u25BA\uFE0E" // "►"
@@ -92,7 +91,7 @@ private const val FLOW_CHARACTER = "\u25BA\uFE0E" // "►"
 fun StarredMessageListItem(
     modifier: Modifier = Modifier,
     localDayOfYear: LocalDayOfYear,
-    avatarBitmapProvider: suspend (ReceiverIdentifier) -> ImmutableBitmap?,
+    avatarBitmapProvider: suspend (ConversationId) -> ImmutableBitmap?,
     messageMediaPreviewProvider: suspend (AbstractMessageModel) -> ImmutableBitmap?,
     ownIdentity: Identity,
     @EmojiStyle emojiStyle: Int,
@@ -150,13 +149,14 @@ fun StarredMessageListItem(
 private fun AvatarContent(
     modifier: Modifier = Modifier,
     starredMessageUiModel: StarredMessageUiModel,
-    avatarBitmapProvider: suspend (ReceiverIdentifier) -> ImmutableBitmap?,
+    avatarBitmapProvider: suspend (ConversationId) -> ImmutableBitmap?,
 ) {
     val avatarSize = 40.dp
     if (!starredMessageUiModel.isPrivate && !starredMessageUiModel.messageModel.isDeleted) {
-        val receiverIdentifier = when (starredMessageUiModel) {
+        val avatarConversationId: ConversationId = when (starredMessageUiModel) {
             is StarredMessageUiModel.StarredContactMessage -> {
-                ContactReceiverIdentifier(
+                ContactConversationId(
+                    identity =
                     if (starredMessageUiModel.messageModel.isOutbox) {
                         starredMessageUiModel.receiver.identity.value
                     } else {
@@ -164,20 +164,20 @@ private fun AvatarContent(
                     },
                 )
             }
-            is StarredMessageUiModel.StarredGroupMessage -> starredMessageUiModel.groupIdentifier
+            is StarredMessageUiModel.StarredGroupMessage -> starredMessageUiModel.conversationId
         }
 
         AvatarAsync(
             modifier = modifier.size(avatarSize),
-            receiverIdentifier = receiverIdentifier,
+            conversationId = avatarConversationId,
             bitmapProvider = avatarBitmapProvider,
             contentDescription = null,
             fallbackIcon = when (starredMessageUiModel) {
                 is StarredMessageUiModel.StarredContactMessage -> R.drawable.ic_contact
                 is StarredMessageUiModel.StarredGroupMessage -> R.drawable.ic_group
             },
-            showWorkBadge = when (starredMessageUiModel) {
-                is StarredMessageUiModel.StarredContactMessage -> starredMessageUiModel.showWorkBadge
+            showIdentityTypeBadge = when (starredMessageUiModel) {
+                is StarredMessageUiModel.StarredContactMessage -> starredMessageUiModel.showIdentityTypeBadge
                 else -> false
             },
             availabilityStatus = AvailabilityStatus.None, // TODO(ANDR-4714): Evaluate to set existing value
@@ -317,7 +317,7 @@ private fun RowScope.MessageBubbleContent(
             key2 = localDayOfYear,
         ) {
             starredMessageUiModel.messageModel.createdAt?.let { messageCreatedAt ->
-                LocaleUtil.formatDateRelative(messageCreatedAt.time)
+                LocaleUtil.formatDateRelative(messageCreatedAt)
             }
         }
         if (displayDate != null) {
@@ -348,7 +348,7 @@ private fun StarredMessageUiModel.showMediaPreview(): Boolean {
     if (messageModel.isDeleted) {
         return false
     }
-    return messageModel.type == MessageType.FILE || messageModel.type == MessageType.BALLOT
+    return messageModel.type == MessageType.FILE || messageModel.type == MessageType.POLL
 }
 
 @Composable
@@ -444,10 +444,10 @@ private fun getOnMessageMediaBoxColor(context: Context, isSelected: Boolean): Co
 @DrawableRes
 private fun getMessageTypeIndicatorIcon(messageModel: AbstractMessageModel): Int {
     return if (messageModel.messageContentsType == MessageContentsType.VOICE_MESSAGE) {
-        R.drawable.ic_keyboard_voice_outline
+        R.drawable.ic_microphone_outline
     } else if (messageModel.type == MessageType.FILE) {
         IconUtil.getMimeIcon(messageModel.fileData.getMimeType())
-    } else if (messageModel.type == MessageType.BALLOT) {
+    } else if (messageModel.type == MessageType.POLL) {
         R.drawable.ic_outline_rule
     } else {
         IconUtil.getMimeIcon("application/x-error")
@@ -552,8 +552,8 @@ private class PreviewProviderStarredContactMessage : PreviewParameterProvider<St
             messageContent: String = "Outgoing contact message body.",
             messageBody: String = "Outgoing contact message body.",
             messageType: MessageType = MessageType.TEXT,
-            messageCreatedAt: Date? = now().minus(1.days),
-            messageDeletedAt: Date? = null,
+            messageCreatedAt: Instant? = Instant.now() - 1.days,
+            messageDeletedAt: Instant? = null,
             receiver: ConversationParticipant = ConversationParticipant.Contact(
                 identity = PreviewData.IDENTITY_OTHER_1,
                 firstname = "Roberto",
@@ -563,6 +563,9 @@ private class PreviewProviderStarredContactMessage : PreviewParameterProvider<St
             isPrivate: Boolean = false,
         ) = StarredMessageUiModel.StarredContactMessage(
             uid = "0",
+            conversationId = ContactConversationId(
+                identity = receiver.identity.value,
+            ),
             messageModel = MessageModel().apply {
                 this.isOutbox = true
                 this.body = messageBody
@@ -576,7 +579,7 @@ private class PreviewProviderStarredContactMessage : PreviewParameterProvider<St
                 identity = PreviewData.IDENTITY_ME,
             ),
             receiver = receiver,
-            showWorkBadge = showWorkBadge,
+            showIdentityTypeBadge = showWorkBadge,
             isPrivate = isPrivate,
         )
 
@@ -584,8 +587,8 @@ private class PreviewProviderStarredContactMessage : PreviewParameterProvider<St
             messageContent: String = "Incoming contact message body.",
             messageBody: String = "Incoming contact message body.",
             messageType: MessageType = MessageType.TEXT,
-            messageCreatedAt: Date? = now().minus(1.days),
-            messageDeletedAt: Date? = null,
+            messageCreatedAt: Instant? = Instant.now() - 1.days,
+            messageDeletedAt: Instant? = null,
             sender: ConversationParticipant = ConversationParticipant.Contact(
                 identity = PreviewData.IDENTITY_OTHER_1,
                 firstname = "Roberto",
@@ -595,6 +598,9 @@ private class PreviewProviderStarredContactMessage : PreviewParameterProvider<St
             isPrivate: Boolean = false,
         ) = StarredMessageUiModel.StarredContactMessage(
             uid = "0",
+            conversationId = ContactConversationId(
+                identity = sender.identity.value,
+            ),
             messageModel = MessageModel().apply {
                 this.isOutbox = false
                 this.body = messageBody
@@ -608,7 +614,7 @@ private class PreviewProviderStarredContactMessage : PreviewParameterProvider<St
             receiver = ConversationParticipant.Me(
                 identity = PreviewData.IDENTITY_ME,
             ),
-            showWorkBadge = showWorkBadge,
+            showIdentityTypeBadge = showWorkBadge,
             isPrivate = isPrivate,
         )
     }
@@ -618,7 +624,7 @@ private class PreviewProviderStarredContactMessage : PreviewParameterProvider<St
             createStarredContactMessageOutgoing(),
             createStarredContactMessageOutgoing(showWorkBadge = true),
             createStarredContactMessageOutgoing(isPrivate = true),
-            createStarredContactMessageOutgoing(messageDeletedAt = now()),
+            createStarredContactMessageOutgoing(messageDeletedAt = Instant.now()),
             createStarredContactMessageOutgoing(
                 messageType = MessageType.FILE,
                 messageBody = "[\"1\",\"1\",\"image/jpeg\",1,\"filename.jpg\",1,true,\"Look at this picture \uD83C\uDFD4\",\"image/jpeg\",{\"w\":" +
@@ -644,7 +650,7 @@ private class PreviewProviderStarredContactMessage : PreviewParameterProvider<St
             createStarredContactMessageIncoming(),
             createStarredContactMessageIncoming(showWorkBadge = true),
             createStarredContactMessageIncoming(isPrivate = true),
-            createStarredContactMessageIncoming(messageDeletedAt = now()),
+            createStarredContactMessageIncoming(messageDeletedAt = Instant.now()),
             createStarredContactMessageIncoming(
                 messageType = MessageType.FILE,
                 messageBody = "[\"1\",\"1\",\"image/jpeg\",1,\"filename.jpg\",1,true,\"Look at this picture \uD83C\uDFD4\",\"image/jpeg\",{\"w\":" +
@@ -677,8 +683,8 @@ private class PreviewProviderStarredGroupMessage : PreviewParameterProvider<Star
             messageContent: String = "Outgoing group message body.",
             messageBody: String = "Outgoing group message body.",
             messageType: MessageType = MessageType.TEXT,
-            messageCreatedAt: Date? = now().minus(1.days),
-            messageDeletedAt: Date? = null,
+            messageCreatedAt: Instant? = Instant.now() - 1.days,
+            messageDeletedAt: Instant? = null,
             groupDisplayName: GroupDisplayName = GroupDisplayName.AllMembers(
                 memberDisplayNames = listOf(
                     ResourceIdString(R.string.me_myself_and_i),
@@ -688,6 +694,9 @@ private class PreviewProviderStarredGroupMessage : PreviewParameterProvider<Star
             isPrivate: Boolean = false,
         ) = StarredMessageUiModel.StarredGroupMessage(
             uid = "0",
+            conversationId = GroupConversationId(
+                groupDatabaseId = 0L,
+            ),
             messageModel = MessageModel().apply {
                 this.isOutbox = true
                 this.body = messageBody
@@ -700,11 +709,6 @@ private class PreviewProviderStarredGroupMessage : PreviewParameterProvider<Star
             sender = ConversationParticipant.Me(
                 identity = PreviewData.IDENTITY_ME,
             ),
-            groupIdentifier = GroupReceiverIdentifier(
-                groupDatabaseId = 0L,
-                groupCreatorIdentity = PreviewData.IDENTITY_ME.value,
-                groupApiId = 0L,
-            ),
             groupDisplayName = groupDisplayName,
             isPrivate = isPrivate,
         )
@@ -713,8 +717,8 @@ private class PreviewProviderStarredGroupMessage : PreviewParameterProvider<Star
             messageContent: String = "Incoming group message body.",
             messageBody: String = "Incoming group message body.",
             messageType: MessageType = MessageType.TEXT,
-            messageCreatedAt: Date? = now().minus(1.days),
-            messageDeletedAt: Date? = null,
+            messageCreatedAt: Instant? = Instant.now() - 1.days,
+            messageDeletedAt: Instant? = null,
             sender: ConversationParticipant = ConversationParticipant.Contact(
                 identity = PreviewData.IDENTITY_OTHER_1,
                 firstname = "Roberto",
@@ -729,6 +733,9 @@ private class PreviewProviderStarredGroupMessage : PreviewParameterProvider<Star
             isPrivate: Boolean = false,
         ) = StarredMessageUiModel.StarredGroupMessage(
             uid = "0",
+            conversationId = GroupConversationId(
+                groupDatabaseId = 0L,
+            ),
             messageModel = MessageModel().apply {
                 this.isOutbox = false
                 this.body = messageBody
@@ -739,11 +746,6 @@ private class PreviewProviderStarredGroupMessage : PreviewParameterProvider<Star
             messageContent = messageContent.toResolvedString(),
             mentionNames = PreviewData.mentionNames,
             sender = sender,
-            groupIdentifier = GroupReceiverIdentifier(
-                groupDatabaseId = 0L,
-                groupCreatorIdentity = PreviewData.IDENTITY_ME.value,
-                groupApiId = 0L,
-            ),
             groupDisplayName = groupDisplayName,
             isPrivate = isPrivate,
         )
@@ -753,7 +755,7 @@ private class PreviewProviderStarredGroupMessage : PreviewParameterProvider<Star
         get() = sequenceOf(
             createStarredGroupMessageOutgoing(),
             createStarredGroupMessageOutgoing(isPrivate = true),
-            createStarredGroupMessageOutgoing(messageDeletedAt = now()),
+            createStarredGroupMessageOutgoing(messageDeletedAt = Instant.now()),
             createStarredGroupMessageOutgoing(
                 messageType = MessageType.FILE,
                 messageBody = "[\"1\",\"1\",\"image/jpeg\",1,\"filename.jpg\",1,true,\"Look at this picture \uD83C\uDFD4\",\"image/jpeg\",{\"w\":" +
@@ -778,7 +780,7 @@ private class PreviewProviderStarredGroupMessage : PreviewParameterProvider<Star
             ),
             createStarredGroupMessageIncoming(),
             createStarredGroupMessageIncoming(isPrivate = true),
-            createStarredGroupMessageIncoming(messageDeletedAt = now()),
+            createStarredGroupMessageIncoming(messageDeletedAt = Instant.now()),
             createStarredGroupMessageIncoming(
                 messageType = MessageType.FILE,
                 messageBody = "[\"1\",\"1\",\"image/jpeg\",1,\"filename.jpg\",1,true,\"Look at this picture \uD83C\uDFD4\",\"image/jpeg\",{\"w\":" +

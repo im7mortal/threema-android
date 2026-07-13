@@ -2,7 +2,7 @@ package ch.threema.storage;
 
 import android.database.Cursor;
 
-import java.util.Date;
+import java.time.Instant;
 
 import androidx.annotation.Nullable;
 
@@ -103,10 +103,10 @@ public class CursorHelper implements AutoCloseable {
         return v != null && v == 1;
     }
 
-    public @Nullable Date getDate(String columnName) {
+    public @Nullable Instant getInstant(String columnName) {
         Long timestampMillis = this.getLong(columnName);
         if (timestampMillis != null) {
-            return new Date(timestampMillis);
+            return Instant.ofEpochMilli(timestampMillis);
         }
 
         return null;

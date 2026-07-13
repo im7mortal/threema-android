@@ -1,49 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/container"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginTop="2dp"
-    android:layout_marginLeft="2dp"
-    android:layout_marginRight="2dp"
-    android:duplicateParentState="true"
+    android:background="@drawable/selector_button_media_attach"
     android:descendantFocusability="blocksDescendants"
-    android:background="@drawable/selector_button_media_attach">
+    android:duplicateParentState="true"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:paddingHorizontal="@dimen/grid_unit_x0_5"
+    android:paddingVertical="@dimen/grid_unit_x0_25">
 
     <androidx.appcompat.widget.AppCompatImageView
         android:id="@+id/image"
         android:layout_width="@dimen/image_attach_popup_action_icon_size"
         android:layout_height="@dimen/image_attach_popup_action_icon_size"
-        android:importantForAccessibility="no"
         android:background="@drawable/circle_status_icon_color"
-        android:padding="12dp"
+        android:importantForAccessibility="no"
+        android:padding="@dimen/grid_unit_x1_5"
         app:tint="?attr/colorOnSurface"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toTopOf="@+id/label"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        app:layout_constraintVertical_chainStyle="packed" />
+        tools:src="@drawable/ic_location_pin" />
 
     <androidx.appcompat.widget.AppCompatTextView
         android:id="@+id/label"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:paddingLeft="2dp"
-        android:paddingRight="2dp"
-        android:layout_marginTop="2dp"
-        android:textAppearance="@style/MediaAttachButtonLabel"
-        android:importantForAccessibility="no"
-        android:textAlignment="center"
-        android:gravity="center_horizontal"
-        android:maxLines="2"
-        android:lineSpacingMultiplier="0.9"
-        android:ellipsize="end"
-        android:hyphenationFrequency="normal"
+        android:layout_marginTop="@dimen/grid_unit_x0_5"
         android:breakStrategy="simple"
-        app:layout_constraintTop_toBottomOf="@+id/image"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintLeft_toLeftOf="parent"
-        app:layout_constraintRight_toRightOf="parent" />
+        android:ellipsize="end"
+        android:gravity="center"
+        android:hyphenationFrequency="normal"
+        android:importantForAccessibility="no"
+        android:lineSpacingMultiplier="0.9"
+        android:maxLines="2"
+        android:textAppearance="@style/MediaAttachButtonLabel"
+        tools:text="@string/attach_location" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+</LinearLayout>

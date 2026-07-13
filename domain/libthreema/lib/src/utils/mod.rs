@@ -11,3 +11,6 @@ pub mod sequence_numbers;
 pub(crate) mod serde;
 pub(crate) mod sync;
 pub mod time;
+
+#[cfg(test)]
+pub(crate) mod test;

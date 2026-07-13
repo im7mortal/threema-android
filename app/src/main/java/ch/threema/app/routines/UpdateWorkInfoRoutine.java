@@ -91,6 +91,7 @@ public class UpdateWorkInfoRoutine implements Runnable {
                 String mdmDepartment = appRestrictions.getDepartment();
                 String mdmCSI = appRestrictions.getCsi();
                 String mdmCategory = appRestrictions.getCategory();
+                AppRestrictionService appRestrictionService = KoinJavaComponent.get(AppRestrictionService.class);
                 if (this.apiConnector.updateWorkInfo(
                     userCredentials.username,
                     userCredentials.password,
@@ -101,7 +102,7 @@ public class UpdateWorkInfoRoutine implements Runnable {
                     mdmDepartment,
                     mdmCSI,
                     mdmCategory,
-                    AppRestrictionService.getInstance().getMdmSource()
+                    appRestrictionService.getMdmSource()
                 )) {
                     logger.debug("work info successfully updated");
                 } else {
@@ -134,13 +135,13 @@ public class UpdateWorkInfoRoutine implements Runnable {
 
     @Nullable
     public static UpdateWorkInfoRoutine create() {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
 
         if (serviceManager == null) {
             return null;
         }
         return new UpdateWorkInfoRoutine(
-            serviceManager.getAPIConnector(),
+            serviceManager.getApiConnector(),
             serviceManager.getIdentityStore(),
             serviceManager.getDeviceService(),
             serviceManager.getLicenseService(),

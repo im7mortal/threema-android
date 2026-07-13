@@ -2,11 +2,9 @@ package ch.threema.app.errorreporting
 
 import android.content.Context
 import ch.threema.app.BuildConfig
-import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.TimeProvider
 import ch.threema.common.UUIDGenerator
-
-private val logger = getThreemaLogger("ThreemaUncaughtExceptionHandler")
+import ch.threema.logging.UncaughtExceptionsLogger
 
 class ThreemaUncaughtExceptionHandler(
     private val appContext: Context,
@@ -14,10 +12,10 @@ class ThreemaUncaughtExceptionHandler(
     private val defaultHandler: Thread.UncaughtExceptionHandler? = Thread.getDefaultUncaughtExceptionHandler()
 
     override fun uncaughtException(t: Thread, e: Throwable) {
-        logger.error("Uncaught exception", e)
+        UncaughtExceptionsLogger.logUnhandledException(e)
 
-        @Suppress("KotlinConstantConditions", "SimplifyBooleanWithConstants")
-        if (BuildConfig.ERROR_REPORTING_SUPPORTED && BuildConfig.SENTRY_PUBLIC_API_KEY.isNotEmpty()) {
+        @Suppress("KotlinConstantConditions")
+        if (BuildConfig.ERROR_REPORTING_SUPPORTED) {
             storeExceptionForErrorReporting(e)
         }
 
@@ -26,11 +24,11 @@ class ThreemaUncaughtExceptionHandler(
 
     private fun storeExceptionForErrorReporting(e: Throwable) {
         // Intentionally not using Koin here, as it might not be initialized yet at this point
-        ErrorRecordStore(
-            recordsDirectory = ErrorRecordStore.getRecordsDirectory(appContext),
+        ErrorRecordStoreImpl.create(
+            context = appContext,
             timeProvider = TimeProvider.default,
             uuidGenerator = UUIDGenerator.default,
         )
-            .storeErrorForUnhandledException(e)
+            .storeFatalError(e)
     }
 }

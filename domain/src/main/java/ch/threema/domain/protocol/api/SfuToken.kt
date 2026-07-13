@@ -4,7 +4,7 @@ import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import java.net.MalformedURLException
 import java.net.URL
-import java.util.*
+import java.time.Instant
 
 private val logger = getThreemaLogger("SfuToken")
 
@@ -12,7 +12,7 @@ data class SfuToken(
     val sfuBaseUrl: String,
     val allowedSfuHostnameSuffixes: Set<String>,
     val sfuToken: String,
-    val expirationDate: Date,
+    val expirationDate: Instant,
 ) {
     fun isAllowedBaseUrl(baseUrl: String): Boolean {
         return when (val url = parseUrl(baseUrl)) {

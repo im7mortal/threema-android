@@ -8,6 +8,7 @@ use crate::utils::debug::debug_slice_length;
 
 /// An error occurred while reading bytes.
 #[derive(Clone, Debug, thiserror::Error)]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum ByteReaderError {
     /// Provided relative offset would move the reader offset out of bounds.
     #[error(

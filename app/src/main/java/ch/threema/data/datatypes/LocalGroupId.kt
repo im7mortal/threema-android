@@ -3,6 +3,7 @@ package ch.threema.data.datatypes
 import ch.threema.data.models.GroupModel
 import ch.threema.storage.models.group.GroupModelOld
 
+// TODO(ANDR-4354): Unify this with GroupDatabaseId
 @JvmInline
 value class LocalGroupId(val id: Int)
 

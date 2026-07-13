@@ -1,14 +1,12 @@
 package ch.threema.app.voicemessage
 
-import android.app.Application
+import android.content.Context
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.MediaRecorder
-import android.net.Uri
 import android.text.format.DateUtils
 import androidx.core.net.toUri
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.application
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.preference.service.PreferenceService
@@ -18,8 +16,8 @@ import ch.threema.app.ui.MediaItem
 import ch.threema.app.utils.MediaPlayerStateWrapper
 import ch.threema.app.utils.MimeUtil
 import ch.threema.app.voicemessage.VoiceRecorderActivity.Companion.VOICE_MESSAGE_FILE_EXTENSION
-import ch.threema.app.voicemessage.VoiceRecorderActivity.Companion.defaultSamplingRate
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.logging.logAndReportError
 import java.io.File
 import java.io.IOException
 import kotlin.time.Duration
@@ -37,20 +35,18 @@ import kotlinx.coroutines.launch
 private val logger = getThreemaLogger("VoiceRecorderViewModel")
 
 class VoiceRecorderViewModel(
-    application: Application,
-    private val fileService: FileService,
+    private val appContext: Context,
     private val messageService: MessageService,
     private val preferenceService: PreferenceService,
+    private val fileService: FileService,
     private val messageReceiver: MessageReceiver<*>,
-) : AndroidViewModel(application) {
+) : ViewModel() {
 
     private val _events: MutableSharedFlow<VoiceRecorderViewModelEvent> = MutableSharedFlow()
     val events: SharedFlow<VoiceRecorderViewModelEvent> = _events
 
     private val _state: MutableStateFlow<VoiceRecorderScreenState> = MutableStateFlow(VoiceRecorderScreenState.initial())
     val state: StateFlow<VoiceRecorderScreenState> = _state
-
-    private var audioOutputUri: Uri? = null
 
     private var mediaRecorder: MediaRecorder? = null
     var mediaPlayer: MediaPlayerStateWrapper? = null
@@ -85,19 +81,24 @@ class VoiceRecorderViewModel(
         }
         logger.info("Start recording")
         viewModelScope.launch {
-            val outputUri: Uri = try {
+            val outputFile: File = try {
                 createAudioOutputFile()
             } catch (e: IOException) {
                 logger.error("Failed to create temp audio file", e)
                 _events.emit(VoiceRecorderViewModelEvent.FailedToCreateAudioOutputFile)
                 return@launch
             }
-            logger.info("Created recording output file {}", outputUri)
-            val audioRecorder = AudioRecorder(application).apply {
+            if (!outputFile.exists()) {
+                logger.logAndReportError("Output file {} does not exist after creating it", outputFile)
+                _events.emit(VoiceRecorderViewModelEvent.FailedToOpenAudioRecorder)
+                return@launch
+            }
+            logger.info("Created recording output file {}", outputFile)
+            val audioRecorder = AudioRecorder().apply {
                 setOnStopListener(onStopRecordingListener)
             }
             try {
-                mediaRecorder = audioRecorder.prepare(outputUri, defaultSamplingRate)!!
+                mediaRecorder = audioRecorder.prepare(outputFile)
                     .also { mediaRecorder ->
                         mediaRecorder.start()
                         logger.info("Started recording with {}", mediaRecorder)
@@ -112,9 +113,9 @@ class VoiceRecorderViewModel(
                 }
                 return@launch
             }
-            audioOutputUri = outputUri
             _state.value = _state.value.copy(
                 mediaState = MediaState.Record(
+                    file = outputFile,
                     isRecording = true,
                     duration = Duration.ZERO,
                 ),
@@ -190,11 +191,15 @@ class VoiceRecorderViewModel(
         if (currentMediaRecordState !is MediaState.Record) {
             return
         }
+        val audioOutputFile = currentMediaRecordState.file
         logger.info("Stop recording")
         try {
             mediaRecorder?.let { recorder ->
                 recorder.stop()
-                logger.info("Stopped recording with {}", recorder)
+                logger.info("Stopped recording to {} with {}", audioOutputFile, recorder)
+                if (audioOutputFile?.exists() != true) {
+                    logger.logAndReportError("Output file does not exist after stopping recording")
+                }
             }
         } catch (e: Exception) {
             logger.error("Exception while stopping recording", e)
@@ -202,7 +207,7 @@ class VoiceRecorderViewModel(
         releaseMediaRecorder()
         _state.value = _state.value.copy(
             mediaState = MediaState.FinishedRecording(
-                uri = audioOutputUri!!,
+                file = audioOutputFile!!,
             ),
         )
     }
@@ -222,13 +227,13 @@ class VoiceRecorderViewModel(
         logger.info("Initializing media player")
         try {
             mediaPlayer.apply {
-                setDataSource(application, currentMediaFinishedRecordingState.uri)
+                setDataSource(appContext, currentMediaFinishedRecordingState.file.toUri())
                 setOnPreparedListener { player: MediaPlayer ->
                     mediaPlayer.start()
                     logger.info("Started media player {}", player)
                     _state.value = _state.value.copy(
                         mediaState = MediaState.Playback(
-                            uri = currentMediaFinishedRecordingState.uri,
+                            file = currentMediaFinishedRecordingState.file,
                             isPlaying = true,
                             duration = player.duration.coerceAtLeast(0).milliseconds,
                         ),
@@ -329,14 +334,14 @@ class VoiceRecorderViewModel(
             releaseMediaPlayer()
         }
 
-        val uri = audioOutputUri ?: run {
-            logger.warn("Audio output uri is missing")
+        val file = currentMediaState.file ?: run {
+            logger.warn("Audio output file is null")
             viewModelScope.launch {
                 _events.emit(VoiceRecorderViewModelEvent.FailedToDetermineDuration)
             }
             return
         }
-        val audioFileDuration = getDurationFromFile(uri)
+        val audioFileDuration = getDurationFromFile(file)
         if (audioFileDuration == Duration.ZERO) {
             viewModelScope.launch {
                 _events.emit(VoiceRecorderViewModelEvent.FailedToDetermineDuration)
@@ -344,7 +349,7 @@ class VoiceRecorderViewModel(
             return
         }
 
-        val mediaItem = MediaItem(uri, MimeUtil.MIME_TYPE_AUDIO_AAC, null).apply {
+        val mediaItem = MediaItem(file.toUri(), MimeUtil.MIME_TYPE_AUDIO_AAC, null).apply {
             durationMs = audioFileDuration.inWholeMilliseconds.coerceAtLeast(
                 minimumValue = DateUtils.SECOND_IN_MILLIS,
             )
@@ -372,7 +377,7 @@ class VoiceRecorderViewModel(
                     }
                 }
                 is MediaState.FinishedRecording -> {
-                    val duration = getDurationFromFile(currentMediaState.uri)
+                    val duration = getDurationFromFile(currentMediaState.file)
                     if (duration >= discardConfirmationThresholdDuration && !force) {
                         _events.emit(VoiceRecorderViewModelEvent.ConfirmationRequiredToDiscard)
                     } else {
@@ -404,11 +409,15 @@ class VoiceRecorderViewModel(
         }
     }
 
-    private fun getDurationFromFile(uri: Uri): Duration {
-        logger.info("Attempting to retrieve duration from file {}", uri)
-        val durationCheckMediaPlayer: MediaPlayer = MediaPlayer.create(application, uri)
+    private fun getDurationFromFile(file: File): Duration {
+        logger.info("Attempting to retrieve duration from file {}", file)
+        if (!file.exists()) {
+            logger.error("File was not found")
+            return Duration.ZERO
+        }
+        val durationCheckMediaPlayer: MediaPlayer = MediaPlayer.create(appContext, file.toUri())
             ?: run {
-                logger.info("Unable to create a media player for checking size. File already deleted by OS?")
+                logger.warn("Unable to create a media player for checking size")
                 return Duration.ZERO
             }
         val durationMs = durationCheckMediaPlayer.duration
@@ -422,15 +431,8 @@ class VoiceRecorderViewModel(
     }
 
     @Throws(IOException::class)
-    private fun createAudioOutputFile(): Uri =
-        File.createTempFile(
-            /* prefix = */
-            "voice-",
-            /* suffix = */
-            VOICE_MESSAGE_FILE_EXTENSION,
-            /* directory = */
-            fileService.tempPath,
-        ).toUri()
+    private fun createAudioOutputFile(): File =
+        fileService.createTempFile(prefix = "voice", suffix = VOICE_MESSAGE_FILE_EXTENSION)
 
     /**
      *  Safe to call for an already released and cleared local media recorder

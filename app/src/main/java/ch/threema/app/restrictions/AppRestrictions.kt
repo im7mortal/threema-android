@@ -12,6 +12,9 @@ class AppRestrictions(
     private val appContext: Context,
     private val restrictionProvider: AppRestrictionProvider,
 ) {
+    fun isRestricted(): Boolean =
+        restrictionProvider.hasRestrictions
+
     fun isSkipWizard(): Boolean =
         getBooleanRestriction(R.string.restriction__skip_wizard) == true
 

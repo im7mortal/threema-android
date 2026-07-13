@@ -1,7 +1,6 @@
 package ch.threema.app.utils
 
 import ch.threema.app.AppConstants
-import ch.threema.app.managers.CoreServiceManager
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.messagereceiver.ContactMessageReceiver
 import ch.threema.app.messagereceiver.GroupMessageReceiver
@@ -9,15 +8,14 @@ import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.services.BlockedIdentitiesService
 import ch.threema.common.minus
-import ch.threema.common.now
 import ch.threema.common.plus
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.data.storage.DatabaseBackend
+import ch.threema.domain.models.UserState
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.protocol.csp.messages.DeleteMessage
 import ch.threema.domain.protocol.csp.messages.file.FileData
 import ch.threema.domain.protocol.csp.messages.file.FileData.RenderingType
-import ch.threema.domain.stores.IdentityStore
 import ch.threema.domain.taskmanager.TaskManager
 import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.DistributionListMessageModel
@@ -31,7 +29,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
-import java.util.Date
+import java.time.Instant
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -65,13 +63,6 @@ class MessageUtilTest {
 
     private val multiDeviceManagerMock: MultiDeviceManager = mockk<MultiDeviceManager>()
     private val taskManagerMock: TaskManager = mockk<TaskManager>()
-    private val coreServiceManagerMock: CoreServiceManager = mockk<CoreServiceManager> {
-        every { multiDeviceManager } returns multiDeviceManagerMock
-        every { taskManager } returns taskManagerMock
-        every { identityStore } returns mockk<IdentityStore> {
-            every { getIdentityString() } returns TestData.Identities.ME.value
-        }
-    }
 
     private val blockedIdentitiesServiceMock = mockk<BlockedIdentitiesService>()
     private val serviceManagerMock: ServiceManager = mockk<ServiceManager> {
@@ -211,13 +202,9 @@ class MessageUtilTest {
     @Test
     fun hasDataFile() {
         assertFalse(MessageUtil.hasDataFile(messageModelWithType(MessageType.TEXT)))
-        assertTrue(MessageUtil.hasDataFile(messageModelWithType(MessageType.IMAGE)))
-        assertTrue(MessageUtil.hasDataFile(messageModelWithType(MessageType.VIDEO)))
-        assertTrue(MessageUtil.hasDataFile(messageModelWithType(MessageType.VOICEMESSAGE)))
         assertFalse(MessageUtil.hasDataFile(messageModelWithType(MessageType.LOCATION)))
-        assertFalse(MessageUtil.hasDataFile(messageModelWithType(MessageType.CONTACT)))
         assertFalse(MessageUtil.hasDataFile(messageModelWithType(MessageType.STATUS)))
-        assertFalse(MessageUtil.hasDataFile(messageModelWithType(MessageType.BALLOT)))
+        assertFalse(MessageUtil.hasDataFile(messageModelWithType(MessageType.POLL)))
         assertTrue(MessageUtil.hasDataFile(messageModelWithType(MessageType.FILE)))
     }
 
@@ -225,28 +212,10 @@ class MessageUtilTest {
     @Test
     fun hasThumbnailFile() {
         assertFalse(MessageUtil.canHaveThumbnailFile(messageModelWithType(MessageType.TEXT)))
-        assertTrue(MessageUtil.canHaveThumbnailFile(messageModelWithType(MessageType.IMAGE)))
-        assertTrue(MessageUtil.canHaveThumbnailFile(messageModelWithType(MessageType.VIDEO)))
-        assertFalse(MessageUtil.canHaveThumbnailFile(messageModelWithType(MessageType.VOICEMESSAGE)))
         assertFalse(MessageUtil.canHaveThumbnailFile(messageModelWithType(MessageType.LOCATION)))
-        assertFalse(MessageUtil.canHaveThumbnailFile(messageModelWithType(MessageType.CONTACT)))
         assertFalse(MessageUtil.canHaveThumbnailFile(messageModelWithType(MessageType.STATUS)))
-        assertFalse(MessageUtil.canHaveThumbnailFile(messageModelWithType(MessageType.BALLOT)))
+        assertFalse(MessageUtil.canHaveThumbnailFile(messageModelWithType(MessageType.POLL)))
         assertTrue(MessageUtil.canHaveThumbnailFile(messageModelWithType(MessageType.FILE)))
-    }
-
-    @Suppress("DEPRECATION")
-    @Test
-    fun fileTypes() {
-        assertFalse(MessageUtil.getFileTypes().contains(MessageType.TEXT))
-        assertFalse(MessageUtil.getFileTypes().contains(MessageType.BALLOT))
-        assertFalse(MessageUtil.getFileTypes().contains(MessageType.CONTACT))
-        assertFalse(MessageUtil.getFileTypes().contains(MessageType.LOCATION))
-        assertFalse(MessageUtil.getFileTypes().contains(MessageType.STATUS))
-        assertTrue(MessageUtil.getFileTypes().contains(MessageType.IMAGE))
-        assertTrue(MessageUtil.getFileTypes().contains(MessageType.VOICEMESSAGE))
-        assertTrue(MessageUtil.getFileTypes().contains(MessageType.VIDEO))
-        assertTrue(MessageUtil.getFileTypes().contains(MessageType.FILE))
     }
 
     @Test
@@ -485,19 +454,6 @@ class MessageUtilTest {
         )
     }
 
-    @Suppress("DEPRECATION")
-    @Test
-    fun autoGenerateThumbnail() {
-        assertFalse(MessageUtil.autoGenerateThumbnail(messageModelWithType(MessageType.TEXT)))
-        assertTrue(MessageUtil.autoGenerateThumbnail(messageModelWithType(MessageType.IMAGE)))
-        assertFalse(MessageUtil.autoGenerateThumbnail(messageModelWithType(MessageType.VIDEO)))
-        assertFalse(MessageUtil.autoGenerateThumbnail(messageModelWithType(MessageType.VOICEMESSAGE)))
-        assertFalse(MessageUtil.autoGenerateThumbnail(messageModelWithType(MessageType.CONTACT)))
-        assertFalse(MessageUtil.autoGenerateThumbnail(messageModelWithType(MessageType.STATUS)))
-        assertFalse(MessageUtil.autoGenerateThumbnail(messageModelWithType(MessageType.BALLOT)))
-        assertFalse(MessageUtil.autoGenerateThumbnail(messageModelWithType(MessageType.FILE)))
-    }
-
     @Test
     fun allReceivers_message_without_affected_receivers() {
         val contactMessageReceiver = TestData.createAndMockContactMessageReceiver(
@@ -506,7 +462,8 @@ class MessageUtilTest {
             databaseBackendMock = databaseBackendMock,
             blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
         )
 
         // Message receiver without affected receivers
@@ -526,7 +483,8 @@ class MessageUtilTest {
             contactModelRepositoryMock = contactModelRepositoryMock,
             databaseBackendMock = databaseBackendMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
             blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
         )
         val allReceivers: List<MessageReceiver<*>> = MessageUtil.getAllReceivers(distributionListReceiver)
@@ -550,7 +508,8 @@ class MessageUtilTest {
             databaseBackendMock = databaseBackendMock,
             blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
         )
         val distributionListReceiver = TestData.createAndMockDistributionListMessageReceiver(
             distributionListId = 1L,
@@ -558,7 +517,8 @@ class MessageUtilTest {
             contactModelRepositoryMock = contactModelRepositoryMock,
             databaseBackendMock = databaseBackendMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
             blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
         )
         val resolvedReceivers = MessageUtil.addDistributionListReceivers(
@@ -581,7 +541,8 @@ class MessageUtilTest {
             databaseBackendMock = databaseBackendMock,
             blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
         )
         val contactMessageReceiver2: MessageReceiver<*> = TestData.createAndMockContactMessageReceiver(
             identity = TestData.Identities.OTHER_2,
@@ -590,7 +551,8 @@ class MessageUtilTest {
             databaseBackendMock = databaseBackendMock,
             blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
         )
         val contactMessageReceiver3: MessageReceiver<*> = TestData.createAndMockContactMessageReceiver(
             identity = TestData.Identities.OTHER_3,
@@ -599,7 +561,8 @@ class MessageUtilTest {
             databaseBackendMock = databaseBackendMock,
             blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
         )
         val emptyDistributionListMessageReceiver = TestData.createAndMockDistributionListMessageReceiver(
             distributionListId = 1L,
@@ -607,7 +570,8 @@ class MessageUtilTest {
             contactModelRepositoryMock = contactModelRepositoryMock,
             databaseBackendMock = databaseBackendMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
             blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
         )
         val distributionListMessageReceiver = TestData.createAndMockDistributionListMessageReceiver(
@@ -619,7 +583,8 @@ class MessageUtilTest {
             contactModelRepositoryMock = contactModelRepositoryMock,
             databaseBackendMock = databaseBackendMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
             blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
         )
 
@@ -651,7 +616,8 @@ class MessageUtilTest {
             databaseBackendMock = databaseBackendMock,
             blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
         )
         val contactMessageReceiver2 = TestData.createAndMockContactMessageReceiver(
             identity = TestData.Identities.OTHER_2,
@@ -659,7 +625,8 @@ class MessageUtilTest {
             databaseBackendMock = databaseBackendMock,
             blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
         )
         val contactMessageReceiver3 = TestData.createAndMockContactMessageReceiver(
             identity = TestData.Identities.OTHER_3,
@@ -667,7 +634,8 @@ class MessageUtilTest {
             databaseBackendMock = databaseBackendMock,
             blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
         )
 
         val duplicate1 = TestData.createAndMockContactMessageReceiver(
@@ -676,7 +644,8 @@ class MessageUtilTest {
             databaseBackendMock = databaseBackendMock,
             blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
         )
 
         val emptyDistributionListMessageReceiver = TestData.createAndMockDistributionListMessageReceiver(
@@ -685,7 +654,8 @@ class MessageUtilTest {
             contactModelRepositoryMock = contactModelRepositoryMock,
             databaseBackendMock = databaseBackendMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
             blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
         )
         val distributionListMessageReceiver = TestData.createAndMockDistributionListMessageReceiver(
@@ -699,7 +669,8 @@ class MessageUtilTest {
             contactModelRepositoryMock = contactModelRepositoryMock,
             databaseBackendMock = databaseBackendMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
             blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
         )
 
@@ -745,8 +716,8 @@ class MessageUtilTest {
         val message = createAbstractMessageModel(
             type = MessageType.TEXT,
             isOutbox = true,
-            createdAt = now(),
-            postedAt = now(),
+            createdAt = Instant.now(),
+            postedAt = Instant.now(),
         )
 
         assertTrue(message.canBeEdited())
@@ -757,8 +728,8 @@ class MessageUtilTest {
         val message = createAbstractMessageModel(
             type = MessageType.FILE,
             isOutbox = true,
-            createdAt = now(),
-            postedAt = now(),
+            createdAt = Instant.now(),
+            postedAt = Instant.now(),
         )
 
         assertTrue(message.canBeEdited())
@@ -769,8 +740,8 @@ class MessageUtilTest {
         val message = createAbstractMessageModel(
             type = MessageType.TEXT,
             isOutbox = true,
-            createdAt = now() - 5.9.hours,
-            postedAt = now(),
+            createdAt = Instant.now() - 5.9.hours,
+            postedAt = Instant.now(),
         )
 
         assertTrue(message.canBeEdited())
@@ -778,13 +749,13 @@ class MessageUtilTest {
 
     @Test
     fun `message can be edited if it is less than 6 hours older than custom editTime`() {
-        val editTime = now() - 4.hours
+        val editTime = Instant.now() - 4.hours
 
         val message = createAbstractMessageModel(
             type = MessageType.TEXT,
             isOutbox = true,
             createdAt = editTime - 5.9.hours,
-            postedAt = now(),
+            postedAt = Instant.now(),
         )
 
         assertTrue(message.canBeEdited(editTime = editTime))
@@ -795,8 +766,8 @@ class MessageUtilTest {
         val message = createAbstractMessageModel(
             type = MessageType.TEXT,
             isOutbox = true,
-            createdAt = now() - 6.1.hours,
-            postedAt = now(),
+            createdAt = Instant.now() - 6.1.hours,
+            postedAt = Instant.now(),
         )
 
         assertFalse(message.canBeEdited())
@@ -807,8 +778,8 @@ class MessageUtilTest {
         val message = createAbstractMessageModel(
             type = MessageType.TEXT,
             isOutbox = true,
-            createdAt = now() - 6.1.hours,
-            postedAt = now(),
+            createdAt = Instant.now() - 6.1.hours,
+            postedAt = Instant.now(),
         )
 
         assertTrue(message.canBeEdited(belongsToNotesGroup = true))
@@ -820,8 +791,8 @@ class MessageUtilTest {
             type = MessageType.TEXT,
             isStatusMessage = true,
             isOutbox = true,
-            createdAt = now(),
-            postedAt = now(),
+            createdAt = Instant.now(),
+            postedAt = Instant.now(),
         )
 
         assertFalse(message.canBeEdited())
@@ -832,8 +803,8 @@ class MessageUtilTest {
         val message = createAbstractMessageModel(
             type = MessageType.TEXT,
             isOutbox = false,
-            createdAt = now(),
-            postedAt = now(),
+            createdAt = Instant.now(),
+            postedAt = Instant.now(),
         )
 
         assertFalse(message.canBeEdited())
@@ -844,8 +815,8 @@ class MessageUtilTest {
         val message = createAbstractMessageModel(
             type = MessageType.LOCATION,
             isOutbox = true,
-            createdAt = now(),
-            postedAt = now(),
+            createdAt = Instant.now(),
+            postedAt = Instant.now(),
         )
 
         assertFalse(message.canBeEdited())
@@ -856,8 +827,8 @@ class MessageUtilTest {
         val message = createAbstractMessageModel(
             type = MessageType.TEXT,
             isOutbox = true,
-            createdAt = now(),
-            postedAt = now(),
+            createdAt = Instant.now(),
+            postedAt = Instant.now(),
             isDeleted = true,
         )
 
@@ -869,7 +840,7 @@ class MessageUtilTest {
         val message = createAbstractMessageModel(
             type = MessageType.TEXT,
             isOutbox = true,
-            createdAt = now(),
+            createdAt = Instant.now(),
             postedAt = null,
         )
 
@@ -881,7 +852,7 @@ class MessageUtilTest {
         val message = createAbstractMessageModel(
             type = MessageType.TEXT,
             isOutbox = true,
-            createdAt = now(),
+            createdAt = Instant.now(),
             postedAt = null,
             state = MessageState.SENDFAILED,
         )
@@ -896,8 +867,8 @@ class MessageUtilTest {
             every { isStatusMessage } returns false
             every { isDeleted } returns false
             every { isOutbox } returns true
-            every { createdAt } returns now()
-            every { postedAt } returns now()
+            every { createdAt } returns Instant.now()
+            every { postedAt } returns Instant.now()
         }
 
         assertTrue(message.canBeEdited())
@@ -910,8 +881,8 @@ class MessageUtilTest {
             every { isStatusMessage } returns false
             every { isDeleted } returns false
             every { isOutbox } returns true
-            every { createdAt } returns now()
-            every { postedAt } returns now()
+            every { createdAt } returns Instant.now()
+            every { postedAt } returns Instant.now()
         }
 
         assertFalse(message.canBeEdited())
@@ -926,18 +897,19 @@ class MessageUtilTest {
             databaseBackendMock = databaseBackendMock,
             blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
         )
-        val messageCreatedAtTooOld: Date = Date()
-            .minus(duration = DeleteMessage.DELETE_MESSAGES_MAX_AGE.milliseconds)
-            .minus(duration = 1.days)
+        val messageCreatedAtTooOld = Instant.now() -
+            DeleteMessage.DELETE_MESSAGES_MAX_AGE.milliseconds -
+            1.days
         val message: AbstractMessageModel = createAbstractMessageModel(
             type = MessageType.TEXT,
             isStatusMessage = false,
             isDeleted = false,
             isOutbox = true,
             createdAt = messageCreatedAtTooOld,
-            postedAt = messageCreatedAtTooOld.plus(100.milliseconds),
+            postedAt = messageCreatedAtTooOld + 100.milliseconds,
             state = MessageState.SENT,
         )
 
@@ -957,15 +929,17 @@ class MessageUtilTest {
             groupDatabaseId = 1L,
             ownIdentity = ownIdentity,
             creatorIdentity = creatorIdentity,
+            userState = UserState.MEMBER,
             otherMembers = emptySet(),
             databaseBackendMock = databaseBackendMock,
             contactModelRepositoryMock = contactModelRepositoryMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
         )
-        val messageCreatedAtTooOld: Date = Date()
-            .minus(duration = DeleteMessage.DELETE_MESSAGES_MAX_AGE.milliseconds)
-            .minus(duration = 1.days)
+        val messageCreatedAtTooOld: Instant = Instant.now() -
+            DeleteMessage.DELETE_MESSAGES_MAX_AGE.milliseconds -
+            1.days
         val message: AbstractMessageModel = createAbstractMessageModel(
             type = MessageType.TEXT,
             isStatusMessage = false,
@@ -992,14 +966,15 @@ class MessageUtilTest {
             groupDatabaseId = 1L,
             ownIdentity = ownIdentity,
             creatorIdentity = creatorIdentity,
+            userState = UserState.MEMBER,
             otherMembers = emptySet(),
             databaseBackendMock = databaseBackendMock,
             contactModelRepositoryMock = contactModelRepositoryMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
         )
-        val messageCreatedAtYoungEnough: Date = Date()
-            .minus(duration = (DeleteMessage.DELETE_MESSAGES_MAX_AGE / 2).milliseconds)
+        val messageCreatedAtYoungEnough = Instant.now() - (DeleteMessage.DELETE_MESSAGES_MAX_AGE / 2).milliseconds
         val message: AbstractMessageModel = createAbstractMessageModel(
             type = MessageType.TEXT,
             isStatusMessage = false,
@@ -1025,15 +1000,17 @@ class MessageUtilTest {
             groupDatabaseId = 1L,
             ownIdentity = ownIdentity,
             creatorIdentity = ownIdentity,
+            userState = UserState.MEMBER,
             otherMembers = emptySet(),
             databaseBackendMock = databaseBackendMock,
             contactModelRepositoryMock = contactModelRepositoryMock,
             serviceManagerMock = serviceManagerMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManagerMock,
         )
-        val messageCreatedAtTooOld: Date = Date()
-            .minus(duration = DeleteMessage.DELETE_MESSAGES_MAX_AGE.milliseconds)
-            .minus(duration = 1.days)
+        val messageCreatedAtTooOld = Instant.now() -
+            DeleteMessage.DELETE_MESSAGES_MAX_AGE.milliseconds -
+            1.days
         val message: AbstractMessageModel = createAbstractMessageModel(
             type = MessageType.TEXT,
             isStatusMessage = false,
@@ -1080,8 +1057,8 @@ class MessageUtilTest {
             isStatusMessage: Boolean = false,
             isDeleted: Boolean = false,
             isOutbox: Boolean,
-            createdAt: Date?,
-            postedAt: Date? = null,
+            createdAt: Instant?,
+            postedAt: Instant? = null,
             state: MessageState? = null,
         ): AbstractMessageModel {
             return mockk<MessageModel> {

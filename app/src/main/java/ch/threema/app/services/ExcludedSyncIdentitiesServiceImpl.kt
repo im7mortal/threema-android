@@ -40,7 +40,7 @@ class ExcludedSyncIdentitiesServiceImpl(
     @Synchronized
     override fun setExcludedIdentities(identities: Set<IdentityString>, triggerSource: TriggerSource) {
         logger.info("Setting updated sync exclusion list")
-        preferenceService.setList(UNIQUE_LIST_NAME, identities.toTypedArray())
+        preferenceService.setEncryptedList(UNIQUE_LIST_NAME, identities.toTypedArray())
         excludedSyncIdentitiesCache = WeakReference(identities)
         if (multiDeviceManager.isMultiDeviceActive && triggerSource != TriggerSource.SYNC) {
             taskCreator.scheduleReflectExcludeFromSyncIdentitiesTask()

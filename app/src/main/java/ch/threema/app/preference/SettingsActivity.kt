@@ -9,7 +9,7 @@ import androidx.fragment.app.Fragment
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import ch.threema.android.buildActivityIntent
-import ch.threema.android.getSerializable
+import ch.threema.android.getSerializableExtraCompat
 import ch.threema.app.R
 import ch.threema.app.activities.ThreemaToolbarActivity
 import ch.threema.app.preference.service.SynchronizedSettingsService
@@ -49,11 +49,11 @@ class SettingsActivity : ThreemaToolbarActivity(), PreferenceFragmentCompat.OnPr
         }
 
         if (savedInstanceState == null) {
-            when (intent.getSerializable<InitialScreen>(EXTRA_INITIAL_SCREEN)) {
+            when (intent.getSerializableExtraCompat<InitialScreen>(EXTRA_INITIAL_SCREEN)) {
                 InitialScreen.MEDIA -> showSpecificSettings(SettingsMediaFragment())
                 InitialScreen.NOTIFICATIONS -> showSpecificSettings(SettingsNotificationsFragment())
                 InitialScreen.SECURITY -> showSpecificSettings(SettingsSecurityFragment())
-                else -> showDefaultSettings()
+                null -> showDefaultSettings()
             }
         } else if (isTabletLayout()) {
             // Remove and recreate fragments on tablets because they are not attached to the activity anymore
@@ -85,7 +85,7 @@ class SettingsActivity : ThreemaToolbarActivity(), PreferenceFragmentCompat.OnPr
 
     /**
      * This is called, when the settings must jump to a specific category. This is the case for the security settings when
-     * marking a private chat when no locking mechanism is set.
+     * marking a private chat when no lock mechanism is set.
      *
      * @param fragment the fragment that should be shown (directly)
      */
@@ -146,7 +146,7 @@ class SettingsActivity : ThreemaToolbarActivity(), PreferenceFragmentCompat.OnPr
         }
         transaction.commit()
 
-        settingsSummaryFragment.onPrefClicked(pref.key)
+        settingsSummaryFragment.selectActivePreference(pref.key)
 
         return true
     }

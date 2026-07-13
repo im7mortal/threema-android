@@ -1,13 +1,12 @@
 package ch.threema.app.startup
 
 import ch.threema.app.framework.BaseViewModel
-import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.UserService
 import ch.threema.app.services.license.LicenseService
 import ch.threema.app.startup.models.RemoteSecretUpdateStatus
 import ch.threema.app.startup.models.RemoteSecretUpdateType
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.common.toCryptographicByteArray
 import ch.threema.domain.models.UserCredentials
 import ch.threema.domain.protocol.ServerAddressProvider
@@ -25,14 +24,17 @@ private val logger = getThreemaLogger("RemoteSecretProtectionUpdateViewModel")
 class RemoteSecretProtectionUpdateViewModel(
     private val masterKeyManager: MasterKeyManager,
     private val serverAddressProvider: ServerAddressProvider,
-    private val preferenceService: PreferenceService,
     private val userService: UserService,
     private val licenseService: LicenseService<*>,
     private val dispatcherProvider: DispatcherProvider,
 ) : BaseViewModel<RemoteSecretProtectionUpdateViewState, RemoteSecretProtectionUpdateViewModelEvent>() {
     private var isRunning = false
 
-    override fun initialize() = runInitialization {
+    override suspend fun initialize(): RemoteSecretProtectionUpdateViewState {
+        runWhenActive {
+            runRemoteSecretProtectionUpdate()
+        }
+
         val updateType = when (masterKeyManager.getRemoteSecretProtectionInstruction()) {
             RemoteSecretProtectionInstruction.SHOULD_ACTIVATE -> RemoteSecretUpdateType.ACTIVATING
             RemoteSecretProtectionInstruction.SHOULD_DEACTIVATE -> RemoteSecretUpdateType.DEACTIVATING
@@ -44,14 +46,10 @@ class RemoteSecretProtectionUpdateViewModel(
             }
         }
 
-        RemoteSecretProtectionUpdateViewState(
+        return RemoteSecretProtectionUpdateViewState(
             updateType = updateType,
             status = RemoteSecretUpdateStatus.IDLE,
         )
-    }
-
-    override suspend fun onActive() {
-        runRemoteSecretProtectionUpdate()
     }
 
     fun onClickedRetry() {
@@ -60,7 +58,7 @@ class RemoteSecretProtectionUpdateViewModel(
 
     private fun runRemoteSecretProtectionUpdate() = runAction {
         if (isRunning) {
-            endAction()
+            return@runAction
         }
         isRunning = true
         try {
@@ -95,7 +93,7 @@ class RemoteSecretProtectionUpdateViewModel(
     private fun getRemoteSecretClientParameters(): RemoteSecretClientParameters =
         RemoteSecretClientParameters(
             workServerBaseUrl = serverAddressProvider
-                .getWorkServerUrlLegacy(preferenceService.isIpv6Preferred())
+                .getWorkServerUrlLegacy()
                 ?: error("No work server URL found"),
             userIdentity = userService.identity
                 ?.toIdentityOrNull()

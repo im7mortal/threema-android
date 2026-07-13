@@ -1,0 +1,93 @@
+package ch.threema.domain.protocol.csp.messages.poll;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import ch.threema.domain.protocol.csp.messages.BadMessageException;
+
+public class PollDataChoiceTest {
+
+    static class PollDataChoiceString extends PollDataChoice {
+        public PollDataChoiceString(int resultSize) {
+            super(resultSize);
+        }
+
+        @Override
+        public String toString() {
+            try {
+                return this.generateString();
+            } catch (BadMessageException e) {
+                return "ERROR: " + e.getMessage();
+            }
+        }
+    }
+
+    @Test
+    public void parseValidString() {
+        String correct = "{"
+            + "\"i\": 0,"
+            + "\"n\": \"desc\","
+            + "\"o\": 123"
+            + "}";
+
+        PollDataChoice result = null;
+        try {
+            result = PollDataChoice.parse(correct);
+        } catch (BadMessageException e) {
+            Assertions.fail(e.getMessage());
+        }
+        Assertions.assertNotNull(result);
+    }
+
+    @Test
+    public void parseInvalidType() {
+        String correct = "{"
+            + "\"i\": 0,"
+            + "\"t\": 123123,"
+            + "\"n\": \"desc\","
+            + "\"v\": 200"
+            + "}";
+
+        try {
+            PollDataChoice.parse(correct);
+            Assertions.fail("wrong type parsed");
+        } catch (BadMessageException e) {
+            //cool!
+        }
+    }
+
+    @Test
+    public void parseInvalidString() {
+        try {
+            PollDataChoice.parse("i want to be a hippie");
+            Assertions.fail("invalid string parsed");
+        } catch (BadMessageException e) {
+            //ok! exception received
+        }
+    }
+
+    @Test
+    public void toStringTest() {
+        PollDataChoice c = new PollDataChoiceString(4);
+        c.setId(100);
+        c.setOrder(123);
+        int pos = 0;
+        c
+            .addResult(pos++, 1)
+            .addResult(pos++, 0)
+            .addResult(pos++, 0)
+            .addResult(pos++, 1);
+        c.setName("Test");
+        c.setTotalVotes(4);
+
+        try {
+            JSONObject o = new JSONObject("{\"i\":100,\"n\":\"Test\",\"o\":123, \"r\": [1,0,0,1], \"t\":4}");
+            Assertions.assertEquals(o.toString(), c.toString());
+        } catch (JSONException e) {
+            Assertions.fail("internal error");
+        }
+
+    }
+}

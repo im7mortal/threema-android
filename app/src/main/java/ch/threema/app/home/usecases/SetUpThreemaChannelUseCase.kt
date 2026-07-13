@@ -1,11 +1,11 @@
 package ch.threema.app.home.usecases
 
 import android.content.Context
-import ch.threema.app.AppConstants.THREEMA_CHANNEL_IDENTITY
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.MessageService
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.data.datatypes.PredefinedContact.Companion.THREEMA_CHANNEL_IDENTITY
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 

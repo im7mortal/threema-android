@@ -1,12 +1,15 @@
 package ch.threema.domain.fs
 
+import ch.threema.base.ThreemaException
 import ch.threema.domain.helpers.DummyUsers
+import ch.threema.domain.models.Contact
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import org.junit.jupiter.api.assertThrows
 
 class DHSessionTest {
 
@@ -27,6 +30,18 @@ class DHSessionTest {
             DummyUsers.getContactForUser(DummyUsers.ALICE),
             DummyUsers.getIdentityStoreForUser(DummyUsers.BOB),
         )
+    }
+
+    @Test
+    fun testDeriveSecretFromNonContributor() {
+        // Libthreema raises exception due to non-contributory public key
+        assertThrows<ThreemaException> {
+            DHSession(
+                // Contact with a zero public key will be rejected.
+                Contact("01234567", ByteArray(32)),
+                DummyUsers.getIdentityStoreForUser(DummyUsers.ALICE),
+            )
+        }
     }
 
     @Test

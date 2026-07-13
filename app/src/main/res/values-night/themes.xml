@@ -70,8 +70,9 @@
         <item name="windowActionModeOverlay">true</item>
 
         <!-- drawables -->
-        <item name="android:actionModeCloseDrawable">@drawable/ic_close_daynight</item>
-        <item name="actionModeCloseDrawable">@drawable/ic_close_daynight</item>
+        <item name="homeAsUpIndicator">@drawable/ic_arrow_left</item>
+        <item name="android:actionModeCloseDrawable">@drawable/ic_close</item>
+        <item name="actionModeCloseDrawable">@drawable/ic_close</item>
         <item name="android:fastScrollThumbDrawable">@drawable/fastscroll_thumb_material</item>
 
         <!-- mapping for system styles -->
@@ -109,9 +110,11 @@
         <item name="android:windowAnimationStyle">@style/Threema.Animation.ActivityTransitions
         </item>
         <item name="tabStyle">@style/Threema.TabStyle</item>
-        <item name="snackbarStyle">@style/Threema.Snackbar.Style</item>
-        <item name="snackbarButtonStyle">@style/Threema.Snackbar.ButtonStyle</item>
-        <item name="snackbarTextViewStyle">@style/Threema.Snackbar.TextViewStyle</item>
+        <item name="floatingActionButtonPrimaryStyle">@style/Threema.FloatingActionButton.Primary
+        </item>
+        <item name="extendedFloatingActionButtonPrimaryStyle">
+            @style/Threema.ExtendedFloatingActionButton.Primary
+        </item>
 
         <!-- Action mode & Action bar -->
         <item name="actionModeStyle">@style/Threema.ActionMode</item>

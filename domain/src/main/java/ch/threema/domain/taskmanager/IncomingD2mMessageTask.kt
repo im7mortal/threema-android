@@ -3,7 +3,6 @@ package ch.threema.domain.taskmanager
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.protocol.D2mPayloadType
 import ch.threema.domain.protocol.connection.data.InboundD2mMessage
-import ch.threema.domain.protocol.connection.data.toHex
 
 private val logger = getThreemaLogger("IncomingD2mMessageTask")
 
@@ -20,7 +19,7 @@ class IncomingD2mMessageTask(
 
             else -> logger.warn(
                 "Unexpected d2m message of type 0x{} received",
-                message.payloadType.toHex(),
+                message.payloadType.toHexString(),
             )
         }
     }

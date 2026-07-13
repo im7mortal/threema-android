@@ -1,7 +1,9 @@
 package ch.threema.app.contacts
 
 import android.os.Looper
-import ch.threema.app.TestCoreServiceManager
+import ch.threema.app.TestMultiDeviceManager
+import ch.threema.app.TestNonceStore
+import ch.threema.app.TestTaskManager
 import ch.threema.app.asynctasks.AddContactRestrictionPolicy
 import ch.threema.app.asynctasks.AddOrUpdateContactBackgroundTask
 import ch.threema.app.asynctasks.AlreadyVerified
@@ -13,95 +15,97 @@ import ch.threema.app.asynctasks.ContactResult
 import ch.threema.app.asynctasks.InvalidThreemaId
 import ch.threema.app.asynctasks.RemotePublicKeyMismatch
 import ch.threema.app.asynctasks.UserIdentity
-import ch.threema.app.managers.CoreServiceManager
+import ch.threema.app.protocolsteps.Contact
+import ch.threema.app.protocolsteps.ContactOrInit
+import ch.threema.app.protocolsteps.Init
+import ch.threema.app.protocolsteps.Invalid
+import ch.threema.app.protocolsteps.UserContact
+import ch.threema.app.protocolsteps.ValidContactsLookupSteps
 import ch.threema.app.restrictions.AppRestrictions
-import ch.threema.app.stores.IdentityProvider
 import ch.threema.app.utils.executor.BackgroundExecutor
 import ch.threema.base.crypto.NaCl
-import ch.threema.common.Http
+import ch.threema.base.crypto.NonceFactory
+import ch.threema.data.models.ContactModel
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.data.repositories.ModelRepositories
+import ch.threema.domain.helpers.TransactionAckTaskCodec
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
 import ch.threema.domain.models.VerificationLevel
-import ch.threema.domain.protocol.Version
-import ch.threema.domain.protocol.api.APIConnector
-import ch.threema.domain.protocol.api.APIConnector.FetchIdentityResult
-import ch.threema.domain.protocol.api.APIConnector.HttpConnectionException
-import ch.threema.domain.stores.IdentityStore
 import ch.threema.domain.types.Identity
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.TestDatabaseProvider
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel
+import ch.threema.test.TestData
+import ch.threema.test.TestData.PUBLIC_KEY
+import ch.threema.test.TestDatabaseProvider
+import ch.threema.test.TestIdentityProvider
+import ch.threema.testhelpers.TestDispatcherProvider
+import io.mockk.Runs
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.verify
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.test.fail
-import kotlinx.coroutines.runBlocking
-import okhttp3.OkHttpClient
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
+import kotlinx.coroutines.test.runTest
 
-class AddOrUpdateContactBackgroundTaskTest : KoinComponent {
-    private val appRestrictions: AppRestrictions by inject()
+class AddOrUpdateContactBackgroundTaskTest {
+    private val appRestrictions: AppRestrictions = mockk {
+        every { isAddContactDisabled() } returns false
+    }
 
     private val backgroundExecutor = BackgroundExecutor()
     private lateinit var databaseProvider: TestDatabaseProvider
-    private lateinit var coreServiceManager: CoreServiceManager
     private lateinit var contactModelRepository: ContactModelRepository
-
-    private val myIdentity = "00000000"
 
     @BeforeTest
     fun before() {
         databaseProvider = TestDatabaseProvider()
-        val identityProviderMock = mockk<IdentityProvider> {
-            every { getIdentity() } returns Identity(myIdentity)
-            every { getIdentityString() } returns myIdentity
-        }
-        val identityStoreMock = mockk<IdentityStore> {
-            every { getIdentity() } returns Identity(myIdentity)
-            every { getIdentityString() } returns myIdentity
-        }
-        coreServiceManager = TestCoreServiceManager(
+        val identityProviderMock = TestIdentityProvider(Identity(MY_IDENTITY))
+        contactModelRepository = ModelRepositories(
             databaseProvider = databaseProvider,
             identityProvider = identityProviderMock,
-            identityStore = identityStoreMock,
-        )
-        contactModelRepository = ModelRepositories(
-            coreServiceManager = coreServiceManager,
-            identityProvider = identityProviderMock,
+            multiDeviceManager = TestMultiDeviceManager(),
+            taskManager = TestTaskManager(TransactionAckTaskCodec()),
+            nonceFactory = NonceFactory(TestNonceStore()),
+            globalEventBuses = mockk(relaxed = true),
+            globalEventFlows = mockk(relaxed = true),
+            dispatcherProvider = TestDispatcherProvider(),
         ).contacts
     }
 
     @Test
-    fun testAddSuccessful() {
+    fun testAddSuccessful() = runTest {
         val newIdentity = "01234567"
 
         testAddingContact(
             { identity ->
-                FetchIdentityResult().also {
-                    it.identity = identity
-                    it.publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES)
-                    it.featureMask = 12
-                    it.type = 0
-                    it.state = IdentityState.ACTIVE.value
-                }
+                Init(
+                    TestData.createContactModelData(
+                        identity = Identity(identity),
+                        featureMask = 12u,
+                        identityType = IdentityType.REGULAR,
+                        activityState = IdentityState.ACTIVE,
+                        verificationLevel = VerificationLevel.UNVERIFIED,
+                        acquaintanceLevel = AcquaintanceLevel.DIRECT,
+                    ),
+                )
             },
             {
-                assertTrue(it is ContactCreated)
+                assertIs<ContactCreated>(it)
                 assertEquals(newIdentity, it.contactModel.identity)
                 val data = it.contactModel.data!!
                 assertEquals(newIdentity, data.identity)
-                assertContentEquals(ByteArray(NaCl.PUBLIC_KEY_BYTES), data.publicKey)
+                assertContentEquals(PUBLIC_KEY, data.publicKey)
                 assertEquals(12u, data.featureMask)
-                assertEquals(IdentityType.NORMAL, data.identityType)
+                assertEquals(IdentityType.REGULAR, data.identityType)
                 assertEquals(IdentityState.ACTIVE, data.activityState)
                 assertEquals(VerificationLevel.UNVERIFIED, data.verificationLevel)
                 assertEquals(AcquaintanceLevel.DIRECT, data.acquaintanceLevel)
@@ -110,340 +114,322 @@ class AddOrUpdateContactBackgroundTaskTest : KoinComponent {
     }
 
     @Test
-    fun testAddGroupContactSuccessful() {
+    fun testAddGroupContactSuccessful() = runTest {
         val newIdentity = "01234567"
 
         testAddingContact(
-            fetchIdentity = { identity ->
-                FetchIdentityResult().also {
-                    it.identity = identity
-                    it.publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES)
-                    it.featureMask = 12
-                    it.type = 0
-                    it.state = IdentityState.ACTIVE.value
-                }
+            { identity ->
+                Init(
+                    TestData.createContactModelData(
+                        identity = Identity(identity),
+                        featureMask = 12u,
+                        identityType = IdentityType.REGULAR,
+                        activityState = IdentityState.ACTIVE,
+                        verificationLevel = VerificationLevel.UNVERIFIED,
+                        acquaintanceLevel = AcquaintanceLevel.DIRECT,
+                    ),
+                )
             },
-            acquaintanceLevel = AcquaintanceLevel.GROUP,
+            acquaintanceLevel = AcquaintanceLevel.GROUP_OR_DELETED,
             runOnFinished = {
-                assertTrue(it is ContactCreated)
+                assertIs<ContactCreated>(it)
                 assertEquals(newIdentity, it.contactModel.identity)
                 val data = it.contactModel.data!!
                 assertEquals(newIdentity, data.identity)
-                assertContentEquals(ByteArray(NaCl.PUBLIC_KEY_BYTES), data.publicKey)
+                assertContentEquals(PUBLIC_KEY, data.publicKey)
                 assertEquals(12u, data.featureMask)
-                assertEquals(IdentityType.NORMAL, data.identityType)
+                assertEquals(IdentityType.REGULAR, data.identityType)
                 assertEquals(IdentityState.ACTIVE, data.activityState)
                 assertEquals(VerificationLevel.UNVERIFIED, data.verificationLevel)
-                assertEquals(AcquaintanceLevel.GROUP, data.acquaintanceLevel)
+                assertEquals(AcquaintanceLevel.GROUP_OR_DELETED, data.acquaintanceLevel)
             },
         )
     }
 
     @Test
-    fun testAddSuccessfulVerified() {
+    fun testAddSuccessfulVerified() = runTest {
         val newIdentity = "01234567"
 
         testAddingContact(
             { identity ->
-                FetchIdentityResult().also {
-                    it.identity = identity
-                    it.publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES)
-                    it.featureMask = 127
-                    it.type = 1
-                    it.state = IdentityState.INACTIVE.value
-                }
+                Init(
+                    TestData.createContactModelData(
+                        identity = Identity(identity),
+                        featureMask = 127u,
+                        identityType = IdentityType.WORK,
+                        activityState = IdentityState.INACTIVE,
+                        verificationLevel = VerificationLevel.FULLY_VERIFIED,
+                        acquaintanceLevel = AcquaintanceLevel.DIRECT,
+                    ),
+                )
             },
             {
-                assertTrue(it is ContactCreated)
+                assertIs<ContactCreated>(it)
                 assertEquals(newIdentity, it.contactModel.identity)
                 val data = it.contactModel.data!!
                 assertEquals(newIdentity, data.identity)
-                assertContentEquals(ByteArray(NaCl.PUBLIC_KEY_BYTES), data.publicKey)
+                assertContentEquals(PUBLIC_KEY, data.publicKey)
                 assertEquals(127u, data.featureMask)
                 assertEquals(IdentityType.WORK, data.identityType)
                 assertEquals(IdentityState.INACTIVE, data.activityState)
                 assertEquals(VerificationLevel.FULLY_VERIFIED, data.verificationLevel)
                 assertEquals(AcquaintanceLevel.DIRECT, data.acquaintanceLevel)
             },
-            publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES),
+            publicKey = PUBLIC_KEY,
         )
     }
 
     @Test
-    fun testAddMyIdentity() {
+    fun testAddMyIdentity() = runTest {
         testAddingContact(
             { identity ->
-                FetchIdentityResult().also {
-                    it.identity = identity
-                    it.publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES)
-                    it.featureMask = 127
-                    it.type = 1
-                    it.state = IdentityState.INACTIVE.value
-                }
+                Init(
+                    TestData.createContactModelData(
+                        identity = Identity(identity),
+                        featureMask = 12u,
+                        identityType = IdentityType.REGULAR,
+                        activityState = IdentityState.ACTIVE,
+                        verificationLevel = VerificationLevel.UNVERIFIED,
+                        acquaintanceLevel = AcquaintanceLevel.DIRECT,
+                    ),
+                )
             },
             {
-                assertTrue(it is UserIdentity)
+                assertIs<UserIdentity>(it)
             },
-            newIdentity = myIdentity,
-            myIdentity = myIdentity,
+            newIdentity = MY_IDENTITY,
+            myIdentity = MY_IDENTITY,
         )
     }
 
     @Test
-    fun testAddPublicKeyMismatch() {
+    fun testAddPublicKeyMismatch() = runTest {
         testAddingContact(
             { identity ->
-                FetchIdentityResult().also {
-                    it.identity = identity
-                    it.publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES)
-                    it.featureMask = 12
-                    it.type = 0
-                    it.state = IdentityState.ACTIVE.value
-                }
+                Init(
+                    TestData.createContactModelData(
+                        identity = Identity(identity),
+                        featureMask = 12u,
+                        identityType = IdentityType.REGULAR,
+                        activityState = IdentityState.ACTIVE,
+                        verificationLevel = VerificationLevel.UNVERIFIED,
+                        acquaintanceLevel = AcquaintanceLevel.DIRECT,
+                    ),
+                )
             },
             {
-                assertTrue(it is RemotePublicKeyMismatch)
+                assertIs<RemotePublicKeyMismatch>(it)
             },
-            publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES).also { it.fill(1) },
+            publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES) { 1 },
         )
     }
 
     @Test
-    fun testAddInvalidId() {
+    fun testAddInvalidId() = runTest {
         testAddingContact(
-            {
-                throw HttpConnectionException(Http.StatusCode.NOT_FOUND, Exception())
+            { identity ->
+                Invalid(identity = identity)
             },
             {
-                assertTrue(it is InvalidThreemaId)
+                assertIs<InvalidThreemaId>(it)
             },
         )
     }
 
     @Test
-    fun testAddExistingContact() {
-        val apiConnectorResult: (identity: IdentityString) -> FetchIdentityResult = { identity ->
-            FetchIdentityResult().also {
-                it.identity = identity
-                it.publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES)
-                it.featureMask = 12
-                it.type = 0
-                it.state = IdentityState.ACTIVE.value
-            }
+    fun testAddExistingContact() = runTest {
+        val validContactsLookupStepsResult: (identity: IdentityString) -> ContactOrInit = { identity ->
+            Init(
+                TestData.createContactModelData(
+                    identity = Identity(identity),
+                    featureMask = 12u,
+                    identityType = IdentityType.REGULAR,
+                    activityState = IdentityState.ACTIVE,
+                    verificationLevel = VerificationLevel.UNVERIFIED,
+                    acquaintanceLevel = AcquaintanceLevel.DIRECT,
+                ),
+            )
         }
 
         // The first time adding the contact should succeed
         testAddingContact(
-            apiConnectorResult,
+            validContactsLookupStepsResult,
             {
-                assertTrue(it is ContactCreated)
+                assertIs<ContactCreated>(it)
             },
         )
 
         // The second time adding the contact should fail
         testAddingContact(
-            apiConnectorResult,
+            validContactsLookupStepsResult,
             {
-                assertTrue(it is ContactExists)
+                assertIs<ContactExists>(it)
             },
         )
     }
 
     @Test
-    fun testVerifyTwice() {
-        val publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES).apply { fill(2) }
+    fun testVerifyingAlreadyVerifiedContact() = runTest {
+        val publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES) { 2 }
+        val verifiedContactIdentity = "01234567"
+        val contactModelMock = mockk<ContactModel> {
+            every { identity } returns verifiedContactIdentity
+            every { data } returns TestData.createContactModelData(
+                identity = Identity(verifiedContactIdentity),
+                publicKey = publicKey,
+                featureMask = 12u,
+                identityType = IdentityType.REGULAR,
+                activityState = IdentityState.ACTIVE,
+                verificationLevel = VerificationLevel.FULLY_VERIFIED,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            )
+        }
 
-        val apiConnectorResult: (identity: IdentityString) -> FetchIdentityResult = { identity ->
-            FetchIdentityResult().also {
-                it.identity = identity
-                it.publicKey = publicKey
-                it.featureMask = 12
-                it.type = 0
-                it.state = IdentityState.ACTIVE.value
+        val validContactsLookupStepsResult: (identity: IdentityString) -> ContactOrInit = { identity ->
+            if (identity == verifiedContactIdentity) {
+                Contact(contactModelMock)
+            } else {
+                fail("Unexpected identity to run valid contacts lookup steps ($identity)")
             }
         }
 
-        // The first time adding the contact should succeed
+        // The result should be already verified, as the contact is already verified
         testAddingContact(
-            apiConnectorResult,
+            validContactsLookupStepsResult,
             {
-                assertTrue(it is ContactCreated)
-            },
-            publicKey = publicKey,
-        )
-
-        // The second time adding the contact should fail
-        testAddingContact(
-            apiConnectorResult,
-            {
-                assertTrue(it is AlreadyVerified)
+                assertIs<AlreadyVerified>(it)
             },
             publicKey = publicKey,
         )
     }
 
     @Test
-    fun testUpgradeGroupContact() {
+    fun testUpgradeGroupContact() = runTest {
         val newIdentity = "01234567"
 
-        val apiConnectorResult: (identity: IdentityString) -> FetchIdentityResult = { identity ->
-            FetchIdentityResult().also {
-                it.identity = identity
-                it.publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES)
-                it.featureMask = 12
-                it.type = 0
-                it.state = IdentityState.ACTIVE.value
-            }
+        val contactModelMock = mockk<ContactModel> {
+            every { identity } returns newIdentity
+            every { data } returns TestData.createContactModelData(
+                identity = Identity(identity),
+                featureMask = 12u,
+                identityType = IdentityType.REGULAR,
+                activityState = IdentityState.ACTIVE,
+                verificationLevel = VerificationLevel.UNVERIFIED,
+                acquaintanceLevel = AcquaintanceLevel.GROUP_OR_DELETED,
+            )
+            every { setAcquaintanceLevelFromLocal(AcquaintanceLevel.DIRECT) } just Runs
         }
 
-        // The first time adding the contact should succeed
-        testAddingContact(
-            apiConnectorResult,
-            {
-                assertTrue(it is ContactCreated)
-            },
-            newIdentity = newIdentity,
-        )
-
-        val contactModel = contactModelRepository.getByIdentity(newIdentity)!!
-
-        // Downgrade the contact to a group contact
-        contactModel.setAcquaintanceLevelFromLocal(AcquaintanceLevel.GROUP)
-
-        // Assert that the acquaintance level change worked
-        assertEquals(AcquaintanceLevel.GROUP, contactModel.data!!.acquaintanceLevel)
+        val validContactLookupStepsResult: (identity: IdentityString) -> ContactOrInit = { identity ->
+            if (identity == newIdentity) {
+                Contact(contactModelMock)
+            } else {
+                fail("Unexpected identity to run valid contacts lookup steps ($identity)")
+            }
+        }
 
         // When adding the contact again, it should be converted back to a direct contact
         testAddingContact(
-            apiConnectorResult,
+            validContactLookupStepsResult,
             {
-                assertTrue(it is ContactModified)
+                assertIs<ContactModified>(it)
                 assertTrue(it.acquaintanceLevelChanged)
                 assertFalse(it.verificationLevelChanged)
-                assertEquals(AcquaintanceLevel.DIRECT, contactModel.data!!.acquaintanceLevel)
+                verify(exactly = 1) { contactModelMock.setAcquaintanceLevelFromLocal(AcquaintanceLevel.DIRECT) }
             },
             newIdentity = newIdentity,
         )
     }
 
     @Test
-    fun testVerificationLevelUpgrade() {
+    fun testVerificationLevelUpgrade() = runTest {
         val newIdentity = "01234567"
 
-        val apiConnectorResult: (identity: IdentityString) -> FetchIdentityResult = { identity ->
-            FetchIdentityResult().also {
-                it.identity = identity
-                it.publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES)
-                it.featureMask = 12
-                it.type = 0
-                it.state = IdentityState.ACTIVE.value
+        val contactModelMock = mockk<ContactModel> {
+            every { identity } returns newIdentity
+            every { data } returns TestData.createContactModelData(
+                identity = Identity(identity),
+                featureMask = 12u,
+                identityType = IdentityType.REGULAR,
+                activityState = IdentityState.ACTIVE,
+                verificationLevel = VerificationLevel.UNVERIFIED,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            )
+            every { setVerificationLevelFromLocal(VerificationLevel.FULLY_VERIFIED) } just Runs
+        }
+
+        val validContactsLookupStepsResult: (identity: IdentityString) -> ContactOrInit = { identity ->
+            if (identity == newIdentity) {
+                Contact(contactModelMock)
+            } else {
+                fail("Unexpected identity to run valid contacts lookup steps ($identity)")
             }
         }
 
-        // The first time adding the contact should succeed
+        // When "adding" the contact again, it should be upgraded to "fully verified"
         testAddingContact(
-            apiConnectorResult,
-            {
-                assertTrue(it is ContactCreated)
+            validContactsLookupStepsResult,
+            { contactResult ->
+                assertIs<ContactModified>(contactResult)
+                assertTrue(contactResult.verificationLevelChanged)
+                assertFalse(contactResult.acquaintanceLevelChanged)
+                verify(exactly = 1) { contactModelMock.setVerificationLevelFromLocal(VerificationLevel.FULLY_VERIFIED) }
             },
             newIdentity = newIdentity,
-        )
-
-        val contactModel = contactModelRepository.getByIdentity(newIdentity)!!
-
-        // Assert that the verification level is unverified
-        assertEquals(VerificationLevel.UNVERIFIED, contactModel.data!!.verificationLevel)
-
-        // When adding the contact again, it should be fully verified
-        testAddingContact(
-            apiConnectorResult,
-            {
-                assertTrue(it is ContactModified)
-                assertTrue(it.verificationLevelChanged)
-                assertFalse(it.acquaintanceLevelChanged)
-                assertEquals(
-                    VerificationLevel.FULLY_VERIFIED,
-                    contactModel.data!!.verificationLevel,
-                )
-            },
-            newIdentity = newIdentity,
-            publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES),
+            publicKey = PUBLIC_KEY,
         )
     }
 
     @Test
-    fun testAddAndVerifyGroupContact() {
+    fun testAddAndVerifyGroupContact() = runTest {
         val newIdentity = "01234567"
 
-        val apiConnectorResult: (identity: IdentityString) -> FetchIdentityResult = { identity ->
-            FetchIdentityResult().also {
-                it.identity = identity
-                it.publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES)
-                it.featureMask = 12
-                it.type = 0
-                it.state = IdentityState.ACTIVE.value
+        val contactModelMock = mockk<ContactModel> {
+            every { identity } returns newIdentity
+            every { data } returns TestData.createContactModelData(
+                identity = Identity(newIdentity),
+                featureMask = 12u,
+                identityType = IdentityType.REGULAR,
+                activityState = IdentityState.ACTIVE,
+                verificationLevel = VerificationLevel.UNVERIFIED,
+                acquaintanceLevel = AcquaintanceLevel.GROUP_OR_DELETED,
+            )
+            every { setAcquaintanceLevelFromLocal(AcquaintanceLevel.DIRECT) } just Runs
+            every { setVerificationLevelFromLocal(VerificationLevel.FULLY_VERIFIED) } just Runs
+        }
+
+        val validContactsLookupStepsResult: (identity: IdentityString) -> ContactOrInit = { identity ->
+            if (identity == newIdentity) {
+                Contact(contactModelMock)
+            } else {
+                fail("Unexpected identity to run valid contacts lookup steps ($identity)")
             }
         }
 
-        // The first time adding the contact should succeed
+        // When adding the contact that exists as an unverified group contact, it should be converted to a direct contact (that is verified)
         testAddingContact(
-            apiConnectorResult,
+            validContactsLookupStepsResult,
             {
-                assertTrue(it is ContactCreated)
-            },
-            newIdentity = newIdentity,
-        )
-
-        val contactModel = contactModelRepository.getByIdentity(newIdentity)!!
-
-        // Assert that the verification level is unverified
-        assertEquals(VerificationLevel.UNVERIFIED, contactModel.data!!.verificationLevel)
-
-        // Downgrade the contact to acquaintance level group
-        contactModel.setAcquaintanceLevelFromLocal(AcquaintanceLevel.GROUP)
-        assertEquals(AcquaintanceLevel.GROUP, contactModel.data!!.acquaintanceLevel)
-
-        // When adding the contact again, it should be converted back to a direct contact
-        testAddingContact(
-            apiConnectorResult,
-            {
-                assertTrue(it is ContactModified)
+                assertIs<ContactModified>(it)
                 assertTrue(it.acquaintanceLevelChanged)
                 assertTrue(it.verificationLevelChanged)
-                assertEquals(AcquaintanceLevel.DIRECT, contactModel.data!!.acquaintanceLevel)
-                assertEquals(
-                    VerificationLevel.FULLY_VERIFIED,
-                    contactModel.data!!.verificationLevel,
-                )
+                verify(exactly = 1) { contactModelMock.setAcquaintanceLevelFromLocal(AcquaintanceLevel.DIRECT) }
+                verify(exactly = 1) { contactModelMock.setVerificationLevelFromLocal(VerificationLevel.FULLY_VERIFIED) }
             },
             newIdentity = newIdentity,
-            publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES),
+            publicKey = PUBLIC_KEY,
         )
     }
 
     @Test
-    fun testThreadUsage() {
+    fun testThreadUsage() = runTest {
         val identity = "01234567"
-        val myIdentity = "00000000"
-
-        testAddingContact(
-            {
-                FetchIdentityResult().also {
-                    it.identity = identity
-                    it.publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES)
-                    it.featureMask = 12
-                    it.type = 0
-                    it.state = IdentityState.ACTIVE.value
-                }
-            },
-            {},
-            newIdentity = identity,
-            myIdentity = myIdentity,
-            publicKey = null,
-        )
-
-        val unusedAPIConnector = getTestApiConnector {
-            throw AssertionError("This must not be executed for this test")
+        val validContactsLookupStepsResult = mockk<ValidContactsLookupSteps> {
+            every { run(identity) } returns Init(
+                TestData.createContactModelData(
+                    identity = Identity(identity),
+                ),
+            )
         }
 
         val testThreadId = Thread.currentThread().id
@@ -451,8 +437,7 @@ class AddOrUpdateContactBackgroundTaskTest : KoinComponent {
         val addTask = object : AddOrUpdateContactBackgroundTask<Boolean>(
             identity = identity,
             acquaintanceLevel = AcquaintanceLevel.DIRECT,
-            myIdentity = myIdentity,
-            apiConnector = unusedAPIConnector,
+            validContactsLookupSteps = validContactsLookupStepsResult,
             contactModelRepository = contactModelRepository,
             addContactRestrictionPolicy = AddContactRestrictionPolicy.CHECK,
             appRestrictions = appRestrictions,
@@ -463,7 +448,7 @@ class AddOrUpdateContactBackgroundTaskTest : KoinComponent {
             }
 
             override fun onContactResult(result: ContactResult): Boolean {
-                assertTrue(result is ContactExists)
+                assertIs<ContactCreated>(result)
                 assertNotEquals(testThreadId, Thread.currentThread().id)
                 assertNotEquals(Looper.getMainLooper(), Looper.myLooper())
                 return true
@@ -475,25 +460,22 @@ class AddOrUpdateContactBackgroundTaskTest : KoinComponent {
             }
         }
 
-        runBlocking {
-            assertTrue(backgroundExecutor.executeDeferred(addTask).await())
-        }
+        assertTrue(backgroundExecutor.executeDeferred(addTask).await())
     }
 
-    private fun testAddingContact(
-        fetchIdentity: (identity: IdentityString) -> FetchIdentityResult,
+    private suspend fun testAddingContact(
+        validContactsLookupStepsResult: (identity: IdentityString) -> ContactOrInit,
         runOnFinished: (result: ContactResult) -> Unit,
         newIdentity: IdentityString = "01234567",
         acquaintanceLevel: AcquaintanceLevel = AcquaintanceLevel.DIRECT,
         myIdentity: IdentityString = "00000000",
         publicKey: ByteArray? = null,
     ) {
-        val apiConnector = getTestApiConnector {
-            if (it != newIdentity) {
-                fail("Wrong identity is fetched: $it")
+        val validContactsLookupStepsMock: ValidContactsLookupSteps = mockk {
+            every { run(any<String>()) } answers {
+                validContactsLookupStepsResult(firstArg())
             }
-
-            fetchIdentity(it)
+            every { run(myIdentity) } returns UserContact(myIdentity)
         }
 
         val contactAdded =
@@ -501,8 +483,7 @@ class AddOrUpdateContactBackgroundTaskTest : KoinComponent {
                 object : BasicAddOrUpdateContactBackgroundTask(
                     identity = newIdentity,
                     acquaintanceLevel = acquaintanceLevel,
-                    myIdentity = myIdentity,
-                    apiConnector = apiConnector,
+                    validContactsLookupSteps = validContactsLookupStepsMock,
                     contactModelRepository = contactModelRepository,
                     addContactRestrictionPolicy = AddContactRestrictionPolicy.CHECK,
                     appRestrictions = appRestrictions,
@@ -515,14 +496,10 @@ class AddOrUpdateContactBackgroundTaskTest : KoinComponent {
             )
 
         // Assert that the test is not stopped before running the background task completely
-        runBlocking {
-            contactAdded.await()
-        }
+        contactAdded.await()
     }
 
-    private fun getTestApiConnector(onIdentityFetchCalled: (identity: IdentityString) -> FetchIdentityResult): APIConnector {
-        return object : APIConnector(false, null, false, OkHttpClient(), Version(), null, null) {
-            override fun fetchIdentity(identity: IdentityString) = onIdentityFetchCalled(identity)
-        }
+    companion object {
+        private const val MY_IDENTITY = "00000000"
     }
 }

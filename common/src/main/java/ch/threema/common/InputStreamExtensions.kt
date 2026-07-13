@@ -4,12 +4,6 @@ import java.io.EOFException
 import java.io.IOException
 import java.io.InputStream
 
-fun InputStream?.orEmpty(): InputStream =
-    this ?: emptyInputStream()
-
-fun emptyInputStream(): InputStream =
-    emptyByteArray().inputStream()
-
 /**
  * Compares the content of the input stream with the provided [byteArray]. Note that the input stream is read until the first byte that does not match
  * the byte array.

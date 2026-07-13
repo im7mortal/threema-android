@@ -64,4 +64,25 @@ class CollectionExtensionsTest {
             enumeration.nextElement()
         }
     }
+
+    @Test
+    fun `put if not null`() {
+        val map = buildMap {
+            putIfNotNull(1, "A")
+            putIfNotNull(2, null as String?)
+            putIfNotNull(3, "B")
+            putIfNotNull(4, null as String?)
+        }
+        assertEquals(
+            mapOf(1 to "A", 3 to "B"),
+            map,
+        )
+    }
+
+    @Test
+    fun `has duplicates`() {
+        assertFalse(emptyList<String>().hasDuplicatesBy { it })
+        assertFalse(listOf("A", "b", "c", "D").hasDuplicatesBy { it.lowercase() })
+        assertTrue(listOf("A", "b", "a", "D").hasDuplicatesBy { it.lowercase() })
+    }
 }

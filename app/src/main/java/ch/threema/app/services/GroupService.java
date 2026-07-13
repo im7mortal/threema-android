@@ -1,21 +1,16 @@
 package ch.threema.app.services;
 
-import android.app.Activity;
-import android.content.Intent;
 import android.graphics.Bitmap;
 import android.widget.ImageView;
 
 import com.bumptech.glide.RequestManager;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import androidx.annotation.AnyThread;
-import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.app.glide.AvatarOptions;
@@ -24,7 +19,7 @@ import ch.threema.app.utils.GroupFeatureSupport;
 import ch.threema.base.SessionScoped;
 import ch.threema.data.datatypes.IdColor;
 import ch.threema.base.ThreemaException;
-import ch.threema.data.models.GroupIdentity;
+import ch.threema.data.datatypes.GroupIdentity;
 import ch.threema.data.models.GroupModel;
 import ch.threema.data.models.GroupModelData;
 import ch.threema.domain.models.GroupId;
@@ -48,25 +43,6 @@ import ch.threema.storage.models.access.GroupAccessModel;
  */
 @SessionScoped
 public interface GroupService extends AvatarService<GroupModelOld> {
-
-    /**
-     * Group state not yet determined
-     */
-    int UNDEFINED = 0;
-    /**
-     * A local notes "group"
-     */
-    int NOTES = 1;
-    /**
-     * A group with other people in it
-     */
-    int PEOPLE = 2;
-
-    @Retention(RetentionPolicy.SOURCE)
-    @IntDef({UNDEFINED, NOTES, PEOPLE})
-    @interface GroupState {
-    }
-
     interface GroupFilter {
         /**
          * Sort the group list by date. If {@link #sortByName()} also returns true, then it is still
@@ -194,7 +170,7 @@ public interface GroupService extends AvatarService<GroupModelOld> {
     void runRejectedMessagesRefreshSteps(@NonNull GroupModel groupModel);
 
     /**
-     * Remove different properties from the given group. This includes ballots, files from the
+     * Remove different properties from the given group. This includes polls, files from the
      * message models including thumbnails, wallpapers, ringtones, chat settings, share targets,
      * shortcuts, tags, and the group avatar from the provided group. This does not remove data in
      * the database except polls. No listeners are triggered.
@@ -385,29 +361,18 @@ public interface GroupService extends AvatarService<GroupModelOld> {
     GroupAccessModel getAccess(@Nullable GroupModelOld groupModel, boolean allowEmpty);
 
     /**
-     * Mark the group as archived or unarchived. This change is reflected and uses the new group
-     * model. Listeners are triggered by the group model repository.
-     * <p>
-     * TODO(ANDR-3721): Use this method with care until the pinned state is moved to the same
-     *  database column as the archived state. This method must only be called with isArchived=true
-     *  when the conversation of this group is *not* pinned.
-     *
-     * @param groupCreatorIdentity the identity of the group creator
-     * @param groupId              the api id of the group
-     * @param isArchived           whether the group should be archived or not
-     * @param triggerSource        the source that triggered this action
+     * Unarchive the group. Note that this change will only be applied if the group is currently
+     * archived. A pinned group will therefore remain pinned after calling this method.
      */
-    void setIsArchived(
-        @NonNull String groupCreatorIdentity,
-        @NonNull GroupId groupId,
-        boolean isArchived,
+    void unarchive(
+        @NonNull Long groupDatabaseId,
         @NonNull TriggerSource triggerSource
     );
 
     /**
      * Set the `lastUpdate` field of the specified group to the current date.
      * <p>
-     * Save the model and notify listeners.
+     * Save the model and notify the event bus.
      */
     void bumpLastUpdate(@NonNull GroupModelOld groupModel);
 
@@ -418,35 +383,6 @@ public interface GroupService extends AvatarService<GroupModelOld> {
      * @return true if the group is full, false otherwise
      */
     boolean isFull(GroupModelOld groupModel);
-
-    /**
-     * Get the intent to open the group details.
-     *
-     * @param activity   the current activity
-     * @return the intent to open the group details
-     */
-    @NonNull
-    Intent getGroupDetailIntent(long groupDatabaseId, @NonNull Activity activity);
-
-    /**
-     * Get the intent to open the group details.
-     *
-     * @param groupModel the group model
-     * @param activity   the current activity
-     * @return the intent to open the group details
-     */
-    @NonNull
-    Intent getGroupDetailIntent(@NonNull GroupModelOld groupModel, @NonNull Activity activity);
-
-    /**
-     * Get the intent to open the group details.
-     *
-     * @param groupModel the group model
-     * @param activity   the current activity
-     * @return the intent to open the group details
-     */
-    @NonNull
-    Intent getGroupDetailIntent(@NonNull GroupModel groupModel, @NonNull Activity activity);
 
     /**
      * Get the avatar with the given avatar options of the given model as bitmap.

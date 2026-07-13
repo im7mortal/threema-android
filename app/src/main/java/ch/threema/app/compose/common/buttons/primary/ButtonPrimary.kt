@@ -31,8 +31,8 @@ import androidx.compose.ui.tooling.preview.PreviewDynamicColors
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import ch.threema.app.R
-import ch.threema.app.compose.common.ThemedText
 import ch.threema.app.compose.common.buttons.ButtonIconInfo
+import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.color.AlphaValues
 import ch.threema.app.compose.theme.dimens.GridUnit
@@ -227,7 +227,7 @@ private fun ButtonPrimaryBase(
                         iconSize.toDp()
                     },
                 ),
-                painter = painterResource(leadingIcon.icon),
+                painter = painterResource(leadingIcon.iconRes),
                 contentDescription = stringResourceOrNull(leadingIcon.contentDescription),
                 tint = LocalContentColor.current,
             )
@@ -251,7 +251,7 @@ private fun ButtonPrimaryBase(
                         iconSize.toDp()
                     },
                 ),
-                painter = painterResource(trailingIcon.icon),
+                painter = painterResource(trailingIcon.iconRes),
                 contentDescription = stringResourceOrNull(trailingIcon.contentDescription),
                 tint = LocalContentColor.current,
             )
@@ -282,8 +282,7 @@ fun ButtonPrimary_Preview_Leading_Icon() {
             onClick = {},
             text = "Sign In",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_language_outline,
-                contentDescription = null,
+                iconRes = R.drawable.ic_language_outline,
             ),
         )
     }
@@ -299,8 +298,7 @@ fun ButtonPrimary_Preview_Trailing_Icon() {
             onClick = {},
             text = "Sign In",
             trailingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_language_outline,
-                contentDescription = null,
+                iconRes = R.drawable.ic_language_outline,
             ),
         )
     }
@@ -316,12 +314,10 @@ fun ButtonPrimary_Preview_Both_Icons() {
             onClick = {},
             text = "Sign In",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_language_outline,
-                contentDescription = null,
+                iconRes = R.drawable.ic_language_outline,
             ),
             trailingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_language_outline,
-                contentDescription = null,
+                iconRes = R.drawable.ic_language_outline,
             ),
         )
     }
@@ -337,8 +333,7 @@ fun ButtonPrimary_Preview_Disabled() {
             onClick = {},
             text = "Sign In",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_language_outline,
-                contentDescription = null,
+                iconRes = R.drawable.ic_language_outline,
             ),
             enabled = false,
         )
@@ -369,8 +364,7 @@ fun ButtonPrimary_Preview_DynamicColors() {
             onClick = {},
             text = "Sign In",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_language_outline,
-                contentDescription = null,
+                iconRes = R.drawable.ic_language_outline,
             ),
         )
     }
@@ -385,8 +379,7 @@ fun ButtonPrimary_Preview_DynamicColors_Disabled() {
             onClick = {},
             text = "Sign In",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_language_outline,
-                contentDescription = null,
+                iconRes = R.drawable.ic_language_outline,
             ),
             enabled = false,
         )
@@ -408,8 +401,7 @@ fun ButtonPrimary_Preview_DynamicColors_Dark() {
                 onClick = {},
                 text = "Sign In",
                 leadingIcon = ButtonIconInfo(
-                    icon = R.drawable.ic_language_outline,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_language_outline,
                 ),
             )
         }
@@ -439,8 +431,7 @@ fun ButtonPrimaryDense_Preview_Leading_Icon() {
             onClick = {},
             text = "Preview",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_new_feature,
-                contentDescription = null,
+                iconRes = R.drawable.ic_new_feature,
             ),
         )
     }
@@ -456,8 +447,7 @@ fun ButtonPrimary_Preview_Zoom() {
             onClick = {},
             text = "Preview",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_new_feature,
-                contentDescription = null,
+                iconRes = R.drawable.ic_new_feature,
             ),
         )
     }
@@ -473,8 +463,7 @@ fun ButtonPrimaryWebsite_Preview() {
             onClick = {},
             text = "Preview",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_new_feature,
-                contentDescription = null,
+                iconRes = R.drawable.ic_new_feature,
             ),
         )
     }
@@ -492,8 +481,7 @@ fun ButtonPrimaryWebsite_Preview_FullWidth() {
             onClick = {},
             text = "Preview",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_new_feature,
-                contentDescription = null,
+                iconRes = R.drawable.ic_new_feature,
             ),
         )
     }
@@ -508,8 +496,7 @@ fun ButtonPrimaryWebsite_Preview_DynamicColors() {
             onClick = {},
             text = "Preview",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_new_feature,
-                contentDescription = null,
+                iconRes = R.drawable.ic_new_feature,
             ),
         )
     }
@@ -527,8 +514,7 @@ fun ButtonPrimaryOverride_Preview() {
             colorPrimaryOverride = Color.Magenta,
             colorOnPrimaryOverride = Color.Cyan,
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_new_feature,
-                contentDescription = null,
+                iconRes = R.drawable.ic_new_feature,
             ),
         )
     }
@@ -546,8 +532,7 @@ fun ButtonPrimaryOverride_Preview_Disabled() {
             colorPrimaryOverride = Color.Magenta,
             colorOnPrimaryOverride = Color.Cyan,
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_new_feature,
-                contentDescription = null,
+                iconRes = R.drawable.ic_new_feature,
             ),
             enabled = false,
         )
@@ -565,8 +550,7 @@ fun ButtonPrimaryOverride_Preview_IgnoringDynamicColors() {
             colorPrimaryOverride = Color.Magenta,
             colorOnPrimaryOverride = Color.Cyan,
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_new_feature,
-                contentDescription = null,
+                iconRes = R.drawable.ic_new_feature,
             ),
         )
     }

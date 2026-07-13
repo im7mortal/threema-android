@@ -233,7 +233,7 @@ internal class ConnectionCtx(
                         "",
                         0,
                         "candidate:${
-                            arrayOf(
+                            arrayOf<Any>(
                                 // Foundation is irrelevant because we bundle
                                 0,
                                 // Component ID is always RTP (1) because we bundle

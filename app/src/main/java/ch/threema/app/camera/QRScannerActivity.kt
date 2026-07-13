@@ -163,7 +163,10 @@ class QRScannerActivity : ThreemaActivity() {
                                 it.clearAnalyzer()
                                 runOnUiThread {
                                     Toast.makeText(this, R.string.qr_code, Toast.LENGTH_LONG).show()
-                                    returnData(null, false)
+                                    returnData(
+                                        qrCodeData = null,
+                                        success = false,
+                                    )
                                 }
                             }
 
@@ -172,7 +175,10 @@ class QRScannerActivity : ThreemaActivity() {
                                 val qrCodeData = decodeQRCodeState.qrCode
                                 it.clearAnalyzer()
                                 qrCodeData?.let {
-                                    returnData(qrCodeData, true)
+                                    returnData(
+                                        qrCodeData = qrCodeData,
+                                        success = true,
+                                    )
                                 }
                             }
                         }
@@ -202,7 +208,10 @@ class QRScannerActivity : ThreemaActivity() {
             camera?.cameraControl?.startFocusAndMetering(FocusMeteringAction.Builder(point).build())
         } catch (e: Exception) {
             logger.error("Use case binding failed", e)
-            returnData(null, false)
+            returnData(
+                qrCodeData = null,
+                success = false,
+            )
         }
 
         cameraPreviewContainer.setOnTouchListener { _: View, motionEvent: MotionEvent ->
@@ -224,7 +233,6 @@ class QRScannerActivity : ThreemaActivity() {
 
     private fun returnData(qrCodeData: String?, success: Boolean) {
         if (success) {
-            soundEffectPlayer.play(R.raw.qrscanner_beep)
             setResult(
                 RESULT_OK,
                 buildIntent {

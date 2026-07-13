@@ -159,7 +159,7 @@
                             android:focusable="true"
                             android:nextFocusRight="@+id/send_button"
                             android:padding="@dimen/grid_unit_x1"
-                            app:srcCompat="@drawable/ic_camera_outline"
+                            app:srcCompat="@drawable/ic_camera"
                             app:tint="@android:color/white" />
 
                         <ch.threema.app.ui.SendButton

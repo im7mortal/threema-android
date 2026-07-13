@@ -26,6 +26,8 @@ import io.mockk.verify
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
@@ -101,7 +103,9 @@ class DropDevicesStepsTest {
         verify(exactly = intents.size) { multiDeviceManagerMock.enableForwardSecurity(serviceManagerMock) }
         verify(exactly = 0) { multiDeviceManagerMock.removeMultiDeviceLocally(serviceManagerMock) }
         verify(exactly = 0) { multiDeviceManagerMock.reconnect() }
-        results.forEach { result -> assertTrue { result is DropDeviceResult.Failure.Internal } }
+        results.forEach { result ->
+            assertIs<DropDeviceResult.Failure.Internal>(result)
+        }
     }
 
     @Test
@@ -133,11 +137,11 @@ class DropDevicesStepsTest {
         verify(exactly = 1) { multiDeviceManagerMock.removeMultiDeviceLocally(serviceManagerMock) }
         verify(exactly = 1) { multiDeviceManagerMock.enableForwardSecurity(serviceManagerMock) }
         verify(exactly = 1) { multiDeviceManagerMock.reconnect() }
-        assertTrue { handle.droppedDevices.size == deviceIdsInDeviceGroup.size }
+        assertEquals(deviceIdsInDeviceGroup.size, handle.droppedDevices.size)
         deviceIdsInDeviceGroup.forEach { deviceIdInDeviceGroup ->
-            assertTrue { handle.droppedDevices.contains(deviceIdInDeviceGroup) }
+            assertTrue(handle.droppedDevices.contains(deviceIdInDeviceGroup))
         }
-        assertTrue { handle.droppedDevices.last() == thisDeviceId }
+        assertEquals(thisDeviceId, handle.droppedDevices.last())
     }
 
     @Test
@@ -171,7 +175,7 @@ class DropDevicesStepsTest {
         verify(exactly = 0) { multiDeviceManagerMock.removeMultiDeviceLocally(serviceManagerMock) }
         verify(exactly = 0) { multiDeviceManagerMock.enableForwardSecurity(serviceManagerMock) }
         verify(exactly = 0) { multiDeviceManagerMock.reconnect() }
-        assertTrue { handle.droppedDevices.size == 1 }
+        assertEquals(1, handle.droppedDevices.size)
         assertContains(handle.droppedDevices, deviceIdToDrop)
     }
 
@@ -202,11 +206,11 @@ class DropDevicesStepsTest {
         verify(exactly = 1) { multiDeviceManagerMock.removeMultiDeviceLocally(serviceManagerMock) }
         verify(exactly = 1) { multiDeviceManagerMock.enableForwardSecurity(serviceManagerMock) }
         verify(exactly = 1) { multiDeviceManagerMock.reconnect() }
-        assertTrue { handle.droppedDevices.size == deviceIdsInDeviceGroup.size }
+        assertEquals(deviceIdsInDeviceGroup.size, handle.droppedDevices.size)
         deviceIdsInDeviceGroup.forEach { deviceIdInDeviceGroup ->
-            assertTrue { handle.droppedDevices.contains(deviceIdInDeviceGroup) }
+            assertTrue(handle.droppedDevices.contains(deviceIdInDeviceGroup))
         }
-        assertTrue { handle.droppedDevices.last() == thisDeviceId }
+        assertEquals(thisDeviceId, handle.droppedDevices.last())
     }
 
     @Test
@@ -234,11 +238,11 @@ class DropDevicesStepsTest {
         verify(exactly = 1) { multiDeviceManagerMock.removeMultiDeviceLocally(serviceManagerMock) }
         verify(exactly = 1) { multiDeviceManagerMock.enableForwardSecurity(serviceManagerMock) }
         verify(exactly = 1) { multiDeviceManagerMock.reconnect() }
-        assertTrue { handle.droppedDevices.size == deviceIdsInDeviceGroup.size }
+        assertEquals(deviceIdsInDeviceGroup.size, handle.droppedDevices.size)
         deviceIdsInDeviceGroup.forEach { deviceIdInDeviceGroup ->
-            assertTrue { handle.droppedDevices.contains(deviceIdInDeviceGroup) }
+            assertTrue(handle.droppedDevices.contains(deviceIdInDeviceGroup))
         }
-        assertTrue { handle.droppedDevices.last() == thisDeviceId }
+        assertEquals(thisDeviceId, handle.droppedDevices.last())
     }
 
     @Test
@@ -265,7 +269,7 @@ class DropDevicesStepsTest {
         verify(exactly = 0) { multiDeviceManagerMock.removeMultiDeviceLocally(serviceManagerMock) }
         verify(exactly = 0) { multiDeviceManagerMock.enableForwardSecurity(serviceManagerMock) }
         verify(exactly = 0) { multiDeviceManagerMock.reconnect() }
-        assertTrue { handle.droppedDevices.isEmpty() }
+        assertTrue(handle.droppedDevices.isEmpty())
     }
 
     private fun createAugmentedDeviceInfo(): InboundD2mMessage.DevicesInfo.AugmentedDeviceInfo {

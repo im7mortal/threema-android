@@ -20,9 +20,7 @@ import ch.threema.app.services.MessageService;
 import ch.threema.app.services.messageplayer.MessagePlayer;
 import ch.threema.app.services.messageplayer.WebClientMessagePlayer;
 import ch.threema.app.utils.FileUtil;
-import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.executor.HandlerExecutor;
-import ch.threema.app.voicemessage.VoiceRecorderActivity;
 import ch.threema.app.webclient.Protocol;
 import ch.threema.app.webclient.converter.Message;
 import ch.threema.app.webclient.converter.MsgpackObjectBuilder;
@@ -33,6 +31,7 @@ import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.readBytes;
 
 import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageType;
 
 @WorkerThread
 public class BlobRequestHandler extends MessageReceiver {
@@ -147,34 +146,15 @@ public class BlobRequestHandler extends MessageReceiver {
                 }
 
                 try {
-                    String mime;
-                    String name;
-
-                    final String filename = FileUtil.getMediaFilenamePrefix(messageModel);
-
-                    //noinspection EnumSwitchStatementWhichMissesCases
-                    switch (messageModel.getType()) {
-                        case VOICEMESSAGE:
-                            mime = MimeUtil.MIME_TYPE_AUDIO_AAC;
-                            name = filename + VoiceRecorderActivity.VOICE_MESSAGE_FILE_EXTENSION;
-                            break;
-                        case FILE:
-                            mime = messageModel.getFileData().getMimeType();
-                            final String ownFileName = messageModel.getFileData().getFileName();
-                            name = Message.fixFileName(ownFileName == null ? filename : ownFileName, mime);
-                            break;
-                        case VIDEO:
-                            mime = MimeUtil.MIME_TYPE_VIDEO_MP4;
-                            name = filename + ".mp4";
-                            break;
-                        case IMAGE:
-                            mime = MimeUtil.MIME_TYPE_IMAGE_JPEG;
-                            name = filename + ".jpg";
-                            break;
-                        default:
-                            //ignore
-                            return;
+                    if (messageModel.getType() != MessageType.FILE) {
+                        return;
                     }
+
+                    final String mime = messageModel.getFileData().getMimeType();
+                    final String ownFileName = messageModel.getFileData().getFileName();
+                    final String filename = FileUtil.getMediaFilenamePrefix(messageModel);
+                    final String name = Message.fixFileName(ownFileName == null ? filename : ownFileName, mime);
+
                     logger.debug("File decrypted: {}", decryptedFile.getPath());
                     logger.debug("Reading file to byte array");
                     final byte[] data = readBytes(decryptedFile);

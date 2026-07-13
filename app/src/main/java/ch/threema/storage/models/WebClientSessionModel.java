@@ -4,7 +4,7 @@ import androidx.annotation.AnyThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import java.util.Date;
+import java.time.Instant;
 
 @AnyThread
 public class WebClientSessionModel {
@@ -36,8 +36,8 @@ public class WebClientSessionModel {
     private int id;
     private byte[] key;
     private byte[] privateKey;
-    private Date created;
-    private Date lastConnection;
+    private Instant created;
+    private Instant lastConnection;
     private String clientDescription;
     private State state;
     private boolean isPersistent = false;
@@ -85,21 +85,21 @@ public class WebClientSessionModel {
     }
 
     @Nullable
-    public synchronized Date getCreated() {
+    public synchronized Instant getCreated() {
         return this.created;
     }
 
     @Nullable
-    public synchronized Date getLastConnection() {
+    public synchronized Instant getLastConnection() {
         return this.lastConnection;
     }
 
-    public synchronized WebClientSessionModel setCreated(@NonNull Date created) {
+    public synchronized WebClientSessionModel setCreated(@NonNull Instant created) {
         this.created = created;
         return this;
     }
 
-    public synchronized WebClientSessionModel setLastConnection(@NonNull Date lastConnection) {
+    public synchronized WebClientSessionModel setLastConnection(@NonNull Instant lastConnection) {
         this.lastConnection = lastConnection;
         return this;
     }

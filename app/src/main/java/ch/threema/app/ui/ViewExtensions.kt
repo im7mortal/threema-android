@@ -5,6 +5,7 @@ import android.view.ViewGroup.MarginLayoutParams
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsCompat.Type.displayCutout
+import androidx.core.view.WindowInsetsCompat.Type.ime
 import androidx.core.view.WindowInsetsCompat.Type.systemBars
 import ch.threema.base.utils.getThreemaLogger
 
@@ -106,11 +107,12 @@ fun View?.applyDeviceInsetsAsMargin(
 fun View?.applyDeviceInsetsAsPadding(
     insetSides: InsetSides,
     ownPadding: SpacingValues = SpacingValues.zero,
+    includingIme: Boolean = false,
 ) {
     this ?: return
     ViewCompat.setOnApplyWindowInsetsListener(this) { view: View, windowInsets: WindowInsetsCompat ->
         val insets = windowInsets.getInsets(
-            systemBars() or displayCutout(),
+            systemBars() or displayCutout() or (if (includingIme) ime() else 0),
         )
         view.setPadding(
             when {

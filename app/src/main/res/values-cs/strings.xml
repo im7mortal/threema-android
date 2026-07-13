@@ -32,6 +32,12 @@
     <string name="title_job_title">Pracovní název</string>
     <string name="title_department">Oddělení</string>
     <string name="send">Odeslat</string>
+    <string name="prefs_linked_devices">Propojená zařízení</string>
+    <string name="prefs_community_and_sharing">Komunita a sdílení</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <string name="prefs_advanced">Pokročilé</string>
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
+    <string name="prefs_about">O aplikaci</string>
     <string name="prefs_privacy">Soukromí</string>
     <string name="prefs_notifications">Zvuky a oznámení</string>
     <string name="prefs_chatdisplay">Konverzace</string>
@@ -83,7 +89,10 @@
     <string name="prefs_sum_threema_push_off">Zjišťovat nové zprávy použitím systémové služby push</string>
     <string name="prefs_logging">Záznam dat</string>
     <string name="prefs_title_message_log_switch">Zaznamenávat do souboru</string>
-    <string name="prefs_title_sum_message_log_on">Události a informace o síti budou zaznamenávány do souboru debug_log.txt</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_on_since">Zaznamenávání systémové aktivity od %1$s (%2$s)</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_forced_on">Systémová aktivita je zaznamenávána. Odstraňte soubor „%1$s“, chcete-li zaznamenávání zakázat. (%2$s)</string>
     <string name="prefs_title_sum_message_log_off">Události nebudou zaznamenávány</string>
     <string name="prefs_reset_push">Obnovit push token</string>
     <string name="prefs_sum_reset_push">Přeregistrovat zařízení pro příjem push oznámení pomocí FCM/HMS</string>
@@ -192,7 +201,8 @@
     <string name="click_here_to_change_passphrase">Klepnutím sem změníte heslo</string>
     <string name="attach_camera">Fotoaparát</string>
     <string name="menu_restore">Obnovit ze zálohy</string>
-    <string name="restore_id_hint">Obnovení provedete zadáním nebo vložením textového řetězce zálohy ID</string>
+    <string name="restore_id_hint">Pro obnovení zadejte textový řetězec exportu ID, nebo naskenujte jeho QR kód.</string>
+    <string name="restore_id_string_label">Textový řetězec exportu ID</string>
     <string name="location_placeholder">Poloha</string>
     <string name="video_placeholder">Video</string>
     <string name="audio_placeholder">Audio soubory</string>
@@ -345,8 +355,11 @@
     <string name="status_rename_group">Skupina byla přejmenována na: „%1$s“</string>
     <string name="status_group_new_photo">Obrázek skupiny byl upraven.</string>
     <string name="status_group_new_member">Člen „%1$s“ byl přidán do skupiny.</string>
+    <string name="status_group_you_were_added">Byli jste přidáni do skupiny.</string>
     <string name="status_group_member_left">Člen „%1$s“ opustil skupinu.</string>
+    <string name="status_group_you_left">Opustili jste skupinu.</string>
     <string name="status_group_member_kicked">Člen „%1$s“ byl odstraněn ze skupiny.</string>
+    <string name="status_group_you_were_removed">Byli jste odebráni ze skupiny.</string>
     <string name="can_not_send_no_group_members">Do prázdné skupiny nelze odeslat zprávu</string>
     <string name="you_are_not_a_member_of_this_group">Nejste členem této skupiny</string>
     <string name="title_public_nickname">Přezdívka</string>
@@ -479,6 +492,7 @@ http://www.7-zip.org nebo https://itunes.apple.com/us/app/the-unarchiver/id42542
     <string name="ballot_result_final">Výsledek ankety</string>
     <string name="invalid_cannot_send">Nemůžete odesílat zprávy neplatnému kontaktu</string>
     <string name="ballot_answer_count_error">Zadejte prosím do ankety alespoň dvě možnosti.</string>
+    <string name="ballot_removed">Anketa odstraněna</string>
     <string name="contact_state_inactive">Neaktivní</string>
     <string name="contact_state_invalid">Neplatný</string>
     <string name="back">Zpět</string>
@@ -673,7 +687,7 @@ přátelům vás automaticky najít, pokud vás mají v adresáři svého telef
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_info_nickname">Přezdívka se na některých zařízeních používá pro push oznámení nebo jako další možnost vaší identifikace uživatelům, kteří vás dosud nemají ve svém adresáři. Doporučujeme zadat pouze vaše křestní jméno nebo pseudonym. Pokud nenastavíte žádnou přezdívku, použijeme ve výchozím nastavení vaše ${app_name_short} ID. Toto nastavení lze později změnit.</string>
     <string name="not_linked">nepropojené</string>
-    <string name="linked">propojené</string>
+    <string name="linked">Propojeno</string>
     <string name="pending_sms_verification_notice">Vaše číslo mobilního telefonu zatím nebylo ověřeno.</string>
     <string name="no_sms_received">Nepřišla vám SMS?</string>
     <string name="really_cancel_verify">Skutečně si přejete přerušit proces ověření čísla mobilního telefonu?</string>
@@ -687,7 +701,6 @@ přátelům vás automaticky najít, pokud vás mají v adresáři svého telef
     <string name="new_wizard_anonymous_confirm">Nezadali jste ani číslo mobilního telefonu, ani e‑mailovou adresu, které mohou být propojené s vaším ${app_name_short} ID. Nebudete se proto zobrazovat v seznamu kontaktů vašich přátel. Skutečně si přejete používat aplikaci ${app_name} anonymně?</string>
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_anonymous_confirm_phone_only">Nezadali jste číslo mobilního telefonu, které může být propojeno s vaším ${app_name_short} ID. Nebudete se proto zobrazovat v seznamu kontaktů vašich přátel. Skutečně si přejete používat aplikaci ${app_name} anonymně?</string>
-    <string name="new_wizard_scan_id_backup">Nebo naskenujte QR kód z exportu vašeho ID</string>
     <string name="error_saving_file">Chyba během ukládání souboru. Zkontrolujte oprávnění.</string>
     <string name="wait_one_minute">Počkejte prosím nejméně 10 minut, než přijde SMS. Až následně zkuste použít záložní funkci ověření telefonním hovorem.</string>
     <string name="backup_id">Exportované ID</string>
@@ -770,7 +783,8 @@ přátelům vás automaticky najít, pokud vás mají v adresáři svého telef
     <string name="prefs_language_override">Jazyk</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
     <string name="threema_channel_intro">Kanál ${app_name_short} vám poskytuje novinky z ekosystému aplikace ${app_name_short}. Máte zájem se ke Kanálu ${app_name_short} přihlásit a přidat jej mezi kontakty? Je zdarma a kdykoliv se z něj můžete odhlásit.</string>
-    <string name="quote">Citovat</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
+    <string name="reply_to_message">Odpovědět</string>
     <string name="contacts_deleted">Kontakty byly odstraněny</string>
     <string name="take_photo">Pořídit fotku</string>
     <string name="select_from_gallery">Vybrat z galerie</string>
@@ -1212,7 +1226,10 @@ přátelům vás automaticky najít, pokud vás mají v adresáři svého telef
     <string name="max_selectable_media_exceeded">Nelze odeslat více než %d objektů najednou.</string>
     <string name="error_unable_loading_media_thumb">Chyba. Nelze načíst miniaturu souboru</string>
     <string name="filter_list">Filtrovat seznam</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
+    <string name="search_list">Prohledat seznam</string>
     <string name="hint_filter_list">Zadejte text filtru</string>
+    <string name="hint_search_list">Zadejte text k vyhledání</string>
     <string name="add">Přidat</string>
     <string name="only_images_or_videos">Je možné vybrat pouze obrázky nebo videa</string>
     <string name="media_gallery_gifs">GIFy</string>
@@ -1541,7 +1558,7 @@ přátelům vás automaticky najít, pokud vás mají v adresáři svého telef
     <string name="problemsolver_to_settings">Do nastavení</string>
     <!-- Label on button to dismiss/hide a warning -->
     <string name="problemsolver_dismiss">Zavřít</string>
-    <string name="prefs_advanced_options">Pokročilé možnosti</string>
+    <string name="prefs_advanced_options">Pokročilá nastavení</string>
     <string name="push_service">Služba push</string>
     <string name="edit_and_send">Upravit a odeslat</string>
     <string name="media_gallery_animated_webps">Animované WebP</string>
@@ -1572,10 +1589,11 @@ přátelům vás automaticky najít, pokud vás mají v adresáři svého telef
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="error_reporting_summary_always_ask">Vždy se zeptat, zda odeslat hlášení o chybách společnosti ${company_name}</string>
     <string name="error_detected_dialog_title">Odeslat anonymní hlášení</string>
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
-    <string name="crash_detected_dialog_text">Zdá se, že nedávno došlo k pádu aplikace ${app_name_short}. Přejete si odeslat anonymní hlášení o chybách?</string>
+    <string name="crash_detected_dialog_text">Zdá se, že nedávno došlo k problému. Přejete si odeslat anonymní hlášení o chybách?</string>
     <string name="crash_detected_dialog_remember_choice">Zapamatovat si moji volbu</string>
     <string name="crash_detected_dialog_send_button">Odeslat</string>
+    <string name="error_reporting_learn_more_button">Zjistěte více</string>
+    <string name="error_reporting_details_button">Technické podrobnosti</string>
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
     <string name="prefs_error_reporting_id">Anonymní ID zařízení</string>
     <!-- The %s is a placeholder for an ID. It must be left as-is. -->
@@ -1606,6 +1624,7 @@ přátelům vás automaticky najít, pokud vás mají v adresáři svého telef
     <!-- Button label on dialog when configuring a backup, shown on dialog that lets the user choose how they want to select the backup folder. This option lets them bypass the file picker and use the default Documents folder instead -->
     <string name="backup_path_selection_documents">Použít adresář „Dokumenty“</string>
     <!-- accessibility -->
+    <string name="cd_menu_more">Více možností</string>
     <string name="cd_edited">zpráva byla upravena</string>
     <string name="cd_created_at">vytvořeno %s</string>
     <string name="cd_edited_at">upraveno %s</string>
@@ -1752,7 +1771,6 @@ přátelům vás automaticky najít, pokud vás mají v adresáři svého telef
     <string name="edit_availability_status_modal_optional_message_placeholder">Na schůzce</string>
     <string name="edit_availability_status_modal_optional_message_description">Nastavte vlastní zprávu o stavu, když je vybrán stav Zaneprázdněn nebo Nedostupný.</string>
     <string name="edit_availability_status_modal_optional_message_too_long">Text je příliš dlouhý, zkraťte jej prosím</string>
-    <string name="edit_availability_status_did_change">Stav dostupnosti byl změněn</string>
     <string name="tooltip_title_availability_status">Stav dostupnosti</string>
     <string name="tooltip_text_availability_status_in_chat">Zjistěte, zda ten, komu se chystáte napsat, není zaneprázdněný nebo nedostupný. Ve svém profilu můžete nastavit vlastní stav.</string>
     <string name="tooltip_text_availability_status_in_profile">Nastavte si svůj stav, který se má zobrazit, když jste zaneprázdněni nebo nedostupní.</string>
@@ -1838,6 +1856,8 @@ přátelům vás automaticky najít, pokud vás mají v adresáři svého telef
         <item quantity="many">%d zpráv odstraněno</item>
         <item quantity="other">%d zpráv odstraněno</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
+    <string name="notifications_for_one_week">Po dobu 1 týdne</string>
     <plurals name="notifications_for_x_hours">
         <item quantity="one">Po dobu %d hodiny</item>
         <item quantity="few">Po dobu %d hodin</item>

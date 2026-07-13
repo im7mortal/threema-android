@@ -6,5 +6,4 @@ import org.koin.dsl.module
 val resetFeatureModule = module {
     factoryOf(::ResetAppTask)
     factoryOf(::DeleteAllContactsHelper)
-    factoryOf(::ResetAppTaskJavaCompat)
 }

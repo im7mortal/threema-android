@@ -10,14 +10,14 @@ import ch.threema.domain.models.MessageId
 import ch.threema.domain.protocol.csp.messages.AbstractGroupMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.types.IdentityString
-import java.util.Date
+import java.time.Instant
 
 abstract class OutgoingCspGroupControlMessageTask : OutgoingCspMessageTask() {
     protected abstract val messageId: MessageId
     protected abstract val creatorIdentity: IdentityString
     protected abstract val groupId: GroupId
     protected abstract val recipientIdentities: Set<IdentityString>
-    protected open val date: Date = Date()
+    protected open val date: Instant = Instant.now()
 
     override suspend fun runSendingSteps(handle: ActiveTaskCodec) {
         val recipients = recipientIdentities

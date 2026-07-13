@@ -18,7 +18,7 @@
             android:layout_height="wrap_content"
             android:layout_marginLeft="@dimen/lp_guide_start_margin"
             android:layout_gravity="center_vertical"
-            app:srcCompat="@drawable/ic_map_marker_outline"
+            app:srcCompat="@drawable/ic_location_pin"
             tools:ignore="ContentDescription"
             app:tint="?attr/colorOnSurface" />
 

@@ -2,7 +2,7 @@ package ch.threema.app.tasks
 
 import ch.threema.app.protocolsteps.ExpectedProfilePictureChange
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.GroupModel
 import ch.threema.data.models.GroupModelData
 import ch.threema.domain.models.UserState
@@ -96,7 +96,7 @@ fun GroupModelData.toGroupSync(
     data.name?.let {
         name = it
     }
-    createdAt = data.createdAt.time
+    createdAt = data.createdAt.toEpochMilli()
     userState = data.getProtoUserState()
     memberIdentities = data.getProtoMembers()
     if (isPrivateChat != null) {

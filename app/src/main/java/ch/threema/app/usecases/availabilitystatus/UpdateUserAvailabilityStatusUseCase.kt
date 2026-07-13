@@ -5,9 +5,9 @@ import ch.threema.app.availabilitystatus.withTrimmedDescription
 import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.tasks.ReflectUserAvailabilityStatusTask
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.app.work.workproperties.WorkPropertiesClient
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.domain.taskmanager.TaskManager
 import kotlinx.coroutines.withContext

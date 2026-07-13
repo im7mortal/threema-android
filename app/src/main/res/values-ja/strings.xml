@@ -31,6 +31,8 @@
     <string name="title_job_title">役職</string>
     <string name="title_department">部門</string>
     <string name="send">送信</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
     <string name="prefs_privacy">プライバシー</string>
     <string name="prefs_notifications">サウンドと通知</string>
     <string name="prefs_chatdisplay">トーク</string>
@@ -83,7 +85,8 @@
     <string name="prefs_sum_threema_push_off">システムのプッシュサービスを使用して新しいメッセージを確認する</string>
     <string name="prefs_logging">ログ</string>
     <string name="prefs_title_message_log_switch">ファイルにログを記録</string>
-    <string name="prefs_title_sum_message_log_on">イベントとネットワーク情報は debug_log.txt ファイルに記録されます</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
     <string name="prefs_title_sum_message_log_off">イベントはログに記録されません</string>
     <string name="prefs_reset_push">プッシュトークンを初期化</string>
     <string name="prefs_sum_reset_push">FCMにプッシュ通知用のデバイスを再登録する</string>
@@ -672,7 +675,6 @@ https://myid.threema.ch/revoke に入力することで ID を削除すること
     <string name="new_wizard_anonymous_confirm">${app_name_short} IDに登録する携帯電話番号やメールアドレスが入力されていません。友達の連絡先リストには表示されません。本当に匿名で${app_name}を利用しますか？</string>
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_anonymous_confirm_phone_only">${app_name_short} IDと連携する携帯電話番号が入力されていません。友達の連絡先リストには表示されません。本当に匿名で${app_name}を利用しますか？</string>
-    <string name="new_wizard_scan_id_backup">QRコードをスキャンする</string>
     <string name="error_saving_file">ファイル保存のエラー。権限を確認してください。</string>
     <string name="wait_one_minute">SMSが届くまで10分以上待ってから、通話をリクエストしてください。</string>
     <string name="backup_id">エクスポート済みの ID</string>
@@ -740,7 +742,7 @@ https://myid.threema.ch/revoke に入力することで ID を削除すること
     <string name="prefs_language_override">言語</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
     <string name="threema_channel_intro">${app_name_short} Channelでは、${app_name_short}に関するあらゆるニュースを提供しています。${app_name_short} Channelを購読して、連絡先に追加してみませんか？登録は無料で、いつでも解除することができます。</string>
-    <string name="quote">引用</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
     <string name="contacts_deleted">連絡先は削除されました</string>
     <string name="take_photo">写真を撮る</string>
     <string name="select_from_gallery">ギャラリーから選択</string>
@@ -1167,6 +1169,7 @@ https://myid.threema.ch/revoke に入力することで ID を削除すること
     <string name="max_selectable_media_exceeded">一度に%d以上のオブジェクトを送信できません。</string>
     <string name="error_unable_loading_media_thumb">エラーが発生しました。メディアサムネイルを読み込めませんでした。</string>
     <string name="filter_list">リストをフィルター</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
     <string name="hint_filter_list">フィルターする文字を入力</string>
     <string name="add">追加</string>
     <string name="only_images_or_videos">画像か動画のみ選択できます</string>
@@ -1490,7 +1493,6 @@ https://myid.threema.ch/revoke に入力することで ID を削除すること
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
     <!-- The %s is a placeholder for an ID. It must be left as-is. -->
     <!-- Message shown in dialog when the user starts configuring a backup, but we detected that there might be a problem and thus offer a workaround option to choose from -->
@@ -1573,6 +1575,7 @@ https://myid.threema.ch/revoke に入力することで ID を削除すること
     <plurals name="message_deleted">
         <item quantity="other">%d 件のメッセージを削除しました</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
     <plurals name="notifications_for_x_hours">
         <item quantity="other">%d 時間</item>
     </plurals>

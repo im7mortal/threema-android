@@ -16,7 +16,7 @@ use crate::{
     utils::{serde::base64, time::utc_now_ms},
 };
 
-#[derive(Debug, Serialize)]
+#[derive(Serialize)]
 struct WorkCredentials<'creds> {
     #[serde(rename = "licenseUsername")]
     username: &'creds str,
@@ -127,6 +127,7 @@ pub(crate) fn handle_authentication_challenge(
         challenge: challenge.challenge.clone(),
         response: client_key
             .derive_directory_authentication_key(&PublicKey::from(challenge.public_key))
+            .ok_or(HttpsEndpointError::InvalidChallenge)?
             .0
             .chain_update(&challenge.challenge)
             .finalize()
@@ -413,4 +414,33 @@ pub(crate) fn update_work_properties_request(
 pub(crate) fn handle_update_work_properties_result(result: HttpsResult) -> Result<(), HttpsEndpointError> {
     let _ = handle_status_and_awkward_response(result, |_| None)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use assert_matches::assert_matches;
+    use serde_json::json;
+
+    use crate::{
+        common::keys::ClientKey,
+        https::{HttpsResponse, directory::handle_authentication_challenge, endpoint::HttpsEndpointError},
+        utils::test::ResultUnwrapErrorQuiet as _,
+    };
+
+    #[test]
+    fn authentication_challenge_with_non_contributory_public_key() {
+        let error = handle_authentication_challenge(
+            &ClientKey::from([0; ClientKey::LENGTH]),
+            Ok(HttpsResponse {
+                status: 200,
+                body: serde_json::to_vec(&json!({
+                    "tokenRespKeyPub": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+                    "token": "AQID",
+                }))
+                .unwrap(),
+            }),
+        )
+        .unwrap_err_quiet();
+        assert_matches!(error, HttpsEndpointError::InvalidChallenge);
+    }
 }

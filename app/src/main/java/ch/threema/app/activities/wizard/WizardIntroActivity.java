@@ -28,6 +28,7 @@ import androidx.annotation.Nullable;
 
 import ch.threema.app.AppConstants;
 import ch.threema.app.R;
+import ch.threema.app.activities.ThreemaAppCompatActivity;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.webviews.PrivacyPolicyActivity;
 import ch.threema.app.backuprestore.csv.RestoreService;
@@ -38,13 +39,13 @@ import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.utils.AnimationUtil;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.SynchronizeContactsUtil;
-import ch.threema.app.utils.TestUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
-public class WizardIntroActivity extends WizardBackgroundActivity {
+public class WizardIntroActivity extends ThreemaAppCompatActivity {
     private static final Logger logger = getThreemaLogger("WizardIntroActivity");
 
     private static final int ACTIVITY_RESULT_PRIVACY_POLICY = 9442;
@@ -69,7 +70,7 @@ public class WizardIntroActivity extends WizardBackgroundActivity {
                 || ConfigUtils.isPermissionGranted(WizardIntroActivity.this, Manifest.permission.POST_NOTIFICATIONS))
         ) {
             // When the backup is being restored and notifications can be shown, then exit the intro
-            // activity. Otherwise the activity is resumed and if a backup is being restored, the
+            // activity. Otherwise, the activity is resumed and if a backup is being restored, the
             // BackupRestoreProgressActivity is shown.
             finish();
         }
@@ -97,8 +98,13 @@ public class WizardIntroActivity extends WizardBackgroundActivity {
         final LinearLayout buttonsLayout = findViewById(R.id.button_layout);
         ViewExtensionsKt.applyDeviceInsetsAsMargin(
             buttonsLayout,
-            InsetSides.bottom(),
+            InsetSides.lbr(),
             SpacingValues.all(R.dimen.grid_unit_x2)
+        );
+        ViewExtensionsKt.applyDeviceInsetsAsMargin(
+            findViewById(R.id.wizard_privacy_policy_explain),
+            InsetSides.horizontal(),
+            SpacingValues.horizontal(R.dimen.grid_unit_x2)
         );
 
         if (ConfigUtils.isWorkRestricted()) {
@@ -128,7 +134,7 @@ public class WizardIntroActivity extends WizardBackgroundActivity {
         }
 
         TextView privacyPolicyExplainText = findViewById(R.id.wizard_privacy_policy_explain);
-        if (TestUtil.isEmptyOrNull(getString(R.string.privacy_policy_url)) ||
+        if (isNullOrEmpty(getString(R.string.privacy_policy_url)) ||
             (ConfigUtils.isOnPremBuild() && !ConfigUtils.isDemoOPServer(dependencies.getPreferenceService()))) {
             privacyPolicyExplainText.setVisibility(View.GONE);
         } else {

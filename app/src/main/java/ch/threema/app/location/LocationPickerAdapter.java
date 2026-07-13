@@ -60,7 +60,7 @@ public class LocationPickerAdapter extends RecyclerView.Adapter<LocationPickerAd
         } else {
             // Covers the case of data not being ready yet.
             holder.nameView.setText("No data");
-            holder.iconView.setImageResource(R.drawable.ic_map_marker_outline);
+            holder.iconView.setImageResource(R.drawable.ic_location_pin);
         }
     }
 

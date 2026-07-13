@@ -24,7 +24,6 @@ public class GroupCallStatusDataChatAdapterDecorator extends ChatAdapterDecorato
     protected void configureChatMessage(final ComposeMessageHolder holder, Context context, final int position) {
         if (holder.bodyTextView != null) {
             final @NonNull MessageViewElement viewElement = MessageUtil.getViewElement(
-                context,
                 this.getMessageModel(),
                 this.helper.getPreferenceService().getContactNameFormat()
             );

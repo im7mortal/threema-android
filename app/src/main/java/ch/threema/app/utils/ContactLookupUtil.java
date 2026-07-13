@@ -8,6 +8,8 @@ import android.provider.ContactsContract;
 import ch.threema.app.services.ContactService;
 import ch.threema.storage.models.ContactModel;
 
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
+
 public class ContactLookupUtil {
 
     public static ContactModel phoneNumberToContact(final Context context, final ContactService contactService, final String phoneNumber) {
@@ -37,7 +39,7 @@ public class ContactLookupUtil {
             }
         }
 
-        if (!TestUtil.isEmptyOrNull(lookupKey)) {
+        if (!isNullOrEmpty(lookupKey)) {
             return contactService.getByLookupKey(lookupKey);
         }
 

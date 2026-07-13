@@ -6,7 +6,7 @@ import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.types.IdentityString
-import java.util.Date
+import java.time.Instant
 import kotlinx.serialization.Serializable
 
 class OutgoingContactDeliveryReceiptMessageTask(
@@ -23,7 +23,7 @@ class OutgoingContactDeliveryReceiptMessageTask(
             it.receiptMessageIds = messageIds
         }
 
-        sendContactMessage(message, null, toIdentity, MessageId.random(), Date(date), handle)
+        sendContactMessage(message, null, toIdentity, MessageId.random(), Instant.ofEpochMilli(date), handle)
     }
 
     override fun serialize(): SerializableTaskData = OutgoingDeliveryReceiptMessageData(

@@ -1,5 +1,6 @@
 package ch.threema.app.webclient.converter;
 
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 import static ch.threema.storage.models.MessageState.DELIVERED;
 import static ch.threema.storage.models.MessageState.USERACK;
 import static ch.threema.storage.models.MessageState.USERDEC;
@@ -17,9 +18,9 @@ import org.slf4j.Logger;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
@@ -34,7 +35,6 @@ import ch.threema.app.utils.FileUtil;
 import ch.threema.app.utils.MessageUtil;
 import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.QuoteUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.webclient.Protocol;
 import ch.threema.app.webclient.exceptions.ConversionException;
 import ch.threema.app.webclient.utils.ThumbnailUtils;
@@ -45,9 +45,7 @@ import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.FirstUnreadMessageModel;
 import ch.threema.storage.models.group.GroupMessageModel;
 import ch.threema.storage.models.data.LocationDataModel;
-import ch.threema.storage.models.data.media.AudioDataModel;
 import ch.threema.storage.models.data.media.FileDataModel;
-import ch.threema.storage.models.data.media.VideoDataModel;
 import ch.threema.storage.models.data.status.ForwardSecurityStatusDataModel;
 import ch.threema.storage.models.data.status.GroupCallStatusDataModel;
 import ch.threema.storage.models.data.status.GroupStatusDataModel;
@@ -152,7 +150,7 @@ public class Message extends Converter {
         @DetailLevel int detailLevel
     ) throws ConversionException {
         // Services
-        final ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        final ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             throw new ConversionException("Could not get service manager");
         }
@@ -168,9 +166,9 @@ public class Message extends Converter {
             throw new ConversionException("Services not available");
         }
 
-        // Determine message type. Potentially override the type if it's a media file message.
-        ch.threema.storage.models.MessageType virtualMessageType = message.getType();
-        if (virtualMessageType == ch.threema.storage.models.MessageType.FILE) {
+        // Determine message type. Potentially override the mime type if it's a media file message.
+        String type = null;
+        if (message.getType() == ch.threema.storage.models.MessageType.FILE) {
             final FileDataModel data = message.getFileData();
             final String mediaType = data.getMimeType();
             switch (data.getRenderingType()) {
@@ -179,38 +177,42 @@ public class Message extends Converter {
                     break;
                 case FileData.RENDERING_MEDIA:
                     if (MimeUtil.isSupportedImageFile(mediaType) && !MimeUtil.isGifFile(mediaType)) {
-                        virtualMessageType = ch.threema.storage.models.MessageType.IMAGE;
+                        type = MessageType.IMAGE;
                     } else if (MimeUtil.isAudioFile(mediaType)) {
-                        virtualMessageType = ch.threema.storage.models.MessageType.VOICEMESSAGE;
+                        type = MessageType.VOICEMESSAGE;
                     } else if (MimeUtil.isVideoFile(mediaType)) {
-                        virtualMessageType = ch.threema.storage.models.MessageType.VIDEO;
+                        type = MessageType.VIDEO;
                     }
                     break;
                 case FileData.RENDERING_STICKER:
                     if (MimeUtil.isSupportedImageFile(mediaType)) {
-                        virtualMessageType = ch.threema.storage.models.MessageType.IMAGE;
+                        type = MessageType.IMAGE;
                     }
                     break;
             }
         }
 
-        if (virtualMessageType == ch.threema.storage.models.MessageType.GROUP_STATUS) {
+        if (message.getType() == ch.threema.storage.models.MessageType.GROUP_STATUS) {
             return convertGroupStatus((GroupMessageModel) message);
         }
 
-        if (message instanceof GroupMessageModel && virtualMessageType == ch.threema.storage.models.MessageType.GROUP_CALL_STATUS) {
+        if (message instanceof GroupMessageModel && message.getType() == ch.threema.storage.models.MessageType.GROUP_CALL_STATUS) {
             return convertGroupCallStatus((GroupMessageModel) message);
         }
 
-        if (virtualMessageType == ch.threema.storage.models.MessageType.FORWARD_SECURITY_STATUS) {
+        if (message.getType() == ch.threema.storage.models.MessageType.FORWARD_SECURITY_STATUS) {
             return convertForwardSecurityStatus(message);
+        }
+
+        if (type == null) {
+            type = MessageType.convert(message.getType());
         }
 
         // Serialize
         final MsgpackObjectBuilder builder = new MsgpackObjectBuilder();
         try {
             builder.put(ID, String.valueOf(message.getId()));
-            builder.put(TYPE, MessageType.convert(virtualMessageType));
+            builder.put(TYPE, type);
             builder.put(SORT_KEY, message.getId());
             builder.put(IS_OUTBOX, message.isOutbox());
             builder.put(IS_STATUS, message.isStatusMessage());
@@ -266,19 +268,13 @@ public class Message extends Converter {
                 }
 
                 switch (message.getType()) {
-                    case VIDEO:
-                        maybePutVideo(builder, DATA_VIDEO, message.getVideoData());
-                        break;
-                    case VOICEMESSAGE:
-                        maybePutAudio(builder, DATA_AUDIO, message.getAudioData());
-                        break;
                     case FILE:
-                        switch (virtualMessageType) {
-                            case IMAGE:
+                        switch (type) {
+                            case MessageType.IMAGE:
                                 // Already handled by setting thumbnail and type
                                 break;
-                            case VIDEO:
-                                maybePutVideo(builder, DATA_VIDEO, VideoDataModel.fromFileData(message.getFileData()));
+                            case MessageType.VIDEO:
+                                maybePutVideo(builder, DATA_VIDEO, message.getFileData());
                                 break;
                             default:
                                 maybePutFile(builder, DATA_FILE, message, message.getFileData());
@@ -326,7 +322,6 @@ public class Message extends Converter {
                     .put(
                         BODY,
                         MessageUtil.getViewElement(
-                            ThreemaApplication.getAppContext(),
                             message,
                             getPreferenceService().getContactNameFormat()
                         ).text
@@ -368,7 +363,6 @@ public class Message extends Converter {
                     .put(
                         BODY,
                         MessageUtil.getViewElement(
-                            ThreemaApplication.getAppContext(),
                             message,
                             getPreferenceService().getContactNameFormat()
                         ).text
@@ -400,7 +394,6 @@ public class Message extends Converter {
                     .put(
                         BODY,
                         MessageUtil.getViewElement(
-                            ThreemaApplication.getAppContext(),
                             message,
                             getPreferenceService().getContactNameFormat()
                         ).text
@@ -425,7 +418,7 @@ public class Message extends Converter {
         switch (message.getType()) {
             case TEXT:
             case STATUS:
-            case BALLOT:
+            case POLL:
                 return message.getBody();
         }
         return null;
@@ -463,7 +456,7 @@ public class Message extends Converter {
     }
 
     private static void maybePutDate(MsgpackObjectBuilder builder, String field, AbstractMessageModel message) {
-        Date date = message.getPostedAt();
+        Instant date = message.getPostedAt();
 
         // Update time?
         if (message.isOutbox()) {
@@ -474,14 +467,14 @@ public class Message extends Converter {
 
         // Get display date
         if (date != null) {
-            builder.put(field, date.getTime() / 1000);
+            builder.put(field, date.getEpochSecond());
         }
     }
 
     private static void maybePutLastEditedAt(MsgpackObjectBuilder builder, String field, AbstractMessageModel message) {
-        Date editedAt = message.getEditedAt();
+        Instant editedAt = message.getEditedAt();
         if (editedAt != null) {
-            builder.put(field, editedAt.getTime() / 1000);
+            builder.put(field, editedAt.getEpochSecond());
         }
     }
 
@@ -489,9 +482,9 @@ public class Message extends Converter {
      * If available, add message events to message.
      */
     private static void maybePutEvents(MsgpackObjectBuilder builder, String field, AbstractMessageModel message) {
-        final Date createdAt = message.getCreatedAt();
-        final Date sentAt = message.getRawPostedAt();
-        final Date modifiedAt = message.getModifiedAt();
+        final Instant createdAt = message.getCreatedAt();
+        final Instant sentAt = message.getRawPostedAt();
+        final Instant modifiedAt = message.getModifiedAt();
 
         final MsgpackArrayBuilder arrayBuilder = new MsgpackArrayBuilder();
 
@@ -515,7 +508,7 @@ public class Message extends Converter {
      */
     private static void maybePutCaption(MsgpackObjectBuilder builder, String field, AbstractMessageModel message) {
         String caption = message.getCaption();
-        if (TestUtil.isEmptyOrNull(caption) && message.getType() == ch.threema.storage.models.MessageType.FILE) {
+        if (isNullOrEmpty(caption) && message.getType() == ch.threema.storage.models.MessageType.FILE) {
             //use description as caption!
             //hack!
             caption = message.getFileData().getCaption();
@@ -587,20 +580,13 @@ public class Message extends Converter {
         }
     }
 
-    private static void maybePutVideo(MsgpackObjectBuilder builder, String field, VideoDataModel videoData) {
-        if (videoData != null) {
-            final int videoDuration = videoData.getDuration();
-            final int videoSize = videoData.getVideoSize();
+    private static void maybePutVideo(MsgpackObjectBuilder builder, String field, FileDataModel fileData) {
+        if (fileData != null) {
+            final int videoDuration = (int) Math.min(fileData.getDurationSeconds(), (long) Integer.MAX_VALUE);
+            final int videoSize = (int) Math.min(fileData.getFileSize(), (long) Integer.MAX_VALUE);
             builder.put(field, new MsgpackObjectBuilder()
                 .put(DATA_VIDEO_DURATION, videoDuration)
                 .maybePut(DATA_VIDEO_SIZE, videoSize == 0 ? null : videoSize));
-        }
-    }
-
-    private static void maybePutAudio(MsgpackObjectBuilder builder, String field, AudioDataModel audioData) {
-        if (audioData != null) {
-            builder.put(field, new MsgpackObjectBuilder()
-                .put(DATA_AUDIO_DURATION, audioData.getDuration()));
         }
     }
 
@@ -666,7 +652,7 @@ public class Message extends Converter {
         if (voipStatusDataModel != null) {
             builder.put(field, new MsgpackObjectBuilder()
                 .put(DATA_VOIP_STATUS_STATUS, voipStatusDataModel.getStatus())
-                .put(DATA_VOIP_STATUS_DURATION, voipStatusDataModel.getDuration())
+                .put(DATA_VOIP_STATUS_DURATION, voipStatusDataModel.getDurationInSeconds())
                 .put(DATA_VOIP_STATUS_REASON, voipStatusDataModel.getReason() != null ?
                     voipStatusDataModel.getReason().intValue() : null));
         }

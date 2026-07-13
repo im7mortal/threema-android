@@ -41,7 +41,7 @@ public class BackupRestoreDataConfig implements Serializable {
         return this.backupContactAndMessages();
     }
 
-    public boolean backupBallots() {
+    public boolean backupPolls() {
         return this.backupContactAndMessages();
     }
 

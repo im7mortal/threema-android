@@ -1,11 +1,13 @@
 package ch.threema.app.camera;
 
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.view.KeyEvent;
 import android.view.WindowManager;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -155,5 +157,17 @@ public class CameraActivity extends ThreemaAppCompatActivity implements CameraFr
     @Override
     public boolean getVideoEnable() {
         return !noVideo;
+    }
+
+    @NonNull
+    public static Intent createIntent(@NonNull Context context, @NonNull String cameraFilePath, @Nullable String videoFilePath) {
+        Intent intent = new Intent(context, CameraActivity.class)
+            .putExtra(MediaStore.EXTRA_OUTPUT, cameraFilePath);
+        if (videoFilePath != null) {
+            intent.putExtra(CameraActivity.EXTRA_VIDEO_OUTPUT, videoFilePath);
+        } else {
+            intent.putExtra(CameraActivity.EXTRA_NO_VIDEO, true);
+        }
+        return intent;
     }
 }

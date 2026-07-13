@@ -75,7 +75,7 @@ class IncomingGroupDeliveryReceiptTask(
                 groupMessageModel,
                 messageState,
                 message.fromIdentity,
-                message.date,
+                message.timestamp,
             )
         }
 

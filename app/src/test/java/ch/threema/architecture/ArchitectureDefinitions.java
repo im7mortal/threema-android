@@ -24,7 +24,8 @@ public class ArchitectureDefinitions {
         COMMON = "common",
         LOCALCRYPTO = "localcrypto",
         LOGGING = "logging",
-        STORAGE = "storage";
+        STORAGE = "storage",
+        PROTOBUF = "protobuf";
 
     // Layer packages
     public static final String
@@ -37,11 +38,13 @@ public class ArchitectureDefinitions {
         PACKAGE_COMMON = THREEMA_ROOT_PACKAGE_DOT + COMMON,
         PACKAGE_LOCALCRYPTO = THREEMA_ROOT_PACKAGE_DOT + LOCALCRYPTO,
         PACKAGE_LOGGING = THREEMA_ROOT_PACKAGE_DOT + LOGGING,
-        PACKAGE_STORAGE = THREEMA_ROOT_PACKAGE_DOT + STORAGE;
+        PACKAGE_STORAGE = THREEMA_ROOT_PACKAGE_DOT + STORAGE,
+        PACKAGE_PROTOBUF = THREEMA_ROOT_PACKAGE_DOT + PROTOBUF;
 
 
     public static @NonNull Architectures.LayeredArchitecture getLayeredArchitecture() {
         return layeredArchitecture()
+            .consideringAllDependencies()
             .layer(APP).definedBy(PACKAGE_APP + "..")
             .layer(STORAGE).definedBy(PACKAGE_STORAGE + "..")
             .layer(LOCALCRYPTO).definedBy(PACKAGE_LOCALCRYPTO + "..")
@@ -51,6 +54,7 @@ public class ArchitectureDefinitions {
             .layer(COMMON).definedBy(PACKAGE_COMMON + "..")
             .layer(BASE).definedBy(PACKAGE_BASE + "..")
             .layer(LOGGING).definedBy(PACKAGE_LOGGING + "..")
-            .layer(ANNOTATION).definedBy(PACKAGE_ANNOTATION + "..");
+            .layer(ANNOTATION).definedBy(PACKAGE_ANNOTATION + "..")
+            .layer(PROTOBUF).definedBy(PACKAGE_PROTOBUF + "..");
     }
 }

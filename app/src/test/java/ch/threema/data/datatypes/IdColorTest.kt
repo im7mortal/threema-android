@@ -2,7 +2,7 @@ package ch.threema.data.datatypes
 
 import android.content.Context
 import ch.threema.app.utils.ConfigUtils
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.domain.models.GroupId
 import ch.threema.storage.models.ContactModel
 import ch.threema.storage.models.DistributionListModel

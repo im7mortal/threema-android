@@ -1,15 +1,17 @@
 package ch.threema.app.usecases.conversations
 
 import app.cash.turbine.test
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventFlows
+import ch.threema.app.eventbus.events.ConversationEvent
 import ch.threema.app.services.ConversationService
-import ch.threema.app.test.unconfinedTestDispatcherProvider
+import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.testhelpers.expectItem
+import ch.threema.testhelpers.unconfinedTestDispatcherProvider
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlin.test.Test
-import kotlin.test.assertEquals
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
 import testdata.TestData
 
@@ -19,23 +21,28 @@ class WatchArchivedConversationsUseCaseTest {
     @Test
     fun `emits correct values and skips unnecessary changes`() = runTest {
         // arrange
+        val conversationEvents = MutableSharedFlow<ConversationEvent>()
+        val globalEventFlowsMock = mockk<GlobalEventFlows> {
+            every { conversations } returns conversationEvents
+        }
         val conversationService = mockk<ConversationService>()
         val useCase = WatchArchivedConversationsUseCase(
             conversationService = conversationService,
+            globalEventFlows = globalEventFlowsMock,
             dispatcherProvider = unconfinedTestDispatcherProvider(),
         )
 
         val archivedContactConversation = TestData.createContactConversationModel(
             identity = TestData.Identities.OTHER_1,
-            isArchived = true,
+            conversationVisibility = ConversationVisibility.ARCHIVED,
         )
         val archivedGroupConversation = TestData.createGroupConversationModel(
             groupDatabaseId = 1L,
-            isArchived = true,
+            conversationVisibility = ConversationVisibility.ARCHIVED,
         )
         val archivedDistributionListConversation = TestData.createDistributionListConversationModel(
             distributionListId = 1L,
-            isArchived = true,
+            conversationVisibility = ConversationVisibility.ARCHIVED,
         )
 
         every { conversationService.archived } returns listOf(
@@ -50,14 +57,17 @@ class WatchArchivedConversationsUseCaseTest {
             expectItem(listOf(archivedContactConversation, archivedGroupConversation, archivedDistributionListConversation))
 
             // Adding a new archived conversation
-            val newArchivedConversation = TestData.createContactConversationModel(identity = TestData.Identities.OTHER_1, isArchived = true)
+            val newArchivedConversation = TestData.createContactConversationModel(
+                identity = TestData.Identities.OTHER_1,
+                conversationVisibility = ConversationVisibility.ARCHIVED,
+            )
             every { conversationService.archived } returns listOf(
                 archivedContactConversation,
                 archivedGroupConversation,
                 archivedDistributionListConversation,
                 newArchivedConversation,
             )
-            ListenerManager.conversationListeners.handle { it.onNew(newArchivedConversation) }
+            conversationEvents.emit(ConversationEvent.NewConversation(newArchivedConversation))
             expectItem(
                 listOf(
                     archivedContactConversation,
@@ -69,41 +79,40 @@ class WatchArchivedConversationsUseCaseTest {
 
             // Updating a non-archived conversation
             val updatedNonArchivedConversation = TestData.createGroupConversationModel(groupDatabaseId = 1L)
-            ListenerManager.conversationListeners.handle {
-                it.onModified(updatedNonArchivedConversation)
-            }
+            conversationEvents.emit(ConversationEvent.ConversationUpdated(updatedNonArchivedConversation))
             expectNoEvents()
 
             // Updating an archived conversation
-            val updatedArchivedConversation = TestData.createGroupConversationModel(groupDatabaseId = 1L, isArchived = true)
-            ListenerManager.conversationListeners.handle {
-                it.onModified(updatedArchivedConversation)
-            }
+            val updatedArchivedConversation = TestData.createGroupConversationModel(
+                groupDatabaseId = 1L,
+                conversationVisibility = ConversationVisibility.ARCHIVED,
+            )
+            conversationEvents.emit(ConversationEvent.ConversationUpdated(updatedArchivedConversation))
             expectItem(listOf(archivedContactConversation, archivedGroupConversation, archivedDistributionListConversation, newArchivedConversation))
 
             // Modified all
-            ListenerManager.conversationListeners.handle { it.onModifiedAll() }
+            conversationEvents.emit(ConversationEvent.AllConversationsUpdated)
             expectItem(listOf(archivedContactConversation, archivedGroupConversation, archivedDistributionListConversation, newArchivedConversation))
 
             // Remove a non-archived conversation
             val removedNonArchivedConversation = TestData.createContactConversationModel(identity = TestData.Identities.OTHER_1)
-            ListenerManager.conversationListeners.handle { it.onRemoved(removedNonArchivedConversation) }
+            conversationEvents.emit(ConversationEvent.ConversationRemoved(removedNonArchivedConversation))
             expectNoEvents()
 
             // Remove an archived conversation
-            val removedArchivedConversation = TestData.createContactConversationModel(identity = TestData.Identities.OTHER_1, isArchived = true)
+            val removedArchivedConversation = TestData.createContactConversationModel(
+                identity = TestData.Identities.OTHER_1,
+                conversationVisibility = ConversationVisibility.ARCHIVED,
+            )
             every { conversationService.archived } returns listOf(
                 archivedContactConversation,
                 archivedGroupConversation,
                 archivedDistributionListConversation,
             )
-            ListenerManager.conversationListeners.handle { it.onRemoved(removedArchivedConversation) }
+            conversationEvents.emit(ConversationEvent.ConversationRemoved(removedArchivedConversation))
             expectItem(listOf(archivedContactConversation, archivedGroupConversation, archivedDistributionListConversation))
         }
 
         verify(exactly = 5) { conversationService.archived }
-
-        // Verify that the global listener was cleaned up
-        assertEquals(0, ListenerManager.conversationListeners.size())
     }
 }

@@ -77,7 +77,6 @@ class CspD2mDualConnectionSupplier(
     private val serverAddressProviderService: ServerAddressProviderService,
     private val identityStore: IdentityStore,
     private val version: Version,
-    private val isIpv6Preferred: Boolean,
     private val okHttpClient: OkHttpClient,
     private val appStartupMonitor: AppStartupMonitor,
     private val isTestBuild: Boolean,
@@ -131,7 +130,6 @@ class CspD2mDualConnectionSupplier(
             incomingMessageProcessor,
             taskManager,
             AsyncResolver::getAllByName,
-            isIpv6Preferred,
             ProxyAwareSocketFactory::makeSocket,
         )
     }

@@ -8,8 +8,8 @@ use crate::{
     common::{ClientInfo, CspDeviceId, DeviceCookie, ThreemaId, keys::PublicKey},
     crypto::{digest::MAC_256_LENGTH, salsa20, x25519},
     csp::{
-        ClientCookie, Cookie, CspProtocolContext, CspProtocolError, InternalErrorCause, ServerCookie,
-        TemporaryServerKey,
+        ClientCookie, Cookie, CspProtocolContext, CspProtocolError, CspProtocolInternalErrorCause,
+        ServerCookie, TemporaryServerKey,
         payload::{FrameEncoder, OutgoingFrame},
     },
     utils::{
@@ -159,14 +159,13 @@ impl Extension {
                 Self::encode_header(
                     writer,
                     ExtensionType::ClientInfo as u8,
-                    client_info
-                        .len()
-                        .try_into()
-                        .map_err(|_| InternalErrorCause::from("Oversized client info exceeds u16"))?,
+                    client_info.len().try_into().map_err(|_| {
+                        CspProtocolInternalErrorCause::from("Oversized client info exceeds u16")
+                    })?,
                 )?;
                 writer
                     .write(client_info)
-                    .map_err(|error| InternalErrorCause::EncodingFailed {
+                    .map_err(|error| CspProtocolInternalErrorCause::EncodingFailed {
                         name: Self::NAME,
                         source: error,
                     })?;
@@ -174,22 +173,22 @@ impl Extension {
             },
             Extension::CspDeviceId(device_id) => {
                 Self::encode_header(writer, ExtensionType::CspDeviceId as u8, 8)?;
-                writer
-                    .write_u64_le(device_id.0)
-                    .map_err(|error| InternalErrorCause::EncodingFailed {
+                writer.write_u64_le(device_id.0).map_err(|error| {
+                    CspProtocolInternalErrorCause::EncodingFailed {
                         name: Self::NAME,
                         source: error,
-                    })?;
+                    }
+                })?;
                 Ok(())
             },
             Extension::SupportedFeatures(features) => {
                 Self::encode_header(writer, ExtensionType::SupportedFeatures as u8, 1)?;
-                writer
-                    .write_u8(features.0)
-                    .map_err(|error| InternalErrorCause::EncodingFailed {
+                writer.write_u8(features.0).map_err(|error| {
+                    CspProtocolInternalErrorCause::EncodingFailed {
                         name: Self::NAME,
                         source: error,
-                    })?;
+                    }
+                })?;
                 Ok(())
             },
             Extension::DeviceCookie(device_cookie) => {
@@ -200,12 +199,12 @@ impl Extension {
                         .try_into()
                         .expect("DeviceCookie::LENGTH should fit a u16"),
                 )?;
-                writer
-                    .write(&device_cookie.0)
-                    .map_err(|error| InternalErrorCause::EncodingFailed {
+                writer.write(&device_cookie.0).map_err(|error| {
+                    CspProtocolInternalErrorCause::EncodingFailed {
                         name: Self::NAME,
                         source: error,
-                    })?;
+                    }
+                })?;
                 Ok(())
             },
         }
@@ -221,7 +220,7 @@ impl Extension {
                 writer.write_u8(extension_type)?;
                 writer.write_u16_le(length)
             })
-            .map_err(|error| InternalErrorCause::EncodingFailed {
+            .map_err(|error| CspProtocolInternalErrorCause::EncodingFailed {
                 name: Self::NAME,
                 source: error,
             })?;
@@ -266,11 +265,11 @@ impl Extensions {
         let length_with_overhead: u16 = encoded
             .len()
             .checked_add(Self::ENCRYPTION_OVERHEAD_LENGTH)
-            .ok_or(InternalErrorCause::from(
+            .ok_or(CspProtocolInternalErrorCause::from(
                 "Encoded extensions length exceeded a u16",
             ))?
             .try_into()
-            .map_err(|_| InternalErrorCause::from("Encoded extensions length exceeded a u16"))?;
+            .map_err(|_| CspProtocolInternalErrorCause::from("Encoded extensions length exceeded a u16"))?;
         Ok((encoded, length_with_overhead))
     }
 }

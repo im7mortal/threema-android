@@ -10,22 +10,25 @@ import ch.threema.app.services.DistributionListService
 import ch.threema.app.services.ExcludedSyncIdentitiesService
 import ch.threema.app.services.GroupService
 import ch.threema.base.utils.JSONUtil
-import ch.threema.base.utils.Utils
 import ch.threema.common.emptyByteArray
 import ch.threema.common.toHexString
 import ch.threema.data.ModelTypeCache
 import ch.threema.data.repositories.ContactModelRepository
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.GroupId
 import ch.threema.domain.stores.IdentityStore
 import ch.threema.domain.types.IdentityString
 import ch.threema.storage.models.ContactModel
 import ch.threema.storage.models.DistributionListModel
 import ch.threema.storage.models.group.GroupModelOld
+import ch.threema.testhelpers.TestDispatcherProvider
 import ch.threema.testhelpers.mockOkHttpClient
 import ch.threema.testhelpers.nonSecureRandomArray
 import io.mockk.every
 import io.mockk.mockk
-import java.util.Date
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.test.BeforeTest
@@ -52,11 +55,17 @@ class ThreemaSafeServiceTest {
     private val contactModelRepository: ContactModelRepository = ContactModelRepository(
         cache = ModelTypeCache(),
         databaseBackend = mockk(),
-        coreServiceManager = mockk(),
+        identityProvider = mockk(),
+        multiDeviceManager = mockk(),
+        taskManager = mockk(),
+        nonceFactory = mockk(),
+        globalEventBuses = mockk(),
+        globalEventFlows = mockk(),
+        dispatcherProvider = TestDispatcherProvider(),
     )
 
-    private lateinit var testDate1: Date
-    private lateinit var testDate2: Date
+    private lateinit var testDate1: Instant
+    private lateinit var testDate2: Instant
     private var testDate1Timestamp: Long = 0
     private var testDate2Timestamp: Long = 0
 
@@ -105,6 +114,8 @@ class ThreemaSafeServiceTest {
         mockOkHttpClient { mockk() },
         /* appRestrictions */
         mockk(),
+        /* validContactsLookupSteps */
+        mockk(),
     )
 
     @Suppress("DEPRECATION")
@@ -122,8 +133,12 @@ class ThreemaSafeServiceTest {
         Locale.setDefault(localeSwitzerland)
         TimeZone.setDefault(TimeZone.getTimeZone("Europe/Zurich"))
 
-        testDate1 = Date(2020 - 1900, 11, 1, 13, 14, 15)
-        testDate2 = Date(2021 - 1900, 11, 1, 13, 14, 15)
+        testDate1 = LocalDateTime.of(2020, 12, 1, 13, 14, 15)
+            .atZone(ZoneId.of("Europe/Zurich"))
+            .toInstant()
+        testDate2 = LocalDateTime.of(2021, 12, 1, 13, 14, 15)
+            .atZone(ZoneId.of("Europe/Zurich"))
+            .toInstant()
         testDate1Timestamp = 1606824855000L
         testDate2Timestamp = 1638360855000L
     }
@@ -160,7 +175,7 @@ class ThreemaSafeServiceTest {
 
     @Test
     fun testGetThreemaSafeBackupId() {
-        every { preferenceServiceMock.getThreemaSafeMasterKey() } returns Utils.hexStringToByteArray(MASTER_KEY_HEX)
+        every { preferenceServiceMock.getThreemaSafeMasterKey() } returns MASTER_KEY_HEX.hexToByteArray()
 
         val backupId = threemaSafeServiceImpl.threemaSafeBackupId!!
         val backupIdHex = backupId.toHexString()
@@ -187,7 +202,7 @@ class ThreemaSafeServiceTest {
 
     @Test
     fun testGetThreemaSafeEncryptionKey() {
-        every { preferenceServiceMock.getThreemaSafeMasterKey() } returns Utils.hexStringToByteArray(MASTER_KEY_HEX)
+        every { preferenceServiceMock.getThreemaSafeMasterKey() } returns MASTER_KEY_HEX.hexToByteArray()
 
         val encryptionKey = threemaSafeServiceImpl.threemaSafeEncryptionKey!!
         val encryptionKeyHex = encryptionKey.toHexString()
@@ -256,27 +271,27 @@ class ThreemaSafeServiceTest {
         // arrange
         // Contact 1 - not removed, in no common group
         val contact1 = ContactModel.create("CONTACT1", nonSecureRandomArray(32)).apply {
-            setAcquaintanceLevel(ContactModel.AcquaintanceLevel.DIRECT)
+            setAcquaintanceLevel(AcquaintanceLevel.DIRECT)
         }
 
         // Contact 2 - not removed, in a common group
         val contact2 = ContactModel.create("CONTACT2", nonSecureRandomArray(32)).apply {
-            setAcquaintanceLevel(ContactModel.AcquaintanceLevel.DIRECT)
+            setAcquaintanceLevel(AcquaintanceLevel.DIRECT)
         }
 
         // Contact 3 - removed, in a common group
         val contact3 = ContactModel.create("CONTACT3", nonSecureRandomArray(32)).apply {
-            setAcquaintanceLevel(ContactModel.AcquaintanceLevel.GROUP)
+            setAcquaintanceLevel(AcquaintanceLevel.GROUP_OR_DELETED)
         }
 
         // Contact 4 - removed, in no common group
         val contact4 = ContactModel.create("CONTACT4", nonSecureRandomArray(32)).apply {
-            setAcquaintanceLevel(ContactModel.AcquaintanceLevel.GROUP)
+            setAcquaintanceLevel(AcquaintanceLevel.GROUP_OR_DELETED)
         }
 
         // Contact 5 - removed, in no common group
         val contact5 = ContactModel.create("CONTACT5", nonSecureRandomArray(32)).apply {
-            setAcquaintanceLevel(ContactModel.AcquaintanceLevel.GROUP)
+            setAcquaintanceLevel(AcquaintanceLevel.GROUP_OR_DELETED)
         }
 
         every { contactServiceMock.removedContacts } returns setOf("CONTACT4", "CONTACT5")

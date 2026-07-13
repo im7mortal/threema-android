@@ -28,7 +28,7 @@
             app:layout_constraintHorizontal_bias="1.0"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:srcCompat="@drawable/ic_pencil_outline"
+            app:srcCompat="@drawable/ic_pencil"
             app:tint="?attr/colorPrimary" />
 
         <ch.threema.app.ui.SectionHeaderView

@@ -14,8 +14,8 @@ import java.net.NoRouteToHostException
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.toJavaDuration
 import kotlinx.coroutines.test.runTest
@@ -47,7 +47,7 @@ class LibthreemaHttpClientTest {
             ),
         )
 
-        assertTrue(result is HttpsResult.Response)
+        assertIs<HttpsResult.Response>(result)
         assertEquals(200.toUShort(), result.v1.status)
         assertContentEquals(RESPONSE_BODY.toByteArray(), result.v1.body)
     }
@@ -73,7 +73,7 @@ class LibthreemaHttpClientTest {
             ),
         )
 
-        assertTrue(result is HttpsResult.Response)
+        assertIs<HttpsResult.Response>(result)
         assertEquals(200.toUShort(), result.v1.status)
         assertContentEquals(RESPONSE_BODY.toByteArray(), result.v1.body)
     }
@@ -99,7 +99,7 @@ class LibthreemaHttpClientTest {
             ),
         )
 
-        assertTrue(result is HttpsResult.Response)
+        assertIs<HttpsResult.Response>(result)
         assertEquals(200.toUShort(), result.v1.status)
         assertContentEquals(RESPONSE_BODY.toByteArray(), result.v1.body)
     }
@@ -125,7 +125,7 @@ class LibthreemaHttpClientTest {
             ),
         )
 
-        assertTrue(result is HttpsResult.Response)
+        assertIs<HttpsResult.Response>(result)
         assertEquals(200.toUShort(), result.v1.status)
         assertContentEquals(RESPONSE_BODY.toByteArray(), result.v1.body)
     }
@@ -148,7 +148,7 @@ class LibthreemaHttpClientTest {
             ),
         )
 
-        assertTrue(result is HttpsResult.Response)
+        assertIs<HttpsResult.Response>(result)
         assertEquals(404.toUShort(), result.v1.status)
         assertContentEquals(RESPONSE_BODY.toByteArray(), result.v1.body)
     }
@@ -171,8 +171,8 @@ class LibthreemaHttpClientTest {
             ),
         )
 
-        assertTrue(result is HttpsResult.Error)
-        assertTrue(result.v1 is HttpsException.Unreachable)
+        assertIs<HttpsResult.Error>(result)
+        assertIs<HttpsException.Unreachable>(result.v1)
         assertEquals("v1=network issue", result.v1.message)
     }
 

@@ -8,8 +8,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.ActivityCompat
-import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import ch.threema.android.buildNotification
 import ch.threema.app.R
 import ch.threema.app.activities.ComposeMessageActivity
 import ch.threema.app.messagereceiver.ContactMessageReceiver
@@ -18,7 +18,7 @@ import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ConversationCategoryService
 import ch.threema.base.utils.getThreemaLogger
-import kotlin.random.Random
+import ch.threema.data.datatypes.ConversationId
 
 private val logger = getThreemaLogger("ForwardSecurityNotificationManager")
 
@@ -27,31 +27,27 @@ class ForwardSecurityNotificationManager(
     private val conversationCategoryService: ConversationCategoryService,
     private val preferenceService: PreferenceService,
 ) {
-    private val notificationIdMap = HashMap<String, Int>()
-
     @SuppressLint("MissingPermission")
     fun showForwardSecurityNotification(messageReceiver: MessageReceiver<*>) {
+        val conversationId = messageReceiver.conversationId
         val contentText = getNotificationContextText(messageReceiver)
 
-        val builder: NotificationCompat.Builder = NotificationCompat.Builder(
-            context,
-            NotificationChannels.NOTIFICATION_CHANNEL_FORWARD_SECURITY,
-        )
-            .setContentTitle(context.getString(R.string.forward_security_notification_rejected_title))
-            .setContentText(contentText)
-            .setSmallIcon(R.drawable.ic_baseline_key_off_24)
-            .setLocalOnly(true)
-            .setContentIntent(getIntent(messageReceiver))
-            .setAutoCancel(true)
-            .setOnlyAlertOnce(true)
-            .setOngoing(false)
-
-        val notificationId = getNotificationId(messageReceiver)
+        val notification = buildNotification(context, NotificationChannels.NOTIFICATION_CHANNEL_FORWARD_SECURITY) {
+            setContentTitle(context.getString(R.string.forward_security_notification_rejected_title))
+            setContentText(contentText)
+            setSmallIcon(R.drawable.ic_key_off)
+            setLocalOnly(true)
+            setContentIntent(getIntent(conversationId))
+            setAutoCancel(true)
+            setOnlyAlertOnce(true)
+            setOngoing(false)
+        }
 
         NotificationManagerCompat.from(context).apply {
             if (hasNotificationPermission()) {
+                val notificationId = getNotificationId(conversationId)
                 logger.info("Displaying fs reject notification with id {}", notificationId)
-                notify(notificationId, builder.build())
+                notify(notificationId, notification)
             } else {
                 logger.warn("Cannot show forward security notification due to missing permission")
             }
@@ -68,23 +64,27 @@ class ForwardSecurityNotificationManager(
             true
         }
 
-    private fun getNotificationId(messageReceiver: MessageReceiver<*>): Int {
-        return notificationIdMap[messageReceiver.uniqueIdString] ?: run {
-            val newId = Random.nextInt()
-            notificationIdMap[messageReceiver.uniqueIdString] = newId
-            newId
-        }
-    }
+    private fun getNotificationId(conversationId: ConversationId): Int =
+        NotificationIDs.getNotificationIdForConversation(conversationId, offset = 1)
 
-    private fun getIntent(messageReceiver: MessageReceiver<*>): PendingIntent {
-        val intent = Intent(context, ComposeMessageActivity::class.java)
-        messageReceiver.prepareIntent(intent)
-        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+    private fun getIntent(conversationId: ConversationId): PendingIntent {
+        val intent = ComposeMessageActivity.createIntent(
+            context = context,
+            conversationId = conversationId,
+        )
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        val requestCode = NotificationRequestCodes.getRequestCodeForConversationNotification(
+            conversationId = conversationId,
+            action = NotificationRequestCodes.ConversationNotificationAction.FORWARD_SECURITY,
+        )
         return PendingIntent.getActivity(
+            /* context = */
             context,
-            // Use unique request code to prevent that pending intent extras are overridden
-            messageReceiver.uniqueIdString.hashCode(),
+            /* requestCode = */
+            requestCode,
+            /* intent = */
             intent,
+            /* flags = */
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
     }
@@ -92,7 +92,7 @@ class ForwardSecurityNotificationManager(
     private fun getNotificationContextText(messageReceiver: MessageReceiver<*>): String {
         // Do not include name in case of a hidden contact. The intent remains the same, so clicking
         // the notification will still result in opening the correct chat.
-        return if (conversationCategoryService.isPrivateChat(messageReceiver.uniqueIdString)) {
+        return if (conversationCategoryService.isMarkedAsPrivate(messageReceiver.conversationId)) {
             context.getString(R.string.forward_security_notification_rejected_text_generic)
         } else {
             when (messageReceiver) {

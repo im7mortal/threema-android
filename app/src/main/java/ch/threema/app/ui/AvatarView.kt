@@ -21,7 +21,7 @@ import ch.threema.data.datatypes.AvailabilityStatus
 
 class AvatarView : FrameLayout {
     private lateinit var avatar: ImageView
-    private lateinit var badgeWork: ImageView
+    private lateinit var badgeIdentityType: ImageView
     private var badgeAvailabilityStatusContainer: FrameLayout? = null
     private var badgeAvailabilityStatus: AvailabilityStatusIconElevatedView? = null
 
@@ -39,8 +39,8 @@ class AvatarView : FrameLayout {
         super.onFinishInflate()
 
         avatar = findViewById(R.id.avatar)
-        badgeWork = findViewById(R.id.avatar_badge_work)
-        badgeWork.isVisible = false
+        badgeIdentityType = findViewById(R.id.avatar_badge_identity_type)
+        badgeIdentityType.isVisible = false
 
         @Suppress("KotlinConstantConditions")
         if (BuildConfig.AVAILABILITY_STATUS_ENABLED) {
@@ -79,8 +79,8 @@ class AvatarView : FrameLayout {
     val avatarView: ImageView
         get() = avatar
 
-    fun setWorkBadgeVisible(visible: Boolean) {
-        badgeWork.setVisibility(if (visible) VISIBLE else GONE)
+    fun setIdentityTypeBadgeVisible(visible: Boolean) {
+        badgeIdentityType.setVisibility(if (visible) VISIBLE else GONE)
     }
 
     fun setAvailabilityStatusBadgeState(availabilityStatusSet: AvailabilityStatus.Set?) {

@@ -8,10 +8,9 @@ import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.base.SessionScoped;
-import ch.threema.domain.models.ReceiverIdentifier;
+import ch.threema.data.datatypes.ConversationId;
 import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.storage.models.AbstractMessageModel;
-import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.ConversationModel;
 import ch.threema.storage.models.ConversationTag;
 import ch.threema.storage.models.DistributionListModel;
@@ -29,7 +28,7 @@ public interface ConversationService {
             return false;
         }
 
-        default boolean noHiddenChats() {
+        default boolean noHiddenConversations() {
             return false;
         }
 
@@ -64,7 +63,10 @@ public interface ConversationService {
     List<ConversationModel> getAll(boolean forceReloadFromDatabase, @Nullable Filter filter);
 
     @Nullable
-    ConversationModel get(@NonNull ReceiverIdentifier receiverIdentifier);
+    ConversationModel get(@NonNull ConversationId conversationId);
+
+    @Nullable
+    ConversationModel getCached(@NonNull ConversationId conversationId);
 
     /**
      * Return a list of all archived conversation models.
@@ -103,10 +105,13 @@ public interface ConversationService {
      */
     void updateContactConversation(@NonNull String identity);
 
+    @Nullable
+    ConversationModel get(@Nullable AbstractMessageModel modifiedMessageModel);
+
     /**
-     * refresh a conversation model with a modified message model
+     * refresh a conversation model, based on the model of the message that triggered the change
      */
-    ConversationModel refresh(AbstractMessageModel modifiedMessageModel);
+    void refreshForMessage(AbstractMessageModel messageModel, boolean isNewMessage);
 
     /**
      * refresh conversation
@@ -139,17 +144,13 @@ public interface ConversationService {
     void sort();
 
     /**
-     * set conversation model as "isTyping"
-     */
-    ConversationModel setIsTyping(ContactModel contact, boolean isTyping);
-
-    /**
      * refresh a conversation model with a deleted message model
      */
     void refreshWithDeletedMessage(AbstractMessageModel modifiedMessageModel);
 
     /**
-     * mark conversation as archived
+     * mark conversation as archived. Additionally, all conversation tags are removed and the unread
+     * count is set to 0.
      */
     void archive(@NonNull ConversationModel conversationModel, @NonNull TriggerSource triggerSource);
 
@@ -157,12 +158,6 @@ public interface ConversationService {
      * clear archived flag in archived conversations
      */
     void unarchive(List<ConversationModel> conversations, @NonNull TriggerSource triggerSource);
-
-    /**
-     * Toggle the {@code ConversationTag.PINNED} tag for the given {@code ConversationModel} and notify the conversation listeners with the updated
-     * model.
-     */
-    void togglePinned(@NonNull ConversationModel conversationModel, @NonNull TriggerSource triggerSource);
 
     /**
      * Tag the given {@code ConversationModel} with a given {@code ConversationTag} and notify the conversation listeners with the updated model.
@@ -182,7 +177,7 @@ public interface ConversationService {
      * clear archived flag in archived conversations
      */
     @WorkerThread
-    void unarchiveByReceiverIdentifiers(@NonNull List<ReceiverIdentifier> receiverIdentifiers, @NonNull TriggerSource triggerSource);
+    void unarchiveByConversationIds(@NonNull List<ConversationId> conversationIds, @NonNull TriggerSource triggerSource);
 
     /**
      * Empty associated conversation (remove all messages).
@@ -190,7 +185,7 @@ public interface ConversationService {
      * @param silentMessageUpdate do not fire MessageListener updates for removed messages if true
      * @return the number of removed messages.
      */
-    int empty(ConversationModel conversation, boolean silentMessageUpdate);
+    int empty(@NonNull ConversationModel conversation, boolean silentMessageUpdate);
 
     /**
      * Empty associated conversation (remove all messages).

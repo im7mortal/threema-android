@@ -50,21 +50,15 @@ public class EmojiRecent {
         return recentList;
     }
 
-    public int getNumberOfRecentEmojis() {
-        return recentList.size();
-    }
-
     public void saveToPrefs() {
-        preferenceService.setRecentEmojis2(recentListNew);
+        preferenceService.setRecentEmojis(recentListNew);
         syncRecents();
     }
 
     public void readFromPrefs() {
         if (preferenceService != null) {
-            recentList = preferenceService.getRecentEmojis2();
-            if (recentList != null) {
-                recentListNew = (LinkedList<String>) recentList.clone();
-            }
+            recentList = new LinkedList<>(preferenceService.getRecentEmojis());
+            recentListNew = (LinkedList<String>) this.recentList.clone();
         }
     }
 

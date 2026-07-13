@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.text.format.DateUtils;
 
+import org.jetbrains.annotations.NotNull;
 import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
@@ -29,25 +30,26 @@ import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.jobs.ReConnectJobService;
 import ch.threema.app.managers.ServiceManager;
-import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.push.PushRegistrationWorker;
 import ch.threema.app.receivers.AlarmManagerBroadcastReceiver;
 import ch.threema.app.services.ConversationCategoryService;
 import ch.threema.app.services.LockAppService;
 import ch.threema.app.services.NotificationPreferenceService;
+import ch.threema.app.services.notification.BadgeUpdater;
 import ch.threema.app.services.notification.NotificationService;
 import ch.threema.app.services.notification.NotificationServiceImpl;
 import ch.threema.app.services.PollingHelper;
 import ch.threema.app.services.RingtoneService;
-import ch.threema.app.stores.IdentityProvider;
-import ch.threema.app.webclient.services.SessionWakeUpServiceImpl;
+import ch.threema.app.widget.WidgetUpdater;
+import ch.threema.common.TimeProvider;
+import ch.threema.data.IdentityProvider;
+import ch.threema.app.webclient.services.SessionWakeUpService;
 import ch.threema.base.ThreemaException;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
-import ch.threema.data.models.ContactModel;
-import ch.threema.protobuf.d2d.sync.ConversationCategory;
+import ch.threema.data.datatypes.ConversationId;
 
 import static ch.threema.app.di.DIJavaCompat.getMasterKeyManager;
 
@@ -98,7 +100,7 @@ public class PushUtil {
      * @param type  int representing the token type (fcm, hms or none in case of a reset)
      */
     public static void sendTokenToServer(@NonNull String token, int type) throws ThreemaException {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
 
         if (serviceManager != null) {
             serviceManager.getTaskCreator().scheduleSendPushTokenTask(token, type);
@@ -185,114 +187,45 @@ public class PushUtil {
     private static void displayAdHocNotification() {
         logger.info("displayAdHocNotification");
         final Context appContext = ThreemaApplication.getAppContext();
-        final ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        final ServiceManager serviceManager = ServiceManager.get();
 
+        // TODO(ANDR-4363): Always use real NotificationService here, once it is no longer attached to the session scope
         NotificationService notificationService;
         if (serviceManager != null) {
             notificationService = serviceManager.getNotificationService();
         } else {
             notificationService = new NotificationServiceImpl(
                 appContext,
-                new LockAppService() {
-                    @Override
-                    public boolean isLockingEnabled() {
-                        return false;
-                    }
-
-                    @Override
-                    public boolean unlock(String pin) {
-                        return false;
-                    }
-
-                    @Override
-                    public void lock() {
-                        //not needed in this context
-                    }
-
-                    @Override
-                    public boolean checkLock() {
-                        return false;
-                    }
-
-                    @Override
-                    public boolean isLocked() {
-                        return false;
-                    }
-
-                    @Override
-                    public void resetLockTimer(boolean restartAfterReset) {
-                        // not needed in this context
-                    }
-
-                    @Override
-                    public void addOnLockAppStateListener(OnLockAppStateListener c) {
-                        //not needed in this context
-                    }
-                },
+                KoinJavaComponent.get(LockAppService.class),
                 new ConversationCategoryService() {
+
                     @Override
-                    public void markContactChatAsPrivate(@NonNull ContactModel contactModel) {
+                    public void persistRemovePrivateMark(@NotNull ConversationId conversationId) {
                         // Nothing to do
                     }
 
                     @Override
-                    public void removePrivateMarkFromContactChat(@NonNull ContactModel contactModel) {
+                    public void persistAddPrivateMark(@NotNull ConversationId conversationId) {
                         // Nothing to do
                     }
 
                     @Override
-                    public void removePrivateMarkFromContactChat(@NonNull ch.threema.storage.models.ContactModel contactModel) {
-                        // Nothing to do
-                    }
-
-                    @Override
-                    public void markGroupChatAsPrivate(long groupDatabaseId) {
-                        // Nothing to do
-                    }
-
-                    @Override
-                    public void removePrivateMarkFromGroupChat(long groupDatabaseId) {
-                        // Nothing to do
-                    }
-
-                    @Override
-                    public boolean isPrivateGroupChat(long groupDatabaseId) {
+                    public boolean isMarkedAsPrivate(@NotNull ConversationId conversationId) {
                         return false;
                     }
 
                     @Override
-                    public boolean isPrivateChat(@NonNull String uniqueIdString) {
-                        return false;
-                    }
-
-                    @NonNull
-                    @Override
-                    public ConversationCategory getConversationCategory(@NonNull String uniqueIdString) {
-                        return ConversationCategory.DEFAULT;
-                    }
-
-                    @Override
-                    public boolean markAsPrivate(@NonNull MessageReceiver<?> messageReceiver) {
+                    public boolean removePrivateMark(@NotNull ConversationId conversationId) {
                         return false;
                     }
 
                     @Override
-                    public boolean removePrivateMark(@NonNull MessageReceiver<?> messageReceiver) {
+                    public boolean setPrivateMark(@NotNull ConversationId conversationId) {
                         return false;
                     }
 
                     @Override
-                    public void persistPrivateChat(@NonNull String uniqueIdString) {
-                        // Nothing to do
-                    }
-
-                    @Override
-                    public void persistDefaultChat(@NonNull String uniqueIdString) {
-                        // Nothing to do
-                    }
-
-                    @Override
-                    public boolean hasPrivateChats() {
+                    public boolean hasAnyPrivateMarks() {
                         return false;
                     }
 
@@ -304,7 +237,11 @@ public class PushUtil {
                 KoinJavaComponent.get(NotificationPreferenceService.class),
                 KoinJavaComponent.get(RingtoneService.class),
                 KoinJavaComponent.get(PreferenceService.class),
-                KoinJavaComponent.get(IdentityProvider.class)
+                KoinJavaComponent.get(IdentityProvider.class),
+                KoinJavaComponent.get(BadgeUpdater.class),
+                KoinJavaComponent.get(DoNotDisturbUtil.class),
+                KoinJavaComponent.get(TimeProvider.class),
+                KoinJavaComponent.get(WidgetUpdater.class)
             );
         }
 
@@ -334,8 +271,8 @@ public class PushUtil {
                 }
 
                 // Try to wake up session
-                SessionWakeUpServiceImpl.getInstance()
-                    .resume(session, versionNumber == null ? 0 : versionNumber, affiliationId);
+                SessionWakeUpService sessionWakeUpService = KoinJavaComponent.get(SessionWakeUpService.class);
+                sessionWakeUpService.resume(session, versionNumber == null ? 0 : versionNumber, affiliationId);
             });
             t.setName("webclient-wakeup");
             t.start();

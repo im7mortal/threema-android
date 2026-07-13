@@ -5,9 +5,45 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class WorkAppRestrictionProviderTest {
+    @Test
+    fun `is considered restricted when there are restrictions`() {
+        val restrictionProvider = WorkAppRestrictionProvider(
+            getRestrictions = {
+                mockk<Bundle> {
+                    every { isEmpty } returns false
+                }
+            },
+        )
+        assertTrue(restrictionProvider.hasRestrictions)
+    }
+
+    @Test
+    fun `is not considered restricted when restrictions are empty`() {
+        val restrictionProvider = WorkAppRestrictionProvider(
+            getRestrictions = {
+                mockk<Bundle> {
+                    every { isEmpty } returns true
+                }
+            },
+        )
+        assertFalse(restrictionProvider.hasRestrictions)
+    }
+
+    @Test
+    fun `is not considered restricted when restrictions are null`() {
+        val restrictionProvider = WorkAppRestrictionProvider(
+            getRestrictions = {
+                null
+            },
+        )
+        assertFalse(restrictionProvider.hasRestrictions)
+    }
+
     @Test
     fun `get boolean restriction`() {
         val restrictionProvider = WorkAppRestrictionProvider(

@@ -1,5 +1,6 @@
 package ch.threema.app.voip.groupcall.sfu
 
+import ch.threema.app.protocolsteps.ValidContactsLookupSteps
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.UserService
@@ -14,4 +15,5 @@ data class GroupCallDependencies(
     val apiConnector: APIConnector,
     val contactModelRepository: ContactModelRepository,
     val userService: UserService,
+    val validContactsLookupSteps: ValidContactsLookupSteps,
 )

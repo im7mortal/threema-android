@@ -1,72 +1,68 @@
 package ch.threema.data.repositories
 
 import android.database.sqlite.SQLiteException
-import ch.threema.app.listeners.GroupListener
-import ch.threema.app.managers.CoreServiceManager
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.GlobalEventFlows
+import ch.threema.app.eventbus.events.GroupEvent
+import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.base.SessionScoped
 import ch.threema.base.ThreemaException
+import ch.threema.common.DispatcherProvider
+import ch.threema.data.IdentityProvider
 import ch.threema.data.ModelTypeCache
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.GroupModel
 import ch.threema.data.models.GroupModelData
 import ch.threema.data.models.GroupModelDataFactory
 import ch.threema.data.storage.DatabaseBackend
 import ch.threema.domain.models.GroupId
+import ch.threema.domain.taskmanager.TaskManager
+import ch.threema.domain.types.GroupDatabaseId
+import ch.threema.domain.types.Identity
 import ch.threema.domain.types.IdentityString
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 @SessionScoped
 class GroupModelRepository(
     // Note: Synchronize access
     private val cache: ModelTypeCache<GroupIdentity, GroupModel>,
     private val databaseBackend: DatabaseBackend,
-    private val coreServiceManager: CoreServiceManager,
+    private val identityProvider: IdentityProvider,
+    private val multiDeviceManager: MultiDeviceManager,
+    private val taskManager: TaskManager,
+    private val globalEventBuses: GlobalEventBuses,
+    private val globalEventFlows: GlobalEventFlows,
+    dispatcherProvider: DispatcherProvider,
 ) {
+    private val coroutineScope = CoroutineScope(dispatcherProvider.worker)
     private object GroupModelRepositoryToken : RepositoryToken
 
-    private val myIdentity by lazy { coreServiceManager.identityStore.getIdentityString()!! }
+    private val myIdentity by lazy { identityProvider.getIdentityString()!! }
 
     init {
-        // Register an "old" group listener that updates the "new" models
-        ListenerManager.groupListeners.add(object : GroupListener {
-            override fun onRename(groupIdentity: GroupIdentity) {
-                onModified(groupIdentity)
+        coroutineScope.launch {
+            globalEventFlows.groups.collect { event ->
+                when (event) {
+                    is GroupEvent.GroupUpdated -> onModified(event.groupIdentity)
+                    is GroupEvent.NewMember -> onModified(event.groupIdentity)
+                    is GroupEvent.MemberKicked -> onModified(event.groupIdentity)
+                    is GroupEvent.MemberLeft -> onModified(event.groupIdentity)
+                    is GroupEvent.UserLeftGroup -> onModified(event.groupIdentity)
+                    is GroupEvent.GroupRenamed -> onModified(event.groupIdentity)
+                    is GroupEvent.NewGroup,
+                    is GroupEvent.GroupProfilePictureUpdated,
+                    is GroupEvent.GroupRemoved,
+                    is GroupEvent.GroupStateChanged,
+                    -> Unit
+                }
             }
+        }
+    }
 
-            override fun onNewMember(
-                groupIdentity: GroupIdentity,
-                identityNew: String?,
-            ) {
-                onModified(groupIdentity)
-            }
-
-            override fun onMemberLeave(
-                groupIdentity: GroupIdentity,
-                identityLeft: String,
-            ) {
-                onModified(groupIdentity)
-            }
-
-            override fun onMemberKicked(
-                groupIdentity: GroupIdentity,
-                identityKicked: String?,
-            ) {
-                onModified(groupIdentity)
-            }
-
-            override fun onUpdate(groupIdentity: GroupIdentity) {
-                onModified(groupIdentity)
-            }
-
-            override fun onLeave(groupIdentity: GroupIdentity) {
-                onModified(groupIdentity)
-            }
-
-            @Synchronized
-            private fun onModified(groupIdentity: GroupIdentity) {
-                cache.get(groupIdentity)?.refreshFromDb(GroupModelRepositoryToken)
-            }
-        })
+    private fun onModified(groupIdentity: GroupIdentity) {
+        cache.get(groupIdentity)?.refreshFromDb(GroupModelRepositoryToken)
     }
 
     @Synchronized
@@ -79,30 +75,35 @@ class GroupModelRepository(
                         groupIdentity = groupIdentity,
                         data = GroupModelDataFactory.toDataType(dbGroup),
                         databaseBackend = databaseBackend,
-                        coreServiceManager = coreServiceManager,
+                        identityProvider = identityProvider,
+                        multiDeviceManager = multiDeviceManager,
+                        taskManager = taskManager,
+                        globalEventBuses = globalEventBuses,
                     )
                 }
             }
 
     /**
-     * Get the group with the [localGroupDbId]. Note that this call always accesses the database.
+     * Get the group with the [groupDatabaseId]. Note that this call always accesses the database.
      * Use [getByGroupIdentity] or [getByCreatorIdentityAndId] to reduce database accesses.
      */
     @Synchronized
-    fun getByLocalGroupDbId(localGroupDbId: Long): GroupModel? {
+    fun getByGroupDatabaseId(groupDatabaseId: GroupDatabaseId): GroupModel? {
         // Note that we need to access the database to get the corresponding group model. The
         // fetched group is needed to get the group identity. If the group is not cached, the
-        // fetched group data is used to construct the group model. Otherwise the cached group model
+        // fetched group data is used to construct the group model. Otherwise, the cached group model
         // is returned.
-        val dbGroup = databaseBackend.getGroupByLocalGroupDbId(localGroupDbId) ?: return null
-        val groupIdentity =
-            GroupIdentity(dbGroup.creatorIdentity, GroupId(dbGroup.groupId).toLong())
+        val dbGroup = databaseBackend.getGroupByGroupDatabaseId(groupDatabaseId) ?: return null
+        val groupIdentity = GroupIdentity(dbGroup.creatorIdentity, GroupId(dbGroup.groupId).toLong())
         return cache.getOrCreate(groupIdentity) {
             GroupModel(
                 groupIdentity,
                 GroupModelDataFactory.toDataType(dbGroup),
                 databaseBackend,
-                coreServiceManager,
+                identityProvider = identityProvider,
+                multiDeviceManager = multiDeviceManager,
+                taskManager = taskManager,
+                globalEventBuses = globalEventBuses,
             )
         }
     }
@@ -121,7 +122,10 @@ class GroupModelRepository(
                 groupIdentity,
                 GroupModelDataFactory.toDataType(dbGroup),
                 databaseBackend,
-                coreServiceManager,
+                identityProvider = identityProvider,
+                multiDeviceManager = multiDeviceManager,
+                taskManager = taskManager,
+                globalEventBuses = globalEventBuses,
             )
         }
     }
@@ -157,18 +161,18 @@ class GroupModelRepository(
                 ?: throw IllegalStateException("Group must exist at this point")
         }
 
-        notifyDeprecatedListenersOnCreate(groupModel.groupIdentity)
+        globalEventBuses.groups.emit(GroupEvent.NewGroup(groupModel.groupIdentity))
 
         if (groupModelData.isMember) {
-            notifyDeprecatedOnNewMemberListeners(groupModel.groupIdentity, myIdentity)
+            globalEventBuses.groups.emit(GroupEvent.NewMember(groupModel.groupIdentity, Identity(myIdentity)))
         }
 
         if (groupModelData.groupIdentity.creatorIdentity != myIdentity) {
-            notifyDeprecatedOnNewMemberListeners(groupModel.groupIdentity, groupModelData.groupIdentity.creatorIdentity)
+            globalEventBuses.groups.emit(GroupEvent.NewMember(groupModel.groupIdentity, Identity(groupModelData.groupIdentity.creatorIdentity)))
         }
 
-        groupModelData.otherMembers.forEach {
-            notifyDeprecatedOnNewMemberListeners(groupModel.groupIdentity, it)
+        groupModelData.otherMembers.forEach { memberIdentity ->
+            globalEventBuses.groups.emit(GroupEvent.NewMember(groupModel.groupIdentity, Identity(memberIdentity)))
         }
 
         return groupModel
@@ -191,31 +195,11 @@ class GroupModelRepository(
             groupModel.refreshFromDb(GroupModelRepositoryToken)
         }
 
-        notifyDeprecatedOnRemoveListeners(groupDbColumnId)
+        globalEventBuses.groups.emit(GroupEvent.GroupRemoved(groupDbColumnId))
     }
 
-    /**
-     * Synchronously notify on create listeners.
-     */
-    private fun notifyDeprecatedListenersOnCreate(groupIdentity: GroupIdentity) {
-        ListenerManager.groupListeners.handle { it.onCreate(groupIdentity) }
-    }
-
-    /**
-     * Synchronously notify new group member listeners.
-     */
-    private fun notifyDeprecatedOnNewMemberListeners(
-        groupIdentity: GroupIdentity,
-        newIdentity: IdentityString,
-    ) {
-        ListenerManager.groupListeners.handle { it.onNewMember(groupIdentity, newIdentity) }
-    }
-
-    /**
-     * Synchronously notify on remove group listeners.
-     */
-    private fun notifyDeprecatedOnRemoveListeners(groupDbColumnId: Long) {
-        ListenerManager.groupListeners.handle { it.onRemove(groupDbColumnId) }
+    fun destroy() {
+        coroutineScope.cancel()
     }
 }
 

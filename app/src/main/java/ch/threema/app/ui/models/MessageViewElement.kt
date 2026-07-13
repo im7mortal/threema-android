@@ -6,9 +6,8 @@ import androidx.compose.runtime.Immutable
 
 @Immutable
 data class MessageViewElement(
-    @JvmField @DrawableRes val icon: Int?,
-    @JvmField val placeholder: String?,
-    @JvmField val text: String?,
-    @JvmField val contentDescription: String?,
-    @JvmField @ColorRes val color: Int?,
+    @JvmField @DrawableRes val icon: Int? = null,
+    @JvmField val placeholder: String? = null,
+    @JvmField val text: String? = null,
+    @JvmField @ColorRes val iconTint: Int? = null,
 )

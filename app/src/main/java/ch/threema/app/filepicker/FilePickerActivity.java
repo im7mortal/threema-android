@@ -7,7 +7,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.text.format.Formatter;
-import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -41,10 +40,10 @@ import ch.threema.app.ui.SpacingValues;
 import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.StorageUtil;
-import ch.threema.app.utils.TestUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class FilePickerActivity extends ThreemaToolbarActivity implements ListView.OnItemClickListener {
     private static final Logger logger = getThreemaLogger("FilePickerActivity");
@@ -191,14 +190,6 @@ public class FilePickerActivity extends ThreemaToolbarActivity implements ListVi
         return rootPaths.size();
     }
 
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            setResult(Activity.RESULT_CANCELED);
-            finish();
-        }
-        return super.onKeyDown(keyCode, event);
-    }
-
     private void scanFiles(String path) {
         File f = new File(path);
         File[] folders;
@@ -245,7 +236,7 @@ public class FilePickerActivity extends ThreemaToolbarActivity implements ListVi
             logger.error("Exception", e);
         }
 
-        if (!TestUtil.isEmptyOrNull(canonicalFilePath) && !isTop(canonicalFilePath)) {
+        if (!isNullOrEmpty(canonicalFilePath) && !isTop(canonicalFilePath)) {
             if (f.getParentFile() != null)
                 dirs.add(0, new FileInfo("..",
                     Constants.PARENT_FOLDER, f.getParent(), 0,

@@ -26,7 +26,6 @@ import android.graphics.drawable.Drawable;
 import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Build;
-import android.os.Bundle;
 import android.os.RemoteException;
 import android.provider.Settings;
 import android.text.TextUtils;
@@ -48,10 +47,8 @@ import com.google.android.material.snackbar.BaseTransientBottomBar;
 import com.google.android.material.snackbar.Snackbar;
 
 import org.koin.java.KoinJavaComponent;
-import org.maplibre.android.MapLibre;
 import org.slf4j.Logger;
 
-import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -67,7 +64,6 @@ import androidx.annotation.Px;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.StringDef;
 import androidx.annotation.StringRes;
-import androidx.annotation.UiThread;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.view.menu.MenuBuilder;
@@ -96,6 +92,7 @@ import ch.threema.app.home.HomeActivity;
 import ch.threema.app.dialogs.SimpleStringAlertDialog;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.notifications.NotificationChannels;
+import ch.threema.app.notifications.NotificationIDs;
 import ch.threema.app.preference.service.SynchronizedSettingsService;
 import ch.threema.app.restrictions.AppRestrictionService;
 import ch.threema.app.restrictions.AppRestrictions;
@@ -112,8 +109,8 @@ import static androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM;
 import static androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO;
 import static androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES;
 import static ch.threema.app.preference.service.PreferenceService.EMOJI_STYLE_DEFAULT;
-import static ch.threema.app.services.notification.NotificationServiceImpl.APP_RESTART_NOTIFICATION_ID;
 import static ch.threema.app.utils.IntentDataUtil.PENDING_INTENT_FLAG_MUTABLE;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class ConfigUtils {
     private static final Logger logger = getThreemaLogger("ConfigUtils");
@@ -140,7 +137,6 @@ public class ConfigUtils {
 
     private static Boolean isTablet = null, isBiggerSingleEmojis = null;
     private static int preferredThumbnailWidth = -1, preferredAudioMessageWidth = -1, currentDayNightMode;
-    private static WeakReference<MapLibre> mapLibreWeakReference = null;
 
     private static final float[] NEGATIVE_MATRIX = {
         -1.0f, 0, 0, 0, 255, // red
@@ -238,7 +234,7 @@ public class ConfigUtils {
     }
 
     public static boolean isCallsEnabled() {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
 
         if (serviceManager != null) {
             return serviceManager.getSynchronizedSettingsService().isVoipEnabled()
@@ -248,7 +244,7 @@ public class ConfigUtils {
     }
 
     public static boolean isVideoCallsEnabled() {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
 
         if (serviceManager != null) {
             return BuildConfig.VIDEO_CALLS_ENABLED
@@ -259,7 +255,7 @@ public class ConfigUtils {
     }
 
     public static boolean isGroupCallsEnabled() {
-        final @Nullable ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        final @Nullable ServiceManager serviceManager = ServiceManager.get();
         return serviceManager != null
             && serviceManager.getSynchronizedSettingsService().areGroupCallsEnabled()
             && !getAppRestrictions().isGroupCallsDisabled()
@@ -267,7 +263,7 @@ public class ConfigUtils {
     }
 
     public static boolean isWorkDirectoryEnabled() {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
 
         if (serviceManager != null) {
             return serviceManager.getPreferenceService().getWorkDirectoryEnabled()
@@ -372,7 +368,7 @@ public class ConfigUtils {
         if (prefs != null) {
             appThemeSetting = prefs.getString(context.getString(R.string.preferences__theme), null);
         }
-        if (TestUtil.isEmptyOrNull(appThemeSetting)) {
+        if (isNullOrEmpty(appThemeSetting)) {
             // fix default setting according to app flavor
             appThemeSetting = BuildConfig.DEFAULT_APP_THEME;
             if (prefs != null) {
@@ -535,7 +531,8 @@ public class ConfigUtils {
     public static @NonNull String getSupportDeviceInfo() {
         final StringBuilder info = new StringBuilder(getDeviceInfo(false));
         if (isWorkRestricted()) {
-            String mdmSource = AppRestrictionService.getInstance().getMdmSource();
+            AppRestrictionService appRestrictionService = KoinJavaComponent.get(AppRestrictionService.class);
+            String mdmSource = appRestrictionService.getMdmSource();
             if (mdmSource != null) {
                 info.append("/").append(mdmSource);
             }
@@ -656,7 +653,7 @@ public class ConfigUtils {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
             Notification notification = getRestartNotification(context, contentTitle);
             NotificationManagerCompat notificationManagerCompat = NotificationManagerCompat.from(context);
-            notificationManagerCompat.notify(APP_RESTART_NOTIFICATION_ID, notification);
+            notificationManagerCompat.notify(NotificationIDs.APP_RESTART_NOTIFICATION_ID, notification);
         } else {
             logger.warn("Cannot show restart notification because notification permission is not granted");
         }
@@ -717,26 +714,20 @@ public class ConfigUtils {
     }
 
     /**
-     * Returns true if this is a work build and app is under control of a device policy controller (DPC) or Threema MDM
-     *
-     * @return boolean
+     * Returns true if this is a work build and app is under control of a device policy controller (DPC) or Threema MDM.
+     * <p>
+     * Use {@link AppRestrictions#isRestricted()} instead.
      */
+    @Deprecated
     public static boolean isWorkRestricted() {
-        if (!isWorkBuild()) {
-            return false;
-        }
-
-        Bundle restrictions = AppRestrictionService.getInstance()
-            .getAppRestrictions();
-
-        return restrictions != null && !restrictions.isEmpty();
+        return getAppRestrictions().isRestricted();
     }
 
     /**
      * Warning: This will misleadingly return false if the service manager is not available!
      */
     public static boolean isSerialLicenseValid() {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager != null) {
             // OnPrem needs server info in addition to license
             if (isOnPremBuild() && serviceManager.getPreferenceService().getOppfUrl() == null) {
@@ -774,15 +765,6 @@ public class ConfigUtils {
         } else {
             activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
         }
-    }
-
-    @Deprecated
-    public static boolean useContentUris() {
-        return true;
-    }
-
-    public static boolean hasProtection(PreferenceService preferenceService) {
-        return !PreferenceService.LOCKING_MECH_NONE.equals(preferenceService.getLockMechanism());
     }
 
     /**
@@ -1026,6 +1008,20 @@ public class ConfigUtils {
     }
 
     /**
+     * Checks storage write permission
+     *
+     * @return true if permission is granted, false otherwise
+     */
+    public static boolean hasWriteStoragePermission(@NonNull Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            // scoped storage
+            return true;
+        } else {
+            return ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
+        }
+    }
+
+    /**
      * Request storage write permission
      *
      * @param activity    Activity context for onRequestPermissionsResult callback
@@ -1037,9 +1033,9 @@ public class ConfigUtils {
             // scoped storage
             return true;
         }
-
-        String[] permissions = new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE};
-
+        final @NonNull String[] permissions = new String[]{
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+        };
         if (checkIfNeedsPermissionRequest(activity, permissions)) {
             requestPermissions(activity, fragment, permissions, requestCode);
             return false;
@@ -1208,7 +1204,7 @@ public class ConfigUtils {
         }
     }
 
-    private static boolean checkIfNeedsPermissionRequest(@NonNull Context context, String[] permissions) {
+    private static boolean checkIfNeedsPermissionRequest(@NonNull Context context, @NonNull String[] permissions) {
         for (String permission : permissions) {
             if (ContextCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {
                 return true;
@@ -1226,19 +1222,8 @@ public class ConfigUtils {
      */
     public static void showPermissionRationale(@Nullable Context context, @Nullable View parentLayout, @StringRes int stringResource) {
         if (context != null) {
-            showPermissionRationale(context, parentLayout, context.getString(stringResource));
+            showPermissionRationale(context, parentLayout, context.getString(stringResource), null);
         }
-    }
-
-    /**
-     * Show a snackbar explaining the reason why the user should enable a certain permission.
-     *
-     * @param context      the context; if null, nothing is shown
-     * @param parentLayout the parent layout where the snackbar is placed; if null, a toast is shown
-     * @param message      the message that is shown
-     */
-    public static void showPermissionRationale(@Nullable Context context, @Nullable View parentLayout, @NonNull String message) {
-        showPermissionRationale(context, parentLayout, message, null);
     }
 
     /**
@@ -1268,7 +1253,7 @@ public class ConfigUtils {
      * @param message      the message that is shown
      * @param callback     the callback for the snackbar
      */
-    public static void showPermissionRationale(
+    private static void showPermissionRationale(
         @Nullable Context context,
         @Nullable View parentLayout,
         @NonNull String message,
@@ -1409,24 +1394,6 @@ public class ConfigUtils {
     }
 
     /**
-     * @param context    context required to know which string resource it is.
-     * @param id         of the object
-     * @param quantity   quantity of given values
-     * @param formatArgs how the string should be formatted
-     * @return returns the QuantityString or missing translation.
-     */
-    public static @NonNull
-    String getSafeQuantityString(@NonNull Context context, int id, int quantity, @NonNull Object... formatArgs) {
-        String result = "missing translation";
-        try {
-            result = context.getResources().getQuantityString(id, quantity, formatArgs);
-        } catch (Exception e) {
-            logger.error("Quantity String not found.", e);
-        }
-        return result;
-    }
-
-    /**
      * Adjust padding of SearchView so that the search icon is no longer cut off
      *
      * @param searchView The instance of a appcompat SearchView
@@ -1463,14 +1430,6 @@ public class ConfigUtils {
             } catch (Exception e) {
                 logger.debug("Unable to get layout params for search bar");
             }
-        }
-    }
-
-    @UiThread
-    public static void getMapLibreInstance() {
-        if (mapLibreWeakReference == null || mapLibreWeakReference.get() == null) {
-            mapLibreWeakReference = new WeakReference<>(MapLibre.getInstance(ThreemaApplication.getAppContext()));
-            logger.info("MapLibre enabled");
         }
     }
 
@@ -1559,33 +1518,6 @@ public class ConfigUtils {
         int viewableHeight = windowLocation[1] - (ConfigUtils.getStatusBarHeight(activity) + ConfigUtils.getActionBarSize(activity));
 
         return new int[]{x, y, viewableHeight};
-    }
-
-    public static boolean isInstalledFromStore(@NonNull Context context) {
-        String installerPackageName = getInstallerPackageName(context);
-        return "com.android.vending".equals(installerPackageName) || "com.huawei.appmarket".equals(installerPackageName);
-    }
-
-    public static boolean isInstalledFromPlayStore(@NonNull Context context) {
-        String installerPackageName = getInstallerPackageName(context);
-        return "com.android.vending".equals(installerPackageName);
-    }
-
-    public static @Nullable String getInstallerPackageName(@NonNull Context context) {
-        try {
-            String installerPackageName;
-            PackageManager packageManager = context.getPackageManager();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                installerPackageName = packageManager.getInstallSourceInfo(context.getPackageName()).getInstallingPackageName();
-            } else {
-                installerPackageName = packageManager.getInstallerPackageName(context.getPackageName());
-            }
-
-            return installerPackageName;
-        } catch (Exception e) {
-            logger.error("Could not determine package source", e);
-            return null;
-        }
     }
 
     public static boolean isReferralProgramEnabled() {

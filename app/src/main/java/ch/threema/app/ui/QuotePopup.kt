@@ -38,7 +38,7 @@ class QuotePopup(
     private val userService: UserService,
     private val fileService: FileService,
     private val preferenceService: PreferenceService,
-    private val thumbnailCache: ThumbnailCache<*>,
+    private val thumbnailCache: ThumbnailCache<Int>,
 ) : MovingPopupWindow(context) {
 
     private val quoteTextView: TextView
@@ -155,7 +155,7 @@ class QuotePopup(
             // Ignore
         }
 
-        val messageViewElement = MessageUtil.getViewElement(context, messageModel, preferenceService.getContactNameFormat())
+        val messageViewElement = MessageUtil.getViewElement(messageModel, preferenceService.getContactNameFormat())
         if (messageViewElement.icon != null) {
             quoteTypeImage.setImageResource(messageViewElement.icon)
             quoteTypeImage.visibility = View.VISIBLE

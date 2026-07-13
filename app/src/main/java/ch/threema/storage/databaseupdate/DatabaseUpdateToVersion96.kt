@@ -1,6 +1,5 @@
 package ch.threema.storage.databaseupdate
 
-import ch.threema.base.utils.Utils
 import ch.threema.domain.types.IdentityString
 import ch.threema.storage.buildContentValues
 import java.security.MessageDigest
@@ -68,7 +67,7 @@ class DatabaseUpdateToVersion96(
         private const val ID_COLORS_SIZE = 16
 
         private fun computeColorIndex(creatorIdentity: IdentityString, groupIdString: String): Int {
-            val groupIdByteArray = Utils.hexStringToByteArray(groupIdString)
+            val groupIdByteArray = groupIdString.hexToByteArray()
             val groupCreatorIdentity = creatorIdentity.toByteArray()
 
             return try {

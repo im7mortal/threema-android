@@ -5,6 +5,7 @@ import android.media.MediaExtractor
 import android.media.MediaFormat
 import android.net.Uri
 import ch.threema.app.ThreemaApplication
+import ch.threema.app.managers.ServiceManager
 import ch.threema.app.video.transcoder.MediaComponent
 import ch.threema.app.video.transcoder.VideoTranscoder
 import ch.threema.base.utils.getThreemaLogger
@@ -46,9 +47,7 @@ class AudioWaveformGeneratorTask(
         var decoder: MediaCodec? = null
         var inputAudioComponent: MediaComponent? = null
         try {
-            val file = ThreemaApplication.getServiceManager()?.fileService?.getDecryptedMessageFile(
-                messageModel,
-            )
+            val file = ServiceManager.get()?.fileService?.decryptMessageFileToTempFile(messageModel)
             if (file == null || !file.exists()) {
                 listener.onError(messageModel, "Unable to open audio file")
                 return

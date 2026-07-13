@@ -20,14 +20,15 @@ import java.util.Objects;
 import androidx.annotation.NonNull;
 import ch.threema.app.R;
 import ch.threema.app.activities.wizard.WizardBaseActivity;
-import ch.threema.app.ui.SimpleTextWatcher;
+import ch.threema.android.textwatchers.SimpleTextWatcher;
 import ch.threema.app.utils.EditTextUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.domain.protocol.csp.ProtocolDefines;
+
+import ch.threema.domain.models.Nickname;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class WizardFragment2 extends WizardFragment {
     private static final Logger logger = getThreemaLogger("WizardFragment2");
@@ -63,7 +64,7 @@ public class WizardFragment2 extends WizardFragment {
                 }
             });
             // TODO(ANDR-3180): Consolidate nickname length
-            nicknameText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(ProtocolDefines.PUSH_FROM_LEN)});
+            nicknameText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(Nickname.MAX_BYTE_LENGTH)});
         }
         this.nicknameText.setOnKeyListener((v, keyCode, event) -> {
             if (event.getAction() == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_ENTER) {
@@ -123,11 +124,11 @@ public class WizardFragment2 extends WizardFragment {
             // there are no other possibilities to add such a long nickname.
             // Note: This is necessary to prevent a crash when calling 'setSelection'.
             // TODO(ANDR-3180): Consolidate nickname length
-            if (nickname != null && nickname.length() > ProtocolDefines.PUSH_FROM_LEN) {
+            if (nickname != null && nickname.length() > Nickname.MAX_BYTE_LENGTH) {
                 nicknameText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(nickname.length())});
             }
             nicknameText.setText(nickname);
-            if (!TestUtil.isEmptyOrNull(nickname)) {
+            if (!isNullOrEmpty(nickname)) {
                 nicknameText.setSelection(nickname.length());
             }
         }

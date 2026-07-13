@@ -275,6 +275,29 @@ mod tests {
     }
 
     #[test]
+    fn challenge_invalid_public_key() -> anyhow::Result<()> {
+        let context = setup_context();
+        let state = ChallengeState {
+            remote_secret: RemoteSecret([1_u8; 32]),
+            response: Some(RemoteSecretSetupResponse {
+                result: Ok(HttpsResponse {
+                    status: 200,
+                    body: serde_json::to_vec(&json!({
+                        // All-zero public key.
+                        "challengePublicKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+                        "challenge": "bWVvdw==",
+                    }))?,
+                }),
+            }),
+        };
+
+        let result = State::poll_challenge(&context, state);
+        assert_matches!(result, Err(RemoteSecretSetupError::ServerError(_)));
+
+        Ok(())
+    }
+
+    #[test]
     fn challenge_valid() -> anyhow::Result<()> {
         let context = setup_context();
         let state = ChallengeState {
@@ -283,7 +306,7 @@ mod tests {
                 result: Ok(HttpsResponse {
                     status: 200,
                     body: serde_json::to_vec(&json!({
-                        "challengePublicKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+                        "challengePublicKey": "BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
                         "challenge": "bWVvdw==",
                     }))?,
                 }),
@@ -386,21 +409,21 @@ mod tests {
 
     #[test]
     fn complete_task() -> anyhow::Result<()> {
-        // Init state
+        // Init state.
         let mut task = RemoteSecretCreateTask::new(setup_context());
         let remote_secret = assert_matches!(&task.state, State::Init(state) => state.remote_secret.0);
 
-        // Challenge state
+        // Challenge state.
         let instruction = task.poll()?;
         assert_matches!(task.state, State::Challenge(_));
         assert_matches!(instruction, RemoteSecretCreateLoop::Instruction(_));
 
-        // Create state
+        // Create state.
         task.response(RemoteSecretSetupResponse {
             result: Ok(HttpsResponse {
                 status: 200,
                 body: serde_json::to_vec(&json!({
-                    "challengePublicKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+                    "challengePublicKey": "BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
                     "challenge": "bWVvdw==",
                 }))?,
             }),
@@ -409,7 +432,7 @@ mod tests {
         assert_matches!(task.state, State::Create(_));
         assert_matches!(instruction, RemoteSecretCreateLoop::Instruction(_));
 
-        // Done state
+        // Done state.
         task.response(RemoteSecretSetupResponse {
             result: Ok(HttpsResponse {
                 status: 200,

@@ -8,6 +8,7 @@ import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.app.services.FileService;
 import ch.threema.app.services.MessageService;
 import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageType;
 import ch.threema.storage.models.data.media.MediaMessageDataInterface;
 
 /**
@@ -24,39 +25,9 @@ public class WebClientMessagePlayer extends MessagePlayer {
 
     @Override
     protected MediaMessageDataInterface getData() {
-        switch (getMessageModel().getType()) {
-            case VOICEMESSAGE:
-                return this.getMessageModel().getAudioData();
-            case FILE:
-                return this.getMessageModel().getFileData();
-            case VIDEO:
-                return this.getMessageModel().getVideoData();
-            case IMAGE:
-                return new MediaMessageDataInterface() {
-                    @Override
-                    public byte[] getEncryptionKey() {
-                        return new byte[0];
-                    }
-
-                    @Override
-                    public byte[] getBlobId() {
-                        return new byte[0];
-                    }
-
-                    @Override
-                    public boolean isDownloaded() {
-                        return true;
-                    }
-
-                    @Override
-                    public void isDownloaded(boolean isDownloaded) {
-                    }
-
-                    @Override
-                    public byte[] getNonce() {
-                        return new byte[0];
-                    }
-                };
+        var messageModel = getMessageModel();
+        if (messageModel.getType() == MessageType.FILE) {
+            return this.getMessageModel().getFileData();
         }
         return null;
     }

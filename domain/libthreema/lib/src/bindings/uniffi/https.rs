@@ -2,6 +2,7 @@
 use duplicate::duplicate_item;
 
 use crate::{
+    csp_e2e::identity::create::CreateIdentityResponse,
     https::{HttpsError, HttpsResponse},
     remote_secret::{monitor::RemoteSecretMonitorResponse, setup::RemoteSecretSetupResponse},
     work::properties::WorkPropertiesUpdateResponse,
@@ -19,6 +20,7 @@ pub enum HttpsResult {
 
 #[duplicate_item(
     response_type;
+    [ CreateIdentityResponse];
     [ RemoteSecretSetupResponse ];
     [ RemoteSecretMonitorResponse ];
     [ WorkPropertiesUpdateResponse ];

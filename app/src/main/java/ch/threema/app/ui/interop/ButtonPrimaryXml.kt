@@ -1,0 +1,78 @@
+package ch.threema.app.ui.interop
+
+import android.content.Context
+import android.util.AttributeSet
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.AbstractComposeView
+import ch.threema.app.R
+import ch.threema.app.compose.common.buttons.ButtonIconInfo
+import ch.threema.app.compose.common.buttons.primary.ButtonPrimary
+import ch.threema.app.compose.theme.ThreemaTheme
+
+class ButtonPrimaryXml @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0,
+) : AbstractComposeView(context, attrs, defStyleAttr) {
+
+    var text: String by mutableStateOf("")
+    var isButtonEnabled: Boolean by mutableStateOf(true)
+    var trailingIconRes: Int? by mutableStateOf(null)
+
+    init {
+        val typedArray = context.theme.obtainStyledAttributes(
+            /* set = */
+            attrs,
+            /* attrs = */
+            R.styleable.ButtonPrimaryXml,
+            /* defStyleAttr = */
+            defStyleAttr,
+            /* defStyleRes = */
+            0,
+        )
+        with(typedArray) {
+            getResourceId(R.styleable.ButtonPrimaryXml_buttonPrimary_text, NO_RES_ID).let { initialTextResId ->
+                if (initialTextResId != NO_RES_ID) {
+                    text = context.getString(initialTextResId)
+                }
+            }
+            getResourceId(R.styleable.ButtonPrimaryXml_buttonPrimary_trailingIcon, NO_RES_ID).let { initialTrailingIconResId ->
+                if (initialTrailingIconResId != NO_RES_ID) {
+                    trailingIconRes = initialTrailingIconResId
+                }
+            }
+            recycle()
+        }
+    }
+
+    @Composable
+    override fun Content() {
+        ThreemaTheme {
+            ButtonPrimary(
+                text = text,
+                maxLines = 1,
+                enabled = isButtonEnabled,
+                trailingIcon = trailingIconRes?.let { iconRes ->
+                    ButtonIconInfo(
+                        iconRes = iconRes,
+                    )
+                },
+                onClick = {
+                    super.performClick()
+                },
+            )
+        }
+    }
+
+    override fun setEnabled(enabled: Boolean) {
+        super.setEnabled(enabled)
+        isButtonEnabled = enabled
+    }
+
+    companion object {
+        private const val NO_RES_ID = 0
+    }
+}

@@ -9,7 +9,7 @@ import androidx.core.view.inputmethod.EditorInfoCompat
 import androidx.lifecycle.findViewTreeLifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import ch.threema.app.preference.service.KeyboardDataCollectionPolicySetting
-import ch.threema.app.utils.DispatcherProvider
+import ch.threema.common.DispatcherProvider
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

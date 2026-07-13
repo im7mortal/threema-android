@@ -6,7 +6,7 @@ public interface ProgressListener {
      *
      * @param progress in percent (0..100)
      */
-    void updateProgress(int progress);
+    default void updateProgress(int progress) {}
 
     /**
      * Indicate that no progress will be communicated as the overall goal is not known.

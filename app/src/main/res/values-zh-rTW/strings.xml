@@ -32,6 +32,12 @@
     <string name="title_job_title">職位名稱</string>
     <string name="title_department">部門</string>
     <string name="send">傳送</string>
+    <string name="prefs_linked_devices">已連結裝置</string>
+    <string name="prefs_community_and_sharing">社區與分享</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <string name="prefs_advanced">進階設定</string>
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
+    <string name="prefs_about">關於</string>
     <string name="prefs_privacy">隱私權</string>
     <string name="prefs_notifications">聲音和通知</string>
     <string name="prefs_chatdisplay">對話</string>
@@ -83,7 +89,10 @@
     <string name="prefs_sum_threema_push_off">使用系統推播服務檢查新訊息</string>
     <string name="prefs_logging">記錄</string>
     <string name="prefs_title_message_log_switch">記錄至檔案</string>
-    <string name="prefs_title_sum_message_log_on">事件和網路訊息將記錄至 debug_log.txt</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_on_since">由 %1$s 開始記錄系統活動 (%2$s)</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_forced_on">系統活動正在記錄中，刪除檔案「%1$s」以停用日誌記錄功能。(%2$s)</string>
     <string name="prefs_title_sum_message_log_off">事件將不會被記錄</string>
     <string name="prefs_reset_push">重設推播服務</string>
     <string name="prefs_sum_reset_push">重新註冊裝置以透過FCM或HMS取得推播通知</string>
@@ -197,6 +206,7 @@
     <string name="attach_camera">系統相機</string>
     <string name="menu_restore">從備份還原</string>
     <string name="restore_id_hint">輸入或貼上ID匯出的文字字串以還原</string>
+    <string name="restore_id_string_label">ID 匯出文字字串</string>
     <string name="location_placeholder">位置</string>
     <string name="video_placeholder">影片</string>
     <string name="audio_placeholder">音訊</string>
@@ -353,8 +363,11 @@
     <string name="status_rename_group">群組名稱變更為「%1$s」</string>
     <string name="status_group_new_photo">群組大頭貼已更新。</string>
     <string name="status_group_new_member">%1$s 已新增至群組。</string>
+    <string name="status_group_you_were_added">您已新增至群組。</string>
     <string name="status_group_member_left">%1$s 離開了群組。</string>
+    <string name="status_group_you_left">您已退出群組。</string>
     <string name="status_group_member_kicked">%1$s 已從群組中移除。</string>
+    <string name="status_group_you_were_removed">您已從群組中被移除。</string>
     <string name="can_not_send_no_group_members">您無法將訊息傳送到空群組</string>
     <string name="you_are_not_a_member_of_this_group">您不是此群組的成員</string>
     <string name="title_public_nickname">暱稱</string>
@@ -491,6 +504,7 @@ http://www.7-zip.org 或 https://itunes.apple.com/us/app/the-unarchiver/id425424
     <string name="ballot_result_final">最終結果</string>
     <string name="invalid_cannot_send">您不能向無效的聯絡人傳送訊息</string>
     <string name="ballot_answer_count_error">請輸入至少兩個答案進行投票。</string>
+    <string name="ballot_removed">投票已移除</string>
     <string name="contact_state_inactive">非活躍</string>
     <string name="contact_state_invalid">無效</string>
     <string name="back">返回</string>
@@ -711,7 +725,6 @@ ${app_name_short} 支援的所有表情符號。</string>
     <string name="new_wizard_anonymous_confirm">您沒有輸入電話號碼或電子郵件地址連結至 ${app_name_short} ID，您將不會出現在好友的聯絡人名單中。您確定要匿名使用 ${app_name} 嗎？</string>
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_anonymous_confirm_phone_only">您沒有輸入電話號碼連結至 ${app_name_short} ID。您將不會出現在好友的聯絡人名單中。您確定要匿名使用 ${app_name} 嗎？</string>
-    <string name="new_wizard_scan_id_backup">或掃描ID匯出的QR碼</string>
     <string name="error_saving_file">儲存檔案時出錯。請檢查權限。</string>
     <string name="wait_one_minute">要求通話前，請至少等候10分鐘，直至收到簡訊。</string>
     <string name="backup_id">已匯出的ID</string>
@@ -794,7 +807,8 @@ ${app_name_short} 支援的所有表情符號。</string>
     <string name="prefs_language_override">語言</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
     <string name="threema_channel_intro">${app_name_short} 頻道為您提供關於 ${app_name_short} 的所有新聞。您想訂閱 ${app_name_short} 頻道並將其新增到您的聯絡人中嗎？這是免費的，您可以隨時退訂。</string>
-    <string name="quote">引用</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
+    <string name="reply_to_message">回覆</string>
     <string name="contacts_deleted">聯絡人已被刪除</string>
     <string name="take_photo">拍攝照片</string>
     <string name="select_from_gallery">從圖片庫中選擇</string>
@@ -1236,7 +1250,10 @@ ${app_name_short} 支援的所有表情符號。</string>
     <string name="max_selectable_media_exceeded">一次最多只能傳送%d個物件。</string>
     <string name="error_unable_loading_media_thumb">錯誤。無法載入媒體縮圖</string>
     <string name="filter_list">篩選清單</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
+    <string name="search_list">搜尋清單</string>
     <string name="hint_filter_list">輸入篩選器文字</string>
+    <string name="hint_search_list">輸入搜尋文字</string>
     <string name="add">新增</string>
     <string name="only_images_or_videos">只能選定圖片或影片</string>
     <string name="media_gallery_gifs">GIF</string>
@@ -1596,10 +1613,11 @@ ${app_name_short} 支援的所有表情符號。</string>
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="error_reporting_summary_always_ask">每次都要詢問是否要向 ${company_name} 傳送錯誤報告</string>
     <string name="error_detected_dialog_title">傳送匿名報告</string>
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
-    <string name="crash_detected_dialog_text">${app_name_short} 似乎最近當機了。您是否要提交匿名錯誤報告嗎？</string>
+    <string name="crash_detected_dialog_text">最近似乎出現了問題，您是否願意提交匿名錯誤報告？</string>
     <string name="crash_detected_dialog_remember_choice">記住我的選擇</string>
     <string name="crash_detected_dialog_send_button">傳送</string>
+    <string name="error_reporting_learn_more_button">了解更多</string>
+    <string name="error_reporting_details_button">技術詳情</string>
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
     <string name="prefs_error_reporting_id">匿名裝置ID</string>
     <!-- The %s is a placeholder for an ID. It must be left as-is. -->
@@ -1627,6 +1645,7 @@ ${app_name_short} 支援的所有表情符號。</string>
     <!-- Button label on dialog when configuring a backup, shown on dialog that lets the user choose how they want to select the backup folder. This option lets them bypass the file picker and use the default Documents folder instead -->
     <string name="backup_path_selection_documents">使用「文件」資料夾</string>
     <!-- accessibility -->
+    <string name="cd_menu_more">更多選項</string>
     <string name="cd_edited">訊息已編輯</string>
     <string name="cd_created_at">建立於%s</string>
     <string name="cd_edited_at">編輯於%s</string>
@@ -1773,7 +1792,6 @@ ${app_name_short} 支援的所有表情符號。</string>
     <string name="edit_availability_status_modal_optional_message_placeholder">開會中</string>
     <string name="edit_availability_status_modal_optional_message_description">當選取為「忙碌中」或「離線」時，設定自訂狀態訊息。</string>
     <string name="edit_availability_status_modal_optional_message_too_long">文字過長，請縮短</string>
-    <string name="edit_availability_status_did_change">在線狀態已變更</string>
     <string name="tooltip_title_availability_status">在線狀態</string>
     <string name="tooltip_text_availability_status_in_chat">在傳送訊息至對方之前，先檢視對方狀態是否「忙碌中」或「離線」。你可以在個人檔案中設定自己的狀態。</string>
     <string name="tooltip_text_availability_status_in_profile">設定您的狀態，向其他人顯示您是「忙碌中」或「離線」。</string>
@@ -1820,6 +1838,8 @@ ${app_name_short} 支援的所有表情符號。</string>
     <plurals name="message_deleted">
         <item quantity="other">已刪除%d則訊息</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
+    <string name="notifications_for_one_week">一星期</string>
     <plurals name="notifications_for_x_hours">
         <item quantity="other">%d小時</item>
     </plurals>

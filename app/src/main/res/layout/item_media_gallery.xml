@@ -103,7 +103,7 @@
                 android:contentDescription="@string/media_gallery_audio"
                 android:paddingTop="2dp"
                 android:paddingBottom="2dp"
-                app:srcCompat="@drawable/ic_keyboard_voice_outline"
+                app:srcCompat="@drawable/ic_microphone_outline"
                 app:tint="@android:color/white" />
 
             <TextView

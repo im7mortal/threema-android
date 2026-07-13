@@ -105,8 +105,6 @@ class GetStarredMessagesUseCase(
                 /* contactNameFormat = */
                 contactNameFormat,
             )
-            MessageType.IMAGE -> abstractMessageModel.caption
-            MessageType.VIDEO -> abstractMessageModel.caption
             MessageType.FILE -> abstractMessageModel.caption
             else -> null
         } ?: ""

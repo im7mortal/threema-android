@@ -26,7 +26,7 @@ class RemoteSecretProtectionStateMonitorTest {
         ) = getRemoteSecretMonitor(RemoteSecretProtectionState.ACTIVE)
 
         val job = launch {
-            monitor.monitorRemoteSecretProtectionState()
+            monitor.run()
         }
 
         // Remote secret monitoring service is expected to be started if remote secret is active initially
@@ -46,7 +46,7 @@ class RemoteSecretProtectionStateMonitorTest {
         ) = getRemoteSecretMonitor(RemoteSecretProtectionState.INACTIVE)
 
         val job = launch {
-            monitor.monitorRemoteSecretProtectionState()
+            monitor.run()
         }
 
         var expectedStartCalls = 0
@@ -92,7 +92,7 @@ class RemoteSecretProtectionStateMonitorTest {
         every { schedulerMock.stop() } just runs
 
         val remoteSecretProtectionStateFlow = MutableStateFlow(initialState)
-        val monitor = RemoteSecretProtectionStateMonitorImpl(
+        val monitor = RemoteSecretProtectionStateMonitor(
             remoteSecretMonitorServiceScheduler = schedulerMock,
             masterKeyManager = mockk {
                 every { remoteSecretProtectionState } returns remoteSecretProtectionStateFlow

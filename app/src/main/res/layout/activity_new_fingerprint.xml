@@ -7,8 +7,6 @@
     android:layout_height="match_parent"
     android:fillViewport="true">
 
-    <include layout="@layout/background_new_wizard" />
-
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/new_fingerprint_content"
         android:layout_width="match_parent"
@@ -27,11 +25,11 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:srcCompat="@drawable/ic_info_outline"
-            app:tint="@color/md_theme_dark_primary" />
+            app:tint="?attr/colorPrimary" />
 
         <TextView
             android:id="@+id/wizard_welcome"
-            style="@style/WizardTitleText"
+            style="@style/WizardTextHeadlineLargeEmphasized"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:gravity="center_horizontal"
@@ -44,7 +42,7 @@
 
         <TextView
             android:id="@+id/scooter"
-            style="@style/WizardSubTitleText"
+            style="@style/WizardTextBodyMedium"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_horizontal"
@@ -56,16 +54,11 @@
             app:layout_constraintTop_toBottomOf="@id/wizard_welcome"
             tools:ignore="SpUsage" />
 
-        <ProgressBar
+        <com.google.android.material.progressindicator.LinearProgressIndicator
             android:id="@+id/wizard1_swipe_progress"
-            style="@style/Widget.AppCompat.ProgressBar.Horizontal"
             android:layout_width="0dp"
             android:layout_height="2dp"
-            android:importantForAccessibility="no"
-            android:indeterminate="false"
-            android:longClickable="false"
-            android:progressDrawable="@drawable/layerlist_progressbar"
-            android:translationY="-8dp"
+            android:translationY="-16dp"
             app:layout_constraintEnd_toEndOf="@+id/wizard1_finger_print_container"
             app:layout_constraintStart_toStartOf="@+id/wizard1_finger_print_container"
             app:layout_constraintTop_toTopOf="@+id/wizard1_finger_print_container" />
@@ -85,7 +78,7 @@
                 android:id="@+id/wizard1_finger_print"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="@color/wizard_alpha_background"
+                android:background="?attr/colorSurfaceContainerLow"
                 android:importantForAccessibility="no" />
 
             <ImageView
@@ -98,15 +91,14 @@
 
         </FrameLayout>
 
-        <ch.threema.app.activities.wizard.components.WizardButtonXml
+        <ch.threema.app.ui.interop.TextButtonPrimaryXml
             android:id="@+id/cancel_compose"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:wizardButton_style="wizardButton_inverse"
-            app:wizardButton_text="@string/cancel" />
+            app:textButtonPrimary_text="@string/cancel" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

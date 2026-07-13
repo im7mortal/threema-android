@@ -5,7 +5,7 @@ import android.media.AudioManager
 import androidx.media.AudioAttributesCompat
 import androidx.media.AudioFocusRequestCompat
 import androidx.media.AudioManagerCompat
-import ch.threema.app.ThreemaApplication
+import ch.threema.app.managers.ServiceManager
 import ch.threema.app.utils.AudioDevice
 import ch.threema.app.utils.getDefaultAudioDevice
 import ch.threema.app.utils.hasEarpiece
@@ -105,7 +105,7 @@ class CallAudioManager(private val context: Context) {
     /**
      * Get a flow of the set of available audio devices.
      */
-    fun observeAvailableAudioDevices(): Flow<Set<AudioDevice>> = withState {
+    fun watchAvailableAudioDevices(): Flow<Set<AudioDevice>> = withState {
         when (it) {
             State.RUNNING -> mutableAudioDevices.asStateFlow()
             else -> emptyFlow()
@@ -115,7 +115,7 @@ class CallAudioManager(private val context: Context) {
     /**
      * Get a flow of the selected audio device.
      */
-    fun observeSelectedDevice(): Flow<AudioDevice> = withState {
+    fun watchSelectedDevice(): Flow<AudioDevice> = withState {
         when (it) {
             State.RUNNING -> mutableSelectedAudioDevice.asStateFlow()
             else -> emptyFlow()
@@ -162,14 +162,14 @@ class CallAudioManager(private val context: Context) {
         // Observe wired headset changes
         val scope = CoroutineScope(Dispatchers.Default)
         wiredHeadsetJob = scope.launch {
-            headsetManager.observeWiredHeadset().collect {
+            headsetManager.watchWiredHeadset().collect {
                 adoptAudioDeviceSelection()
             }
         }
 
         // Observe bluetooth headset changes
         bluetoothHeadSetJob = scope.launch {
-            headsetManager.observeBluetoothHeadset().collect {
+            headsetManager.watchBluetoothHeadset().collect {
                 handleBluetoothHeadsetStateChange(it)
             }
         }
@@ -213,7 +213,7 @@ class CallAudioManager(private val context: Context) {
             // The headset has been disconnected
             HeadsetManager.BluetoothHeadsetState.DISCONNECTED -> {
                 if (selectedAudioDevice == AudioDevice.BLUETOOTH) {
-                    ThreemaApplication.getServiceManager()?.groupCallManager?.abortCurrentCall()
+                    ServiceManager.get()?.groupCallManager?.abortCurrentCall()
                 } else {
                     adoptAudioDeviceSelection()
                 }

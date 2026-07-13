@@ -2,11 +2,13 @@ package ch.threema.app.utils;
 
 import org.slf4j.Logger;
 
-import java.util.Date;
+import java.time.Instant;
 
 import androidx.annotation.NonNull;
 import ch.threema.app.ThreemaApplication;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
+import ch.threema.app.managers.ServiceManager;
 import ch.threema.domain.protocol.api.APIConnector;
 import ch.threema.logging.ThreemaLogger;
 
@@ -60,8 +62,8 @@ public class TurnServerCache {
     public synchronized APIConnector.TurnServerInfo getTurnServers() throws Exception {
         if (cachedTurnServerInfo != null) {
             logger.debug("Found cached TURN server info");
-            Date minExpiration = new Date(new Date().getTime() + minSpareValidity);
-            if (cachedTurnServerInfo.expirationDate.getTime() > minExpiration.getTime()) {
+            long minExpiration = Instant.now().toEpochMilli() + minSpareValidity;
+            if (cachedTurnServerInfo.expirationDate.toEpochMilli() > minExpiration) {
                 logger.info("Returning cached TURN server info");
                 return cachedTurnServerInfo;
             }
@@ -69,10 +71,10 @@ public class TurnServerCache {
         }
 
         logger.info("Returning fresh TURN server info");
-        cachedTurnServerInfo = ThreemaApplication
-            .getServiceManager()
-            .getAPIConnector()
-            .obtainTurnServers(ThreemaApplication.getServiceManager().getIdentityStore(), type);
+        var serviceManager = ServiceManager.require();
+        cachedTurnServerInfo = serviceManager
+            .getApiConnector()
+            .obtainTurnServers(serviceManager.getIdentityStore(), type);
 
         return cachedTurnServerInfo;
     }

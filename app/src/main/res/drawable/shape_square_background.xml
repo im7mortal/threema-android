@@ -4,7 +4,7 @@
     <stroke
         android:width="3dp"
         android:color="@android:color/transparent" />
-    <solid android:color="@color/mediaviewer_caption_background_color" />
+    <solid android:color="@color/media_viewer_caption_background_color" />
     <corners android:radius="@dimen/media_attach_button_radius" />
 </shape>
 

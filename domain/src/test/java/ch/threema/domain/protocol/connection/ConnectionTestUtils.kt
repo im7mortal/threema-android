@@ -99,9 +99,9 @@ internal class TestServerAddressProvider(
     var keyFetchCount = 0
     var altKeyFetchCount = 0
 
-    override fun getChatServerNamePrefix(ipv6: Boolean): String = "prefix"
+    override fun getChatServerNamePrefix(): String = "prefix"
 
-    override fun getChatServerNameSuffix(ipv6: Boolean): String = "suffix"
+    override fun getChatServerNameSuffix(): String = "suffix"
 
     override fun getChatServerPorts(): IntArray = intArrayOf(1234)
 
@@ -126,11 +126,11 @@ internal class TestServerAddressProvider(
     }
 
     // The following methods should not be used by the connection
-    override fun getDirectoryServerUrl(ipv6: Boolean): String {
+    override fun getDirectoryServerUrl(): String {
         MUST_NOT_BE_CALLED()
     }
 
-    override fun getWorkServerUrlLegacy(ipv6: Boolean): String {
+    override fun getWorkServerUrlLegacy(): String {
         MUST_NOT_BE_CALLED()
     }
 
@@ -138,15 +138,15 @@ internal class TestServerAddressProvider(
         MUST_NOT_BE_CALLED()
     }
 
-    override fun getBlobServerDownloadUrl(useIpV6: Boolean): BlobUrl {
+    override fun getBlobServerDownloadUrl(): BlobUrl {
         MUST_NOT_BE_CALLED()
     }
 
-    override fun getBlobServerUploadUrl(useIpV6: Boolean): String {
+    override fun getBlobServerUploadUrl(): String {
         MUST_NOT_BE_CALLED()
     }
 
-    override fun getBlobServerDoneUrl(useIpV6: Boolean): BlobUrl {
+    override fun getBlobServerDoneUrl(): BlobUrl {
         MUST_NOT_BE_CALLED()
     }
 
@@ -162,11 +162,11 @@ internal class TestServerAddressProvider(
         MUST_NOT_BE_CALLED()
     }
 
-    override fun getAvatarServerUrl(ipv6: Boolean): String {
+    override fun getAvatarServerUrl(): String {
         MUST_NOT_BE_CALLED()
     }
 
-    override fun getSafeServerUrl(ipv6: Boolean): String {
+    override fun getSafeServerUrl(): String {
         MUST_NOT_BE_CALLED()
     }
 
@@ -255,12 +255,8 @@ internal class TestChatServerAddressProvider : ChatServerAddressProvider {
 }
 
 internal class TestNoopDeviceCookieManager : DeviceCookieManager {
-    override fun obtainDeviceCookie() = ByteArray(16)
-    override fun changeIndicationReceived() {
-        MUST_NOT_BE_CALLED()
-    }
-
-    override fun deleteDeviceCookie() {
+    override fun getOrCreateDeviceCookie() = ByteArray(16)
+    override fun onChangeIndicationReceived() {
         MUST_NOT_BE_CALLED()
     }
 }

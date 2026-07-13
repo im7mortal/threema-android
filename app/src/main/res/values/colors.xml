@@ -33,10 +33,10 @@
 
     <color name="voice_recorder_counter_background">@color/mention_background</color>
 
-    <color name="ballot_detail_highlight_text_color">#88000000</color>
-    <color name="ballot_detail_highlight_bg_color">#ffcccccc</color>
+    <color name="poll_detail_highlight_text_color">#88000000</color>
+    <color name="poll_detail_highlight_bg_color">#ffcccccc</color>
 
-    <color name="text_color_openNotice">@color/text_color_open_ballots</color>
+    <color name="text_color_openNotice">@color/text_color_open_polls</color>
 
     <color name="verification_work">#0096ff</color>
 
@@ -81,11 +81,11 @@
     <color name="mention_text_color_inverted">@color/md_theme_light_background</color>
 
     <!-- others -->
-    <color name="text_color_open_ballots">#656565</color>
+    <color name="text_color_open_polls">#656565</color>
     <color name="markup_marker_color">#FFD3D3D3</color>
     <color name="background_dim">#77ffffff</color>
     <color name="qrscanner_masking_color">#50000000</color>
-    <color name="mediaviewer_caption_background_color">#77000000</color>
+    <color name="media_viewer_caption_background_color">#77000000</color>
     <color name="media_attach_button_background_default">#FFEEEEEE</color>
     <color name="ic_launcher_background">#000000</color>
 
@@ -93,8 +93,6 @@
     <!-- theme-agnostic colors -->
 
     <!-- wizard -->
-    <color name="wizard_alpha_background">#33ffffff</color>
-
     <!-- wizard step pager display -->
     <color name="step_pager_previous_tab_color">#4433b5e5</color>
     <color name="step_pager_selected_tab_color">@color/material_blue</color>

@@ -48,7 +48,6 @@ public class VoipStatusDataChatAdapterDecorator extends ChatAdapterDecorator {
 
         if (holder.bodyTextView != null) {
             final @NonNull MessageViewElement viewElement = MessageUtil.getViewElement(
-                context,
                 this.getMessageModel(),
                 this.helper.getPreferenceService().getContactNameFormat()
             );
@@ -61,16 +60,19 @@ public class VoipStatusDataChatAdapterDecorator extends ChatAdapterDecorator {
             if (status != null && status.getStatus() == VoipStatusDataModel.FINISHED) {
                 // Show duration
                 if (holder.dateView != null) {
-                    this.setDatePrefix(ElapsedTimeFormatter.secondsToString(status.getDuration()));
-                    this.setDuration(status.getDuration());
+                    var durationInSeconds = status.getDurationInSeconds();
+                    if (durationInSeconds != null) {
+                        this.setDatePrefix(ElapsedTimeFormatter.secondsToString(durationInSeconds));
+                        this.setDuration(durationInSeconds);
+                    }
                 }
             }
 
             // Set and tint the phone image
             if (viewElement.icon != null && ViewUtil.showAndSet(holder.attachmentImage, viewElement.icon)) {
-                if (viewElement.color != null) {
+                if (viewElement.iconTint != null) {
                     holder.attachmentImage.setColorFilter(
-                        ContextCompat.getColor(context, viewElement.color),
+                        ContextCompat.getColor(context, viewElement.iconTint),
                         PorterDuff.Mode.SRC_IN
                     );
                 }
@@ -79,7 +81,7 @@ public class VoipStatusDataChatAdapterDecorator extends ChatAdapterDecorator {
 
         this.setOnClickListener(
             view -> {
-                // load the the contact
+                // load the contact
                 if (ConfigUtils.isCallsEnabled()) {
                     ContactModel contactModel = helper.getContactService().getByIdentity(getMessageModel().getIdentity());
                     if (contactModel != null) {

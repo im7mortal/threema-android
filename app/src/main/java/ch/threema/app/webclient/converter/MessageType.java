@@ -11,9 +11,8 @@ public class MessageType extends Converter {
     public final static String VIDEO = "video";
     public final static String VOICEMESSAGE = "audio";
     public final static String LOCATION = "location";
-    public final static String CONTACT = "contact";
     public final static String STATUS = "status";
-    public final static String BALLOT = "ballot";
+    public final static String POLL = "ballot";
     public final static String FILE = "file";
     public final static String VOIP_STATUS = "voipStatus";
 
@@ -22,22 +21,14 @@ public class MessageType extends Converter {
             switch (messageType) {
                 case TEXT:
                     return MessageType.TEXT;
-                case IMAGE:
-                    return MessageType.IMAGE;
-                case VIDEO:
-                    return MessageType.VIDEO;
-                case VOICEMESSAGE:
-                    return MessageType.VOICEMESSAGE;
                 case LOCATION:
                     return MessageType.LOCATION;
-                case CONTACT:
-                    return MessageType.CONTACT;
                 case STATUS:
                     return MessageType.STATUS;
                 case VOIP_STATUS:
                     return MessageType.VOIP_STATUS;
-                case BALLOT:
-                    return MessageType.BALLOT;
+                case POLL:
+                    return MessageType.POLL;
                 case FILE:
                     return MessageType.FILE;
                 default:

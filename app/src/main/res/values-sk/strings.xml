@@ -22,6 +22,7 @@
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="enter_id_hint">Zadajte ${app_name_short} ID</string>
     <string name="account_links">Prepojené účty</string>
+    <string name="title_set_availability_status">Stav dostupnosti</string>
     <string name="menu_settings">Nastavenia</string>
     <!-- ${app_name} is a placeholder for the app's name, it must be kept as-is, not translated. -->
     <string name="menu_about">O aplikácii ${app_name}</string>
@@ -31,6 +32,12 @@
     <string name="title_job_title">Názov pozície</string>
     <string name="title_department">Oddelenie</string>
     <string name="send">Odoslať</string>
+    <string name="prefs_linked_devices">Prepojené zariadenia</string>
+    <string name="prefs_community_and_sharing">Komunita a zdieľanie</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <string name="prefs_advanced">Pokročilé</string>
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
+    <string name="prefs_about">O aplikácii</string>
     <string name="prefs_privacy">Súkromie</string>
     <string name="prefs_notifications">Zvuk a upozornenia</string>
     <string name="prefs_chatdisplay">Konverzácia</string>
@@ -82,7 +89,10 @@
     <string name="prefs_sum_threema_push_off">Skontrolujte nové správy pomocou systémovej služby push</string>
     <string name="prefs_logging">Protokol</string>
     <string name="prefs_title_message_log_switch">Protokolovať do súboru</string>
-    <string name="prefs_title_sum_message_log_on">Udalosti a informácie o sieti budú protokolované do súboru debug_log.txt</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_on_since">Zaznamenávanie činnosti systému od %1$s (%2$s)</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_forced_on">Aktivita systému sa zaznamenáva. Ak chcete zaznamenávanie vypnúť, odstráňte súbor „%1$s“. (%2$s)</string>
     <string name="prefs_title_sum_message_log_off">Udalosti nebudú protokolované</string>
     <string name="prefs_reset_push">Obnoviť push token</string>
     <string name="prefs_sum_reset_push">Preregistrovať zariadenie pre príjem push oznámení pomocou FCM/HMS</string>
@@ -112,6 +122,7 @@
     <string name="set_nickname_title">Nastaviť prezývku</string>
     <string name="ok">OK</string>
     <string name="cancel">Zrušiť</string>
+    <string name="save">Uložiť</string>
     <string name="copy_message_action">Kopírovať</string>
     <string name="delete_contact_action">Odstrániť kontakt</string>
     <string name="delete_multiple_contact_action">Odstrániť kontakty</string>
@@ -122,8 +133,10 @@
     <string name="scan_duplicate">Toto ID bolo úspešne zoskenované a skontrolované.</string>
     <string name="linked_email">Email</string>
     <!-- Pattern for displaying the user's email address on the My Profile screen. %1$s is a placeholder for the email address, %2$s is a placeholder for the verification state (e.g. "pending") -->
+    <string name="linked_email_pattern">%1$s (%2$s)</string>
     <string name="linked_mobile">Mobilné číslo</string>
     <!-- Pattern for displaying the user's mobile phone number on the My Profile screen. %1$s is a placeholder for the phone number, %2$s is a placeholder for the verification state (e.g. "pending") -->
+    <string name="linked_mobile_pattern">%1$s (%2$s)</string>
     <string name="public_nickname">Prezývka</string>
     <string name="share_via">Zdieľať cez…</string>
     <string name="share_subject">%s konverzácia</string>
@@ -159,9 +172,12 @@
     <string name="backup_sum">Exportovať vaše ${app_name_short} ID</string>
     <string name="backup_and_delete">Záloha a odstránenie</string>
     <string name="delete_id_title">Vymazať ID</string>
+    <string name="delete_id_message">Ak ste si nevytvorili zálohu alebo neexportovali a neuložili kópiu tohto ID, už nikdy nebudete môcť odosielať ani prijímať
+        správy s týmto ID.\n\nAk už nechcete toto ID používať, odporúčame vám pred jeho vymazaním nastaviť heslo na zrušenie a ID zrušiť na stránke myid.threema.ch/revoke.</string>
     <string name="delete_id_message2">Posledné varovanie: naozaj chcete z tohto zariadenia vymazať vaše ID?</string>
     <string name="delete_id_sum">Z tohto zariadenia sa natrvalo odstráni vaše ID a všetky údaje aplikácie ${app_name_short}</string>
     <string name="delete_all_data_prompt">Odstrániť všetky údaje aplikácie?</string>
+    <string name="backup_password_summary">Export vášho ID bude zašifrovaný heslom. Použite kombináciu písmen, čísel a symbolov. Nezabudnite, čo sem zadáte!</string>
     <string name="backup_password_again_summary">Vložte heslo znovu</string>
     <string name="password_hint">Heslo</string>
     <string name="generating_backup_data">Generujú sa údaje zálohy</string>
@@ -182,6 +198,7 @@ alebo naskenovať QR kód pomocou iného zariadenia.</string>
     <string name="prefs_title_masterkey_passphrase">Heslo</string>
     <string name="setting_masterkey_passphrase">Zadanie hesla hlavného kľúča</string>
     <string name="masterkey_passphrase_title">Heslo hlavného kľúča</string>
+    <string name="masterkey_passphrase_summary">Zadajte heslo pre ochranu hlavného kľúča. Upozorňujeme, že ho budete musieť zadať pri každom znovu spustení aplikácie.</string>
     <string name="masterkey_passphrase_again_summary">Vložte heslo znovu</string>
     <string name="masterkey_passphrase_hint">Heslo</string>
     <string name="master_key_locked_want_exit">Hlavný kľúč je stále uzamknutý. Chcete to skúsiť znovu?</string>
@@ -189,6 +206,7 @@ alebo naskenovať QR kód pomocou iného zariadenia.</string>
     <string name="attach_camera">Fotoaparát</string>
     <string name="menu_restore">Obnoviť zo zálohy</string>
     <string name="restore_id_hint">Obnovenie vykonáte zadaním alebo vložením textového reťazca ID zálohy</string>
+    <string name="restore_id_string_label">Textový reťazec pre export ID</string>
     <string name="location_placeholder">Umiestnenie</string>
     <string name="video_placeholder">Video</string>
     <string name="audio_placeholder">Zvuk</string>
@@ -341,11 +359,15 @@ alebo naskenovať QR kód pomocou iného zariadenia.</string>
     <string name="status_rename_group">Skupina premenovaná na “%1$s”</string>
     <string name="status_group_new_photo">Obrázok skupiny bol upravený.</string>
     <string name="status_group_new_member">“%1$s” bol pridaný do skupiny.</string>
+    <string name="status_group_you_were_added">Boli ste pridaný(á) do skupiny.</string>
     <string name="status_group_member_left">“%1$s” opustil skupinu.</string>
+    <string name="status_group_you_left">Opustili ste skupinu.</string>
     <string name="status_group_member_kicked">“%1$s” bol zo skupiny odstránený.</string>
+    <string name="status_group_you_were_removed">Boli ste odstránený(á) zo skupiny.</string>
     <string name="can_not_send_no_group_members">Do prázdnej skupiny nie je možné poslať správu</string>
     <string name="you_are_not_a_member_of_this_group">Nie ste členom tejto skupiny</string>
     <string name="title_public_nickname">Prezývka</string>
+    <string name="title_availability_status">Stav</string>
     <string name="prefs_sum_excluded_sync_identities">Tu uvedené ID budú ignorované počas synchronizácie kontaktov</string>
     <string name="prefs_title_excluded_sync_identities">Vylúčené ID</string>
     <string name="synchronize_contact">Synchronizácia kontaktov</string>
@@ -474,6 +496,7 @@ Naplánujte udalosti, vytvorte prieskum, alebo sa niečo spýtajte svojich priat
     <string name="ballot_result_final">Konečný výsledok</string>
     <string name="invalid_cannot_send">Nie je možné odoslať správu neplatnému kontaktu</string>
     <string name="ballot_answer_count_error">Zadajte do ankety aspoň dve odpovede.</string>
+    <string name="ballot_removed">Anketa odstránená</string>
     <string name="contact_state_inactive">Neaktívny</string>
     <string name="contact_state_invalid">Neplatný</string>
     <string name="back">Späť</string>
@@ -481,6 +504,7 @@ Naplánujte udalosti, vytvorte prieskum, alebo sa niečo spýtajte svojich priat
     <string name="wearable_reply_label">Odpovedať %s</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="push_disable_text">Ak budete pokračovať, namiesto systémovej služby push sa použije „${app_name_short} Push“. Pomáha to znížiť vašu digitálnu stopu, ale vyžaduje, aby bol váš telefón nakonfigurovaný tak, aby umožňoval beh aplikácie na pozadí. Ak v nastaveniach zariadenia nenájdete zodpovedajúce možnosti, možno budete musieť kontaktovať podporu výrobcu zariadenia a požiadať o pomoc s konfiguráciou.</string>
+    <string name="debug_log_enabled_recently_warning">Ak máte konkrétny problém, skúste ho reprodukovať predtým, než nám pošlete súbor s protokolom ladenia. To nám pomôže efektívnejšie skúmať problém. Ďakujeme.</string>
     <string name="ballot_intermediate_results_show">Zobrazovať priebežné výsledky</string>
     <string name="converting_video">Video sa spracováva</string>
     <string name="video_size_small">Vysoká (menej dát)</string>
@@ -497,6 +521,8 @@ Naplánujte udalosti, vytvorte prieskum, alebo sa niečo spýtajte svojich priat
     <string name="qr_code">QR kód</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="really_leave_id_export">Pokiaľ ste tak ešte neurobili, uložte si váš vyexportovaný ID textový reťazec alebo jemu zodpovedajúci QR kód na bezpečné miesto, alebo si ho vytlačte. Bez tejto zálohy nebude možné váš ${app_name_short} ID obnoviť.</string>
+    <string name="revocation_key_title">Zrušenie ID</string>
+    <string name="revocation_key_not_set">Nie je nastavené heslo na zrušenie</string>
     <string name="revocation_key_set_at">Heslo nastavené %1$s</string>
     <string name="prefs_sum_remove_wallpapers">Vymazať všetky individuálne tapety</string>
     <string name="prefs_title_remove_wallpapers">Odstrániť všetky tapety</string>
@@ -678,7 +704,6 @@ Už ich nebude možné obnoviť.</string>
     <string name="new_wizard_anonymous_confirm">Nezadali ste ani číslo mobilného telefónu, ani emailovú adresu, ktoré by boli prepojené s vašim ${app_name_short} ID. Nebudete se zobrazovať v zozname kontaktov vašich priateľov. Naozaj chcete používať aplikáciu ${app_name} anonymne?</string>
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_anonymous_confirm_phone_only">Nezadali ste číslo mobilného telefónu, ktoré by bolo prepojené s vašim ${app_name_short} ID. Nebudete se zobrazovať v zozname kontaktov vašich priateľov. Naozaj chcete používať aplikáciu ${app_name} anonymne?</string>
-    <string name="new_wizard_scan_id_backup">Alebo naskenujte QR kód zálohy vášho ID</string>
     <string name="error_saving_file">Niektoré súbory nebolo možné uložiť</string>
     <string name="wait_one_minute">Pred vyžiadaním hovoru počkajte aspoň 10 minút na príchod SMS správy.</string>
     <string name="backup_id">Exportované ID</string>
@@ -743,6 +768,7 @@ Už ich nebude možné obnoviť.</string>
     <string name="grace_thirty_minutes">30 minút</string>
     <string name="grace_never">Nikdy (ručne)</string>
     <string name="never">Nikdy</string>
+    <string name="access_protection_private_chats_warning">Odstránením ochrany prístupu sa všetky vaše súkromné konverzácie opäť stanú viditeľnými.</string>
     <string name="verification_started">Overovanie spustené</string>
     <string name="cannot_open_file">Súbor sa nedá otvoriť</string>
     <string name="prefs_title_image_attach_previews">Rýchly výber médií</string>
@@ -759,7 +785,9 @@ Už ich nebude možné obnoviť.</string>
     <string name="reset_ringtones_confirm">Nastavenia zvukových upozornení boli obnovené.</string>
     <string name="prefs_language_override">Jazyk</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
-    <string name="quote">Citovať</string>
+    <string name="threema_channel_intro">Kanál ${app_name_short} vám prináša novinky zo sveta ${app_name_short}. Chcete sa prihlásiť k odberu kanálu ${app_name_short} a pridať si ho do kontaktov? Je to zadarmo a odber môžete kedykoľvek zrušiť.</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
+    <string name="reply_to_message">Odpovedať</string>
     <string name="contacts_deleted">Kontakty boli vymazané</string>
     <string name="take_photo">Odfotiť</string>
     <string name="select_from_gallery">Vybrať z galérie</string>
@@ -805,6 +833,7 @@ Vykonajte prosím zálohú vašich údajov vhodnou metódou.</string>
     <string name="play">Prehrať</string>
     <string name="pause">Pozastaviť</string>
     <string name="retry">Opakovať</string>
+    <string name="voice_message">Hlasová správa</string>
     <string name="voice_message_record">Nahrať hlasovú správu</string>
     <string name="open_navdrawer">Otvoriť navigačný box</string>
     <string name="profile_picture">Profilový obrázok</string>
@@ -914,6 +943,7 @@ Vykonajte prosím zálohú vašich údajov vhodnou metódou.</string>
     <string name="password_too_short_generic">Heslo príliš krátke</string>
     <string name="passwords_dont_match">Heslá sa nezhodujú</string>
     <!-- Error message shown when setting up a custom server for the Threema Safe feature. %s is a placeholder for the details of the error. -->
+    <string name="threema_safe_test_unsuccessful">Test neúspešný: %s</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="preparing_threema_safe">Pripravuje sa Trezor ${app_name_short}</string>
     <string name="disable_powermanager_title">Úsporný režim</string>
@@ -939,6 +969,7 @@ Vykonajte prosím zálohú vašich údajov vhodnou metódou.</string>
     <string name="safe_threema_id">Vaše ${app_name_short} ID</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="safe_restore_enter_id">Zadajte ${app_name_short} ID, ktoré chcete obnoviť</string>
+    <string name="safe_search_id_title">Zadajte prosím mobilné číslo alebo emailovú adresu prepojenú s vašim ${app_name_short}-ID</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="safe_id_lookup">Vyhľadáva sa ${app_name_short} ID</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
@@ -1094,6 +1125,7 @@ Vykonajte prosím zálohú vašich údajov vhodnou metódou.</string>
         <p>Ďalšie informácie nájdete v časti „Menu > Threema 2.0 pre počítače (Beta)“.</p>
         ]]></string>
     <string name="tap_to_start">Kliknutím sem spustíte aplikáciu %s.</string>
+    <string name="notification_title_restart">Vyžaduje sa reštart</string>
     <string name="two_years">2 roky</string>
     <string name="backup_data_no_permission">Do tejto zložky sa nedá zapisovať. Vyberte inú.</string>
     <string name="prefs_sum_show_unread_badge">Zobraziť odznaky na spodnej navigačnej lište</string>
@@ -1198,7 +1230,10 @@ Vykonajte prosím zálohú vašich údajov vhodnou metódou.</string>
     <string name="max_selectable_media_exceeded">Viac ako %d objektov nie je možné naraz odoslať.</string>
     <string name="error_unable_loading_media_thumb">Chyba. Náhľady médií sa nepodarilo načítať</string>
     <string name="filter_list">Filtrovať zoznam</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
+    <string name="search_list">Zoznam vyhľadávania</string>
     <string name="hint_filter_list">Zadajte text filtru</string>
+    <string name="hint_search_list">Zadajte hľadaný text</string>
     <string name="add">Pridať</string>
     <string name="only_images_or_videos">Je možné vybrať iba obrázky a videá</string>
     <string name="media_gallery_gifs">GIFy</string>
@@ -1482,6 +1517,7 @@ Vykonajte prosím zálohú vašich údajov vhodnou metódou.</string>
     <string name="status_orphaned_group">*Táto skupina je zastaralá*\nTvorca skupiny opustil skupinu a tá už nemôže byť ďalej udržiavaná. Jeden zo zostávajúcich členov môže skupinu klonovať (prostredníctvom podrobností o skupine) a stať sa novým správcom.</string>
     <string name="group_not_a_member_notice">Už nie ste súčasťou tejto skupiny a nemôžete ju ďalej používať.</string>
     <string name="group_dissolved_notice">Táto skupina bola rozpustená a už sa nedá používať.</string>
+    <string name="md_linked_devices">${app_name_desktop} 2.0 for Desktop (Beta)</string>
     <string name="md_link_device">Pripojiť nové zariadenie</string>
     <!-- ${app_name_desktop} is a placeholder for the desktop app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- The part of this text that is surrounded by the square brackets will be clickable by the user and lead them to the download page for the desktop client -->
@@ -1512,16 +1548,20 @@ Vykonajte prosím zálohú vašich údajov vhodnou metódou.</string>
     <string name="problemsolver_title_background_data">Dáta na pozadí obmedzené</string>
     <string name="problemsolver_title_notifications">Oznámenia nie sú povolené</string>
     <string name="problemsolver_title_fullscreen_notifications">Oznámenia na celú obrazovku nie sú povolené</string>
+    <string name="problemsolver_title_debug_log_enabled">Zaznamenávanie je stále zapnuté</string>
     <string name="problemsolver_explain_fullscreen_notifications">Aplikácia nemá povolené zobrazovať upozornenia na celú obrazovku. Keď je zariadenie uzamknuté, môžete zmeškať prichádzajúce hovory. Ak to chcete napraviť, aktivujte možnosť \"Upozornenia na celej obrazovke\", alebo \"Oznámenia na zamknutej obrazovke\"</string>
     <string name="problemsolver_explain_notifications">Upozornenia sú pre túto aplikáciu úplne vypnuté. Nebudete informovaní o prichádzajúcich správach ani hovoroch a aplikácia nemusí fungovať podľa očakávania. Ak to chcete napraviť, aktivujte funkciu \"Všetky oznámenia\", alebo \"Povolenie oznámení\".</string>
     <string name="problemsolver_explain_background_data">Keď je aplikácia na pozadí, nemôže používať mobilné dáta. O prichádzajúcich správach nebudete informovaní, pokiaľ aplikáciu aktívne neotvoríte. Ak to chcete napraviť, aktivujte funkciu \"Povoliť prenos dát na pozadí\".</string>
     <string name="problemsolver_explain_background">Používanie aplikácie na pozadí je obmedzené. Nebudete dostávať žiadne oznámenia a mnohé funkcie nebudú fungovať tak, ako sa očakáva. Ak to chcete napraviť, klepnite v informáciach o aplikácii na položku \"Batéria\" a vyberte možnosť \"Neobmedzené\".</string>
+    <string name="problemsolver_explain_debug_log_enabled">Pred nejakým časom ste aktivovali ladiaci protokol. Ak už nepotrebujete zaznamenávať udalosti a sieťové informácie, zvážte opätovné deaktivovanie protokolu.</string>
+    <string name="problemsolver_explain_debug_log_force_enabled">Aplikácia ${app_name} momentálne zaznamenáva udalosti a sieťové informácie do súboru, pretože ste vytvorili súbor „%s“. Ak už zaznamenávanie nepotrebujete, zvážte vymazanie tohto súboru.</string>
     <string name="problemsolver_info_text">Názvy niektorých vyššie uvedených možností nastavenia systému sa môžu líšiť v závislosti od verzie systému Android a výrobcu zariadenia.</string>
     <string name="problemsolver_title_app_battery_usgae_optimized">Používanie batérie aplikácie nastavené na \"optimalizované\"</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="problemsolver_explain_app_battery_usgae_optimized">Aplikácia nemá povolené udržiavať trvalé pripojenie k serverom, ktoré je potrebné na fungovanie služby ${app_name_short} Push. Keď je aplikácia na pozadí, nebudete informovaní o nových správach. Ak to chcete napraviť, klepnite v informáciach o aplikácii na položku \"Batéria\" a vyberte možnosť \"Neobmedzené\".</string>
     <string name="problemsolver_to_settings">K nastaveniam</string>
     <!-- Label on button to dismiss/hide a warning -->
+    <string name="problemsolver_dismiss">Zatvoriť</string>
     <string name="prefs_advanced_options">Rozšírené možnosti</string>
     <string name="push_service">Služba Push</string>
     <string name="edit_and_send">Upraviť a odoslať</string>
@@ -1542,12 +1582,27 @@ Vykonajte prosím zálohú vašich údajov vhodnou metódou.</string>
     <string name="incoming_calls">Prichádzajúce hovory</string>
     <string name="group_chats">Skupinové hovory</string>
     <string name="edit_history_file_no_caption">Bez titulku</string>
+    <string name="prefs_title_error_reporting">Hlásenie chýb</string>
+    <string name="prefs_send_error_reports">Odosielať anonymné hlásenia</string>
+    <string name="error_reporting_option_never_send">Nikdy</string>
+    <string name="error_reporting_option_always_send">Vždy</string>
+    <string name="error_reporting_option_always_ask">Vždy sa opýtať</string>
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
+    <string name="error_reporting_summary_never_send">Nikdy neposielať chybové hlásenia spoločnosti ${company_name}</string>
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
+    <string name="error_reporting_summary_always_send">Automaticky posielať hlásenia o chybách spoločnosti ${company_name} pri zistení kritickej chyby</string>
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
+    <string name="error_reporting_summary_always_ask">Pýtať sa zakaždým, či má byť odoslaná správa o chybe do spoločnosti ${company_name}</string>
+    <string name="error_detected_dialog_title">Odoslať anonymné hlásenie</string>
+    <string name="crash_detected_dialog_text">Zdá sa, že nedávno došlo k nejakému problému. Chcete odoslať anonymné hlásenie o chybe?</string>
+    <string name="crash_detected_dialog_remember_choice">Zapamätať si moju voľbu</string>
+    <string name="crash_detected_dialog_send_button">Odoslať</string>
+    <string name="error_reporting_learn_more_button">Zistiť viac</string>
+    <string name="error_reporting_details_button">Technické detaily</string>
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
+    <string name="prefs_error_reporting_id">Anonymné ID zariadenia</string>
     <!-- The %s is a placeholder for an ID. It must be left as-is. -->
+    <string name="prefs_error_reporting_id_summary">Toto ID slúži na priraďovanie hlásení o chybách. Je anonymné a nie je prepojené s vaším ID v aplikácii Threema.\n%s</string>
     <string name="md_device_currently_active">V súčasnosti aktívny</string>
     <string name="md_device_last_active_at">Naposledy aktívny: %s</string>
     <plurals name="md_max_device_slots_reached_info">
@@ -1568,9 +1623,13 @@ Vykonajte prosím zálohú vašich údajov vhodnou metódou.</string>
     <string name="md_drop_device_failed_dialog_message">Skontrolujte prosím internetové pripojenie a skúste to znova.</string>
     <string name="md_drop_device_failed_dialog_button_close">Zatvoriť</string>
     <!-- Message shown in dialog when the user starts configuring a backup, but we detected that there might be a problem and thus offer a workaround option to choose from -->
+    <string name="backup_path_selection_message">Pri výbere zložky bol zistený potenciálny problém. Ak problém pretrváva, môžete zálohu uložiť do zložky „Dokumenty“ namiesto toho, aby ste si zvolili vlastnú zložku.</string>
     <!-- Button label on dialog when configuring a backup, shown on dialog that lets the user choose how they want to select the backup folder. This option lets them use the regular file picker. -->
+    <string name="backup_path_selection_default">Vyberte vlastnú zložku</string>
     <!-- Button label on dialog when configuring a backup, shown on dialog that lets the user choose how they want to select the backup folder. This option lets them bypass the file picker and use the default Documents folder instead -->
+    <string name="backup_path_selection_documents">Použiť zložku „Dokumenty“</string>
     <!-- accessibility -->
+    <string name="cd_menu_more">Viac možností</string>
     <string name="cd_edited">správa bola upravená</string>
     <string name="cd_created_at">vytvorené %s</string>
     <string name="cd_edited_at">upravené %s</string>
@@ -1629,6 +1688,8 @@ Vykonajte prosím zálohú vašich údajov vhodnou metódou.</string>
     <string name="device_linking_error_invalid_contact_title">Neplatný kontakt</string>
     <!-- Error message when linking of a new device failed due to an invalid contact. %1$s will be replaced with the threema identity of the affected contact. -->
     <string name="device_linking_error_invalid_contact_body">Kontakt s identitou %1$s je v tomto zariadení nesprávne uložený a bráni prepojeniu nového zariadenia. Obráťte sa na podporu („Hlavné menu &gt; Nápoveda“).</string>
+    <string name="device_linking_error_invalid_timestamp_title">Neplatný dátum</string>
+    <string name="device_linking_error_invalid_timestamp_body">Zistil sa neplatný dátum. Obráťte sa na technickú podporu („Hlavné menu &gt; Pomoc“).</string>
     <string name="work_directory_title">Adresár spoločnosti</string>
     <!-- Instruction text for the user directory search -->
     <string name="work_directory_search">Vyhľadať v adresári</string>
@@ -1636,12 +1697,15 @@ Vykonajte prosím zálohú vašich údajov vhodnou metódou.</string>
     <string name="work_directory_empty_view_text">Zadajte aspoň 3 znaky mena, aby ste mohli začať vyhľadávať v adresári používateľov ${app_name_short} vašej spoločnosti.</string>
     <!-- Message that is shown when the user wants to share an invalid file. -->
     <string name="invalid_file_cannot_be_shared">Tento súbor je neplatný a nemožno ho zdieľať</string>
+    <string name="availability_status_none">Žiadny stav</string>
     <!-- Status (only relevant for Work), e.g. as shown on their profile, indicating that the person is currently not available, i.e. out-of-office -->
     <string name="availability_status_unavailable">Nedostupný</string>
     <!-- Status (only relevant for Work), e.g. as shown on their profile, indicating that the person is currently busy-->
+    <string name="availability_status_busy">Obsadené</string>
     <!-- Error message (only relevant for OnPrem) if the preset server url is different from the one provided by the activation link. -->
     <string name="error_preset_onprem_url_mismatch_intent">Aktivačný odkaz je neplatný. Obráťte sa na svojho správcu.</string>
     <!-- Warning message displayed on screen where the user can export a debug log file to share with Support. ${company_name} is a placeholder for the company name and should be kept as-is, not translated. -->
+    <string name="export_logs_screen_warning">Z dôvodov ochrany súkromia zdieľajte súbor protokolu iba s tímom technickej podpory spoločnosti ${company_name} a to len v prípade, ak vás o to požiadajú.</string>
     <string name="work_intro_screen_work_title">VYSOKO BEZPEČNÁ KOMUNIKÁCIA PRE FIRMY</string>
     <string name="work_intro_screen_work_subtitle">Threema Work je bezpečné komunikačné riešenie pre firmy – s end-to-end šifrovaním, v súlade s GDPR a vyvinuté vo Švajčiarsku.</string>
     <string name="work_intro_screen_work_sign_in_button_label">Prihlásiť sa</string>
@@ -1657,10 +1721,13 @@ Vykonajte prosím zálohú vašich údajov vhodnou metódou.</string>
     <string name="work_intro_screen_onprem_use_private_hint">Ak chcete používať Threemu na súkromné účely, odporúčame aplikáciu Threema Private.</string>
     <string name="work_intro_screen_onprem_download_private_button_label">Stiahnuť teraz</string>
     <!-- Description of the notification channel which is used when DualLock (a.k.a. "Remote Secret") is active. ${remote_secret} is a placeholder for a feature name, e.g. "DualLock". It must be left as-is and not translated. -->
+    <string name="remote_secret_notification_channel_description">Trvalé upozornenie je zobrazené, keď je aktívna funkcia ${remote_secret}.</string>
     <!-- Text of the notification which is shown when DualLock (a.k.a. "Remote Secret") is active. ${remote_secret} is a placeholder for a feature name, e.g. "DualLock". It must be left as-is and not translated. -->
+    <string name="remote_secret_notification_text">${remote_secret} je aktívne. Kliknutím sa dozviete viac.</string>
     <!-- Message shown fullscreen when the app is opened, to inform the user that their access has been blocked by an admin. Only used for OnPrem builds. -->
     <string name="remote_secrets_blocked_by_admin">Prístup k tejto aplikácii bol blokovaný správcom.\n\nPre viac informácií kontaktujte správcu.</string>
     <!-- Label on button, shown when the app is blocked with the DualLock (a.k.a. "Remote Secret") feature and the user has no other option than to close the app -->
+    <string name="remote_secrets_close_app">Zatvoriť aplikáciu</string>
     <!-- Message shown fullscreen when the app is opened, to inform the user that the DualLock (a.k.a. "Remote Secret") needed to unlock the app could not be fetched due to a network issue. Shown above a "Retry" button. Only used for OnPrem builds. ${remote_secret} is a placeholder for a feature name, e.g. "DualLock". It must be left as-is and not translated. -->
     <string name="remote_secrets_failed_to_fetch">Token ${remote_secret} sa nepodarilo načítať. Skontrolujte pripojenie k internetu a skúste to znova.</string>
     <!-- Shown on loading spinner after app is started while DualLock (a.k.a. "Remote Secret") is fetched from the server to unlock the app. Only used for OnPrem builds. ${remote_secret} is a placeholder for a feature name, e.g. "DualLock". It must be left as-is and not translated. -->
@@ -1668,9 +1735,11 @@ Vykonajte prosím zálohú vašich údajov vhodnou metódou.</string>
     <!-- Shown as the title of an info dialog when DualLock (a.k.a. "Remote Secret") has been activated. ${remote_secret} is a placeholder for a feature name, e.g. "DualLock". It must be left as-is and not translated. -->
     <string name="remote_secret_activated_notification_title">${remote_secret} bol aktivovaný</string>
     <!-- Shown as the content of an info dialog when DualLock (a.k.a. "Remote Secret") has been activated. The text in [square brackets] must be translated, and the brackets must be kept around the translation. -->
+    <string name="remote_secret_activated_dialog_content">Ak stratíte svoje zariadenie, táto funkcia umožňuje správcovi zablokovať aplikáciu, čím sa zabezpečí, že vaše konverzácie zostanú šifrované aj v prípade, že sa neoprávneným osobám podarí odomknúť vaše zariadenie.\n[Zistiť viac]</string>
     <!-- Shown as the title of an info dialog when DualLock (a.k.a. "Remote Secret") has been deactivated. ${remote_secret} is a placeholder for a feature name, e.g. "DualLock". It must be left as-is and not translated. -->
     <string name="remote_secret_deactivated_notification_title">${remote_secret} bol deaktivovaný</string>
     <!-- Shown as the content of an info dialog when DualLock (a.k.a. "Remote Secret") has been deactivated. ${remote_secret} is a placeholder for a feature name, e.g. "DualLock". It must be left as-is and not translated. The text in [square brackets] must be translated, and the brackets must be kept around the translation. -->
+    <string name="remote_secret_deactivated_dialog_content">Váš správca deaktivoval ${remote_secret}. Viac informácií o ${remote_secret} nájdete v tomto [článku v sekcii Často kladené otázky].</string>
     <!-- Shown on loading indicator while the DualLock (a.k.a. "Remote Secret") feature is being activated. ${remote_secret} is a placeholder for a feature name, e.g. "DualLock". It must be left as-is and not translated. -->
     <string name="remote_secret_activating">Aktivácia ${remote_secret}</string>
     <!-- Error message shown fullscreen when activating the DualLock (a.k.a. "Remote Secret") feature failed. ${remote_secret} is a placeholder for a feature name, e.g. "DualLock". It must be left as-is and not translated. -->
@@ -1679,8 +1748,41 @@ Vykonajte prosím zálohú vašich údajov vhodnou metódou.</string>
     <string name="remote_secret_deactivating">Deaktivácia ${remote_secret}</string>
     <!-- Error message shown fullscreen when deactivating the DualLock (a.k.a. "Remote Secret") feature failed. ${remote_secret} is a placeholder for a feature name, e.g. "DualLock". It must be left as-is and not translated. -->
     <string name="remote_secret_deactivating_failed">Deaktivácia ${remote_secret} zlyhala. Skontrolujte pripojenie k internetu a skúste to znova.</string>
+    <string name="referral_banner_title">Odporučiť a získať výhody</string>
+    <string name="referral_banner_body">Pozvite svojich priateľov, aby vo svojej spoločnosti používali Threema Work a získajte bonus za odporúčanie!</string>
+    <string name="referral_screen_title">Odporučiť a získať výhody</string>
+    <string name="referral_screen_subtitle">Získajte až 10 % z čiastky prvej faktúry spoločnosti, ktorú ste sprostredkovali.</string>
+    <string name="referral_how_it_works_title">Ako to funguje</string>
+    <string name="referral_how_it_works_referral_title">Odporúčanie</string>
+    <string name="referral_how_it_works_referral_body">Pozvite priateľa alebo jeho spoločnosť, aby sa pripojili k Threema Work. Je dôležité, aby pri registrácii alebo pri nákupe licencií bolo uvedené vaše Threema ID, aby sa mohlo zohľadniť vaše odporúčanie.</string>
+    <string name="referral_how_it_works_requirements_title">Požiadavky</string>
+    <string name="referral_how_it_works_requirements_body">Uvedená spoločnosť nesmie byť už našim zákazníkom a musí si objednať licencie</string>
+    <string name="referral_how_it_works_confirmation_title">Potvrdenie</string>
+    <string name="referral_how_it_works_confirmation_body">Aby sme zaistili správne priradenie a overenie vášho odporúčania, skontaktujeme sa s vami ešte pred vykonaním platby. Hneď ako bude proces overenia ukončený, budeme vás o tom informovať.</string>
+    <string name="referral_your_reward_title">Vaša odmena</string>
+    <string name="referral_your_reward_subtitle">Získať bonus za odporúčanie</string>
+    <string name="referral_your_reward_body">Za odporúčanie získate 10 % z čiastky prvej faktúry prijatého klienta (bez daní a poplatkov). Bonus vám bude poukázaný 30–60 dní po prijatí platby.</string>
+    <string name="referral_share_invitation_link">Zdieľať odkaz na pozvánku</string>
+    <string name="referral_view_terms_and_conditions">Zobraziť všeobecné podmienky používania</string>
+    <string name="referral_invitation_message_content">Ahoj, napadlo ma, že by sa ti to mohlo hodiť: Threema Work je skvelá voľba pre bezpečnú firemnú komunikáciu. Tu je tvoj testovací odkaz: %1$s</string>
+    <string name="prefs_voip_abort_on_bluetooth_disconnect_title">Ukončiť hovor, keď sa odpojí Bluetooth</string>
+    <string name="prefs_voip_abort_on_bluetooth_disconnect_summary_on">Hovor sa ukončí, keď sa Bluetooth slúchadlá odpoja počas hovoru.</string>
+    <string name="prefs_voip_abort_on_bluetooth_disconnect_summary_off">Hovor pokračuje aj v prípade, že sa počas hovoru odpojí Bluetooth slúchadlo. Poznámka: V dôsledku toho môže prestať fungovať tlačidlo na ukončenie hovoru na slúchadle.</string>
+    <string name="failed_to_load_conversations">Nepodarilo sa načítať konverzácie.</string>
+    <string name="contact_support">Kontaktovať podporu</string>
+    <string name="edit_availability_status_modal_title">Stav dostupnosti</string>
+    <string name="edit_availability_status_modal_subtitle">Tento stav je viditeľný pre všetkých vo vašej spoločnosti.</string>
+    <string name="edit_availability_status_modal_optional_message_label">Vlastný text (voliteľné)</string>
+    <string name="edit_availability_status_modal_optional_message_placeholder">Na stretnutí</string>
+    <string name="edit_availability_status_modal_optional_message_description">Nastavte vlastnú správu o stave, keď je vybrané Zaneprázdnený alebo Nedostupný.</string>
+    <string name="edit_availability_status_modal_optional_message_too_long">Text je príliš dlhý, prosím, skráťte ho</string>
+    <string name="tooltip_title_availability_status">Stav dostupnosti</string>
+    <string name="tooltip_text_availability_status_in_chat">Zistite, či je niekto zaneprázdnený alebo nedostupný, pred tým ako im pošlete správu. Môžete si nastaviť vlastný stav vo svojom profile.</string>
+    <string name="tooltip_text_availability_status_in_profile">Nastavte svoj stav, aby sa zobrazilo, keď ste zaneprázdnený alebo nedostupný.</string>
+    <string name="view_full_availability_status_modal_title">Stav dostupnosti</string>
     <!-- A hint text that will be played by the android screen reader in accessibility mode. It explains the effect of a click action. -->
     <!-- Clicking will open a new modal view that displays the full length of a contact's availability status description. -->
+    <string name="accessibility_view_full_availability_status">Klepnutím zobrazíte úplný stav dostupnosti</string>
     <plurals name="contacts_counter_label">
         <item quantity="one">%d kontakt</item>
         <item quantity="few">%d kontakty</item>
@@ -1759,6 +1861,8 @@ Vykonajte prosím zálohú vašich údajov vhodnou metódou.</string>
         <item quantity="many">%d správ bolo odstránených</item>
         <item quantity="other">%d správ bolo odstránených</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
+    <string name="notifications_for_one_week">Na 1 týždeň</string>
     <plurals name="notifications_for_x_hours">
         <item quantity="one">Na %d hodinu</item>
         <item quantity="few">Na %d hodiny</item>

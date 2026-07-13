@@ -1,6 +1,6 @@
 package ch.threema.app.utils.executor
 
-import ch.threema.app.utils.DispatcherProvider
+import ch.threema.common.DispatcherProvider
 import kotlinx.coroutines.withContext
 
 /**

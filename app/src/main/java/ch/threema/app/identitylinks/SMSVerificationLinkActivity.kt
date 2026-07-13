@@ -15,6 +15,13 @@ import org.koin.android.ext.android.inject
 
 private val logger = getThreemaLogger("SMSVerificationLinkActivity")
 
+/**
+ * This activity is exported to allow it to be opened via a deep link (e.g. from an SMS or email). Exporting it is safe because verification codes
+ * extracted from incoming links are only forwarded to the server if a phone number verification is currently in progress and the code matches the
+ * expected format. This prevents any abuse from arbitrary external launches.
+ *
+ * Since this activity does not display any sensitive information, there is no need to prompt the user to unlock the app when it is launched.
+ */
 class SMSVerificationLinkActivity : AppCompatActivity() {
     init {
         logScreenVisibility(logger)

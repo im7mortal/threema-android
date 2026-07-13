@@ -1,6 +1,5 @@
 package ch.threema.localcrypto
 
-import android.content.Context
 import android.os.Build
 import ch.threema.app.di.Qualifiers
 import ch.threema.app.files.AppDirectoryProvider
@@ -43,7 +42,7 @@ val localCryptoFeatureModule = module {
         MasterKeyStorageManager(
             version2KeyFileManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 Version2MasterKeyFileManagerImpl(
-                    deletionDirectory = get<Context>().filesDir,
+                    appContext = get(),
                     keyFile = masterKeyFileProvider.getVersion2KeyStoreProtectedMasterKeyFile(),
                     unencryptedKeyFile = masterKeyFileProvider.getVersion2UnencryptedMasterKeyFile(),
                     encoder = get(),

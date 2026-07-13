@@ -9,6 +9,7 @@ import androidx.lifecycle.SavedStateHandle;
 import androidx.lifecycle.ViewModel;
 import ch.threema.app.AppConstants;
 import ch.threema.app.ThreemaApplication;
+import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.GroupService;
 import ch.threema.storage.models.group.GroupModelOld;
 
@@ -25,7 +26,7 @@ public class AvatarEditViewModel extends ViewModel {
         this.savedState = savedStateHandle;
 
         try {
-            this.groupService = ThreemaApplication.requireServiceManager().getGroupService();
+            this.groupService = ServiceManager.require().getGroupService();
         } catch (Exception e) {
             //
         }

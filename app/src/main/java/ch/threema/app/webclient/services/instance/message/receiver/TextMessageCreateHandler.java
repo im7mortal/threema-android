@@ -14,7 +14,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.WorkerThread;
 import ch.threema.app.AppConstants;
 import ch.threema.app.BuildConfig;
-import ch.threema.app.managers.ListenerManager;
 import ch.threema.app.messagereceiver.ContactMessageReceiver;
 import ch.threema.app.messagereceiver.GroupMessageReceiver;
 import ch.threema.app.services.BlockedIdentitiesService;
@@ -24,8 +23,9 @@ import ch.threema.app.utils.QuoteUtil;
 import ch.threema.app.webclient.Protocol;
 import ch.threema.app.webclient.services.instance.MessageDispatcher;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
+import ch.threema.data.repositories.ServerMessageModelRepository;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
-import ch.threema.storage.factories.ServerMessageModelFactory;
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.ServerMessageModel;
 
@@ -121,7 +121,7 @@ public class TextMessageCreateHandler extends MessageCreateHandler {
                                 alertMessageTmp.append(pieces[n]).append(n == pieces.length - 1 ? "" : " ");
                             }
 
-                            ServerMessageModelFactory serverMessageModelFactory = KoinJavaComponent.get(ServerMessageModelFactory.class);
+                            ServerMessageModelRepository serverMessageModelRepository = KoinJavaComponent.get(ServerMessageModelRepository.class);
 
                             final String alertMessage;
                             ServerMessageModel serverMessageModel;
@@ -135,11 +135,10 @@ public class TextMessageCreateHandler extends MessageCreateHandler {
                                     // Store server message into database
                                     serverMessageModel = new ServerMessageModel(alertMessage, ServerMessageModel.TYPE_ERROR);
                                     try {
-                                        serverMessageModelFactory.storeServerMessageModel(serverMessageModel);
+                                        serverMessageModelRepository.saveServerMessage(serverMessageModel);
                                     } catch (IllegalStateException e) {
                                         logger.warn("Ignoring 'error' server message, database is unavailable", e);
                                     }
-                                    ListenerManager.serverMessageListeners.handle(listener -> listener.onError(serverMessageModel));
                                     break;
                                 case "alert":
                                     if (alertMessageTmp.length() == 0) {
@@ -149,11 +148,10 @@ public class TextMessageCreateHandler extends MessageCreateHandler {
                                     }
                                     serverMessageModel = new ServerMessageModel(alertMessage, ServerMessageModel.TYPE_ALERT);
                                     try {
-                                        serverMessageModelFactory.storeServerMessageModel(serverMessageModel);
+                                        serverMessageModelRepository.saveServerMessage(serverMessageModel);
                                     } catch (IllegalStateException e) {
                                         logger.warn("Ignoring 'alert' server message, database is unavailable", e);
                                     }
-                                    ListenerManager.serverMessageListeners.handle(listener -> listener.onError(serverMessageModel));
                                     break;
                             }
                         }

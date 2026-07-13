@@ -15,7 +15,7 @@ import androidx.viewpager.widget.PagerAdapter
 import ch.threema.android.getCurrentInsets
 import ch.threema.app.R
 import ch.threema.app.emojireactions.EmojiReactionsGridAdapter
-import ch.threema.app.utils.DispatcherProvider
+import ch.threema.common.DispatcherProvider
 import ch.threema.data.models.EmojiReactionData
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

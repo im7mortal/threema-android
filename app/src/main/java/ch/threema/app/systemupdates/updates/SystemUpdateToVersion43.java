@@ -2,6 +2,7 @@ package ch.threema.app.systemupdates.updates;
 
 import android.database.Cursor;
 
+import org.json.JSONArray;
 import org.koin.java.KoinJavaComponent;
 
 import java.security.MessageDigest;
@@ -9,16 +10,18 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
 
+import androidx.annotation.NonNull;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.services.ConversationCategoryService;
 import ch.threema.app.services.DeadlineListService;
 import ch.threema.app.services.DeadlineListServiceImpl;
 import ch.threema.app.services.RingtoneService;
 import ch.threema.app.stores.PreferenceStore;
-import ch.threema.app.utils.TestUtil;
-import ch.threema.base.utils.Base32;
+import ch.threema.common.Base32;
 import ch.threema.storage.DatabaseProvider;
 import kotlin.Lazy;
+
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class SystemUpdateToVersion43 implements SystemUpdate {
 
@@ -42,9 +45,9 @@ public class SystemUpdateToVersion43 implements SystemUpdate {
         String ringtonePrefs = "pref_individual_ringtones";
         String messageDraftPrefs = "pref_message_drafts";
 
-        Map<Integer, String> oldMutedChatsMap = preferenceStore.getIntMap(mutedChatsPrefs);
-        Map<Integer, String> oldHiddenChatsMap = preferenceStore.getIntMap(hiddenChatsPrefs);
-        Map<Integer, String> oldRingtoneMap = preferenceStore.getIntMap(ringtonePrefs);
+        Map<Integer, String> oldMutedChatsMap = getIntMap(preferenceStore, mutedChatsPrefs);
+        Map<Integer, String> oldHiddenChatsMap = getIntMap(preferenceStore, hiddenChatsPrefs);
+        Map<Integer, String> oldRingtoneMap = getIntMap(preferenceStore, ringtonePrefs);
         preferenceStore.remove(messageDraftPrefs);
 
         HashMap<String, String> newMutedChatsMap = new HashMap<>();
@@ -57,7 +60,7 @@ public class SystemUpdateToVersion43 implements SystemUpdate {
             while (contacts.moveToNext()) {
                 final String identity = contacts.getString(0);
 
-                if (!TestUtil.isEmptyOrNull(identity)) {
+                if (!isNullOrEmpty(identity)) {
                     String rawUid = "c-" + identity;
                     int oldUid = (rawUid).hashCode();
 
@@ -123,6 +126,26 @@ public class SystemUpdateToVersion43 implements SystemUpdate {
         } catch (NoSuchAlgorithmException e) {
             return "";
         }
+    }
+
+    private Map<Integer, String> getIntMap(@NonNull PreferenceStore preferenceStore, @NonNull String key) {
+        String stringValue = preferenceStore.getString(key);
+        Map<Integer, String> map = new HashMap<>();
+        if (stringValue == null) {
+            return map;
+        }
+        try {
+            JSONArray jsonArray = new JSONArray(stringValue);
+            for (int i = 0; i < jsonArray.length(); i++) {
+                JSONArray keyValuePair = jsonArray.getJSONArray(i);
+                Integer mapKey = keyValuePair.getInt(0);
+                String mapValue = keyValuePair.getString(1);
+                map.put(mapKey, mapValue);
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return map;
     }
 
     @Override

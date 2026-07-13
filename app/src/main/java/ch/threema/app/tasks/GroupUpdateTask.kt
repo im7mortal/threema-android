@@ -13,7 +13,7 @@ import ch.threema.app.tasks.archive.recovery.TaskRecoveryManager
 import ch.threema.app.utils.OutgoingCspMessageServices
 import ch.threema.app.voip.groupcall.GroupCallManager
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.GroupModel
 import ch.threema.data.models.GroupModelData
 import ch.threema.data.repositories.GroupModelRepository
@@ -109,7 +109,9 @@ class GroupUpdateTask(
             logger.warn("Group sync race occurred: Group name is not equal")
         }
 
-        val persistedGroupProfilePicture = fileService.getGroupProfilePictureBytes(groupModel)?.let { bytes -> RawProfilePicture(bytes) }
+        val persistedGroupProfilePicture = fileService
+            .getGroupProfilePictureBytes(groupModel.getDatabaseId())
+            ?.let { bytes -> RawProfilePicture(bytes) }
         when (expectedProfilePictureChange) {
             is ExpectedProfilePictureChange.Set -> {
                 val expectedProfilePicture = expectedProfilePictureChange.profilePicture

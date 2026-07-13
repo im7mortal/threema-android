@@ -1,6 +1,7 @@
 package ch.threema.app.home.usecases
 
 import android.content.Context
+import ch.threema.android.isInstalledFromStore
 import ch.threema.app.services.UserService
 import ch.threema.app.utils.ConfigUtils
 
@@ -34,8 +35,8 @@ class ShouldShowWorkIntroScreenUseCase(
         }
 
         // If the app is not installed from a store, the chance that the private app should be used
-        // instead is smaller and therefore we should skip the screen.
-        if (!ConfigUtils.isInstalledFromStore(appContext)) {
+        // instead is smaller, and therefore we should skip the screen.
+        if (!isInstalledFromStore(appContext)) {
             return false
         }
 

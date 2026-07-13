@@ -11,30 +11,32 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.updatePadding
 import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.DialogFragment
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.preference.MultiSelectListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import ch.threema.app.R
-import ch.threema.app.ThreemaApplication
 import ch.threema.app.ui.InsetSides
 import ch.threema.app.ui.applyDeviceInsetsAsMargin
 import ch.threema.app.ui.applyDeviceInsetsAsPadding
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.ConnectionIndicatorUtil
-import ch.threema.app.utils.RuntimeUtil
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.domain.protocol.connection.ConnectionState
-import ch.threema.domain.protocol.connection.ConnectionStateListener
 import ch.threema.domain.protocol.connection.ServerConnection
 import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.appbar.MaterialToolbar
+import kotlin.getValue
+import kotlinx.coroutines.launch
+import org.koin.android.ext.android.inject
 
 private val logger = getThreemaLogger("ThreemaPreferenceFragment")
 
 /**
- * This fragment provides some tool bar functionality and manages loading the resources.
+ * This fragment provides some toolbar functionality and manages loading the resources.
  */
-abstract class ThreemaPreferenceFragment : PreferenceFragmentCompat(), ConnectionStateListener {
+abstract class ThreemaPreferenceFragment : PreferenceFragmentCompat() {
     private var colorTransparent = 0
     private var initialized = false
 
@@ -44,7 +46,8 @@ abstract class ThreemaPreferenceFragment : PreferenceFragmentCompat(), Connectio
     private var toolbarTitle: TextView? = null
     var title: TextView? = null
     private var connectionIndicator: View? = null
-    private var serverConnection: ServerConnection? = null
+
+    private val serverConnection: ServerConnection by inject()
 
     override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
         initialized = true
@@ -55,12 +58,6 @@ abstract class ThreemaPreferenceFragment : PreferenceFragmentCompat(), Connectio
     }
 
     override fun onResume() {
-        serverConnection?.let {
-            it.addConnectionStateListener(this)
-            ConnectionIndicatorUtil.getInstance()
-                .updateConnectionIndicator(connectionIndicator, it.connectionState)
-        }
-
         super.onResume()
 
         activity.apply {
@@ -68,12 +65,6 @@ abstract class ThreemaPreferenceFragment : PreferenceFragmentCompat(), Connectio
                 setActionBarTitle(if (ConfigUtils.isTabletLayout()) R.string.menu_settings else getPreferenceTitleResource())
             }
         }
-    }
-
-    override fun onPause() {
-        serverConnection?.removeConnectionStateListener(this)
-
-        super.onPause()
     }
 
     /**
@@ -127,16 +118,6 @@ abstract class ThreemaPreferenceFragment : PreferenceFragmentCompat(), Connectio
 
     private fun preferenceNotFound(pref: String): Nothing {
         throw IllegalArgumentException("No preference '$pref' found")
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        try {
-            serverConnection = ThreemaApplication.getServiceManager()?.connection
-        } catch (_: Exception) {
-            // ignore
-        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -203,6 +184,15 @@ abstract class ThreemaPreferenceFragment : PreferenceFragmentCompat(), Connectio
                 bottom = resources.getDimensionPixelSize(R.dimen.grid_unit_x2),
             )
         }
+
+        lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                serverConnection.watchConnectionState().collect { connectionState ->
+                    ConnectionIndicatorUtil.getInstance()
+                        .updateConnectionIndicator(connectionIndicator, connectionState)
+                }
+            }
+        }
     }
 
     private fun setToolbarColor() {
@@ -260,13 +250,6 @@ abstract class ThreemaPreferenceFragment : PreferenceFragmentCompat(), Connectio
             )
         } else {
             super.onDisplayPreferenceDialog(preference)
-        }
-    }
-
-    override fun updateConnectionState(connectionState: ConnectionState?) {
-        RuntimeUtil.runOnUiThread {
-            ConnectionIndicatorUtil.getInstance()
-                .updateConnectionIndicator(connectionIndicator, connectionState)
         }
     }
 

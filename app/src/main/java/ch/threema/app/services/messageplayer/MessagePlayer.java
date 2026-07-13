@@ -29,7 +29,9 @@ import ch.threema.app.utils.FileUtil;
 import ch.threema.app.utils.RuntimeUtil;
 import ch.threema.base.ProgressListener;
 import ch.threema.base.ThreemaException;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.data.media.MediaMessageDataInterface;
 
@@ -179,9 +181,9 @@ public abstract class MessagePlayer {
             logger.debug("decrypt doInBackground {}", messageModel.getId());
 
             try {
-                file = fileService.getDecryptedMessageFile(messageModel);
+                file = fileService.decryptMessageFileToShareableTempFile(messageModel);
             } catch (Exception e) {
-                logger.error("Exception", e);
+                logger.error("Failed to decrypt message", e);
             }
             return file;
         }
@@ -244,7 +246,7 @@ public abstract class MessagePlayer {
 
     protected boolean isReceiverMatch(MessageReceiver receiver) {
         if (messageReceiver != null && receiver != null) {
-            return this.messageReceiver.getUniqueIdString().equals(receiver.getUniqueIdString());
+            return this.messageReceiver.getConversationId().equals(receiver.getConversationId());
         }
         return false;
     }

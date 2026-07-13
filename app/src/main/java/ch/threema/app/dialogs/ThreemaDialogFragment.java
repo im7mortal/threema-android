@@ -1,5 +1,6 @@
 package ch.threema.app.dialogs;
 
+import android.os.Build;
 import android.os.Bundle;
 
 import org.slf4j.Logger;
@@ -9,6 +10,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
@@ -16,7 +18,16 @@ import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 public class ThreemaDialogFragment extends DialogFragment {
     private static final Logger logger = getThreemaLogger("ThreemaDialogFragment");
 
+    public static final String BUNDLE_KEY_CLICKED_BUTTON = "clicked-button";
+
     protected @Nullable Object object;
+    protected @NonNull Bundle requestData = new Bundle();
+
+    enum ClickedButton {
+        POSITIVE,
+        NEGATIVE,
+        NEUTRAL,
+    }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -82,5 +93,19 @@ public class ThreemaDialogFragment extends DialogFragment {
     public ThreemaDialogFragment setData(@NonNull Object data) {
         this.object = data;
         return this;
+    }
+
+    public ThreemaDialogFragment setRequestData(@NonNull Bundle bundle) {
+        this.requestData = bundle;
+        return this;
+    }
+
+    public static void onClickPositiveButton(@NonNull Bundle result, @NonNull Runnable onClick) {
+        final @Nullable ClickedButton clickedButton = (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+            ? result.getSerializable(BUNDLE_KEY_CLICKED_BUTTON, ClickedButton.class)
+            : (ClickedButton) result.getSerializable(BUNDLE_KEY_CLICKED_BUTTON);
+        if (clickedButton == ClickedButton.POSITIVE) {
+            onClick.run();
+        }
     }
 }

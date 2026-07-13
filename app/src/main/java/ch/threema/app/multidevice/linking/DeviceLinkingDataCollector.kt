@@ -12,26 +12,25 @@ import ch.threema.app.services.license.LicenseServiceUser
 import ch.threema.app.tasks.ReflectUserProfileIdentityLinksTask
 import ch.threema.app.utils.BitmapUtil
 import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.ContactUtil
-import ch.threema.app.utils.ConversationUtil
-import ch.threema.app.utils.ConversationUtil.getConversationUid
 import ch.threema.base.crypto.NaCl
 import ch.threema.base.crypto.NonceScope
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.datatypes.AvailabilityStatus
-import ch.threema.data.datatypes.NotificationTriggerPolicyOverride.MutedIndefinite
-import ch.threema.data.datatypes.NotificationTriggerPolicyOverride.MutedIndefiniteExceptMentions
-import ch.threema.data.datatypes.NotificationTriggerPolicyOverride.MutedUntil
-import ch.threema.data.datatypes.NotificationTriggerPolicyOverride.NotMuted
+import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationVisibility
+import ch.threema.data.datatypes.DistributionListConversationId
+import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.data.models.ContactModel
 import ch.threema.data.models.ContactModelData
 import ch.threema.data.models.GroupModel
 import ch.threema.data.models.GroupModelData
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
 import ch.threema.domain.models.UserState
 import ch.threema.domain.models.VerificationLevel
 import ch.threema.domain.models.WorkVerificationLevel
+import ch.threema.domain.protocol.connection.csp.DeviceCookieManager
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.protobuf.common.BlobData
 import ch.threema.protobuf.common.DeltaImage
@@ -55,7 +54,7 @@ import ch.threema.protobuf.d2d.sync.ContactKt
 import ch.threema.protobuf.d2d.sync.ContactKt.readReceiptPolicyOverride
 import ch.threema.protobuf.d2d.sync.ContactKt.typingIndicatorPolicyOverride
 import ch.threema.protobuf.d2d.sync.ConversationCategory
-import ch.threema.protobuf.d2d.sync.ConversationVisibility
+import ch.threema.protobuf.d2d.sync.ConversationVisibility as ProtocolsConversationVisibility
 import ch.threema.protobuf.d2d.sync.Group
 import ch.threema.protobuf.d2d.sync.GroupKt
 import ch.threema.protobuf.d2d.sync.MdmParameters
@@ -73,7 +72,7 @@ import ch.threema.protobuf.d2d.sync.mdmParameters
 import ch.threema.protobuf.d2d.sync.settings
 import ch.threema.protobuf.d2d.sync.threemaWorkCredentials
 import ch.threema.protobuf.d2d.sync.userProfile
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel
+import ch.threema.protobuf.toProtobuf
 import ch.threema.storage.models.DistributionListModel
 import com.google.protobuf.ByteString
 import com.google.protobuf.kotlin.toByteString
@@ -226,7 +225,7 @@ class DeviceLinkingDataCollector(
     private val contactModelRepository by lazy { serviceManager.modelRepositories.contacts }
     private val groupModelRepository by lazy { serviceManager.modelRepositories.groups }
     private val distributionListService by lazy { serviceManager.distributionListService }
-    private val deviceCookieManager by lazy { serviceManager.deviceCookieManager }
+    private val deviceCookieManager: DeviceCookieManager by inject()
     private val synchronizedSettingsService by lazy { serviceManager.synchronizedSettingsService }
     private val blockedIdentitiesService by lazy { serviceManager.blockedIdentitiesService }
     private val excludeFromSyncService by lazy { serviceManager.excludedSyncIdentitiesService }
@@ -267,23 +266,21 @@ class DeviceLinkingDataCollector(
         logger.trace("Collect settings")
         essentialDataBuilder.setSettings(collectSettings())
 
-        val conversationsStats = collectConversationsStats()
-
         logger.trace("Collect contacts")
-        collectContacts(conversationsStats).forEach { (contactBlobDataProviders, augmentedContactProvider) ->
+        collectContacts().forEach { (contactBlobDataProviders, augmentedContactProvider) ->
             blobDataProviders.addAll(contactBlobDataProviders)
             augmentedContactProviders.add(augmentedContactProvider)
         }
 
         logger.trace("Collect groups")
-        collectGroups(conversationsStats).forEach { (groupBlobDataProviders, augmentedGroupProvider) ->
+        collectGroups().forEach { (groupBlobDataProviders, augmentedGroupProvider) ->
             blobDataProviders.addAll(groupBlobDataProviders)
             augmentedGroupProviders.add(augmentedGroupProvider)
         }
 
         if (BuildConfig.MD_SYNC_DISTRIBUTION_LISTS) {
             logger.trace("Collect distribution lists")
-            essentialDataBuilder.addAllDistributionLists(collectDistributionLists(conversationsStats))
+            essentialDataBuilder.addAllDistributionLists(collectDistributionLists())
         } else {
             logger.trace("Skip collection of distribution lists")
             essentialDataBuilder.clearDistributionLists()
@@ -325,7 +322,7 @@ class DeviceLinkingDataCollector(
         return identityData {
             identity = identityStore.getIdentityString()!!
             ck = identityStore.getPrivateKey()!!.toByteString()
-            cspDeviceCookie = deviceCookieManager.obtainDeviceCookie().toByteString()
+            cspDeviceCookie = deviceCookieManager.getOrCreateDeviceCookie().toByteString()
             cspServerGroup = identityStore.getServerGroup()!!
         }
     }
@@ -473,33 +470,21 @@ class DeviceLinkingDataCollector(
         val isPinned: Boolean,
     )
 
-    private fun collectConversationsStats(): Map<String, ConversationStats> {
-        val notArchived = conversationService.getAll(true).associate {
-            it.uid to ConversationStats(false, it.isPinTagged)
-        }
-        val archived = conversationService.getArchived().associate {
-            it.uid to ConversationStats(
-                isArchived = true,
-                isPinned = false,
-            )
-        }
-        return notArchived + archived
-    }
-
-    private fun collectContacts(conversationsStats: Map<String, ConversationStats>): List<Pair<List<BlobDataProvider>, AugmentedContactProvider>> {
+    private fun collectContacts(): List<Pair<List<BlobDataProvider>, AugmentedContactProvider>> {
         return contactModelRepository.getAll()
             .mapNotNull(this::getAndValidateData)
-            .map { mapToAugmentedContact(it, conversationsStats) }
+            .map { contactModelData ->
+                mapToAugmentedContact(contactModelData)
+            }
             .also { logger.trace("{} contacts", it.size) }
     }
 
     private fun mapToAugmentedContact(
         contactModelData: ContactModelData,
-        conversationsStats: Map<String, ConversationStats>,
     ): Pair<List<BlobDataProvider>, AugmentedContactProvider> {
         val blobDataProviders = mutableListOf<BlobDataProvider>()
 
-        val conversationStats = conversationsStats[ConversationUtil.getContactConversationUid(contactModelData.identity)]
+        val conversationId = ContactConversationId(identity = contactModelData.identity)
 
         val contactDefinedProfilePictureInfo: Pair<BlobDataProvider, DeltaImage>? = collectContactDefinedProfilePicture(contactModelData)
         val userDefinedProfilePictureInfo: Pair<BlobDataProvider, DeltaImage>? = collectUserDefinedProfilePicture(contactModelData)
@@ -507,8 +492,8 @@ class DeviceLinkingDataCollector(
         val contact = contact {
             identity = contactModelData.identity
             publicKey = contactModelData.publicKey.toByteString()
-            assertValidTimestamp(contactModelData.createdAt.time, "Contact createdAt (${contactModelData.identity})")
-            createdAt = contactModelData.createdAt.time
+            assertValidTimestamp(contactModelData.createdAt.toEpochMilli(), "Contact createdAt (${contactModelData.identity})")
+            createdAt = contactModelData.createdAt.toEpochMilli()
             firstName = contactModelData.firstName
             lastName = contactModelData.lastName
             nickname = contactModelData.nickname ?: ""
@@ -521,7 +506,7 @@ class DeviceLinkingDataCollector(
             syncState = collectSyncState(contactModelData)
             readReceiptPolicyOverride = mapReadReceiptPolicyOverride(contactModelData)
             typingIndicatorPolicyOverride = mapTypingIndicatorPolicyOverride(contactModelData)
-            notificationTriggerPolicyOverride = collectContactNotificationTriggerPolicyOverride(contactModelData)
+            notificationTriggerPolicyOverride = contactModelData.notificationTriggerPolicyOverride.toProtobuf()
             deprecatedNotificationSoundPolicyOverride = ContactKt.deprecatedNotificationSoundPolicyOverride {
                 default = unit {}
             }
@@ -536,19 +521,14 @@ class DeviceLinkingDataCollector(
                 userDefinedProfilePicture = userDefinedProfilePictureInfo.second
             }
 
-            conversationCategory = if (conversationCategoryService.isPrivateChat(ContactUtil.getUniqueIdString(contactModelData.identity))) {
-                ConversationCategory.PROTECTED
-            } else {
-                ConversationCategory.DEFAULT
-            }
+            conversationCategory =
+                if (conversationCategoryService.isMarkedAsPrivate(conversationId)) {
+                    ConversationCategory.PROTECTED
+                } else {
+                    ConversationCategory.DEFAULT
+                }
 
-            conversationVisibility = if (conversationStats?.isPinned == true) {
-                ConversationVisibility.PINNED
-            } else if (conversationStats?.isArchived == true) {
-                ConversationVisibility.ARCHIVED
-            } else {
-                ConversationVisibility.NORMAL
-            }
+            conversationVisibility = mapConversationVisibility(contactModelData.conversationVisibility)
 
             if (ConfigUtils.isWorkBuild() && contactModelData.workLastFullSyncAt != null) {
                 workLastFullSyncAt = contactModelData.workLastFullSyncAt.toEpochMilli()
@@ -562,8 +542,8 @@ class DeviceLinkingDataCollector(
         val augmentedContact = augmentedContact {
             this.contact = contact
             contactService.getLastUpdate(contactModelData.identity)?.let {
-                assertValidTimestamp(it.time, "Contact updatedAt (${contactModelData.identity})")
-                this.lastUpdateAt = it.time
+                assertValidTimestamp(it.toEpochMilli(), "Contact updatedAt (${contactModelData.identity})")
+                this.lastUpdateAt = it.toEpochMilli()
             }
         }
 
@@ -607,26 +587,12 @@ class DeviceLinkingDataCollector(
         }
     }
 
-    private fun collectContactNotificationTriggerPolicyOverride(contactModelData: ContactModelData): Contact.NotificationTriggerPolicyOverride {
-        return ContactKt.notificationTriggerPolicyOverride {
-            when (val modelPolicy = contactModelData.currentNotificationTriggerPolicyOverride) {
-                NotMuted -> default = unit {}
-
-                MutedIndefinite -> policy = ContactKt.NotificationTriggerPolicyOverrideKt.policy {
-                    policy = Contact.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.NEVER
-                }
-
-                MutedIndefiniteExceptMentions -> throw IllegalStateException(
-                    "Contact receivers can never have this setting",
-                )
-
-                is MutedUntil -> policy = ContactKt.NotificationTriggerPolicyOverrideKt.policy {
-                    policy = Contact.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.NEVER
-                    assertValidTimestamp(modelPolicy.utcMillis, "Contact notificationTriggerPolicyOverride (${contactModelData.identity})")
-                    expiresAt = modelPolicy.utcMillis
-                }
-            }
-        }
+    private fun mapConversationVisibility(
+        conversationVisibility: ConversationVisibility,
+    ): ProtocolsConversationVisibility = when (conversationVisibility) {
+        ConversationVisibility.NORMAL -> ProtocolsConversationVisibility.NORMAL
+        ConversationVisibility.ARCHIVED -> ProtocolsConversationVisibility.ARCHIVED
+        ConversationVisibility.PINNED -> ProtocolsConversationVisibility.PINNED
     }
 
     private fun collectContactDefinedProfilePicture(contactModelData: ContactModelData): Pair<BlobDataProvider, DeltaImage>? {
@@ -680,14 +646,14 @@ class DeviceLinkingDataCollector(
 
     private fun mapIdentityState(contactModelData: ContactModelData): Contact.IdentityType {
         return when (contactModelData.identityType) {
-            IdentityType.NORMAL -> Contact.IdentityType.REGULAR
+            IdentityType.REGULAR -> Contact.IdentityType.REGULAR
             IdentityType.WORK -> Contact.IdentityType.WORK
         }
     }
 
     private fun mapAcquaintanceLevel(contactModelData: ContactModelData): Contact.AcquaintanceLevel {
         return when (contactModelData.acquaintanceLevel) {
-            AcquaintanceLevel.GROUP -> Contact.AcquaintanceLevel.GROUP_OR_DELETED
+            AcquaintanceLevel.GROUP_OR_DELETED -> Contact.AcquaintanceLevel.GROUP_OR_DELETED
             AcquaintanceLevel.DIRECT -> Contact.AcquaintanceLevel.DIRECT
         }
     }
@@ -711,21 +677,22 @@ class DeviceLinkingDataCollector(
         return contactModelData
     }
 
-    private fun collectGroups(conversationsStats: Map<String, ConversationStats>): List<Pair<List<BlobDataProvider>, AugmentedGroupProvider>> {
+    private fun collectGroups(): List<Pair<List<BlobDataProvider>, AugmentedGroupProvider>> {
         return groupModelRepository.getAll()
-            .map { mapToAugmentedGroup(it, conversationsStats) }
+            .map { groupModel ->
+                mapToAugmentedGroup(groupModel)
+            }
             .also { logger.trace("{} groups", it.size) }
     }
 
     private fun mapToAugmentedGroup(
         groupModel: GroupModel,
-        conversationsStats: Map<String, ConversationStats>,
     ): Pair<List<BlobDataProvider>, AugmentedGroupProvider> {
         val blobDataProviders = mutableListOf<BlobDataProvider>()
 
-        val conversationStats = conversationsStats[groupModel.getConversationUid()]
+        val conversationId = GroupConversationId(groupDatabaseId = groupModel.getDatabaseId())
 
-        val data = groupModel.data!!
+        val groupModelData = groupModel.data!!
 
         val groupAvatarInfo = collectGroupAvatar(groupModel)
 
@@ -734,11 +701,11 @@ class DeviceLinkingDataCollector(
                 groupId = groupModel.groupIdentity.groupId
                 creatorIdentity = groupModel.groupIdentity.creatorIdentity
             }
-            name = data.name ?: ""
-            assertValidTimestamp(data.createdAt.time, "Group createdAt (${groupModel.groupIdentity})")
-            createdAt = data.createdAt.time
-            userState = collectUserState(data)
-            notificationTriggerPolicyOverride = collectGroupNotificationTriggerPolicyOverride(groupModel)
+            name = groupModelData.name ?: ""
+            assertValidTimestamp(groupModelData.createdAt.toEpochMilli(), "Group createdAt (${groupModel.groupIdentity})")
+            createdAt = groupModelData.createdAt.toEpochMilli()
+            userState = collectUserState(groupModelData)
+            notificationTriggerPolicyOverride = groupModelData.notificationTriggerPolicyOverride.toProtobuf()
             deprecatedNotificationSoundPolicyOverride = GroupKt.deprecatedNotificationSoundPolicyOverride {
                 default = unit {}
             }
@@ -747,26 +714,21 @@ class DeviceLinkingDataCollector(
                 blobDataProviders.add(groupAvatarInfo.first)
                 profilePicture = groupAvatarInfo.second
             }
-            memberIdentities = collectGroupIdentities(data)
-            conversationCategory = if (conversationCategoryService.isPrivateGroupChat(groupModel.getDatabaseId())) {
-                ConversationCategory.PROTECTED
-            } else {
-                ConversationCategory.DEFAULT
-            }
-            conversationVisibility = if (conversationStats?.isPinned == true) {
-                ConversationVisibility.PINNED
-            } else if (conversationStats?.isArchived == true) {
-                ConversationVisibility.ARCHIVED
-            } else {
-                ConversationVisibility.NORMAL
-            }
+            memberIdentities = collectGroupIdentities(groupModelData)
+            conversationCategory =
+                if (conversationCategoryService.isMarkedAsPrivate(conversationId)) {
+                    ConversationCategory.PROTECTED
+                } else {
+                    ConversationCategory.DEFAULT
+                }
+            conversationVisibility = mapConversationVisibility(groupModelData.conversationVisibility)
         }
 
         val augmentedGroup = augmentedGroup {
             this.group = group
-            data.lastUpdate?.let {
-                assertValidTimestamp(it.time, "Group updatedAt (${data.groupIdentity})")
-                this.lastUpdateAt = it.time
+            groupModelData.lastUpdate?.let {
+                assertValidTimestamp(it.toEpochMilli(), "Group updatedAt (${groupModelData.groupIdentity})")
+                this.lastUpdateAt = it.toEpochMilli()
             }
         }
 
@@ -779,8 +741,8 @@ class DeviceLinkingDataCollector(
     }
 
     private fun collectGroupAvatar(groupModel: GroupModel): Pair<BlobDataProvider, DeltaImage>? {
-        return if (fileService.hasGroupProfilePicture(groupModel)) {
-            createJpegBlobAssets { fileService.getGroupProfilePictureBitmap(groupModel) }
+        return if (fileService.hasGroupProfilePicture(groupModel.getDatabaseId())) {
+            createJpegBlobAssets { fileService.getGroupProfilePictureBitmap(groupModel.getDatabaseId()) }
         } else {
             null
         }
@@ -803,37 +765,18 @@ class DeviceLinkingDataCollector(
         }
     }
 
-    private fun collectGroupNotificationTriggerPolicyOverride(groupModel: GroupModel): Group.NotificationTriggerPolicyOverride {
-        return GroupKt.notificationTriggerPolicyOverride {
-            when (val modelPolicy = groupModel.data?.currentNotificationTriggerPolicyOverride) {
-                NotMuted -> default = unit {}
-
-                MutedIndefinite -> policy = GroupKt.NotificationTriggerPolicyOverrideKt.policy {
-                    policy = Group.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.NEVER
-                }
-
-                MutedIndefiniteExceptMentions -> policy = GroupKt.NotificationTriggerPolicyOverrideKt.policy {
-                    policy = Group.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.MENTIONED
-                }
-
-                is MutedUntil -> policy = GroupKt.NotificationTriggerPolicyOverrideKt.policy {
-                    policy = Group.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.NEVER
-                    assertValidTimestamp(modelPolicy.utcMillis, "Group notificationTriggerPolicyOverride (${groupModel.groupIdentity})")
-                    expiresAt = modelPolicy.utcMillis
-                }
-
-                null -> throw IllegalStateException("Missing GroupModelData instance in GroupModel")
-            }
-        }
-    }
-
     /**
      * Collect the distribution lists and ignore lists without members.
      */
-    private fun collectDistributionLists(conversationsStats: Map<String, ConversationStats>): List<EssentialData.AugmentedDistributionList> {
-        return distributionListService.all.mapNotNull {
-            mapToAugmentedDistributionList(it, conversationsStats)
-        }.also { logger.trace("{} distribution lists", it.size) }
+    private fun collectDistributionLists(): List<EssentialData.AugmentedDistributionList> {
+        return distributionListService
+            .all
+            .mapNotNull { distributionListModel ->
+                mapToAugmentedDistributionList(distributionListModel)
+            }
+            .also {
+                logger.trace("{} distribution lists", it.size)
+            }
     }
 
     /**
@@ -841,44 +784,34 @@ class DeviceLinkingDataCollector(
      */
     private fun mapToAugmentedDistributionList(
         distributionListModel: DistributionListModel,
-        conversationsStats: Map<String, ConversationStats>,
     ): EssentialData.AugmentedDistributionList? {
-        val conversationStats = conversationsStats[distributionListModel.getConversationUid()]
+        val conversationId = DistributionListConversationId(distributionListId = distributionListModel.id)
 
         return collectDistributionListIdentities(distributionListModel)?.let { identities ->
             distributionList {
                 distributionListId = distributionListModel.id
                 name = distributionListModel.name ?: ""
-                assertValidTimestamp(distributionListModel.createdAt.time, "DistributionList createdAt (${distributionListModel.id})")
-                createdAt = distributionListModel.createdAt.time
+                assertValidTimestamp(distributionListModel.createdAt.toEpochMilli(), "DistributionList createdAt (${distributionListModel.id})")
+                createdAt = distributionListModel.createdAt.toEpochMilli()
                 memberIdentities = identities
+
                 conversationCategory =
-                    if (conversationCategoryService.isPrivateChat(distributionListModel.getUniqueId())) {
+                    if (conversationCategoryService.isMarkedAsPrivate(conversationId)) {
                         ConversationCategory.PROTECTED
                     } else {
                         ConversationCategory.DEFAULT
                     }
-                conversationVisibility = if (conversationStats?.isPinned == true) {
-                    ConversationVisibility.PINNED
-                } else if (conversationStats?.isArchived == true) {
-                    ConversationVisibility.ARCHIVED
-                } else {
-                    ConversationVisibility.NORMAL
-                }
+                conversationVisibility = mapConversationVisibility(distributionListModel.conversationVisibility)
             }
         }?.let {
             augmentedDistributionList {
                 this.distributionList = it
                 distributionListModel.lastUpdate?.let { lastUpdate ->
-                    assertValidTimestamp(lastUpdate.time, "DistributionList updatedAt (${distributionListModel.id})")
-                    this.lastUpdateAt = lastUpdate.time
+                    assertValidTimestamp(lastUpdate.toEpochMilli(), "DistributionList updatedAt (${distributionListModel.id})")
+                    this.lastUpdateAt = lastUpdate.toEpochMilli()
                 }
             }
         }
-    }
-
-    private fun DistributionListModel.getUniqueId(): String {
-        return distributionListService.getUniqueIdString(this)
     }
 
     private fun collectDistributionListIdentities(distributionListModel: DistributionListModel): Identities? {

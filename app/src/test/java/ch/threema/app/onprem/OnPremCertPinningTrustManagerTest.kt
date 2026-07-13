@@ -1,6 +1,6 @@
 package ch.threema.app.onprem
 
-import ch.threema.base.utils.Base64
+import ch.threema.common.Base64
 import ch.threema.domain.onprem.OnPremConfigDomainRule
 import ch.threema.domain.onprem.OnPremConfigDomainRuleMatchMode
 import ch.threema.domain.onprem.OnPremConfigDomainRuleSpki

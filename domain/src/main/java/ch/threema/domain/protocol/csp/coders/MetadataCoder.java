@@ -48,8 +48,11 @@ public class MetadataCoder {
 
     @NonNull
     private byte[] deriveMetadataKey(byte[] publicKey) throws ThreemaException {
-        byte[] sharedSecret = identityStore.calcSharedSecret(publicKey);
         try {
+            byte[] sharedSecret = identityStore.calcSharedSecret(publicKey);
+            if (sharedSecret == null) {
+                throw new ThreemaException("Failed to calculate shared secret");
+            }
             return LibthreemaKt.blake2bMac256(
                 sharedSecret,
                 "3ma-csp".getBytes(StandardCharsets.UTF_8),

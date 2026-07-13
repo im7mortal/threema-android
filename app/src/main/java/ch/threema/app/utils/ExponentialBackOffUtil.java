@@ -44,9 +44,10 @@ public class ExponentialBackOffUtil {
                         //its ok, do not retry
                         return;
                     } catch (Exception e) {
+                        logger.warn("Exponential back-off failed", e);
                         if (n >= exponentialBackOffCount - 1) {
                             //last
-                            runnable.exception(e, n);
+                            runnable.failed();
                         } else {
                             Thread.sleep((2L << n) * 1000L + random.nextInt(1001));
                         }
@@ -54,7 +55,7 @@ public class ExponentialBackOffUtil {
                 }
             } catch (InterruptedException ex) {
                 logger.debug("{} Exponential backoff aborted by user", messageUid);
-                runnable.exception(null, 4);
+                runnable.failed();
             }
         });
     }
@@ -64,6 +65,6 @@ public class ExponentialBackOffUtil {
 
         void finished(int currentRetry);
 
-        void exception(Exception e, int currentRetry);
+        void failed();
     }
 }

@@ -11,7 +11,6 @@ import ch.threema.app.ThreemaApplication;
 import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.app.services.MessageService;
 import ch.threema.app.utils.MessageUtil;
-import ch.threema.base.ThreemaException;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.storage.models.AbstractMessageModel;
 
@@ -48,11 +47,9 @@ public class LocationMessageSendAction extends SendAction {
             return false;
         }
 
-        try {
-            messageService = this.getServiceManager().getMessageService();
-        } catch (ThreemaException e) {
-            actionHandler.onError(e.getMessage());
-            return false;
+        var serviceManager = getServiceManager();
+        if (serviceManager != null) {
+            messageService = serviceManager.getMessageService();
         }
 
         if (messageService == null || location == null) {
@@ -76,10 +73,6 @@ public class LocationMessageSendAction extends SendAction {
             @Override
             public void onError(String errorMessage) {
                 actionHandler.onError(errorMessage);
-            }
-
-            @Override
-            public void onWarning(String warning, boolean continueAction) {
             }
 
             @Override

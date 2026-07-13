@@ -3,7 +3,6 @@ package ch.threema.app.compose.message
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.widget.Toast
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -28,8 +27,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.core.content.getSystemService
+import ch.threema.android.ToastDuration
+import ch.threema.android.showToast
 import ch.threema.app.R
-import ch.threema.app.compose.common.ThemedText
+import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.theme.AppTypography
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalFoundationApi::class)
@@ -114,8 +116,8 @@ private fun copyToClipboardAndShowHint(
 ) {
     val stringResId = selectableValueOption.onValueCopiedNoticeStringResId
     val clip = ClipData.newPlainText(null, value)
-    (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(clip)
-    Toast.makeText(context, context.getString(stringResId), Toast.LENGTH_LONG).show()
+    context.getSystemService<ClipboardManager>()!!.setPrimaryClip(clip)
+    context.showToast(stringResId, ToastDuration.LONG)
 }
 
 @Preview

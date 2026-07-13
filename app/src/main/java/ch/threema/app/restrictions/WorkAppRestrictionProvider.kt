@@ -6,6 +6,9 @@ import ch.threema.common.takeUnlessEmpty
 class WorkAppRestrictionProvider(
     private val getRestrictions: () -> Bundle?,
 ) : AppRestrictionProvider {
+    override val hasRestrictions: Boolean
+        get() = getRestrictions()?.isEmpty == false
+
     override fun getBooleanRestriction(restriction: String): Boolean? =
         getRestrictions()
             ?.takeIf { it.containsKey(restriction) }

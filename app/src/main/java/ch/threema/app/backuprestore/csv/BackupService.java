@@ -10,7 +10,6 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
@@ -38,7 +37,6 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -56,13 +54,14 @@ import ch.threema.app.backuprestore.RandomUtil;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.app.notifications.NotificationChannels;
+import ch.threema.app.notifications.NotificationRequestCodes;
 import ch.threema.app.services.ContactService;
 import ch.threema.app.services.DistributionListService;
 import ch.threema.app.services.FileService;
 import ch.threema.app.services.GroupService;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.services.UserService;
-import ch.threema.app.services.ballot.BallotService;
+import ch.threema.app.services.poll.PollService;
 import ch.threema.app.utils.BackupUtils;
 import ch.threema.app.utils.CSVWriter;
 import ch.threema.app.utils.Counter;
@@ -71,17 +70,21 @@ import ch.threema.app.utils.MessageUtil;
 import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.RuntimeUtil;
 import ch.threema.app.utils.ElapsedTimeFormatter;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.base.ThreemaException;
 import ch.threema.base.crypto.HashedNonce;
 import ch.threema.base.crypto.NonceFactory;
 import ch.threema.base.crypto.NonceScope;
-import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import static ch.threema.common.JavaCompat.stringToInputStream;
 
-import ch.threema.base.utils.Utils;
+import static ch.threema.app.notifications.NotificationIDs.BACKUP_COMPLETION_NOTIFICATION_ID;
+import static ch.threema.app.notifications.NotificationIDs.BACKUP_NOTIFICATION_ID;
+import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
+import static ch.threema.common.JavaCompat.stringToInputStream;
+import static ch.threema.common.JavaCompat.toHexString;
+
 import ch.threema.data.repositories.EmojiReactionsRepository;
 import ch.threema.domain.identitybackup.IdentityBackup;
+import ch.threema.domain.models.AcquaintanceLevel;
 import ch.threema.storage.ChunkedSequence;
 import ch.threema.storage.DatabaseService;
 import ch.threema.storage.models.AbstractMessageModel;
@@ -92,15 +95,13 @@ import ch.threema.storage.models.group.GroupMessageModel;
 import ch.threema.storage.models.group.GroupModelOld;
 import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.MessageType;
-import ch.threema.storage.models.ballot.BallotChoiceModel;
-import ch.threema.storage.models.ballot.BallotModel;
-import ch.threema.storage.models.ballot.BallotVoteModel;
-import ch.threema.storage.models.ballot.GroupBallotModel;
-import ch.threema.storage.models.ballot.IdentityBallotModel;
-import ch.threema.storage.models.ballot.LinkBallotModel;
-import ch.threema.storage.models.data.media.AudioDataModel;
+import ch.threema.storage.models.poll.PollChoiceModel;
+import ch.threema.storage.models.poll.PollModel;
+import ch.threema.storage.models.poll.PollVoteModel;
+import ch.threema.storage.models.poll.GroupPollModel;
+import ch.threema.storage.models.poll.IdentityPollModel;
+import ch.threema.storage.models.poll.LinkPollModel;
 import ch.threema.storage.models.data.media.FileDataModel;
-import ch.threema.storage.models.data.media.VideoDataModel;
 
 public class BackupService extends Service {
     private static final Logger logger = getThreemaLogger("BackupService");
@@ -121,8 +122,6 @@ public class BackupService extends Service {
     private static final String EXTRA_ID_CANCEL = "cnc";
     public static final String EXTRA_BACKUP_RESTORE_DATA_CONFIG = "ebrdc";
 
-    private static final int BACKUP_NOTIFICATION_ID = 991772;
-    public static final int BACKUP_COMPLETION_NOTIFICATION_ID = 991773;
     private static final long FILE_SETTLE_DELAY = 5000;
 
     private static final String INCOMPLETE_BACKUP_FILENAME_PREFIX = "INCOMPLETE-";
@@ -136,12 +135,14 @@ public class BackupService extends Service {
     private static boolean isCanceled = false;
     private static boolean isRunning = false;
 
+    @Nullable
+    private Thread backupThread;
     private ServiceManager serviceManager;
     private ContactService contactService;
     private FileService fileService;
     private UserService userService;
     private GroupService groupService;
-    private BallotService ballotService;
+    private PollService pollService;
     private DistributionListService distributionListService;
     private DatabaseService databaseService;
     private PreferenceService preferenceService;
@@ -197,7 +198,7 @@ public class BackupService extends Service {
                 logger.info("Acquiring wakelock success={}", wakeLock != null && wakeLock.isHeld());
 
                 boolean success = false;
-                Date now = new Date();
+                Instant now = Instant.now();
                 DocumentFile zipFile = null;
                 Uri backupUri = this.fileService.getBackupUri();
 
@@ -207,7 +208,7 @@ public class BackupService extends Service {
                     return START_NOT_STICKY;
                 }
 
-                String filename = "threema-backup_" + now.getTime() + "_1";
+                String filename = "threema-backup_" + now.toEpochMilli() + "_1";
 
                 if (ContentResolver.SCHEME_FILE.equalsIgnoreCase(backupUri.getScheme())) {
                     zipFile = DocumentFile.fromFile(new File(backupUri.getPath(), INCOMPLETE_BACKUP_FILENAME_PREFIX + filename + ".zip"));
@@ -245,17 +246,12 @@ public class BackupService extends Service {
                     return START_NOT_STICKY;
                 }
 
-                new AsyncTask<Void, Void, Boolean>() {
-                    @Override
-                    protected Boolean doInBackground(Void... params) {
-                        return backup(myIdentity);
-                    }
-
-                    @Override
-                    protected void onPostExecute(Boolean success) {
-                        stopSelf();
-                    }
-                }.execute();
+                backupThread = new Thread(() -> {
+                    backup(myIdentity);
+                    backupThread = null;
+                    stopSelf();
+                });
+                backupThread.start();
 
                 return START_STICKY;
             } else {
@@ -277,7 +273,7 @@ public class BackupService extends Service {
 
         isRunning = true;
 
-        serviceManager = ThreemaApplication.getServiceManager();
+        serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             safeStopSelf();
             return;
@@ -290,7 +286,7 @@ public class BackupService extends Service {
             groupService = serviceManager.getGroupService();
             distributionListService = serviceManager.getDistributionListService();
             userService = serviceManager.getUserService();
-            ballotService = serviceManager.getBallotService();
+            pollService = serviceManager.getPollService();
             preferenceService = serviceManager.getPreferenceService();
             nonceFactory = serviceManager.getNonceFactory();
             reactionsRepository = serviceManager.getModelRepositories().getEmojiReaction();
@@ -310,6 +306,13 @@ public class BackupService extends Service {
         if (isCanceled) {
             onFinished(getString(R.string.backup_data_cancelled));
         }
+
+        final Thread backupThread = this.backupThread;
+        if (backupThread != null && !backupThread.isInterrupted()) {
+            backupThread.interrupt();
+            this.backupThread = null;
+        }
+
         super.onDestroy();
     }
 
@@ -367,20 +370,19 @@ public class BackupService extends Service {
             long requiredStepsDistributionLists = this.databaseService.getDistributionListModelFactory().count()
                 + this.databaseService.getDistributionListMessageModelFactory().count();
 
-            long requiredStepsBallots = this.databaseService.getBallotModelFactory().count();
+            long requiredStepsPolls = this.databaseService.getPollModelFactory().count();
 
             long requiredBackupSteps = (this.config.backupIdentity() ? 1 : 0)
                 + (this.config.backupContactAndMessages() ?
                 requiredStepsContactsAndMessages : 0)
                 + (this.config.backupDistributionLists() ?
                 requiredStepsDistributionLists : 0)
-                + (this.config.backupBallots() ?
-                requiredStepsBallots : 0);
+                + (this.config.backupPolls() ?
+                requiredStepsPolls : 0);
 
             if (this.config.backupMedia() || this.config.backupThumbnails()) {
                 try {
-                    Set<MessageType> fileTypes = this.config.backupMedia() ? MessageUtil.getFileTypes() : MessageUtil.getLowProfileMessageModelTypes();
-                    MessageType[] fileTypesArray = fileTypes.toArray(new MessageType[0]);
+                    MessageType[] fileTypesArray = new MessageType[] { MessageType.FILE };
 
                     long requiredStepsMedia = this.databaseService.getMessageModelFactory().countByTypes(fileTypesArray);
                     requiredStepsMedia += this.databaseService.getGroupMessageModelFactory().countByTypes(fileTypesArray);
@@ -439,8 +441,8 @@ public class BackupService extends Service {
                 }
             }
 
-            if (this.config.backupBallots()) {
-                if (!this.backupBallots(zipOutputStream)) {
+            if (this.config.backupPolls()) {
+                if (!this.backupPolls(zipOutputStream)) {
                     return this.cancelBackup(backupFile);
                 }
             }
@@ -510,7 +512,7 @@ public class BackupService extends Service {
             this.latestPercentStep = p;
             String timeRemaining = getRemainingTimeText(latestPercentStep, 100);
             updatePersistentNotification(latestPercentStep, 100, timeRemaining);
-            LocalBroadcastManager.getInstance(ThreemaApplication.getAppContext())
+            LocalBroadcastManager.getInstance(this)
                 .sendBroadcast(new Intent(BACKUP_PROGRESS_INTENT)
                     .putExtra(BACKUP_PROGRESS, latestPercentStep)
                     .putExtra(BACKUP_PROGRESS_STEPS, 100)
@@ -632,14 +634,14 @@ public class BackupService extends Service {
                     // Write contact
                     contactCsv.createRow()
                         .write(Tags.TAG_CONTACT_IDENTITY, contactModel.getIdentity())
-                        .write(Tags.TAG_CONTACT_PUBLIC_KEY, Utils.byteArrayToHexString(contactModel.getPublicKey()))
+                        .write(Tags.TAG_CONTACT_PUBLIC_KEY, toHexString(contactModel.getPublicKey()))
                         .write(Tags.TAG_CONTACT_VERIFICATION_LEVEL, contactModel.verificationLevel.toString())
                         .write(Tags.TAG_CONTACT_ANDROID_CONTACT_ID, contactModel.getAndroidContactLookupKey())
                         .write(Tags.TAG_CONTACT_FIRST_NAME, contactModel.getFirstName())
                         .write(Tags.TAG_CONTACT_LAST_NAME, contactModel.getLastName())
                         .write(Tags.TAG_CONTACT_NICK_NAME, contactModel.getPublicNickName())
                         .write(Tags.TAG_CONTACT_LAST_UPDATE, contactModel.getLastUpdate())
-                        .write(Tags.TAG_CONTACT_HIDDEN, contactModel.getAcquaintanceLevel() == ContactModel.AcquaintanceLevel.GROUP)
+                        .write(Tags.TAG_CONTACT_HIDDEN, contactModel.getAcquaintanceLevel() == AcquaintanceLevel.GROUP_OR_DELETED)
                         .write(Tags.TAG_CONTACT_ARCHIVED, contactModel.isArchived())
                         .write(Tags.TAG_CONTACT_IDENTITY_ID, identityId)
                         .write();
@@ -685,6 +687,11 @@ public class BackupService extends Service {
                                         return false;
                                     }
 
+                                    String messageType = serializeMessageType(messageModel);
+                                    if (messageType == null) {
+                                        continue;
+                                    }
+
                                     String apiMessageId = messageModel.getApiMessageId();
                                     messageCounter++;
 
@@ -699,7 +706,7 @@ public class BackupService extends Service {
                                             .write(Tags.TAG_MESSAGE_POSTED_AT, messageModel.getPostedAt())
                                             .write(Tags.TAG_MESSAGE_CREATED_AT, messageModel.getCreatedAt())
                                             .write(Tags.TAG_MESSAGE_MODIFIED_AT, messageModel.getModifiedAt())
-                                            .write(Tags.TAG_MESSAGE_TYPE, messageModel.getType().toString())
+                                            .write(Tags.TAG_MESSAGE_TYPE, messageType)
                                             .write(Tags.TAG_MESSAGE_BODY, messageModel.getBody())
                                             .write(Tags.TAG_MESSAGE_IS_STATUS_MESSAGE, messageModel.isStatusMessage())
                                             .write(Tags.TAG_MESSAGE_CAPTION, messageModel.getCaption())
@@ -746,6 +753,15 @@ public class BackupService extends Service {
         }
 
         return true;
+    }
+
+    @Nullable
+    private static String serializeMessageType(@NonNull AbstractMessageModel messageModel) {
+        MessageType messageType = messageModel.getType();
+        if (messageType == null) {
+            return null;
+        }
+        return BackupMessageTypes.fromMessageType(messageType);
     }
 
     /**
@@ -862,6 +878,11 @@ public class BackupService extends Service {
                                         return false;
                                     }
 
+                                    String messageType = serializeMessageType(groupMessageModel);
+                                    if (messageType == null) {
+                                        continue;
+                                    }
+
                                     String groupMessageStates = "";
                                     if (groupMessageModel.getGroupMessageStates() != null) {
                                         groupMessageStates = new JSONObject(groupMessageModel.getGroupMessageStates()).toString();
@@ -878,7 +899,7 @@ public class BackupService extends Service {
                                         .write(Tags.TAG_MESSAGE_POSTED_AT, groupMessageModel.getPostedAt())
                                         .write(Tags.TAG_MESSAGE_CREATED_AT, groupMessageModel.getCreatedAt())
                                         .write(Tags.TAG_MESSAGE_MODIFIED_AT, groupMessageModel.getModifiedAt())
-                                        .write(Tags.TAG_MESSAGE_TYPE, groupMessageModel.getType())
+                                        .write(Tags.TAG_MESSAGE_TYPE, messageType)
                                         .write(Tags.TAG_MESSAGE_BODY, groupMessageModel.getBody())
                                         .write(Tags.TAG_MESSAGE_IS_STATUS_MESSAGE, groupMessageModel.isStatusMessage())
                                         .write(Tags.TAG_MESSAGE_CAPTION, groupMessageModel.getCaption())
@@ -1061,161 +1082,161 @@ public class BackupService extends Service {
 
 
     /**
-     * backup all ballots with votes and choices!
+     * backup all polls with votes and choices!
      */
-    private boolean backupBallots(
+    private boolean backupPolls(
         @NonNull FileHandlingZipOutputStream zipOutputStream
     ) throws ThreemaException, IOException {
-        logger.info("Backup polls (formerly known as 'ballots')");
-        final String[] ballotCsvHeader = {
-            Tags.TAG_BALLOT_ID,
-            Tags.TAG_BALLOT_API_ID,
-            Tags.TAG_BALLOT_API_CREATOR,
-            Tags.TAG_BALLOT_REF,
-            Tags.TAG_BALLOT_REF_ID,
-            Tags.TAG_BALLOT_NAME,
-            Tags.TAG_BALLOT_STATE,
-            Tags.TAG_BALLOT_ASSESSMENT,
-            Tags.TAG_BALLOT_TYPE,
-            Tags.TAG_BALLOT_C_TYPE,
-            Tags.TAG_BALLOT_LAST_VIEWED_AT,
-            Tags.TAG_BALLOT_CREATED_AT,
-            Tags.TAG_BALLOT_MODIFIED_AT,
+        logger.info("Backup polls");
+        final String[] pollCsvHeader = {
+            Tags.TAG_POLL_ID,
+            Tags.TAG_POLL_API_ID,
+            Tags.TAG_POLL_API_CREATOR,
+            Tags.TAG_POLL_REF,
+            Tags.TAG_POLL_REF_ID,
+            Tags.TAG_POLL_NAME,
+            Tags.TAG_POLL_STATE,
+            Tags.TAG_POLL_ASSESSMENT,
+            Tags.TAG_POLL_TYPE,
+            Tags.TAG_POLL_C_TYPE,
+            Tags.TAG_POLL_LAST_VIEWED_AT,
+            Tags.TAG_POLL_CREATED_AT,
+            Tags.TAG_POLL_MODIFIED_AT,
         };
-        final String[] ballotChoiceCsvHeader = {
-            Tags.TAG_BALLOT_CHOICE_ID,
-            Tags.TAG_BALLOT_CHOICE_BALLOT_UID,
-            Tags.TAG_BALLOT_CHOICE_API_ID,
-            Tags.TAG_BALLOT_CHOICE_TYPE,
-            Tags.TAG_BALLOT_CHOICE_NAME,
-            Tags.TAG_BALLOT_CHOICE_VOTE_COUNT,
-            Tags.TAG_BALLOT_CHOICE_ORDER,
-            Tags.TAG_BALLOT_CHOICE_CREATED_AT,
-            Tags.TAG_BALLOT_CHOICE_MODIFIED_AT,
+        final String[] pollChoiceCsvHeader = {
+            Tags.TAG_POLL_CHOICE_ID,
+            Tags.TAG_POLL_CHOICE_POLL_UID,
+            Tags.TAG_POLL_CHOICE_API_ID,
+            Tags.TAG_POLL_CHOICE_TYPE,
+            Tags.TAG_POLL_CHOICE_NAME,
+            Tags.TAG_POLL_CHOICE_VOTE_COUNT,
+            Tags.TAG_POLL_CHOICE_ORDER,
+            Tags.TAG_POLL_CHOICE_CREATED_AT,
+            Tags.TAG_POLL_CHOICE_MODIFIED_AT,
         };
-        final String[] ballotVoteCsvHeader = {
-            Tags.TAG_BALLOT_VOTE_ID,
-            Tags.TAG_BALLOT_VOTE_BALLOT_UID,
-            Tags.TAG_BALLOT_VOTE_CHOICE_UID,
-            Tags.TAG_BALLOT_VOTE_IDENTITY,
-            Tags.TAG_BALLOT_VOTE_CHOICE,
-            Tags.TAG_BALLOT_VOTE_CREATED_AT,
-            Tags.TAG_BALLOT_VOTE_MODIFIED_AT,
+        final String[] pollVoteCsvHeader = {
+            Tags.TAG_POLL_VOTE_ID,
+            Tags.TAG_POLL_VOTE_POLL_UID,
+            Tags.TAG_POLL_VOTE_CHOICE_UID,
+            Tags.TAG_POLL_VOTE_IDENTITY,
+            Tags.TAG_POLL_VOTE_CHOICE,
+            Tags.TAG_POLL_VOTE_CREATED_AT,
+            Tags.TAG_POLL_VOTE_MODIFIED_AT,
         };
 
         try (
-            final ByteArrayOutputStream ballotCsvBuffer = new ByteArrayOutputStream();
-            final ByteArrayOutputStream ballotChoiceCsvBuffer = new ByteArrayOutputStream();
-            final ByteArrayOutputStream ballotVoteCsvBuffer = new ByteArrayOutputStream()
+            final ByteArrayOutputStream pollCsvBuffer = new ByteArrayOutputStream();
+            final ByteArrayOutputStream pollChoiceCsvBuffer = new ByteArrayOutputStream();
+            final ByteArrayOutputStream pollVoteCsvBuffer = new ByteArrayOutputStream()
         ) {
             try (
-                final OutputStreamWriter ballotOsw = new OutputStreamWriter(ballotCsvBuffer);
-                final OutputStreamWriter ballotChoiceOsw = new OutputStreamWriter(ballotChoiceCsvBuffer);
-                final OutputStreamWriter ballotVoteOsw = new OutputStreamWriter(ballotVoteCsvBuffer);
-                final CSVWriter ballotCsv = new CSVWriter(ballotOsw, ballotCsvHeader);
-                final CSVWriter ballotChoiceCsv = new CSVWriter(ballotChoiceOsw, ballotChoiceCsvHeader);
-                final CSVWriter ballotVoteCsv = new CSVWriter(ballotVoteOsw, ballotVoteCsvHeader)
+                final OutputStreamWriter pollOsw = new OutputStreamWriter(pollCsvBuffer);
+                final OutputStreamWriter pollChoiceOsw = new OutputStreamWriter(pollChoiceCsvBuffer);
+                final OutputStreamWriter pollVoteOsw = new OutputStreamWriter(pollVoteCsvBuffer);
+                final CSVWriter pollCsv = new CSVWriter(pollOsw, pollCsvHeader);
+                final CSVWriter pollChoiceCsv = new CSVWriter(pollChoiceOsw, pollChoiceCsvHeader);
+                final CSVWriter pollVoteCsv = new CSVWriter(pollVoteOsw, pollVoteCsvHeader)
             ) {
 
-                List<BallotModel> ballots = ballotService.getBallots(new BallotService.BallotFilter() {
+                List<PollModel> pollss = pollService.getPolls(new PollService.PollFilter() {
                     @Override
                     public MessageReceiver getReceiver() {
                         return null;
                     }
 
                     @Override
-                    public BallotModel.State[] getStates() {
-                        return new BallotModel.State[]{BallotModel.State.OPEN, BallotModel.State.CLOSED};
+                    public PollModel.State[] getStates() {
+                        return new PollModel.State[]{PollModel.State.OPEN, PollModel.State.CLOSED};
                     }
                 });
 
-                if (ballots != null) {
-                    for (BallotModel ballotModel : ballots) {
-                        if (!this.next("ballot " + ballotModel.getId())) {
+                if (pollss != null) {
+                    for (PollModel pollModel : pollss) {
+                        if (!this.next("poll " + pollModel.getId())) {
                             return false;
                         }
 
-                        LinkBallotModel link = ballotService.getLinkedBallotModel(ballotModel);
+                        LinkPollModel link = pollService.getLinkedPollModel(pollModel);
                         if (link == null) {
                             continue;
                         }
 
                         String ref;
                         String refId;
-                        if (link instanceof GroupBallotModel) {
+                        if (link instanceof GroupPollModel) {
                             GroupModelOld groupModel = groupService
-                                .getById(((GroupBallotModel) link).getGroupId());
+                                .getById(((GroupPollModel) link).getGroupId());
 
                             if (groupModel == null) {
-                                logger.error("invalid group for a ballot");
+                                logger.error("invalid group for a poll");
                                 continue;
                             }
 
                             ref = "GroupBallotModel";
                             refId = groupUidMap.get(groupModel.getId());
-                        } else if (link instanceof IdentityBallotModel) {
+                        } else if (link instanceof IdentityPollModel) {
                             ref = "IdentityBallotModel";
-                            refId = ((IdentityBallotModel) link).getIdentity();
+                            refId = ((IdentityPollModel) link).getIdentity();
                         } else {
                             continue;
                         }
 
-                        ballotCsv.createRow()
-                            .write(Tags.TAG_BALLOT_ID, ballotModel.getId())
-                            .write(Tags.TAG_BALLOT_API_ID, ballotModel.getApiBallotId())
-                            .write(Tags.TAG_BALLOT_API_CREATOR, ballotModel.getCreatorIdentity())
-                            .write(Tags.TAG_BALLOT_REF, ref)
-                            .write(Tags.TAG_BALLOT_REF_ID, refId)
-                            .write(Tags.TAG_BALLOT_NAME, ballotModel.getName())
-                            .write(Tags.TAG_BALLOT_STATE, ballotModel.getState())
-                            .write(Tags.TAG_BALLOT_ASSESSMENT, ballotModel.getAssessment())
-                            .write(Tags.TAG_BALLOT_TYPE, ballotModel.getType())
-                            .write(Tags.TAG_BALLOT_C_TYPE, ballotModel.getChoiceType())
-                            .write(Tags.TAG_BALLOT_LAST_VIEWED_AT, ballotModel.getLastViewedAt())
-                            .write(Tags.TAG_BALLOT_CREATED_AT, ballotModel.getCreatedAt())
-                            .write(Tags.TAG_BALLOT_MODIFIED_AT, ballotModel.getModifiedAt())
+                        pollCsv.createRow()
+                            .write(Tags.TAG_POLL_ID, pollModel.getId())
+                            .write(Tags.TAG_POLL_API_ID, pollModel.getApiPollId())
+                            .write(Tags.TAG_POLL_API_CREATOR, pollModel.getCreatorIdentity())
+                            .write(Tags.TAG_POLL_REF, ref)
+                            .write(Tags.TAG_POLL_REF_ID, refId)
+                            .write(Tags.TAG_POLL_NAME, pollModel.getName())
+                            .write(Tags.TAG_POLL_STATE, pollModel.getState())
+                            .write(Tags.TAG_POLL_ASSESSMENT, pollModel.getAssessment())
+                            .write(Tags.TAG_POLL_TYPE, pollModel.getType())
+                            .write(Tags.TAG_POLL_C_TYPE, pollModel.getChoiceType())
+                            .write(Tags.TAG_POLL_LAST_VIEWED_AT, pollModel.getLastViewedAt())
+                            .write(Tags.TAG_POLL_CREATED_AT, pollModel.getCreatedAt())
+                            .write(Tags.TAG_POLL_MODIFIED_AT, pollModel.getModifiedAt())
                             .write();
 
 
-                        final List<BallotChoiceModel> ballotChoiceModels = this.databaseService
-                            .getBallotChoiceModelFactory()
-                            .getByBallotId(ballotModel.getId());
-                        for (BallotChoiceModel ballotChoiceModel : ballotChoiceModels) {
-                            ballotChoiceCsv.createRow()
-                                .write(Tags.TAG_BALLOT_CHOICE_ID, ballotChoiceModel.getId())
-                                .write(Tags.TAG_BALLOT_CHOICE_BALLOT_UID, BackupUtils.buildBallotUid(ballotModel))
-                                .write(Tags.TAG_BALLOT_CHOICE_API_ID, ballotChoiceModel.getApiBallotChoiceId())
-                                .write(Tags.TAG_BALLOT_CHOICE_TYPE, ballotChoiceModel.getType())
-                                .write(Tags.TAG_BALLOT_CHOICE_NAME, ballotChoiceModel.getName())
-                                .write(Tags.TAG_BALLOT_CHOICE_VOTE_COUNT, ballotChoiceModel.getVoteCount())
-                                .write(Tags.TAG_BALLOT_CHOICE_ORDER, ballotChoiceModel.getOrder())
-                                .write(Tags.TAG_BALLOT_CHOICE_CREATED_AT, ballotChoiceModel.getCreatedAt())
-                                .write(Tags.TAG_BALLOT_CHOICE_MODIFIED_AT, ballotChoiceModel.getModifiedAt())
+                        final List<PollChoiceModel> pollChoiceModels = this.databaseService
+                            .getPollChoiceModelFactory()
+                            .getByPollId(pollModel.getId());
+                        for (PollChoiceModel pollChoiceModel : pollChoiceModels) {
+                            pollChoiceCsv.createRow()
+                                .write(Tags.TAG_POLL_CHOICE_ID, pollChoiceModel.getId())
+                                .write(Tags.TAG_POLL_CHOICE_POLL_UID, BackupUtils.buildPollUid(pollModel))
+                                .write(Tags.TAG_POLL_CHOICE_API_ID, pollChoiceModel.getApiPollChoiceId())
+                                .write(Tags.TAG_POLL_CHOICE_TYPE, pollChoiceModel.getType())
+                                .write(Tags.TAG_POLL_CHOICE_NAME, pollChoiceModel.getName())
+                                .write(Tags.TAG_POLL_CHOICE_VOTE_COUNT, pollChoiceModel.getVoteCount())
+                                .write(Tags.TAG_POLL_CHOICE_ORDER, pollChoiceModel.getOrder())
+                                .write(Tags.TAG_POLL_CHOICE_CREATED_AT, pollChoiceModel.getCreatedAt())
+                                .write(Tags.TAG_POLL_CHOICE_MODIFIED_AT, pollChoiceModel.getModifiedAt())
                                 .write();
 
                         }
 
-                        final List<BallotVoteModel> ballotVoteModels = this.databaseService
-                            .getBallotVoteModelFactory()
-                            .getByBallotId(ballotModel.getId());
-                        for (final BallotVoteModel ballotVoteModel : ballotVoteModels) {
-                            BallotChoiceModel ballotChoiceModel = ballotChoiceModels.stream()
-                                .filter(model -> model.getId() == ballotVoteModel.getBallotChoiceId())
+                        final List<PollVoteModel> pollVoteModels = this.databaseService
+                            .getPollVoteModelFactory()
+                            .getByPollId(pollModel.getId());
+                        for (final PollVoteModel pollVoteModel : pollVoteModels) {
+                            PollChoiceModel pollChoiceModel = pollChoiceModels.stream()
+                                .filter(model -> model.getId() == pollVoteModel.getPollChoiceId())
                                 .findFirst()
                                 .orElse(null);
 
-                            if (ballotChoiceModel == null) {
+                            if (pollChoiceModel == null) {
                                 continue;
                             }
 
-                            ballotVoteCsv.createRow()
-                                .write(Tags.TAG_BALLOT_VOTE_ID, ballotVoteModel.getId())
-                                .write(Tags.TAG_BALLOT_VOTE_BALLOT_UID, BackupUtils.buildBallotUid(ballotModel))
-                                .write(Tags.TAG_BALLOT_VOTE_CHOICE_UID, BackupUtils.buildBallotChoiceUid(ballotChoiceModel))
-                                .write(Tags.TAG_BALLOT_VOTE_IDENTITY, ballotVoteModel.getVotingIdentity())
-                                .write(Tags.TAG_BALLOT_VOTE_CHOICE, ballotVoteModel.getChoice())
-                                .write(Tags.TAG_BALLOT_VOTE_CREATED_AT, ballotVoteModel.getCreatedAt())
-                                .write(Tags.TAG_BALLOT_VOTE_MODIFIED_AT, ballotVoteModel.getModifiedAt())
+                            pollVoteCsv.createRow()
+                                .write(Tags.TAG_POLL_VOTE_ID, pollVoteModel.getId())
+                                .write(Tags.TAG_POLL_VOTE_POLL_UID, BackupUtils.buildPollUid(pollModel))
+                                .write(Tags.TAG_POLL_VOTE_CHOICE_UID, BackupUtils.buildPollChoiceUid(pollChoiceModel))
+                                .write(Tags.TAG_POLL_VOTE_IDENTITY, pollVoteModel.getVotingIdentity())
+                                .write(Tags.TAG_POLL_VOTE_CHOICE, pollVoteModel.getChoice())
+                                .write(Tags.TAG_POLL_VOTE_CREATED_AT, pollVoteModel.getCreatedAt())
+                                .write(Tags.TAG_POLL_VOTE_MODIFIED_AT, pollVoteModel.getModifiedAt())
                                 .write();
 
                         }
@@ -1224,18 +1245,18 @@ public class BackupService extends Service {
             }
 
             zipOutputStream.addFileFromInputStream(
-                new ByteArrayInputStream(ballotCsvBuffer.toByteArray()),
-                Tags.BALLOT_FILE_NAME + Tags.CSV_FILE_POSTFIX,
+                new ByteArrayInputStream(pollCsvBuffer.toByteArray()),
+                Tags.POLL_FILE_NAME + Tags.CSV_FILE_POSTFIX,
                 true
             );
             zipOutputStream.addFileFromInputStream(
-                new ByteArrayInputStream(ballotChoiceCsvBuffer.toByteArray()),
-                Tags.BALLOT_CHOICE_FILE_NAME + Tags.CSV_FILE_POSTFIX,
+                new ByteArrayInputStream(pollChoiceCsvBuffer.toByteArray()),
+                Tags.POLL_CHOICE_FILE_NAME + Tags.CSV_FILE_POSTFIX,
                 true
             );
             zipOutputStream.addFileFromInputStream(
-                new ByteArrayInputStream(ballotVoteCsvBuffer.toByteArray()),
-                Tags.BALLOT_VOTE_FILE_NAME + Tags.CSV_FILE_POSTFIX,
+                new ByteArrayInputStream(pollVoteCsvBuffer.toByteArray()),
+                Tags.POLL_VOTE_FILE_NAME + Tags.CSV_FILE_POSTFIX,
                 true
             );
 
@@ -1343,7 +1364,7 @@ public class BackupService extends Service {
                     nonces
                 );
                 for (HashedNonce hashedNonce : nonces) {
-                    String nonce = Utils.byteArrayToHexString(hashedNonce.getBytes());
+                    String nonce = toHexString(hashedNonce.getBytes());
                     csvWriter.createRow().write(Tags.TAG_NONCES, nonce).write();
                 }
                 int increment = nonces.size() / NONCES_PER_STEP;
@@ -1425,6 +1446,11 @@ public class BackupService extends Service {
                                 if (!this.next("distribution list message " + distributionListMessageModel.getId())) {
                                     return false;
                                 }
+                                String messageType = serializeMessageType(distributionListMessageModel);
+                                if (messageType == null) {
+                                    continue;
+                                }
+
                                 distributionListMessageCsv.createRow()
                                     .write(Tags.TAG_MESSAGE_API_MESSAGE_ID, distributionListMessageModel.getApiMessageId())
                                     .write(Tags.TAG_MESSAGE_UID, distributionListMessageModel.getUid())
@@ -1436,7 +1462,7 @@ public class BackupService extends Service {
                                     .write(Tags.TAG_MESSAGE_POSTED_AT, distributionListMessageModel.getPostedAt())
                                     .write(Tags.TAG_MESSAGE_CREATED_AT, distributionListMessageModel.getCreatedAt())
                                     .write(Tags.TAG_MESSAGE_MODIFIED_AT, distributionListMessageModel.getModifiedAt())
-                                    .write(Tags.TAG_MESSAGE_TYPE, distributionListMessageModel.getType())
+                                    .write(Tags.TAG_MESSAGE_TYPE, messageType)
                                     .write(Tags.TAG_MESSAGE_BODY, distributionListMessageModel.getBody())
                                     .write(Tags.TAG_MESSAGE_IS_STATUS_MESSAGE, distributionListMessageModel.isStatusMessage())
                                     .write(Tags.TAG_MESSAGE_CAPTION, distributionListMessageModel.getCaption())
@@ -1498,50 +1524,28 @@ public class BackupService extends Service {
 
         try {
             boolean saveMedia = false;
-            boolean saveThumbnail = true;
-
-            switch (messageModel.getType()) {
-                case IMAGE:
-                    saveMedia = config.backupMedia();
-                    // image thumbnails will be generated again on restore - no need to save
-                    saveThumbnail = !saveMedia;
-                    break;
-                case VIDEO:
-                    if (config.backupMedia()) {
-                        VideoDataModel videoDataModel = messageModel.getVideoData();
-                        saveMedia = videoDataModel.isDownloaded();
-                    }
-                    break;
-                case VOICEMESSAGE:
-                    if (config.backupMedia()) {
-                        AudioDataModel audioDataModel = messageModel.getAudioData();
-                        saveMedia = audioDataModel.isDownloaded();
-                    }
-                    break;
-                case FILE:
-                    if (config.backupMedia()) {
-                        FileDataModel fileDataModel = messageModel.getFileData();
-                        saveMedia = fileDataModel.isDownloaded();
-                    }
-                    break;
-                default:
-                    return;
+            if (messageModel.getType() != MessageType.FILE) {
+                return;
             }
 
-            if (saveMedia) {
-                InputStream is = this.fileService.getDecryptedMessageStream(messageModel);
+            if (config.backupMedia()) {
+                FileDataModel fileDataModel = messageModel.getFileData();
+                saveMedia = fileDataModel.isDownloaded();
+            }
+
+            var messageUid = messageModel.getUid();
+            if (saveMedia && messageUid != null) {
+                InputStream is = fileService.decryptMessageFileToStream(messageUid);
                 if (is != null) {
                     zipOutputStream.addFileFromInputStream(is, filePrefix + messageModel.getUid(), false);
                 } else {
                     logger.debug("Can't add media for message {} ({}): missing file", messageModel.getUid(), messageModel.getPostedAt());
-                    // try to save thumbnail if media is missing
-                    saveThumbnail = true;
                 }
             }
 
-            if (config.backupThumbnails() && saveThumbnail) {
+            if (config.backupThumbnails() && messageUid != null) {
                 // save thumbnail every time (if a thumbnail exists)
-                InputStream is = this.fileService.getDecryptedMessageThumbnailStream(messageModel);
+                InputStream is = fileService.decryptedMessageThumbnailToStream(messageUid);
                 if (is != null) {
                     zipOutputStream.addFileFromInputStream(is, thumbnailFilePrefix + messageModel.getUid(), false);
                 }
@@ -1601,7 +1605,7 @@ public class BackupService extends Service {
                 serviceManager.startConnection();
             }
         } catch (Exception e) {
-            logger.error("Could not start connection", e);
+            logger.error("Unexpectedly failed to start connection", e);
         }
 
         if (wakeLock != null && wakeLock.isHeld()) {
@@ -1614,7 +1618,7 @@ public class BackupService extends Service {
         isRunning = false;
 
         // Send broadcast to indicate that the backup has been completed
-        LocalBroadcastManager.getInstance(ThreemaApplication.getAppContext())
+        LocalBroadcastManager.getInstance(this)
             .sendBroadcast(new Intent(BACKUP_PROGRESS_INTENT)
                 .putExtra(BACKUP_PROGRESS, 100)
                 .putExtra(BACKUP_PROGRESS_STEPS, 100)
@@ -1631,9 +1635,19 @@ public class BackupService extends Service {
         cancelIntent.putExtra(EXTRA_ID_CANCEL, true);
         PendingIntent cancelPendingIntent;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            cancelPendingIntent = PendingIntent.getForegroundService(this, (int) System.currentTimeMillis(), cancelIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            cancelPendingIntent = PendingIntent.getForegroundService(
+                this,
+                NotificationRequestCodes.BACKUP_CANCEL,
+                cancelIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
         } else {
-            cancelPendingIntent = PendingIntent.getService(this, (int) System.currentTimeMillis(), cancelIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            cancelPendingIntent = PendingIntent.getService(
+                this,
+                NotificationRequestCodes.BACKUP_CANCEL,
+                cancelIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
         }
 
         notificationBuilder = new NotificationCompat.Builder(this, NotificationChannels.NOTIFICATION_CHANNEL_BACKUP_RESTORE_IN_PROGRESS)
@@ -1654,7 +1668,8 @@ public class BackupService extends Service {
             this,
             BACKUP_NOTIFICATION_ID,
             notification,
-            FG_SERVICE_TYPE);
+            FG_SERVICE_TYPE
+        );
     }
 
     @SuppressLint("MissingPermission")
@@ -1689,14 +1704,19 @@ public class BackupService extends Service {
     private void showBackupErrorNotification(String message) {
         String contentText;
 
-        if (!TestUtil.isEmptyOrNull(message)) {
+        if (!isNullOrEmpty(message)) {
             contentText = message;
         } else {
             contentText = getString(R.string.backup_or_restore_error_body);
         }
 
         Intent backupIntent = HomeActivity.createIntent(this);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, (int) System.currentTimeMillis(), backupIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+            this,
+            NotificationRequestCodes.HOME_ACTIVITY,
+            backupIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
 
         NotificationCompat.Builder builder =
             new NotificationCompat.Builder(this, NotificationChannels.NOTIFICATION_CHANNEL_ALERT)
@@ -1726,7 +1746,12 @@ public class BackupService extends Service {
         String text;
 
         Intent backupIntent = HomeActivity.createIntent(this);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, (int) System.currentTimeMillis(), backupIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+            this,
+            NotificationRequestCodes.HOME_ACTIVITY,
+            backupIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
 
         NotificationCompat.Builder builder =
             new NotificationCompat.Builder(this, NotificationChannels.NOTIFICATION_CHANNEL_ALERT)

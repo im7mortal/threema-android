@@ -1,6 +1,5 @@
 package ch.threema.app.preference.service
 
-import android.content.Context
 import android.net.Uri
 import androidx.annotation.IntDef
 import androidx.annotation.StringRes
@@ -9,10 +8,11 @@ import ch.threema.app.threemasafe.ThreemaSafeServerInfo
 import ch.threema.app.utils.ConfigUtils.AppThemeSetting
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.datatypes.ContactNameFormat
+import ch.threema.data.datatypes.ConversationIdObfuscated
 import ch.threema.domain.protocol.api.work.WorkDirectoryCategory
 import ch.threema.domain.protocol.api.work.WorkOrganization
 import java.time.Instant
-import java.util.LinkedList
+import kotlin.time.Duration
 import kotlinx.coroutines.flow.Flow
 
 interface PreferenceService {
@@ -55,6 +55,19 @@ interface PreferenceService {
         NEVER_SEND,
     }
 
+    enum class LockMechanism(val serialized: String) {
+        NONE("none"),
+        PIN("pin"),
+        SYSTEM("system"),
+        BIOMETRIC("biometric"),
+        ;
+
+        companion object {
+            fun deserialize(serialized: String): LockMechanism? =
+                entries.find { it.serialized == serialized }
+        }
+    }
+
     fun isCustomWallpaperEnabled(): Boolean
 
     fun setCustomWallpaperEnabled(enabled: Boolean)
@@ -92,15 +105,9 @@ interface PreferenceService {
 
     fun setOppfUrl(oppfUrl: String?)
 
-    @Deprecated("Superseded by getRecentEmojis2")
-    fun getRecentEmojis(): LinkedList<Int>
+    fun getRecentEmojis(): List<String>
 
-    fun getRecentEmojis2(): LinkedList<String>
-
-    @Deprecated("Superseded by setRecentEmojis2")
-    fun setRecentEmojis(list: LinkedList<Int>?)
-
-    fun setRecentEmojis2(list: LinkedList<String>)
+    fun setRecentEmojis(list: List<String>)
 
     fun getEmojiSearchIndexVersion(): Int
 
@@ -121,10 +128,7 @@ interface PreferenceService {
 
     fun isPinCodeCorrect(code: String): Boolean
 
-    /**
-     * value in seconds, or -1 if not set
-     */
-    fun getPinLockGraceTime(): Int
+    fun getAppLockGraceTime(): Duration?
 
     fun getIDBackupCount(): Int
 
@@ -159,15 +163,7 @@ interface PreferenceService {
 
     fun setList(listName: String, elements: Array<String>)
 
-    /**
-     * save list to preferences without triggering a listener
-     */
-    fun setEncryptedListQuietly(listName: String, elements: Array<String>)
-
-    /**
-     * save list to preferences without triggering a listener
-     */
-    fun setListQuietly(listName: String, elements: Array<String>)
+    fun setEncryptedList(listName: String, elements: Array<String>)
 
     fun getStringMap(listName: String): Map<String, String?>
 
@@ -179,11 +175,11 @@ interface PreferenceService {
 
     fun setLastOnlineStatus(online: Boolean)
 
-    fun isLatestVersion(context: Context): Boolean
+    fun isLatestVersion(): Boolean
 
     fun getLatestVersion(): Int
 
-    fun setLatestVersion(context: Context)
+    fun setLatestVersion()
 
     /**
      * Check whether the app has been updated since the last check. Note that this returns true for
@@ -191,7 +187,7 @@ interface PreferenceService {
      * Note: This method can only be used once as it returns true only once per update. Currently,
      * it is used in [ch.threema.app.home.HomeActivity] and must not be used anywhere else.
      */
-    fun checkForAppUpdate(context: Context): Boolean
+    fun checkForAppUpdate(): Boolean
 
     fun getFileSendInfoShown(): Boolean
 
@@ -203,6 +199,10 @@ interface PreferenceService {
     fun setLockoutDeadline(deadline: Instant?)
 
     fun getLockoutDeadline(): Instant?
+
+    fun setLockoutTimeoutIndex(index: Int)
+
+    fun getLockoutTimeoutIndex(): Int
 
     fun setLockoutAttempts(numWrongConfirmAttempts: Int)
 
@@ -222,7 +222,13 @@ interface PreferenceService {
 
     fun watchArePrivateChatsHidden(): Flow<Boolean>
 
-    fun getLockMechanism(): String
+    fun watchIsContactSyncEnabled(): Flow<Boolean>
+
+    fun getLockMechanism(): LockMechanism
+
+    fun hasLockMechanism(): Boolean
+
+    fun setLockMechanism(lockMechanism: LockMechanism)
 
     /**
      * Check if app UI lock is enabled
@@ -233,19 +239,17 @@ interface PreferenceService {
 
     fun setAppLockEnabled(enabled: Boolean)
 
-    fun setLockMechanism(lockingMech: String?)
-
     fun isShowImageAttachPreviewsEnabled(): Boolean
 
     fun isDirectShare(): Boolean
 
-    fun setMessageDrafts(messageDrafts: Map<String, String?>?)
+    fun setMessageDrafts(messageDrafts: Map<ConversationIdObfuscated, String?>?)
 
-    fun getMessageDrafts(): Map<String, String?>?
+    fun getMessageDrafts(): Map<ConversationIdObfuscated, String?>?
 
-    fun setQuoteDrafts(quoteDrafts: Map<String, String?>?)
+    fun setQuoteDrafts(quoteDrafts: Map<ConversationIdObfuscated, String?>?)
 
-    fun getQuoteDrafts(): Map<String, String?>?
+    fun getQuoteDrafts(): Map<ConversationIdObfuscated, String?>?
 
     fun setCustomSupportUrl(supportUrl: String?)
 
@@ -266,6 +270,8 @@ interface PreferenceService {
     fun getProfilePicRelease(): Int
 
     fun setProfilePicRelease(value: Int)
+
+    fun watchProfilePicRelease(): Flow<Int>
 
     fun getProfilePicUploadTimestamp(): Instant?
 
@@ -357,6 +363,8 @@ interface PreferenceService {
 
     fun getThreemaSafeEnabled(): Boolean
 
+    fun watchThreemaSafeEnabled(): Flow<Boolean>
+
     fun setThreemaSafeMasterKey(masterKey: ByteArray?)
 
     fun getThreemaSafeMasterKey(): ByteArray?
@@ -413,20 +421,13 @@ interface PreferenceService {
 
     fun getThreemaSafeBackupTimestamp(): Instant?
 
-    fun setWorkSyncCheckInterval(checkInterval: Int)
+    fun setWorkSyncCheckInterval(checkInterval: Duration)
 
-    fun getWorkSyncCheckInterval(): Int
+    fun getWorkSyncCheckInterval(): Duration
 
-    /**
-     * Store the interval for the identity state sync in seconds.
-     * @param syncIntervalS The sync interval in seconds
-     */
-    fun setIdentityStateSyncInterval(syncIntervalS: Int)
+    fun setIdentityStateSyncInterval(syncInterval: Duration)
 
-    /**
-     * @return The identity state sync interval in seconds
-     */
-    fun getIdentityStateSyncIntervalS(): Int
+    fun getIdentityStateSyncInterval(): Duration
 
     fun getIsExportIdTooltipShown(): Boolean
 
@@ -484,9 +485,9 @@ interface PreferenceService {
 
     fun getVideoCallsProfile(): String?
 
-    fun setBallotOverviewHidden(hidden: Boolean)
+    fun setPollOverviewHidden(hidden: Boolean)
 
-    fun getBallotOverviewHidden(): Boolean
+    fun getPollOverviewHidden(): Boolean
 
     fun isVideoCallToggleTooltipShown(): Boolean
 
@@ -508,9 +509,9 @@ interface PreferenceService {
 
     fun skipGroupCallCreateDelay(): Boolean
 
-    fun getBackupWarningDismissedTime(): Instant?
+    fun isBackupWarningDismissed(): Boolean
 
-    fun setBackupWarningDismissedTime(timestamp: Instant?)
+    fun setBackupWarningDismissed(isDismissed: Boolean = true)
 
     @StarredMessagesSortOrder
     fun getStarredMessagesSortOrder(): Int
@@ -521,12 +522,9 @@ interface PreferenceService {
 
     fun getAutoDeleteDays(): Int
 
-    // TODO(ANDR-2816): Remove
-    fun removeLastNotificationRationaleShown()
-
     fun getMediaGalleryContentTypes(): BooleanArray
 
-    fun setMediaGalleryContentTypes(contentTypes: BooleanArray?)
+    fun setMediaGalleryContentTypes(contentTypes: BooleanArray)
 
     fun getEmailSyncHashCode(): Int
 
@@ -575,6 +573,8 @@ interface PreferenceService {
 
     fun getDebugLogEnabledTimestamp(): Instant?
 
+    fun watchDebugLogEnabledTimestamp(): Flow<Instant?>
+
     /**
      *  Persist the users [AvailabilityStatus]. If the current build does not support this feature, this is a no-op.
      */
@@ -618,11 +618,6 @@ interface PreferenceService {
 
         const val EMOJI_STYLE_DEFAULT = 0
         const val EMOJI_STYLE_ANDROID = 1
-
-        const val LOCKING_MECH_NONE = "none"
-        const val LOCKING_MECH_PIN = "pin"
-        const val LOCKING_MECH_SYSTEM = "system"
-        const val LOCKING_MECH_BIOMETRIC = "biometric"
 
         const val PROFILEPIC_RELEASE_NOBODY = 0
         const val PROFILEPIC_RELEASE_EVERYONE = 1

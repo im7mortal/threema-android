@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+    Pattern for generating the "Draft: Message..." prefix for showing message drafts on the conversations list.
+    %s is a placeholder for the string "Draft". Marked as untranslatable for now, but this will likely need to be adjusted when we add support for RTL locales.
+    -->
+    <string name="draft_pattern" translatable="false">"%s: "</string>
+    <!--
+    Pattern for generating the "Voice message (0:25)" message preview for the conversations list.
+    %1$s is a placeholder for "Voice message" and %2$s is a placeholder for the formatted duration of the voice message.
+    -->
+    <string name="voice_message_with_duration_pattern" translatable="false">%1$s (%2$s)</string>
+    <!--
+    Pattern for generating the "Missed call (busy)" message preview for the conversations list.
+    %1$s is a placeholder for "Missed call" and %2$s is a placeholder for detail/reason.
+    -->
+    <string name="missed_call_with_detail_pattern" translatable="false">%1$s (%2$s)</string>
+    <!--
+    Pattern for generating the "Threema call has ended: reason" toast message.
+    %1$s is a placeholder for "Threema call has ended" and %2$s is a placeholder for the detail/reason.
+    -->
+    <string name="void_call_finished_pattern" translatable="false">%1$s: %2$s</string>
+    <!--
+    Pattern for generating the "Last backup: 25.12.2025 13:37" text for the Backup Center.
+    %1$s is a placeholder for "Last backup" and %2$s is a placeholder for a formatted timestamp.
+    -->
+    <string name="last_backup_time_pattern" translatable="false">%1$s: %2$s</string>
+    <!--
+    Pattern for generating the notification preview for messages, e.g. "Robert: Hello everyone"
+    %1$s is a placeholder for the sender's name and %2$s is a placeholder for a message's text
+    -->
+    <string name="notification_preview_pattern" translatable="false">%1$s: %2$s</string>
+</resources>

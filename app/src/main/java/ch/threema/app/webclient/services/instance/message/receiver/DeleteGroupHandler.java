@@ -83,7 +83,7 @@ public class DeleteGroupHandler extends MessageReceiver {
 
         // Load group
         final int groupId = Integer.parseInt(args.get(Protocol.ARGUMENT_RECEIVER_ID).asStringValue().toString());
-        final GroupModel group = groupModelRepository.getByLocalGroupDbId(groupId);
+        final GroupModel group = groupModelRepository.getByGroupDatabaseId(groupId);
         if (group == null) {
             logger.error("invalid group, aborting");
             this.failed(temporaryId, Protocol.ERROR_INVALID_GROUP);

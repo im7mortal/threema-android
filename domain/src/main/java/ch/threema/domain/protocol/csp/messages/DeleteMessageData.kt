@@ -1,5 +1,6 @@
 package ch.threema.domain.protocol.csp.messages
 
+import ch.threema.domain.models.MessageId
 import ch.threema.domain.protocol.csp.messages.protobuf.ProtobufDataInterface
 import ch.threema.protobuf.csp.e2e.DeleteMessage
 import com.google.protobuf.InvalidProtocolBufferException
@@ -8,13 +9,16 @@ import java.util.Objects
 class DeleteMessageData(
     val messageId: Long,
 ) : ProtobufDataInterface<DeleteMessage> {
+
+    constructor(messageId: MessageId) : this(messageId.messageIdLong)
+
     companion object {
         @JvmStatic
         fun fromProtobuf(rawProtobufMessage: ByteArray): DeleteMessageData {
             try {
                 val protobufMessage = DeleteMessage.parseFrom(rawProtobufMessage)
                 return DeleteMessageData(
-                    protobufMessage.messageId,
+                    messageId = protobufMessage.messageId,
                 )
             } catch (e: InvalidProtocolBufferException) {
                 throw BadMessageException("Invalid DeleteMessage protobuf data", e)

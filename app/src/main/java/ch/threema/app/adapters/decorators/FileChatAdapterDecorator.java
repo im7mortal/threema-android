@@ -24,11 +24,12 @@ import ch.threema.app.utils.LinkifyUtil;
 import ch.threema.app.utils.MessageUtil;
 import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.data.media.FileDataModel;
+
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class FileChatAdapterDecorator extends ChatAdapterDecorator {
 
@@ -124,7 +125,7 @@ public class FileChatAdapterDecorator extends ChatAdapterDecorator {
         if (holder.secondaryTextView != null) {
             String mimeString = fileData.getMimeType();
             if (holder.secondaryTextView != null) {
-                if (!TestUtil.isEmptyOrNull(mimeString)) {
+                if (!isNullOrEmpty(mimeString)) {
                     holder.secondaryTextView.setText(MimeUtil.getMimeDescription(holder.secondaryTextView.getContext(), fileData.getMimeType()));
                 } else {
                     holder.secondaryTextView.setText("");
@@ -140,7 +141,7 @@ public class FileChatAdapterDecorator extends ChatAdapterDecorator {
         showHide(holder.tertiaryTextView, true);
         if (holder.tertiaryTextView != null) {
             String fileName = fileData.getFileName();
-            if (!TestUtil.isEmptyOrNull(fileName)) {
+            if (!isNullOrEmpty(fileName)) {
                 holder.tertiaryTextView.setText(highlightMatches(holder.tertiaryTextView.getContext(), fileName, filterString));
             } else {
                 holder.tertiaryTextView.setText(R.string.no_filename);
@@ -186,7 +187,7 @@ public class FileChatAdapterDecorator extends ChatAdapterDecorator {
                     RuntimeUtil.runOnUiThread(() -> {
                         if (!success) {
                             holder.controller.setReadyToDownload();
-                            if (!TestUtil.isEmptyOrNull(message)) {
+                            if (!isNullOrEmpty(message)) {
                                 Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show();
                             }
                         } else {
@@ -223,7 +224,7 @@ public class FileChatAdapterDecorator extends ChatAdapterDecorator {
                             }
                         } else {
                             holder.controller.setReadyToDownload();
-                            if (!TestUtil.isEmptyOrNull(message)) {
+                            if (!isNullOrEmpty(message)) {
                                 Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show();
                             }
                         }
@@ -294,8 +295,10 @@ public class FileChatAdapterDecorator extends ChatAdapterDecorator {
     ) {
         Bitmap thumbnail = null;
         try {
-            thumbnail = getFileService().getMessageThumbnailBitmap(getMessageModel(),
-                updateBitmap ? null : getThumbnailCache());
+            thumbnail = getFileService().getMessageThumbnailBitmap(
+                getMessageModel(),
+                updateBitmap ? null : getThumbnailCache()
+            );
         } catch (Exception e) {
             //
         }

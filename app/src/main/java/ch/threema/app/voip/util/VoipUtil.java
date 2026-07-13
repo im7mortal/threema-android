@@ -4,7 +4,6 @@ import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.telecom.TelecomManager;
 import android.telephony.TelephonyManager;
@@ -21,6 +20,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentManager;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.dialogs.GenericProgressDialog;
@@ -29,12 +29,13 @@ import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.routines.UpdateFeatureLevelRoutine;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.DialogUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.voip.activities.CallActivity;
 import ch.threema.app.voip.services.VoipCallService;
 import ch.threema.app.voip.services.VoipStateService;
-import ch.threema.base.ThreemaException;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
+import static ch.threema.base.TestUtilKt.isInDeviceTest;
+
 import ch.threema.domain.protocol.ThreemaFeature;
 import ch.threema.logging.ThreemaLogger;
 import ch.threema.storage.models.ContactModel;
@@ -64,7 +65,7 @@ public class VoipUtil {
     ) {
         Intent intent = new Intent();
         intent.setAction(action);
-        if (!TestUtil.isEmptyOrNull(extraName)) {
+        if (!isNullOrEmpty(extraName)) {
             intent.putExtra(extraName, extra);
         }
         LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
@@ -99,7 +100,7 @@ public class VoipUtil {
         @Nullable Runnable onFinishRunnable
     ) {
 
-        final ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        final ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             return false;
         }
@@ -124,12 +125,7 @@ public class VoipUtil {
             return false;
         }
 
-        VoipStateService voipStateService;
-        try {
-            voipStateService = serviceManager.getVoipStateService();
-        } catch (ThreemaException e) {
-            return false;
-        }
+        VoipStateService voipStateService = serviceManager.getVoipStateService();
 
         if (!voipStateService.getCallState().isIdle()) {
             SimpleStringAlertDialog.newInstance(R.string.threema_call, R.string.voip_another_call).show(activity.getSupportFragmentManager(), "err");
@@ -140,7 +136,7 @@ public class VoipUtil {
             // 1.a Try to fetch the feature mask
 
             // Start fetching routine in a separate thread
-            new AsyncTask<Void, Void, Exception>() {
+            new LifecycleAwareAsyncTask<Void, Exception>() {
                 @Override
                 protected void onPreExecute() {
                     // Show a loading
@@ -149,7 +145,7 @@ public class VoipUtil {
                 }
 
                 @Override
-                protected Exception doInBackground(Void... params) {
+                protected Exception doInBackground(Void params) {
                     try {
                         // Reset the cache (only for Beta?)
                         UpdateFeatureLevelRoutine.removeTimeCache(contactModel.getIdentity());
@@ -157,7 +153,7 @@ public class VoipUtil {
                         new UpdateFeatureLevelRoutine(
                             serviceManager.getModelRepositories().getContacts(),
                             serviceManager.getUserService(),
-                            serviceManager.getAPIConnector(),
+                            serviceManager.getApiConnector(),
                             Collections.singletonList(contactModel.getIdentity())
                         ).run();
                     } catch (Exception e) {
@@ -176,7 +172,7 @@ public class VoipUtil {
                         }
                     }
                 }
-            }.execute();
+            }.execute(activity, null);
         } else {
             phoneAction(activity, activity.getSupportFragmentManager(), contactModel, onFinishRunnable != null, launchVideo);
         }
@@ -194,7 +190,7 @@ public class VoipUtil {
         boolean useToast,
         boolean launchVideo
     ) {
-        if (!ThreemaFeature.canVoip(contactModel.getFeatureMask()) && !TestUtil.isInDeviceTest()) {
+        if (!ThreemaFeature.canVoip(contactModel.getFeatureMask()) && !isInDeviceTest()) {
             if (useToast) {
                 Toast.makeText(ThreemaApplication.getAppContext(), R.string.voip_incompatible, Toast.LENGTH_LONG).show();
             } else {

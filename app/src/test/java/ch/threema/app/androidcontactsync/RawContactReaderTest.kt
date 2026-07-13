@@ -18,7 +18,7 @@ import ch.threema.app.androidcontactsync.types.PhoneNumber
 import ch.threema.app.androidcontactsync.types.RawContact
 import ch.threema.app.androidcontactsync.types.RawContactId
 import ch.threema.app.androidcontactsync.types.StructuredName
-import ch.threema.app.test.testDispatcherProvider
+import ch.threema.testhelpers.testDispatcherProvider
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
@@ -41,7 +41,7 @@ class RawContactReaderTest {
             dispatcherProvider = testDispatcherProvider(),
         )
 
-        assertTrue { rawContactReader.readAllRawContacts().isEmpty() }
+        assertTrue(rawContactReader.readAllRawContacts().isEmpty())
     }
 
     @Test
@@ -287,7 +287,7 @@ class RawContactReaderTest {
             dispatcherProvider = testDispatcherProvider(),
         )
 
-        assertTrue { rawContactReader.readRawContactsFromLookup(uriMock).isEmpty() }
+        assertTrue(rawContactReader.readRawContactsFromLookup(uriMock).isEmpty())
     }
 
     @Test

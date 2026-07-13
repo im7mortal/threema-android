@@ -10,7 +10,6 @@ import java.io.IOException
 import java.util.UUID
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -92,19 +91,37 @@ class SentryService(
                     model = metaInfo.deviceModel,
                 ),
             ),
-            exception = ExceptionItems(
-                values = record.exceptions.map { exception ->
-                    ExceptionItem(
-                        type = exception.type,
-                        module = exception.packageName,
-                        value = exception.message,
-                        stackTrace = buildStackTrace(exception),
-                    )
-                },
-            ),
+            level = record.level.toSentryLevel(),
+            exception = record.exceptionDetails?.let { exceptionDetails ->
+                ExceptionItems(
+                    values = exceptionDetails.map { exception ->
+                        ExceptionItem(
+                            type = exception.type,
+                            module = exception.packageName,
+                            value = exception.message,
+                            stackTrace = buildStackTrace(exception),
+                            mechanism = Mechanism(
+                                handled = record.level != ErrorRecordLevel.FATAL,
+                            ),
+                        )
+                    },
+                )
+            },
+            message = record.message?.let { message ->
+                Message(
+                    message = message.message,
+                    params = message.parameters,
+                )
+            },
         )
         return json.encodeToString(event)
     }
+
+    private fun ErrorRecordLevel.toSentryLevel() =
+        when (this) {
+            ErrorRecordLevel.FATAL -> "fatal"
+            ErrorRecordLevel.ERROR -> "error"
+        }
 
     private fun buildStackTrace(exception: ErrorRecordExceptionDetails): StackTrace? {
         if (exception.stackTrace.isEmpty()) {
@@ -142,13 +159,14 @@ class SentryService(
         val eventId: String,
         val timestamp: String,
         val platform: String = "android",
-        val level: String = "fatal",
+        val level: String,
         val release: String,
         val dist: String,
         val tags: Tags,
         val user: User,
         val contexts: Contexts,
-        val exception: ExceptionItems,
+        val exception: ExceptionItems? = null,
+        val message: Message? = null,
     )
 
     @Serializable
@@ -185,7 +203,7 @@ class SentryService(
         val type: String,
         val value: String?,
         val module: String?,
-        val mechanism: Mechanism = Mechanism(),
+        val mechanism: Mechanism,
         @SerialName("stacktrace")
         val stackTrace: StackTrace?,
     )
@@ -212,7 +230,7 @@ class SentryService(
     @Serializable
     private data class Mechanism(
         val type: String = "generic",
-        val handled: Boolean = false,
+        val handled: Boolean,
     )
 
     data class Config(
@@ -229,6 +247,12 @@ class SentryService(
         val buildFlavor: String,
     )
 
+    @Serializable
+    private data class Message(
+        val message: String,
+        val params: List<String>? = null,
+    )
+
     companion object {
         private const val SENTRY_VERSION = 7
         private const val CLIENT_NAME = "threema.android/1.0"
@@ -237,6 +261,7 @@ class SentryService(
         private val json = Json {
             prettyPrint = false
             encodeDefaults = true
+            explicitNulls = false
         }
 
         private fun UUID.format() =

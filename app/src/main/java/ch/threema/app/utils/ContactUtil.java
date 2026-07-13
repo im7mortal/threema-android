@@ -12,8 +12,6 @@ import android.text.format.DateUtils;
 
 import org.slf4j.Logger;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.text.Collator;
 import java.util.Comparator;
 import java.util.List;
@@ -22,19 +20,19 @@ import java.util.stream.Collectors;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.StringRes;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.util.Pair;
 import ch.threema.app.AppConstants;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.BlockedIdentitiesService;
 import ch.threema.app.services.FileService;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.tasks.OnFSFeatureMaskDowngradedTask;
-import ch.threema.base.utils.Base32;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 import ch.threema.data.datatypes.ContactNameFormat;
 import ch.threema.domain.models.IdentityState;
@@ -50,33 +48,9 @@ import ch.threema.storage.models.ContactModel;
 public class ContactUtil {
     private static final Logger logger = getThreemaLogger("ContactUtil");
 
-    private static final String CONTACT_UID_PREFIX = "c-";
-
     public static final int CHANNEL_NAME_MAX_LENGTH_BYTES = 256;
 
     public static final long PROFILE_PICTURE_BLOB_CACHE_DURATION = DateUtils.WEEK_IN_MILLIS;
-
-    @Deprecated
-    public static int getUniqueId(@Nullable String identity) {
-        if (identity == null) {
-            return 0;
-        }
-        return (CONTACT_UID_PREFIX + identity).hashCode();
-    }
-
-    @NonNull
-    public static String getUniqueIdString(@Nullable String identity) {
-        if (identity != null) {
-            try {
-                MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
-                messageDigest.update((CONTACT_UID_PREFIX + identity).getBytes());
-                return Base32.encode(messageDigest.digest());
-            } catch (NoSuchAlgorithmException e) {
-                logger.warn("Could not calculate unique id string");
-            }
-        }
-        return "";
-    }
 
     public static boolean canChangeFirstName(@Nullable ContactModel contact) {
         return contact != null && !contact.isLinkedToAndroidContact();
@@ -188,7 +162,7 @@ public class ContactUtil {
         String firstName = contactModel.getFirstName();
         String lastName = contactModel.getLastName();
 
-        if (TestUtil.isEmptyOrNull(firstName) && TestUtil.isEmptyOrNull(lastName) && !TestUtil.isEmptyOrNull(contactModel.getPublicNickName())) {
+        if (isNullOrEmpty(firstName) && isNullOrEmpty(lastName) && !isNullOrEmpty(contactModel.getPublicNickName())) {
             Pair<String, String> namePair = NameUtil.getFirstLastNameFromDisplayName(contactModel.getPublicNickName().trim());
             firstName = namePair.first;
             lastName = namePair.second;
@@ -229,7 +203,7 @@ public class ContactUtil {
         return key;
     }
 
-    public static @DrawableRes int getVerificationResource(
+    public static @DrawableRes int getVerificationLevelIconResource(
         @NonNull VerificationLevel verificationLevel,
         @NonNull WorkVerificationLevel workVerificationLevel
     ) {
@@ -259,19 +233,49 @@ public class ContactUtil {
         return iconResource;
     }
 
+    /**
+     * Get the verification level description from the given verification level. This also depends
+     * on the build and whether the contact is a work contact or not.
+     *
+     * @return String resource for the according verification level
+     */
+    @StringRes
+    public static int getVerificationLevelDescription(
+        @NonNull VerificationLevel verificationLevel,
+        @NonNull WorkVerificationLevel workVerificationLevel
+    ) {
+        boolean isWorkVerifiedOnWorkBuild = ConfigUtils.isWorkBuild() && workVerificationLevel == WorkVerificationLevel.WORK_SUBSCRIPTION_VERIFIED;
+        switch (verificationLevel) {
+            case FULLY_VERIFIED:
+                if (isWorkVerifiedOnWorkBuild) {
+                    return R.string.verification_level3_work_explain;
+                } else {
+                    return R.string.verification_level3_explain;
+                }
+            case SERVER_VERIFIED:
+                if (isWorkVerifiedOnWorkBuild) {
+                    return R.string.verification_level2_work_explain;
+                }
+                return R.string.verification_level2_explain;
+            default:
+                return R.string.verification_level1_explain;
+        }
+    }
+
     @Nullable
     public static Drawable getVerificationDrawable(
         @NonNull Context context,
         @NonNull VerificationLevel verificationLevel,
         @NonNull WorkVerificationLevel workVerificationLevel
     ) {
-        return AppCompatResources.getDrawable(context, getVerificationResource(
+        return AppCompatResources.getDrawable(context, getVerificationLevelIconResource(
             verificationLevel,
             workVerificationLevel
         ));
     }
 
-    public static String getIdentityFromViewIntent(Context context, Intent intent) {
+    @Nullable
+    public static String getIdentityFromViewIntent(@NonNull Context context, @NonNull Intent intent) {
         if (Intent.ACTION_VIEW.equals(intent.getAction()) && context.getString(R.string.contacts_mime_type).equals(intent.getType())) {
             try (Cursor cursor = context.getContentResolver().query(intent.getData(), null, null, null, null)) {
                 if (cursor != null) {
@@ -326,7 +330,7 @@ public class ContactUtil {
      * @param contactModel the affected contact
      */
     public static void onForwardSecurityNotSupportedAnymore(@NonNull ch.threema.data.models.ContactModel contactModel) {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             logger.error("Service manager is null");
             return;

@@ -6,11 +6,11 @@ import org.koin.dsl.module
 val voiceMessageFeatureModule = module {
     viewModel { params ->
         VoiceRecorderViewModel(
-            messageReceiver = params.get(),
-            application = get(),
-            fileService = get(),
-            preferenceService = get(),
+            appContext = get(),
             messageService = get(),
+            preferenceService = get(),
+            fileService = get(),
+            messageReceiver = params.get(),
         )
     }
 }

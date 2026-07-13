@@ -47,15 +47,4 @@ public interface ContactStore {
      */
     @Nullable
     Contact getContactForIdentityIncludingCache(@NonNull String identity);
-
-    /**
-     * Add or update a contact in the contact store.
-     */
-    void addContact(@NonNull Contact contact);
-
-    /**
-     * Check whether the identity belongs to a special contact or not.
-     */
-    boolean isSpecialContact(@NonNull String identity);
-
 }

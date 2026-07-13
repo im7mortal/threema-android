@@ -2,8 +2,9 @@ package ch.threema.app.home.usecases
 
 import ch.threema.app.services.ConversationService
 import ch.threema.app.services.ConversationTagService
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
+import ch.threema.data.datatypes.ConversationId
 import ch.threema.domain.taskmanager.TriggerSource
 import ch.threema.storage.models.ConversationModel
 import ch.threema.storage.models.ConversationTag
@@ -33,18 +34,23 @@ class GetUnreadConversationCountUseCase(
         // as unread.
         if (conversationTagService.getCount(ConversationTag.MARKED_AS_UNREAD) > 0) {
             // In case there is at least one unread tag, we create a set of all possible
-            // conversation uids to efficiently check that the unread tags are valid.
-            val shownConversationUids = conversationService.getAll(false)
-                .map(ConversationModel::uid)
+            // conversation ids to efficiently check that the unread tags are valid.
+            val shownConversationIds = conversationService
+                .getAll(false)
+                .map(ConversationModel::id)
                 .toSet()
 
-            val unreadUids: List<String> = conversationTagService.getConversationUidsByTag(ConversationTag.MARKED_AS_UNREAD)
-            for (unreadUid in unreadUids) {
-                if (unreadUid in shownConversationUids) {
+            val unreadIds: List<ConversationId> = conversationTagService.getConversationIdsByTag(ConversationTag.MARKED_AS_UNREAD)
+            for (unreadId in unreadIds) {
+                if (unreadId in shownConversationIds) {
                     unread++
                 } else {
-                    logger.warn("Conversation '{}' is marked as unread but not shown. Deleting the unread flag.", unreadUid)
-                    conversationTagService.removeTag(unreadUid, ConversationTag.MARKED_AS_UNREAD, TriggerSource.LOCAL)
+                    logger.warn("Conversation '{}' is marked as unread but not shown. Deleting the unread flag.", unreadId)
+                    conversationTagService.removeTag(
+                        conversationId = unreadId,
+                        tag = ConversationTag.MARKED_AS_UNREAD,
+                        triggerSource = TriggerSource.LOCAL,
+                    )
                 }
             }
         }

@@ -6,7 +6,7 @@ import ch.threema.domain.protocol.csp.messages.groupcall.GroupCallStartData
 import ch.threema.domain.protocol.csp.messages.groupcall.GroupCallStartMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.types.IdentityString
-import java.util.Date
+import java.time.Instant
 
 class OutgoingGroupCallStartTask(
     override val groupId: GroupId,
@@ -15,7 +15,7 @@ class OutgoingGroupCallStartTask(
     private val protocolVersion: UInt,
     private val gck: ByteArray,
     private val sfuBaseUrl: String,
-    createdAt: Date,
+    createdAt: Instant,
 ) : OutgoingCspGroupControlMessageTask() {
     override val type: String = "OutgoingGroupCallStartTask"
 

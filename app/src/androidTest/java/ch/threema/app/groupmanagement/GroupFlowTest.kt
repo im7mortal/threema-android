@@ -2,14 +2,17 @@ package ch.threema.app.groupmanagement
 
 import ch.threema.KoinTestRule
 import ch.threema.app.TestMultiDeviceManager
-import ch.threema.app.ThreemaApplication
 import ch.threema.app.di.modules.sessionScopedModule
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.managers.ServiceManager
 import ch.threema.app.services.GroupFlowDispatcher
+import ch.threema.common.stateFlowOf
 import ch.threema.domain.protocol.connection.ConnectionState
-import ch.threema.domain.protocol.connection.ConnectionStateListener
 import ch.threema.domain.protocol.connection.ServerConnection
 import ch.threema.domain.taskmanager.TaskManager
 import org.junit.Rule
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import org.koin.core.module.Module
 
 enum class SetupConfig {
@@ -35,11 +38,12 @@ enum class ReflectionExpectation(val setupConfig: SetupConfig) {
     REFLECTION_SKIPPED(SetupConfig.MULTI_DEVICE_DISABLED),
 }
 
-abstract class GroupFlowTest {
-    protected val serviceManager by lazy { ThreemaApplication.requireServiceManager() }
+abstract class GroupFlowTest : KoinComponent {
+    protected val serviceManager by lazy { ServiceManager.require() }
 
     protected val contactModelRepository by lazy { serviceManager.modelRepositories.contacts }
     protected val groupModelRepository by lazy { serviceManager.modelRepositories.groups }
+    private val globalEventBuses: GlobalEventBuses by inject()
 
     protected val testMultiDeviceManagerEnabled by lazy {
         TestMultiDeviceManager(
@@ -83,6 +87,7 @@ abstract class GroupFlowTest {
         taskManager,
         connection,
         serviceManager.identityBlockedSteps,
+        globalEventBuses,
     )
 
     /**
@@ -101,6 +106,8 @@ abstract class GroupFlowTest {
 
         override val connectionState: ConnectionState = ConnectionState.DISCONNECTED
 
+        override fun watchConnectionState() = stateFlowOf(ConnectionState.DISCONNECTED)
+
         override val isNewConnectionSession: Boolean = false
 
         override fun disableReconnect() {}
@@ -108,17 +115,15 @@ abstract class GroupFlowTest {
         override fun start() {}
 
         override fun stop() {}
-
-        override fun addConnectionStateListener(listener: ConnectionStateListener) {}
-
-        override fun removeConnectionStateListener(listener: ConnectionStateListener) {}
     }
 
     data object ConnectionLoggedIn : ServerConnection {
 
         override val isRunning: Boolean = true
 
-        override val connectionState: ConnectionState = ConnectionState.LOGGEDIN
+        override val connectionState: ConnectionState = ConnectionState.LOGGED_IN
+
+        override fun watchConnectionState() = stateFlowOf(ConnectionState.DISCONNECTED)
 
         override val isNewConnectionSession: Boolean = true
 
@@ -127,9 +132,5 @@ abstract class GroupFlowTest {
         override fun start() {}
 
         override fun stop() {}
-
-        override fun addConnectionStateListener(listener: ConnectionStateListener) {}
-
-        override fun removeConnectionStateListener(listener: ConnectionStateListener) {}
     }
 }

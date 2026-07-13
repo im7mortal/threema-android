@@ -9,7 +9,7 @@ import ch.threema.app.services.FileService
 import ch.threema.app.utils.OutgoingCspMessageServices
 import ch.threema.base.crypto.NonceFactory
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.GroupModel
 import ch.threema.data.repositories.GroupModelRepository
 import ch.threema.domain.protocol.csp.ProtocolDefines
@@ -61,7 +61,7 @@ class ConvertGroupProfilePictureTask(
             return
         }
 
-        val groupProfilePictureBytes = fileService.getGroupProfilePictureBytes(groupModel) ?: run {
+        val groupProfilePictureBytes = fileService.getGroupProfilePictureBytes(groupModel.getDatabaseId()) ?: run {
             logger.info("No group picture set. No conversion needed.")
             return
         }

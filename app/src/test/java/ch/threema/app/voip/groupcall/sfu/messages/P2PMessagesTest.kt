@@ -1,6 +1,6 @@
 package ch.threema.app.voip.groupcall.sfu.messages
 
-import java.util.Date
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -9,7 +9,7 @@ class P2PMessagesTest {
 
     @Test
     internal fun `screen sharing must be active if startedAt is provided`() {
-        val screenShareCaptureState = P2PMessageContent.CaptureState.Screen(Date())
+        val screenShareCaptureState = P2PMessageContent.CaptureState.Screen(Instant.now())
         assertTrue(screenShareCaptureState.active)
     }
 
@@ -21,7 +21,7 @@ class P2PMessagesTest {
 
     @Test
     internal fun `screen share convenience factory methods yield correct state`() {
-        val screenShareOn = P2PMessageContent.CaptureState.Screen.on(Date())
+        val screenShareOn = P2PMessageContent.CaptureState.Screen.on(Instant.now())
         assertTrue(screenShareOn.active)
 
         val screenShareOff = P2PMessageContent.CaptureState.Screen.off()

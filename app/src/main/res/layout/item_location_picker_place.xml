@@ -40,7 +40,7 @@
             app:layout_constraintBottom_toBottomOf="@+id/address_container"
             app:layout_constraintStart_toStartOf="@id/gdMarginStart"
             app:layout_constraintTop_toTopOf="@+id/name"
-            app:srcCompat="@drawable/ic_map_marker_outline"
+            app:srcCompat="@drawable/ic_location_pin"
             tools:ignore="ContentDescription"
             app:tint="?attr/colorOnSurface" />
 

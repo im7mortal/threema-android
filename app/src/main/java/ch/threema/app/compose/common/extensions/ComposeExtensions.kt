@@ -1,7 +1,9 @@
 package ch.threema.app.compose.common.extensions
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.Stable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -10,6 +12,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import ch.threema.android.ResolvableString
+import ch.threema.android.format
+import ch.threema.common.ByteSize
 
 /**
  *  Concatenates the [getOther] modifier using [Modifier.then] if [apply] is `true`
@@ -43,3 +47,15 @@ val Int.spNoScale: TextUnit
 @Composable
 fun ResolvableString.get() =
     get(LocalContext.current)
+
+@ReadOnlyComposable
+@Composable
+fun ByteSize.format() =
+    format(LocalContext.current)
+
+@Stable
+fun Arrangement.HorizontalOrVertical.withSpacing(spacing: Dp): Arrangement.HorizontalOrVertical =
+    object : Arrangement.HorizontalOrVertical by this {
+        override val spacing: Dp
+            get() = spacing
+    }

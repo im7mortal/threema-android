@@ -21,18 +21,15 @@ import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.appcompat.app.AppCompatDialog;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.emojis.EmojiEditText;
-import ch.threema.app.services.ContactService;
 import ch.threema.app.ui.AvatarEditView;
 import ch.threema.app.utils.ContactUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.utils.ViewUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.data.models.ContactModelData;
-import ch.threema.localcrypto.exceptions.MasterKeyLockedException;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 import static ch.threema.domain.models.ContactKt.CONTACT_NAME_MAX_LENGTH_BYTES;
 
 public class ContactEditDialog extends ThreemaDialogFragment implements AvatarEditView.AvatarEditListener {
@@ -193,13 +190,6 @@ public class ContactEditDialog extends ThreemaDialogFragment implements AvatarEd
         final String tag = this.getTag();
         croppedAvatarFile = (File) getArguments().getSerializable("avatarPreset");
 
-        ContactService contactService = null;
-        try {
-            contactService = ThreemaApplication.getServiceManager().getContactService();
-        } catch (MasterKeyLockedException e) {
-            logger.error("Exception", e);
-        }
-
         if (savedInstanceState != null) {
             croppedAvatarFile = (File) savedInstanceState.getSerializable(BUNDLE_CROPPED_AVATAR_FILE);
         }
@@ -217,13 +207,11 @@ public class ContactEditDialog extends ThreemaDialogFragment implements AvatarEd
             avatarEditView.setListener(this);
         }
 
-        if (!TestUtil.isEmptyOrNull(identity)) {
+        if (!isNullOrEmpty(identity)) {
             avatarEditView.setVisibility(View.GONE);
-            if (contactService != null) {
-                // Hide second name on business contact
-                if (ContactUtil.isGatewayContact(identity)) {
-                    ViewUtil.show(editText2, false);
-                }
+            // Hide second name on business contact
+            if (ContactUtil.isGatewayContact(identity)) {
+                ViewUtil.show(editText2, false);
             }
         } else if (groupId != 0) {
             editText2.setVisibility(View.GONE);
@@ -243,11 +231,11 @@ public class ContactEditDialog extends ThreemaDialogFragment implements AvatarEd
             editText2Layout.setVisibility(View.GONE);
         }
 
-        if (!TestUtil.isEmptyOrNull(text1)) {
+        if (!isNullOrEmpty(text1)) {
             editText1.setText(text1);
         }
 
-        if (!TestUtil.isEmptyOrNull(text2)) {
+        if (!isNullOrEmpty(text2)) {
             editText2.setText(text2);
         }
 

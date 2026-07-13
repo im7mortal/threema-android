@@ -77,15 +77,26 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <ch.threema.app.ui.EmptyRecyclerView
-        android:id="@+id/recycler_chats"
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginLeft="@dimen/tablet_additional_padding_horizontal"
-        android:layout_marginRight="@dimen/tablet_additional_padding_horizontal"
-        android:background="?android:attr/colorBackground"
-        android:clipToPadding="false"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior"
-        tools:listitem="@layout/item_global_search" />
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+        <ch.threema.app.ui.EmptyView
+            android:id="@+id/empty_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <ch.threema.app.ui.EmptyRecyclerView
+            android:id="@+id/recycler_chats"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginLeft="@dimen/tablet_additional_padding_horizontal"
+            android:layout_marginRight="@dimen/tablet_additional_padding_horizontal"
+            android:background="?android:attr/colorBackground"
+            android:clipToPadding="false"
+            tools:listitem="@layout/item_global_search" />
+
+    </FrameLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

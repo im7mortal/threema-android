@@ -1,6 +1,5 @@
 package ch.threema.app.processors.incomingcspmessage.groupcontrol
 
-import android.text.format.DateUtils
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.utils.OutgoingCspGroupMessageCreator
 import ch.threema.app.utils.OutgoingCspMessageHandle
@@ -8,7 +7,8 @@ import ch.threema.app.utils.OutgoingCspMessageServices.Companion.getOutgoingCspM
 import ch.threema.app.utils.runBundledMessagesSendSteps
 import ch.threema.app.utils.toBasicContact
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.data.models.GroupIdentity
+import ch.threema.common.minus
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.GroupModel
 import ch.threema.domain.models.BasicContact
 import ch.threema.domain.models.GroupId
@@ -19,7 +19,8 @@ import ch.threema.domain.protocol.csp.messages.GroupSetupMessage
 import ch.threema.domain.protocol.csp.messages.GroupSyncRequestMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.types.IdentityString
-import java.util.Date
+import java.time.Instant
+import kotlin.time.Duration.Companion.hours
 
 private val logger = getThreemaLogger("IncomingGroupMessageUtils")
 
@@ -100,7 +101,7 @@ suspend fun runCommonGroupReceiveSteps(
                     sender,
                     OutgoingCspGroupMessageCreator(
                         MessageId.random(),
-                        Date(),
+                        Instant.now(),
                         groupModelData.groupIdentity,
                     ) {
                         GroupSetupMessage().apply {
@@ -118,7 +119,7 @@ suspend fun runCommonGroupReceiveSteps(
                     sender,
                     OutgoingCspGroupMessageCreator(
                         MessageId.random(),
-                        Date(),
+                        Instant.now(),
                         groupModelData.groupIdentity,
                     ) {
                         GroupLeaveMessage()
@@ -142,7 +143,7 @@ suspend fun runCommonGroupReceiveSteps(
                     sender,
                     OutgoingCspGroupMessageCreator(
                         MessageId.random(),
-                        Date(),
+                        Instant.now(),
                         groupModelData.groupIdentity,
                     ) {
                         GroupSetupMessage().apply {
@@ -193,11 +194,10 @@ suspend fun runGroupSyncRequestSteps(
     val syncFactory = serviceManager.databaseService.outgoingGroupSyncRequestLogModelFactory
     val syncModel = syncFactory[groupIdentity]
 
-    val lastSyncedTimestamp = syncModel?.lastRequest?.time ?: 0
-    val now = Date()
-    val oneHourAgoTimestamp = now.time - DateUtils.HOUR_IN_MILLIS
+    val lastSyncedTimestamp = syncModel?.lastRequest ?: Instant.EPOCH
+    val now = Instant.now()
 
-    if (lastSyncedTimestamp > oneHourAgoTimestamp) {
+    if (lastSyncedTimestamp > now - 1.hours) {
         logger.info("Group has already been synced at {}", lastSyncedTimestamp)
         return
     }
@@ -208,7 +208,7 @@ suspend fun runGroupSyncRequestSteps(
             groupCreator,
             OutgoingCspGroupMessageCreator(
                 MessageId.random(),
-                Date(),
+                Instant.now(),
                 groupIdentity,
             ) {
                 GroupSyncRequestMessage()

@@ -1,7 +1,6 @@
 package ch.threema.domain.models;
 
 import ch.threema.base.ThreemaException;
-import ch.threema.base.utils.Utils;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
 
 import java.io.Serializable;
@@ -10,6 +9,8 @@ import java.nio.ByteOrder;
 import java.security.SecureRandom;
 import java.util.Arrays;
 
+import static ch.threema.common.ByteArrayExtensionsKt.toHexString;
+import static ch.threema.common.JavaCompat.hexToByteArray;
 import static ch.threema.common.SecureRandomExtensionsKt.generateRandomBytes;
 import static ch.threema.common.SecureRandomExtensionsKt.secureRandom;
 
@@ -42,7 +43,7 @@ public class GroupId implements Serializable {
     }
 
     public GroupId(String groupId) {
-        this.value = Utils.hexStringToByteArray(groupId);
+        this.value = hexToByteArray(groupId);
     }
 
     public byte[] getGroupId() {
@@ -51,7 +52,7 @@ public class GroupId implements Serializable {
 
     @Override
     public String toString() {
-        return Utils.byteArrayToHexString(this.value);
+        return toHexString(this.value);
     }
 
     public long toLong() {

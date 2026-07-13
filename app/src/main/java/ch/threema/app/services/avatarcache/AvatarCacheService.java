@@ -9,7 +9,7 @@ import androidx.annotation.AnyThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.app.glide.AvatarOptions;
-import ch.threema.data.models.GroupIdentity;
+import ch.threema.data.datatypes.GroupIdentity;
 
 /**
  * The methods of this interface must use a caching mechanism to speed up loading times.

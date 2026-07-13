@@ -8,8 +8,8 @@ import ch.threema.app.BuildConfig
 import ch.threema.app.messagereceiver.ContactMessageReceiver
 import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.services.MessageService
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.app.utils.SingleLiveEvent
+import ch.threema.common.DispatcherProvider
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.repositories.ContactModelRepository
 import kotlinx.coroutines.Job

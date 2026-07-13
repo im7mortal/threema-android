@@ -9,7 +9,7 @@ import ch.threema.protobuf.common.CspFeatureMaskFlag;
 public class ThreemaFeature {
     public final static long AUDIO = CspFeatureMaskFlag.VOICE_MESSAGE_SUPPORT_VALUE;
     public final static long GROUP_CHAT = CspFeatureMaskFlag.GROUP_SUPPORT_VALUE;
-    public final static long BALLOT = CspFeatureMaskFlag.POLL_SUPPORT_VALUE;
+    public final static long POLL = CspFeatureMaskFlag.POLL_SUPPORT_VALUE;
     public final static long FILE = CspFeatureMaskFlag.FILE_MESSAGE_SUPPORT_VALUE;
     public final static long VOIP = CspFeatureMaskFlag.O2O_AUDIO_CALL_SUPPORT_VALUE;
     public final static long VIDEOCALLS = CspFeatureMaskFlag.O2O_VIDEO_CALL_SUPPORT_VALUE;
@@ -20,7 +20,7 @@ public class ThreemaFeature {
     public final static long EMOJI_REACTIONS = CspFeatureMaskFlag.REACTION_SUPPORT_VALUE;
 
     @Retention(RetentionPolicy.SOURCE)
-    @LongDef({AUDIO, GROUP_CHAT, BALLOT, FILE, VOIP, VIDEOCALLS, FORWARD_SECURITY, GROUP_CALLS, EDIT_MESSAGES, DELETE_MESSAGES, EMOJI_REACTIONS})
+    @LongDef({AUDIO, GROUP_CHAT, POLL, FILE, VOIP, VIDEOCALLS, FORWARD_SECURITY, GROUP_CALLS, EDIT_MESSAGES, DELETE_MESSAGES, EMOJI_REACTIONS})
     public @interface Feature {
     }
 
@@ -38,8 +38,8 @@ public class ThreemaFeature {
             return this.set(ThreemaFeature.GROUP_CHAT, enable);
         }
 
-        public Builder ballot(boolean enable) {
-            return this.set(ThreemaFeature.BALLOT, enable);
+        public Builder poll(boolean enable) {
+            return this.set(ThreemaFeature.POLL, enable);
         }
 
         public Builder file(boolean enable) {
@@ -108,8 +108,8 @@ public class ThreemaFeature {
         return hasFeature(featureMask, GROUP_CHAT);
     }
 
-    public static boolean canBallot(long featureMask) {
-        return hasFeature(featureMask, BALLOT);
+    public static boolean canPoll(long featureMask) {
+        return hasFeature(featureMask, POLL);
     }
 
     public static boolean canFile(long featureMask) {
@@ -156,7 +156,7 @@ public class ThreemaFeature {
         if ((featureMask & FILE) > 0) {
             return 3;
         }
-        if ((featureMask & BALLOT) > 0) {
+        if ((featureMask & POLL) > 0) {
             return 2;
         }
         if ((featureMask & GROUP_CHAT) > 0) {

@@ -15,9 +15,8 @@ import ch.threema.domain.taskmanager.QueueSendCompleteListener
 import ch.threema.domain.taskmanager.TaskManager
 import java.io.IOException
 import java.net.SocketException
+import java.net.UnknownHostException
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
 import kotlin.math.min
 import kotlin.math.pow
 import kotlinx.coroutines.CancellationException
@@ -25,13 +24,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 private val logger = ConnectionLoggingUtil.getConnectionLogger("BaseServerConnection")
 
 /**
- * The [BaseServerConnection] is an (abstract) implementation of the [ServerConnection] that utilises
+ * The [BaseServerConnection] is an (abstract) implementation of the [ServerConnection] that utilizes
  * different layers for handling different aspects of the connection:
  *  - Layer 1: Decodes the bytes received from the server into a container format
  *  - Layer 2: Demultiplexes the container into messages from different protocols (e.g. CSP, D2M)
@@ -40,22 +41,19 @@ private val logger = ConnectionLoggingUtil.getConnectionLogger("BaseServerConnec
  *  - Layer 5: Dispatches the messages to the task manager for further processing
  *
  * Messages received in the layer 5 ([ch.threema.domain.protocol.connection.layer.EndToEndLayer]) are
- * passed on to the [ch.threema.domain.taskmanager.TaskManager] by the EndToEnd layer for further
- * processing.
+ * passed on to the [TaskManager] by the EndToEnd layer for further processing.
  */
 internal abstract class BaseServerConnection(
     private val dependencyProvider: ServerConnectionDependencyProvider,
     private val awaitAppReady: suspend () -> Unit,
 ) : ServerConnection, ServerConnectionDispatcher.ExceptionHandler {
-    private val connectionStateListeners = mutableSetOf<ConnectionStateListener>()
-
-    private val stateLock = ReentrantLock()
-
-    @Volatile
-    private var state: ConnectionState = ConnectionState.DISCONNECTED
+    private val connectionStateFlow = MutableStateFlow(ConnectionState.DISCONNECTED)
 
     override val connectionState: ConnectionState
-        get() = stateLock.withLock { state }
+        get() = connectionStateFlow.value
+
+    override fun watchConnectionState(): StateFlow<ConnectionState> =
+        connectionStateFlow
 
     private val running = AtomicBoolean(false)
     override val isRunning: Boolean
@@ -96,18 +94,6 @@ internal abstract class BaseServerConnection(
         if (this::dependencies.isInitialized) {
             controller.ioProcessingStoppedSignal.completeExceptionally(throwable)
             controller.dispatcher.close()
-        }
-    }
-
-    override fun addConnectionStateListener(listener: ConnectionStateListener) {
-        synchronized(connectionStateListeners) {
-            connectionStateListeners.add(listener)
-        }
-    }
-
-    override fun removeConnectionStateListener(listener: ConnectionStateListener) {
-        synchronized(connectionStateListeners) {
-            connectionStateListeners.remove(listener)
         }
     }
 
@@ -177,7 +163,7 @@ internal abstract class BaseServerConnection(
                         controller.cspAuthenticated.await()
                         onCspAuthenticated()
                         reconnectAttemptsSinceLastLogin = 0
-                        setConnectionState(ConnectionState.LOGGEDIN)
+                        setConnectionState(ConnectionState.LOGGED_IN)
                     }
                     // Monitor close events of the socket
                     monitorCloseEventJob = launch {
@@ -202,11 +188,7 @@ internal abstract class BaseServerConnection(
 
                     ioJob?.join()
                 } catch (e: Exception) {
-                    if (e is IOException || e.cause is IOException) {
-                        logger.warn("Connection exception", e)
-                    } else {
-                        logger.error("Unexpected connection exception", e)
-                    }
+                    logConnectionException(e)
                     onException(e)
                 }
 
@@ -226,6 +208,17 @@ internal abstract class BaseServerConnection(
             }
             logger.info("Connection ended")
             running.set(false)
+        }
+    }
+
+    private fun logConnectionException(e: Exception) {
+        when (val e = (e.cause as? IOException) ?: e) {
+            is UnknownHostException -> {
+                // UnknownHostException is common and expected, so we can omit the stacktrace and only log the message, which contains the host name
+                logger.warn("Connection exception: {}", e.message)
+            }
+            is IOException -> logger.warn("Connection exception", e)
+            else -> logger.error("Unexpected connection exception", e)
         }
     }
 
@@ -275,27 +268,7 @@ internal abstract class BaseServerConnection(
     protected open fun onSocketClosed(reason: ServerSocketCloseReason) {}
 
     private fun setConnectionState(state: ConnectionState) {
-        stateLock.withLock {
-            val previousState = this.state
-            this.state = state
-
-            synchronized(connectionStateListeners) {
-                if (previousState != this.state) {
-                    logger.debug(
-                        "Notify connection state listeners. state={}, address={}",
-                        state,
-                        socket.address,
-                    )
-                    connectionStateListeners.forEach { listener ->
-                        try {
-                            listener.updateConnectionState(state)
-                        } catch (e: Exception) {
-                            logger.warn("Exception while invoking connection state listener", e)
-                        }
-                    }
-                }
-            }
-        }
+        connectionStateFlow.value = state
     }
 
     private fun setup() {

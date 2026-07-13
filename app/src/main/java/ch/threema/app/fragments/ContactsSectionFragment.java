@@ -3,8 +3,11 @@ package ch.threema.app.fragments;
 import static android.view.MenuItem.SHOW_AS_ACTION_ALWAYS;
 import static android.view.MenuItem.SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW;
 import static android.view.MenuItem.SHOW_AS_ACTION_NEVER;
+import static ch.threema.android.ToastKt.showToast;
 import static ch.threema.app.asynctasks.ContactSyncPolicy.EXCLUDE;
 import static ch.threema.app.asynctasks.ContactSyncPolicy.INCLUDE;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
+import static kotlinx.coroutines.flow.FlowKt.drop;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
@@ -14,10 +17,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
-import android.graphics.Bitmap;
-import android.graphics.drawable.Drawable;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -37,9 +36,11 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.UiThread;
 import androidx.appcompat.widget.SearchView;
 import androidx.core.util.Pair;
 import androidx.core.view.MenuItemCompat;
+import androidx.lifecycle.Lifecycle;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
@@ -52,16 +53,18 @@ import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
 import java.lang.ref.WeakReference;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import ch.threema.android.FlowJavaCompat;
+import ch.threema.android.LifecycleAwareAsyncTask;
+import ch.threema.android.ToastDuration;
 import ch.threema.app.AppConstants;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.activities.AddContactActivity;
 import ch.threema.app.activities.ComposeMessageActivity;
 import ch.threema.app.contactdetails.ContactDetailActivity;
@@ -79,10 +82,12 @@ import ch.threema.app.dialogs.SelectorDialog;
 import ch.threema.app.dialogs.TextWithCheckboxDialog;
 import ch.threema.app.dialogs.ThreemaDialogFragment;
 import ch.threema.app.emojis.EmojiTextView;
-import ch.threema.app.listeners.ContactListener;
+import ch.threema.app.eventbus.GlobalEventBuses;
+import ch.threema.app.eventbus.GlobalEventFlows;
+import ch.threema.app.eventbus.events.ContactEvent;
+import ch.threema.app.eventbus.events.ConversationEvent;
+import ch.threema.app.home.HomeActivity;
 import ch.threema.app.listeners.ContactSettingsListener;
-import ch.threema.app.listeners.ConversationListener;
-import ch.threema.app.listeners.PreferenceListener;
 import ch.threema.app.listeners.SynchronizeContactsListener;
 import ch.threema.app.managers.ListenerManager;
 import ch.threema.app.managers.ServiceManager;
@@ -94,8 +99,6 @@ import ch.threema.app.services.ContactService;
 import ch.threema.app.services.LockAppService;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.services.SynchronizeContactsService;
-import ch.threema.app.services.UserService;
-import ch.threema.app.ui.BottomSheetItem;
 import ch.threema.app.ui.EmptyView;
 import ch.threema.app.ui.InsetSides;
 import ch.threema.app.ui.LockingSwipeRefreshLayout;
@@ -103,15 +106,14 @@ import ch.threema.app.ui.ResumePauseHandler;
 import ch.threema.app.ui.SelectorDialogItem;
 import ch.threema.app.ui.SpacingValues;
 import ch.threema.app.ui.ViewExtensionsKt;
-import ch.threema.app.utils.BitmapUtil;
+import ch.threema.app.usecases.GetBottomSheetAppShareTargetsUseCase;
+import ch.threema.app.usecases.GetInviteFriendIntentUseCase;
+import ch.threema.app.usecases.ShareIdentityUseCase;
+import ch.threema.app.usecases.conversations.EmptyOrDeleteConversationsUseCase;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.EditTextUtil;
 import ch.threema.app.utils.IntentDataUtil;
-import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.NameUtil;
-import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.ShareUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.utils.executor.BackgroundExecutor;
 import ch.threema.app.workers.ContactUpdateWorker;
 import ch.threema.app.workers.WorkSyncWorker;
@@ -119,13 +121,14 @@ import ch.threema.base.ThreemaException;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
+import ch.threema.data.datatypes.ContactConversationId;
 import ch.threema.data.datatypes.ContactNameFormat;
 import ch.threema.domain.models.Contact;
 import ch.threema.domain.models.VerificationLevel;
 import ch.threema.domain.taskmanager.TriggerSource;
-import ch.threema.localcrypto.exceptions.MasterKeyLockedException;
 import ch.threema.storage.factories.ContactModelFactory;
 import ch.threema.storage.models.ContactModel;
+import kotlin.Lazy;
 
 /**
  * This is one of the tabs in the home screen. It shows the contact list.
@@ -154,7 +157,7 @@ public class ContactsSectionFragment
     private static final String RUN_ON_ACTIVE_REFRESH_LIST = "refresh_list";
     private static final String RUN_ON_ACTIVE_REFRESH_PULL_TO_REFRESH = "pull_to_refresh";
 
-    private static final String BUNDLE_FILTER_QUERY_C = "BundleFilterC";
+    private static final String BUNDLE_SEARCH_QUERY = "search-query";
     private static final String BUNDLE_SELECTED_TAB = "tabpos";
 
     private static final int TAB_ALL_CONTACTS = 0;
@@ -187,10 +190,16 @@ public class ContactsSectionFragment
     @Nullable
     private SynchronizedSettingsService synchronizedSettingsService;
     private LockAppService lockAppService;
+    @NonNull
+    private final GlobalEventBuses globalEventBuses = KoinJavaComponent.get(GlobalEventBuses.class);
+    @NonNull
+    private final GlobalEventFlows globalEventFlows = KoinJavaComponent.get(GlobalEventBuses.class);
+    @NonNull
+    private final Lazy<ShareIdentityUseCase> shareIdentityUseCase = KoinJavaComponent.inject(ShareIdentityUseCase.class);
 
     private final BackgroundExecutor backgroundExecutor = new BackgroundExecutor();
 
-    private String filterQuery;
+    private String searchQuery;
     @SuppressLint("StaticFieldLeak")
     private final TabLayout.OnTabSelectedListener onTabSelectedListener = new TabLayout.OnTabSelectedListener() {
         @Override
@@ -210,12 +219,12 @@ public class ContactsSectionFragment
 
                     if (contactModels != null && contactListAdapter != null) {
                         contactListAdapter.updateData(contactModels);
-                        if (!TestUtil.isEmptyOrNull(filterQuery)) {
-                            contactListAdapter.getFilter().filter(filterQuery);
+                        if (!isNullOrEmpty(searchQuery)) {
+                            contactListAdapter.getFilter().filter(searchQuery);
                         }
                     }
                 }
-            }.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR);
+            }.execute(ContactsSectionFragment.this, null);
         }
 
         @Override
@@ -359,59 +368,12 @@ public class ContactsSectionFragment
         }
     };
 
-    private final ContactListener contactListener = new ContactListener() {
-        @Override
-        public void onModified(final @NonNull String identity) {
-            if (resumePauseHandler != null) {
-                resumePauseHandler.runOnActive(RUN_ON_ACTIVE_UPDATE_LIST, runIfActiveUpdateList);
-            }
-        }
-
-        @Override
-        public void onAvatarChanged(final @NonNull String identity) {
-            this.onModified(identity);
-        }
-
-        @Override
-        public void onNew(final @NonNull String identity) {
-            this.onModified(identity);
-        }
-
-        @Override
-        public void onRemoved(@NonNull String identity) {
-            RuntimeUtil.runOnUiThread(() -> {
-                if (searchView != null && searchMenuItem != null && searchMenuItem.isActionViewExpanded()) {
-                    filterQuery = null;
-                    searchMenuItem.collapseActionView();
-                }
-            });
-
-            if (resumePauseHandler != null) {
-                resumePauseHandler.runOnActive(RUN_ON_ACTIVE_UPDATE_LIST, runIfActiveUpdateList);
-            }
-        }
-    };
-
-    private final PreferenceListener preferenceListener = new PreferenceListener() {
-        @Override
-        public void onChanged(String key, Object value) {
-            if (isAdded() && !isDetached()) {
-                if (synchronizedSettingsService != null && synchronizedSettingsService.getContactSyncPolicySetting().preferenceKey.equals(key)) {
-                    if (resumePauseHandler != null) {
-                        resumePauseHandler.runOnActive(RUN_ON_ACTIVE_REFRESH_PULL_TO_REFRESH, runIfActiveUpdatePullToRefresh);
-                    }
-                    updateEmptyView();
-                }
-            }
-        }
-    };
-
     /**
      * An AsyncTask that fetches contacts and add counts in the background.
      * <p>
      * (and maybe other code) to separate files, to simplify this 1500+-LOC class.
      */
-    private static class FetchContactsTask extends AsyncTask<Void, Void, Pair<List<ContactModel>, FetchResults>> {
+    private static class FetchContactsTask extends LifecycleAwareAsyncTask<Void, Pair<List<ContactModel>, FetchResults>> {
         ContactService contactService;
         boolean isOnLaunch, forceWork;
         int selectedTab;
@@ -424,7 +386,7 @@ public class ContactsSectionFragment
         }
 
         @Override
-        protected Pair<List<ContactModel>, FetchResults> doInBackground(Void... voids) {
+        protected Pair<List<ContactModel>, FetchResults> doInBackground(Void params) {
             List<ContactModel> allContacts = null;
 
             // Count new contacts
@@ -448,14 +410,14 @@ public class ContactsSectionFragment
                 long delta24h = 1000L * 3600 * 24;
                 long delta30d = delta24h * 30;
                 for (ContactModel contact : allContacts) {
-                    final Date dateCreated = contact.getDateCreated();
+                    final Instant dateCreated = contact.getDateCreated();
                     if (dateCreated == null) {
                         continue;
                     }
-                    if (now - dateCreated.getTime() < delta24h) {
+                    if (now - dateCreated.toEpochMilli() < delta24h) {
                         results.last24h += 1;
                     }
-                    if (now - dateCreated.getTime() < delta30d) {
+                    if (now - dateCreated.toEpochMilli() < delta30d) {
                         results.last30d += 1;
                     }
                 }
@@ -501,6 +463,8 @@ public class ContactsSectionFragment
         this.resumePauseHandler = ResumePauseHandler.getByActivity(this, this.getActivity());
 
         this.resumePauseHandler.runOnActive(RUN_ON_ACTIVE_REFRESH_PULL_TO_REFRESH, runIfActiveUpdatePullToRefresh);
+
+        FlowJavaCompat.collect(this, Lifecycle.State.CREATED, globalEventFlows.getContacts(), this::handleContactEvent);
     }
 
     @Override
@@ -570,15 +534,15 @@ public class ContactsSectionFragment
                 this.searchView = (SearchView) searchMenuItem.getActionView();
 
                 if (this.searchView != null) {
-                    if (!TestUtil.isEmptyOrNull(filterQuery)) {
-                        // restore filter
+                    if (!isNullOrEmpty(searchQuery)) {
+                        // restore search
                         MenuItemCompat.expandActionView(searchMenuItem);
                         this.searchView.post(() -> {
-                            searchView.setQuery(filterQuery, true);
+                            searchView.setQuery(searchQuery, true);
                             searchView.clearFocus();
                         });
                     }
-                    this.searchView.setQueryHint(getString(R.string.hint_filter_list));
+                    this.searchView.setQueryHint(getString(R.string.hint_search_list));
                     this.searchView.setOnQueryTextListener(queryTextListener);
                 }
             }
@@ -588,10 +552,10 @@ public class ContactsSectionFragment
 
     final SearchView.OnQueryTextListener queryTextListener = new SearchView.OnQueryTextListener() {
         @Override
-        public boolean onQueryTextChange(String query) {
+        public boolean onQueryTextChange(String searchQuery) {
             if (contactListAdapter != null) {
-                filterQuery = query;
-                contactListAdapter.getFilter().filter(query);
+                ContactsSectionFragment.this.searchQuery = searchQuery;
+                contactListAdapter.getFilter().filter(searchQuery);
             }
             return true;
         }
@@ -665,7 +629,7 @@ public class ContactsSectionFragment
                     }
                 }
             }
-        }.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR);
+        }.execute(this, null);
     }
 
     @SuppressLint("StaticFieldLeak")
@@ -689,19 +653,22 @@ public class ContactsSectionFragment
                         contactListAdapter.updateData(contactModels);
                     }
                 }
-            }.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR);
+            }.execute(this, null);
         }
     }
 
     private void updateContactsCounter(int numContacts, @Nullable FetchResults counts) {
-        if (getActivity() != null && listView != null && isAdded()) {
+        var activity = getActivity();
+        if (activity != null && listView != null && isAdded()) {
             if (contactsCounter != null) {
-                if (counts != null) {
-                    ListenerManager.contactCountListener.handle(listener -> listener.onNewContactsCountUpdated(counts.last24h));
+                if (counts != null && preferenceService != null) {
+                    ((HomeActivity) activity).setContactsBadgeVisible(preferenceService.getShowUnreadBadge() && counts.last24h > 0);
                 }
                 if (numContacts > 1) {
                     final StringBuilder builder = new StringBuilder();
-                    builder.append(ConfigUtils.getSafeQuantityString(getContext(), R.plurals.contacts_counter_label, numContacts, numContacts));
+                    builder.append(
+                        getResources().getQuantityString(R.plurals.contacts_counter_label, numContacts, numContacts)
+                    );
                     if (counts != null) {
                         builder.append(" (+").append(counts.last30d).append(" / ").append(getString(R.string.thirty_days_abbrev)).append(")");
                     }
@@ -775,18 +742,30 @@ public class ContactsSectionFragment
     }
 
     protected void instantiate() {
-        this.serviceManager = ThreemaApplication.getServiceManager();
+        this.serviceManager = ServiceManager.get();
 
         if (this.serviceManager != null) {
-            try {
-                this.contactService = this.serviceManager.getContactService();
-                this.preferenceService = this.serviceManager.getPreferenceService();
-                this.synchronizedSettingsService = this.serviceManager.getSynchronizedSettingsService();
-                this.synchronizeContactsService = this.serviceManager.getSynchronizeContactsService();
-                this.lockAppService = this.serviceManager.getLockAppService();
-            } catch (MasterKeyLockedException e) {
-                logger.debug("Master Key locked!");
+            this.contactService = this.serviceManager.getContactService();
+            this.preferenceService = this.serviceManager.getPreferenceService();
+            this.synchronizedSettingsService = this.serviceManager.getSynchronizedSettingsService();
+            this.synchronizeContactsService = this.serviceManager.getSynchronizeContactsService();
+            this.lockAppService = this.serviceManager.getLockAppService();
+
+            FlowJavaCompat.collect(
+                this,
+                Lifecycle.State.STARTED,
+                drop(preferenceService.watchIsContactSyncEnabled(), 1),
+                value -> onContactSyncChanged()
+            );
+        }
+    }
+
+    private void onContactSyncChanged() {
+        if (isAdded() && !isDetached()) {
+            if (resumePauseHandler != null) {
+                resumePauseHandler.runOnActive(RUN_ON_ACTIVE_REFRESH_PULL_TO_REFRESH, runIfActiveUpdatePullToRefresh);
             }
+            updateEmptyView();
         }
     }
 
@@ -859,7 +838,7 @@ public class ContactsSectionFragment
                     } else if (id == R.id.menu_contacts_share) {
                         HashSet<ContactModel> contactModels = contactListAdapter.getCheckedItems();
                         if (contactModels.size() == 1) {
-                            ShareUtil.shareContact(getActivity(), contactModels.iterator().next());
+                            shareContact(contactModels.iterator().next());
                         }
                         return true;
                     }
@@ -919,6 +898,14 @@ public class ContactsSectionFragment
             );
         }
         return fragmentView;
+    }
+
+    private void shareContact(ContactModel contact) {
+        var name = NameUtil.getContactDisplayName(contact, preferenceService.getContactNameFormat());
+        var result = shareIdentityUseCase.getValue().call(contact.getIdentity(), name);
+        if (result instanceof ShareIdentityUseCase.Result.Error) {
+            showToast(this, R.string.no_activity_for_mime_type, ToastDuration.LONG);
+        }
     }
 
     @Override
@@ -1010,8 +997,8 @@ public class ContactsSectionFragment
         }
 
         if (savedInstanceState != null) {
-            if (TestUtil.isEmptyOrNull(this.filterQuery)) {
-                this.filterQuery = savedInstanceState.getString(BUNDLE_FILTER_QUERY_C);
+            if (isNullOrEmpty(this.searchQuery)) {
+                this.searchQuery = savedInstanceState.getString(BUNDLE_SEARCH_QUERY);
             }
         }
 
@@ -1072,10 +1059,8 @@ public class ContactsSectionFragment
 
         new Handler(Looper.getMainLooper()).postDelayed(this::stopSwipeRefresh, 2000);
 
-        try {
-            ContactUpdateWorker.performOneTimeSync(requireContext());
-        } catch (IllegalStateException ignored) {
-        }
+        ContactUpdateWorker.Scheduler contactUpdateWorkerScheduler = KoinJavaComponent.get(ContactUpdateWorker.Scheduler.class);
+        contactUpdateWorkerScheduler.performOneTimeSync();
 
         if (this.synchronizedSettingsService.isSyncContacts() && ConfigUtils.requestContactPermissions(getActivity(), this, PERMISSION_REQUEST_REFRESH_CONTACTS)) {
             if (this.synchronizeContactsService != null) {
@@ -1087,8 +1072,8 @@ public class ContactsSectionFragment
 
         if (ConfigUtils.isWorkBuild()) {
             try {
-                WorkSyncWorker.Companion.performOneTimeWorkSync(
-                    ThreemaApplication.getAppContext(),
+                WorkSyncWorker.Scheduler workSyncWorkerScheduler = KoinJavaComponent.get(WorkSyncWorker.Scheduler.class);
+                workSyncWorkerScheduler.performOneTimeWorkSync(
                     true,
                     "WorkContactSync"
                 );
@@ -1103,11 +1088,12 @@ public class ContactsSectionFragment
         if (searchView != null && !searchView.isIconified()) {
             EditTextUtil.hideSoftKeyboard(searchView);
         }
-
-        Intent intent = new Intent(getActivity(), ComposeMessageActivity.class);
-        intent.putExtra(AppConstants.INTENT_DATA_CONTACT, identity);
-        intent.putExtra(AppConstants.INTENT_DATA_EDITFOCUS, Boolean.TRUE);
-
+        Intent intent = ComposeMessageActivity.createIntent(
+            getActivity(),
+            new ContactConversationId(identity),
+            null,
+            true
+        );
         getActivity().startActivityForResult(intent, ThreemaActivity.ACTIVITY_ID_COMPOSE_MESSAGE);
     }
 
@@ -1122,8 +1108,8 @@ public class ContactsSectionFragment
     public void onSaveInstanceState(Bundle outState) {
         logger.info("saveInstance");
 
-        if (!TestUtil.isEmptyOrNull(filterQuery)) {
-            outState.putString(BUNDLE_FILTER_QUERY_C, filterQuery);
+        if (!isNullOrEmpty(searchQuery)) {
+            outState.putString(BUNDLE_SEARCH_QUERY, searchQuery);
         }
         if (ConfigUtils.isWorkBuild() && workTabLayout != null) {
             outState.putInt(BUNDLE_SELECTED_TAB, workTabLayout.getSelectedTabPosition());
@@ -1209,8 +1195,8 @@ public class ContactsSectionFragment
         if (!ConfigUtils.isOnPremBuild()) {
             if (
                 !contactModel.isLinkedToAndroidContact() &&
-                    TestUtil.isEmptyOrNull(contactModel.getFirstName()) &&
-                    TestUtil.isEmptyOrNull(contactModel.getLastName()) &&
+                    isNullOrEmpty(contactModel.getFirstName()) &&
+                    isNullOrEmpty(contactModel.getLastName()) &&
                     contactModel.verificationLevel == VerificationLevel.UNVERIFIED
             ) {
                 MessageReceiver messageReceiver = contactService.createReceiver(contactModel);
@@ -1231,7 +1217,7 @@ public class ContactsSectionFragment
         items.add(new SelectorDialogItem(getString(R.string.delete_contact_action), R.drawable.ic_delete_outline));
         tags.add(SELECTOR_TAG_DELETE);
 
-        SelectorDialog selectorDialog = SelectorDialog.newInstance(getString(R.string.last_added_contact), items, tags, getString(R.string.cancel));
+        SelectorDialog selectorDialog = SelectorDialog.newInstance(getString(R.string.last_added_contact), items, tags, getString(R.string.cancel), null);
         selectorDialog.setData(contactModel);
         selectorDialog.setTargetFragment(this, 0);
         selectorDialog.show(getParentFragmentManager(), DIALOG_TAG_RECENTLY_ADDED_SELECTOR);
@@ -1249,22 +1235,31 @@ public class ContactsSectionFragment
     }
 
     private void setupListeners() {
-        logger.debug("setup listeners");
-
-        //set listeners
-        ListenerManager.contactListeners.add(this.contactListener);
         ListenerManager.contactSettingsListeners.add(this.contactSettingsListener);
         ListenerManager.synchronizeContactsListeners.add(this.synchronizeContactsListener);
-        ListenerManager.preferenceListeners.add(this.preferenceListener);
     }
 
     private void removeListeners() {
-        logger.debug("remove listeners");
-
-        ListenerManager.contactListeners.remove(this.contactListener);
         ListenerManager.contactSettingsListeners.remove(this.contactSettingsListener);
         ListenerManager.synchronizeContactsListeners.remove(this.synchronizeContactsListener);
-        ListenerManager.preferenceListeners.remove(this.preferenceListener);
+    }
+
+    @UiThread
+    private void handleContactEvent(@NonNull ContactEvent contactEvent) {
+        if (
+            contactEvent instanceof ContactEvent.NewContact ||
+                contactEvent instanceof ContactEvent.ContactUpdated ||
+                contactEvent instanceof ContactEvent.ContactProfilePictureUpdated
+        ) {
+            resumePauseHandler.runOnActive(RUN_ON_ACTIVE_UPDATE_LIST, runIfActiveUpdateList);
+        } else if (contactEvent instanceof ContactEvent.ContactRemoved) {
+            if (searchView != null && searchMenuItem != null && searchMenuItem.isActionViewExpanded()) {
+                searchQuery = null;
+                searchMenuItem.collapseActionView();
+            }
+
+            resumePauseHandler.runOnActive(RUN_ON_ACTIVE_UPDATE_LIST, runIfActiveUpdateList);
+        }
     }
 
     private boolean showExcludeFromContactSync(Set<ContactModel> contacts) {
@@ -1281,11 +1276,18 @@ public class ContactsSectionFragment
         return false;
     }
 
-    @SuppressLint("StringFormatInvalid")
     private void deleteContacts(@NonNull Set<ContactModel> contacts) {
         int contactsSelectedToDelete = contacts.size();
-        final String deleteContactTitle = getString(contactsSelectedToDelete > 1 ? R.string.delete_multiple_contact_action : R.string.delete_contact_action);
-        final String message = String.format(ConfigUtils.getSafeQuantityString(ThreemaApplication.getAppContext(), R.plurals.really_delete_contacts_message, contactsSelectedToDelete, contactsSelectedToDelete), contactListAdapter.getCheckedItemCount());
+        final String deleteContactTitle = getString(
+            contactsSelectedToDelete > 1
+                ? R.string.delete_multiple_contact_action
+                : R.string.delete_contact_action
+        );
+        final String message = getResources().getQuantityString(
+            R.plurals.really_delete_contacts_message,
+            contactsSelectedToDelete,
+            contactsSelectedToDelete
+        );
 
         ThreemaDialogFragment dialog;
         if (showExcludeFromContactSync(contacts)) {
@@ -1327,7 +1329,7 @@ public class ContactsSectionFragment
     private DialogMarkContactAsDeletedBackgroundTask getDialogDeleteContactBackgroundTask(
         @NonNull Set<String> identities,
         @NonNull ContactSyncPolicy syncPolicy
-    ) throws ThreemaException {
+    ) {
         DeleteContactServices deleteServices = new DeleteContactServices(
             serviceManager.getUserService(),
             contactService,
@@ -1338,7 +1340,7 @@ public class ContactsSectionFragment
             serviceManager.getWallpaperService(),
             serviceManager.getFileService(),
             serviceManager.getExcludedSyncIdentitiesService(),
-            serviceManager.getDHSessionStore(),
+            serviceManager.getDhSessionStore(),
             serviceManager.getNotificationService(),
             KoinJavaComponent.get(ContactModelFactory.class)
         );
@@ -1363,73 +1365,31 @@ public class ContactsSectionFragment
 
     @Override
     public void onSelected(String tag, String data) {
-        if (!TestUtil.isEmptyOrNull(tag)) {
+        if (!isNullOrEmpty(tag)) {
             sendInvite(tag);
         }
     }
 
     public void shareInvite() {
-        final PackageManager packageManager = getContext().getPackageManager();
-        if (packageManager == null) return;
-
-        Intent messageIntent = new Intent(Intent.ACTION_SEND);
-        messageIntent.setType(MimeUtil.MIME_TYPE_TEXT);
-        @SuppressLint({"WrongConstant", "InlinedApi"}) final List<ResolveInfo> messageApps = packageManager.queryIntentActivities(messageIntent, PackageManager.MATCH_ALL);
-
-        if (!messageApps.isEmpty()) {
-            ArrayList<BottomSheetItem> items = new ArrayList<>();
-
-            for (int i = 0; i < messageApps.size(); i++) {
-                ResolveInfo resolveInfo = messageApps.get(i);
-                if (resolveInfo != null) {
-                    CharSequence label = resolveInfo.loadLabel(packageManager);
-                    Drawable icon = resolveInfo.loadIcon(packageManager);
-
-                    if (label != null && icon != null) {
-                        Bitmap bitmap = BitmapUtil.getBitmapFromVectorDrawable(icon, null);
-                        if (bitmap != null) {
-                            items.add(new BottomSheetItem(bitmap, label.toString(), messageApps.get(i).activityInfo.packageName));
-                        }
-                    }
-                }
-            }
-
-            BottomSheetGridDialog dialog = BottomSheetGridDialog.newInstance(R.string.invite_via, items);
-            dialog.setTargetFragment(this, 0);
-            dialog.show(getParentFragmentManager(), DIALOG_TAG_SHARE_WITH);
+        GetBottomSheetAppShareTargetsUseCase useCase = KoinJavaComponent.get(GetBottomSheetAppShareTargetsUseCase.class);
+        var bottomSheetItems = useCase.call();
+        if (bottomSheetItems.isEmpty()) {
+            return;
         }
+        BottomSheetGridDialog dialog = BottomSheetGridDialog.newInstance(R.string.invite_via, new ArrayList<>(bottomSheetItems));
+        dialog.setTargetFragment(this, 0);
+        dialog.show(getParentFragmentManager(), DIALOG_TAG_SHARE_WITH);
     }
 
     private void sendInvite(String packageName) {
-        // is this an SMS app? if it holds the SEND_SMS permission, it most probably is.
-        boolean isShortMessage = ConfigUtils.checkManifestPermission(getContext(), packageName, "android.permission.SEND_SMS");
-
-        if (packageName.contains("twitter")) {
-            isShortMessage = true;
-        }
-
-        Intent intent = new Intent(Intent.ACTION_SEND);
-        intent.setType(MimeUtil.MIME_TYPE_TEXT);
-        intent.setPackage(packageName);
-
-        UserService userService = ThreemaApplication.getServiceManager().getUserService();
-
-        if (isShortMessage) {
-            /* short version */
-            String messageBody = String.format(getString(R.string.invite_sms_body), getString(R.string.app_name), userService.getIdentity());
-            intent.putExtra(Intent.EXTRA_TEXT, messageBody);
-        } else {
-            /* long version */
-            String messageBody = String.format(getString(R.string.invite_email_body), getString(R.string.app_name), userService.getIdentity());
-            intent.putExtra(Intent.EXTRA_SUBJECT, getResources().getString(R.string.invite_email_subject));
-            intent.putExtra(Intent.EXTRA_TEXT, messageBody);
-        }
+        GetInviteFriendIntentUseCase useCase = KoinJavaComponent.get(GetInviteFriendIntentUseCase.class);
 
         try {
+            var intent = useCase.call(packageName);
             startActivity(intent);
         } catch (Exception e) {
-            Toast.makeText(getContext(), R.string.no_activity_for_mime_type, Toast.LENGTH_LONG).show();
-            logger.error("Exception", e);
+            logger.error("Failed to send invite", e);
+            showToast(requireActivity(), R.string.no_activity_for_mime_type, ToastDuration.LONG);
         }
     }
 
@@ -1517,7 +1477,7 @@ public class ContactsSectionFragment
 
                             try {
                                 new EmptyOrDeleteConversationsAsyncTask(
-                                    EmptyOrDeleteConversationsAsyncTask.Mode.DELETE,
+                                    EmptyOrDeleteConversationsUseCase.Mode.DELETE,
                                     new MessageReceiver[]{contactService.createReceiver(contactModel)},
                                     serviceManager.getConversationService(),
                                     serviceManager.getDistributionListService(),
@@ -1527,14 +1487,14 @@ public class ContactsSectionFragment
                                     null,
                                     null,
                                     () -> {
-                                        ListenerManager.conversationListeners.handle(ConversationListener::onModifiedAll);
-                                        ListenerManager.contactListeners.handle(listener -> listener.onModified(spammerIdentity));
+                                        globalEventBuses.getConversations().emit(ConversationEvent.AllConversationsUpdated.INSTANCE);
+                                        globalEventBuses.getContacts().emit(ContactEvent.ContactUpdated.javaCreate(spammerIdentity));
                                     }).execute();
                             } catch (Exception e) {
                                 logger.error("Unable to empty chat", e);
                             }
                         } else {
-                            ListenerManager.contactListeners.handle(listener -> listener.onModified(spammerIdentity));
+                            globalEventBuses.getContacts().emit(ContactEvent.ContactUpdated.javaCreate(spammerIdentity));
                         }
                     },
                     message -> {

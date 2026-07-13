@@ -98,13 +98,13 @@ public class MentionSelectorAdapter extends AbstractRecyclerAdapter<ContactModel
             } else {
                 itemHolder.avatarView.setImageResource(R.drawable.ic_group);
             }
-            itemHolder.avatarView.setWorkBadgeVisible(false);
+            itemHolder.avatarView.setIdentityTypeBadgeVisible(false);
         } else {
             avatar = this.contactService.getAvatar(contactModel.getIdentity(), false);
 
             itemHolder.idView.setText(contactModel.getIdentity());
             itemHolder.avatarView.setImageBitmap(avatar);
-            itemHolder.avatarView.setWorkBadgeVisible(contactService.showBadge(contactModel));
+            itemHolder.avatarView.setIdentityTypeBadgeVisible(contactService.showIdentityTypeBadge(contactModel));
 
             if (BuildConfig.AVAILABILITY_STATUS_ENABLED) {
                 final @Nullable AvailabilityStatus.Set availabilityStatusSet = (contactModel.getAvailabilityStatus() instanceof AvailabilityStatus.Set)

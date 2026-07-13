@@ -18,9 +18,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ch.threema.app.R
-import ch.threema.app.compose.common.DynamicSpacerSize4
-import ch.threema.app.compose.common.ThemedText
+import ch.threema.app.appstartup.ForceDowngradeButton
 import ch.threema.app.compose.common.buttons.primary.ButtonPrimary
+import ch.threema.app.compose.common.spacer.DynamicSpacerSize4
+import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.preview.PreviewThreemaAll
 import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.dimens.GridUnit
@@ -35,10 +36,16 @@ fun ErrorState(
     onClickRetryRemoteSecrets: () -> Unit,
 ) {
     val errorCodes = errors.mapNotNull { error -> (error as? AppStartupError.Unexpected)?.code }
+    val downgradeError = errors.filterIsInstance<AppStartupError.DatabaseDowngrade>().firstOrNull()
 
     if (errorCodes.isNotEmpty()) {
         UnexpectedErrorState(
             errorCodes = errorCodes,
+            onClickExportLogs = onClickExportLogs,
+        )
+    } else if (downgradeError != null) {
+        DatabaseDowngradeErrorState(
+            oldVersion = downgradeError.oldVersion,
             onClickExportLogs = onClickExportLogs,
         )
     } else if (AppStartupError.BlockedByAdmin in errors) {
@@ -67,6 +74,26 @@ private fun UnexpectedErrorState(
             text = stringResource(R.string.prefs_exportlog),
             maxLines = 2,
         )
+    }
+}
+
+@Composable
+private fun DatabaseDowngradeErrorState(
+    oldVersion: Int,
+    onClickExportLogs: () -> Unit,
+) {
+    ErrorState(
+        message = stringResource(R.string.an_error_occurred),
+        details = "Existing database version $oldVersion is higher than expected",
+    ) {
+        ButtonPrimary(
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onClickExportLogs,
+            text = stringResource(R.string.prefs_exportlog),
+            maxLines = 2,
+        )
+
+        ForceDowngradeButton()
     }
 }
 

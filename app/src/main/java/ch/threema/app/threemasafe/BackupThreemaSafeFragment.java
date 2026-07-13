@@ -2,7 +2,6 @@ package ch.threema.app.threemasafe;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.text.format.Formatter;
 import android.view.LayoutInflater;
@@ -23,6 +22,7 @@ import com.google.android.material.floatingactionbutton.ExtendedFloatingActionBu
 
 import org.slf4j.Logger;
 
+import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.dialogs.GenericAlertDialog;
@@ -75,7 +75,7 @@ public class BackupThreemaSafeFragment extends Fragment implements GenericAlertD
         setRetainInstance(true);
 
         try {
-            ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+            ServiceManager serviceManager = ServiceManager.get();
             this.preferenceService = serviceManager.getPreferenceService();
             this.threemaSafeService = serviceManager.getThreemaSafeService();
         } catch (Exception e) {
@@ -256,14 +256,14 @@ public class BackupThreemaSafeFragment extends Fragment implements GenericAlertD
 
     @SuppressLint("StaticFieldLeak")
     private void disableSafe() {
-        new AsyncTask<Void, Void, String>() {
+        new LifecycleAwareAsyncTask<Void, String>() {
             @Override
             protected void onPreExecute() {
                 GenericProgressDialog.newInstance(R.string.safe_deleting, R.string.please_wait).show(getFragmentManager(), DIALOG_TAG_DELETING);
             }
 
             @Override
-            protected String doInBackground(Void... voids) {
+            protected String doInBackground(Void params) {
                 try {
                     threemaSafeService.deleteBackup();
                 } catch (ThreemaException e) {
@@ -285,7 +285,7 @@ public class BackupThreemaSafeFragment extends Fragment implements GenericAlertD
                 Toast.makeText(getActivity(), message, Toast.LENGTH_LONG).show();
                 updateUI();
             }
-        }.execute();
+        }.execute(this, null);
     }
 
     @Override

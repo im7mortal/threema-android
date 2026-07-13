@@ -56,10 +56,11 @@ import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.app.utils.RuntimeUtil;
 import ch.threema.app.utils.SnackbarUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.storage.models.ContactModel;
 
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
+import static ch.threema.common.JavaCompat.isNullOrBlank;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 abstract public class MemberChooseActivity extends ThreemaToolbarActivity implements SearchView.OnQueryTextListener, MemberListFragment.SelectionListener {
     private final static int FRAGMENT_USERS = 0;
@@ -257,7 +258,7 @@ abstract public class MemberChooseActivity extends ThreemaToolbarActivity implem
                 if (searchView != null) {
                     if (searchMenuItem != null) {
                         CharSequence query = searchView.getQuery();
-                        if (TestUtil.isBlankOrNull(query)) {
+                        if (isNullOrBlank(query)) {
                             invalidateOptionsMenu();
                             if (searchMenuItem.isActionViewExpanded()) {
                                 searchMenuItem.collapseActionView();
@@ -310,7 +311,7 @@ abstract public class MemberChooseActivity extends ThreemaToolbarActivity implem
                 }
                 return false;
             });
-            if (!TestUtil.isEmptyOrNull(queryText)) {
+            if (!isNullOrEmpty(queryText)) {
                 this.searchMenuItem.expandActionView();
                 this.searchView.setIconified(false);
                 this.searchView.setQuery(queryText, true);

@@ -1,10 +1,10 @@
 package ch.threema.app.tasks
 
-import ch.threema.common.now
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallAnswerData
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallAnswerMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.types.IdentityString
+import java.time.Instant
 
 class OutgoingVoipCallAnswerMessageTask(
     private val voipCallAnswerData: VoipCallAnswerData,
@@ -25,7 +25,7 @@ class OutgoingVoipCallAnswerMessageTask(
             messageModel = null,
             toIdentity = toIdentity,
             messageId = message.messageId,
-            createdAt = now(),
+            createdAt = Instant.now(),
             handle = handle,
         )
     }

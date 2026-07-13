@@ -23,8 +23,9 @@ import ch.threema.app.ui.AvatarView;
 import ch.threema.app.ui.CheckableConstraintLayout;
 import ch.threema.app.ui.listitemholder.AvatarListItemHolder;
 import ch.threema.app.utils.NameUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.storage.models.DistributionListModel;
+
+import static ch.threema.common.JavaCompat.isNullOrBlank;
 
 public class DistributionListAdapter extends FilterableListAdapter {
     private final Context context;
@@ -165,7 +166,7 @@ public class DistributionListAdapter extends FilterableListAdapter {
         protected void publishResults(CharSequence constraint, FilterResults results) {
             values = (List<DistributionListModel>) results.values;
             if (filterResultsListener != null) {
-                filterResultsListener.onResultsAvailable(TestUtil.isBlankOrNull(constraint) ? 0 : results.count);
+                filterResultsListener.onResultsAvailable(isNullOrBlank(constraint) ? 0 : results.count);
             }
             notifyDataSetChanged();
         }

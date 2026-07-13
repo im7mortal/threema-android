@@ -18,6 +18,7 @@ import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.emojis.EmojiItemView;
 import ch.threema.app.emojis.EmojiManager;
+import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.UserService;
 import ch.threema.app.ui.LongToast;
 import ch.threema.data.models.EmojiReactionData;
@@ -46,7 +47,7 @@ public class EmojiReactionsGridAdapter extends BaseAdapter {
             this.emojiItemPaddingSize = (emojiItemSize - 32) / 2;
         }
         this.emojis = new ArrayList<>();
-        UserService userService = ThreemaApplication.requireServiceManager().getUserService();
+        UserService userService = ServiceManager.require().getUserService();
 
         for (EmojiReactionData reaction : emojiReactions) {
             boolean isSender = reaction.senderIdentity.equals(userService.getIdentity());

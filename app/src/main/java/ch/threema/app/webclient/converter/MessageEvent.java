@@ -6,7 +6,7 @@ import androidx.annotation.StringDef;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.util.Date;
+import java.time.Instant;
 
 /**
  * Convert a message event.
@@ -36,10 +36,10 @@ public class MessageEvent extends Converter {
     public final static String TYPE_MODIFIED = "modified";
 
     @NonNull
-    public static MsgpackObjectBuilder convert(@EventType String type, @NonNull Date date) {
+    public static MsgpackObjectBuilder convert(@EventType String type, @NonNull Instant date) {
         final MsgpackObjectBuilder builder = new MsgpackObjectBuilder();
         builder.put(KEY_TYPE, type);
-        builder.put(KEY_DATE, date.getTime() / 1000);
+        builder.put(KEY_DATE, date.getEpochSecond());
         return builder;
     }
 }

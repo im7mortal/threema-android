@@ -8,6 +8,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import ch.threema.android.buildNotification
 import ch.threema.app.R
 import ch.threema.app.di.awaitAppFullyReadyWithTimeout
 import ch.threema.app.home.HomeActivity
@@ -41,28 +42,27 @@ class AutostartWorker(
         logger.info("Processing AutoStart - start")
 
         if (masterKeyManager.isLockedWithPassphrase()) {
-            val notificationCompat: NotificationCompat.Builder = NotificationCompat.Builder(
-                context,
-                NotificationChannels.NOTIFICATION_CHANNEL_NOTICE,
-            )
-                .setSmallIcon(R.drawable.ic_notification_small)
-                .setContentTitle(context.getString(R.string.master_key_locked))
-                .setContentText(context.getString(R.string.master_key_locked_notify_description))
-                .setTicker(context.getString(R.string.master_key_locked))
-                .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            val notificationIntent = IntentDataUtil.createActionIntentHideAfterUnlock(HomeActivity.createIntent(context))
-            notificationIntent.flags =
-                Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
-            val pendingIntent = PendingIntent.getActivity(
-                context,
-                0,
-                notificationIntent,
-                PendingIntent.FLAG_IMMUTABLE,
-            )
-            notificationCompat.setContentIntent(pendingIntent)
+            val notification = buildNotification(context, NotificationChannels.NOTIFICATION_CHANNEL_NOTICE) {
+                setSmallIcon(R.drawable.ic_notification_small)
+                setContentTitle(context.getString(R.string.master_key_locked))
+                setContentText(context.getString(R.string.master_key_locked_notify_description))
+                setTicker(context.getString(R.string.master_key_locked))
+                setCategory(NotificationCompat.CATEGORY_SERVICE)
+
+                val notificationIntent = IntentDataUtil.createActionIntentHideAfterUnlock(HomeActivity.createIntent(context))
+                notificationIntent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                setContentIntent(
+                    PendingIntent.getActivity(
+                        context,
+                        0,
+                        notificationIntent,
+                        PendingIntent.FLAG_IMMUTABLE,
+                    ),
+                )
+            }
             NotificationManagerCompat.from(context).notify(
                 NotificationIDs.MASTER_KEY_LOCKED_NOTIFICATION_ID,
-                notificationCompat.build(),
+                notification,
             )
         }
 

@@ -1,10 +1,9 @@
 package ch.threema.data.repositories
 
-import ch.threema.app.TestCoreServiceManager
+import ch.threema.app.TestMultiDeviceManager
 import ch.threema.app.TestTaskManager
-import ch.threema.app.stores.IdentityProvider
 import ch.threema.app.testutils.TestHelpers
-import ch.threema.app.testutils.mockUser
+import ch.threema.data.ModelCache
 import ch.threema.data.ModelTypeCache
 import ch.threema.data.models.EmojiReactionData
 import ch.threema.data.models.EmojiReactionsModel
@@ -12,14 +11,16 @@ import ch.threema.data.repositories.EmojiReactionsRepository.ReactionMessageIden
 import ch.threema.data.storage.EmojiReactionsDao
 import ch.threema.data.storage.EmojiReactionsDaoImpl
 import ch.threema.domain.helpers.UnusedTaskCodec
-import ch.threema.domain.stores.IdentityStore
+import ch.threema.domain.models.MessageId
 import ch.threema.domain.types.Identity
-import ch.threema.storage.TestDatabaseProvider
+import ch.threema.storage.factories.GroupMessageModelFactory
+import ch.threema.storage.factories.MessageModelFactory
 import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.DistributionListMessageModel
 import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.group.GroupMessageModel
+import ch.threema.test.TestDatabaseProvider
 import io.mockk.every
 import io.mockk.mockk
 import java.time.Instant
@@ -34,40 +35,36 @@ import kotlin.test.assertNull
 import kotlin.test.fail
 
 class EmojiReactionsRepositoryTest {
-    private lateinit var testCoreServiceManager: TestCoreServiceManager
+    private lateinit var multiDeviceManager: TestMultiDeviceManager
+    private lateinit var taskManager: TestTaskManager
+    private lateinit var messageModelFactory: MessageModelFactory
+    private lateinit var groupMessageModelFactory: GroupMessageModelFactory
     private lateinit var databaseProvider: TestDatabaseProvider
     private lateinit var emojiReactionsRepository: EmojiReactionsRepository
     private lateinit var emojiReactionDao: EmojiReactionsDao
 
+    private val reactedAt = Instant.ofEpochMilli(123456789)
+
     @BeforeTest
     fun before() {
         databaseProvider = TestDatabaseProvider()
-        val identityProviderMock: IdentityProvider = mockk {
-            every { getIdentity() } returns Identity(TestHelpers.TEST_CONTACT.identity)
-            every { getIdentityString() } returns TestHelpers.TEST_CONTACT.identity
-        }
-        val identityStoreMock = mockk<IdentityStore> {
-            every { getIdentity() } returns Identity(TestHelpers.TEST_CONTACT.identity)
-            every { getIdentityString() } returns TestHelpers.TEST_CONTACT.identity
-        }
-        testCoreServiceManager = TestCoreServiceManager(
-            databaseProvider = databaseProvider,
-            identityProvider = identityProviderMock,
-            preferenceStore = mockk {
-                mockUser(TestHelpers.TEST_CONTACT)
-            },
-            encryptedPreferenceStore = mockk {
-                mockUser(TestHelpers.TEST_CONTACT)
-            },
-            taskManager = TestTaskManager(UnusedTaskCodec()),
-            identityStore = identityStoreMock,
-        )
+        messageModelFactory = MessageModelFactory(databaseProvider)
+        groupMessageModelFactory = GroupMessageModelFactory(databaseProvider)
+        multiDeviceManager = TestMultiDeviceManager()
+        taskManager = TestTaskManager(UnusedTaskCodec())
 
-        emojiReactionsRepository = ModelRepositories(
-            coreServiceManager = testCoreServiceManager,
-            identityProvider = mockk(),
-        ).emojiReaction
+        val cache = ModelCache()
         emojiReactionDao = EmojiReactionsDaoImpl(databaseProvider)
+        emojiReactionsRepository = EmojiReactionsRepository(
+            cache = cache.emojiReaction,
+            emojiReactionDao = emojiReactionDao,
+            identityProvider = mockk {
+                every { getIdentity() } returns Identity(TestHelpers.TEST_CONTACT.identity)
+                every { getIdentityString() } returns TestHelpers.TEST_CONTACT.identity
+            },
+            multiDeviceManager = multiDeviceManager,
+            taskManager = taskManager,
+        )
     }
 
     @Test
@@ -75,21 +72,31 @@ class EmojiReactionsRepositoryTest {
         val contactMessage = MessageModel().enrich()
 
         assertFailsWith<EmojiReactionEntryCreateException> {
-            emojiReactionsRepository.createEntry(contactMessage, "ABCDEFGH", "\uD83C\uDFC8")
+            emojiReactionsRepository.createEntry(
+                targetMessage = contactMessage,
+                senderIdentity = "ABCDEFGH",
+                emojiSequence = "\uD83C\uDFC8",
+                reactedAt = reactedAt,
+            )
         }
 
-        testCoreServiceManager.databaseService.messageModelFactory.create(contactMessage)
+        messageModelFactory.create(contactMessage)
 
         contactMessage.assertEmojiReactionSize(0)
 
         contactMessage.body = "reacted"
 
-        emojiReactionsRepository.createEntry(contactMessage, "ABCDEFGH", "⚽")
-        testCoreServiceManager.databaseService.messageModelFactory.update(contactMessage)
+        emojiReactionsRepository.createEntry(
+            targetMessage = contactMessage,
+            senderIdentity = "ABCDEFGH",
+            emojiSequence = "⚽",
+            reactedAt = reactedAt,
+        )
+        messageModelFactory.update(contactMessage)
 
         contactMessage.assertEmojiReactionSize(1)
 
-        testCoreServiceManager.databaseService.messageModelFactory.delete(contactMessage)
+        messageModelFactory.delete(contactMessage)
 
         contactMessage.assertEmojiReactionSize(0)
     }
@@ -99,21 +106,31 @@ class EmojiReactionsRepositoryTest {
         val groupMessage = GroupMessageModel().enrich()
 
         assertFailsWith<EmojiReactionEntryCreateException> {
-            emojiReactionsRepository.createEntry(groupMessage, "ABCDEFGH", "⚾")
+            emojiReactionsRepository.createEntry(
+                targetMessage = groupMessage,
+                senderIdentity = "ABCDEFGH",
+                emojiSequence = "⚾",
+                reactedAt = reactedAt,
+            )
         }
 
-        testCoreServiceManager.databaseService.groupMessageModelFactory.create(groupMessage)
+        groupMessageModelFactory.create(groupMessage)
 
         groupMessage.assertEmojiReactionSize(0)
 
         groupMessage.body = "Reacted"
 
-        emojiReactionsRepository.createEntry(groupMessage, "ABCDEFGH", "⚽")
-        testCoreServiceManager.databaseService.groupMessageModelFactory.update(groupMessage)
+        emojiReactionsRepository.createEntry(
+            targetMessage = groupMessage,
+            senderIdentity = "ABCDEFGH",
+            emojiSequence = "⚽",
+            reactedAt = reactedAt,
+        )
+        groupMessageModelFactory.update(groupMessage)
 
         groupMessage.assertEmojiReactionSize(1)
 
-        testCoreServiceManager.databaseService.groupMessageModelFactory.delete(groupMessage)
+        groupMessageModelFactory.delete(groupMessage)
 
         groupMessage.assertEmojiReactionSize(0)
     }
@@ -121,18 +138,28 @@ class EmojiReactionsRepositoryTest {
     @Test
     fun testEmojiReactionUniqueness() {
         val message = MessageModel().enrich()
-        testCoreServiceManager.databaseService.messageModelFactory.create(message)
+        messageModelFactory.create(message)
 
         message.assertEmojiReactionSize(0)
         message.body = "reacted"
 
-        emojiReactionsRepository.createEntry(message, "ABCDEFGH", "⚽")
-        testCoreServiceManager.databaseService.messageModelFactory.update(message)
+        emojiReactionsRepository.createEntry(
+            targetMessage = message,
+            senderIdentity = "ABCDEFGH",
+            emojiSequence = "⚽",
+            reactedAt = reactedAt,
+        )
+        messageModelFactory.update(message)
 
         message.assertEmojiReactionSize(1)
 
         assertFailsWith<EmojiReactionEntryCreateException> {
-            emojiReactionsRepository.createEntry(message, "ABCDEFGH", "⚽")
+            emojiReactionsRepository.createEntry(
+                targetMessage = message,
+                senderIdentity = "ABCDEFGH",
+                emojiSequence = "⚽",
+                reactedAt = reactedAt,
+            )
         }
 
         message.assertEmojiReactionSize(1)
@@ -143,7 +170,7 @@ class EmojiReactionsRepositoryTest {
         val reaction = reactions.data!![0]
         assertEquals("⚽", reaction.emojiSequence)
 
-        testCoreServiceManager.databaseService.messageModelFactory.delete(message)
+        messageModelFactory.delete(message)
     }
 
     @Test
@@ -151,8 +178,8 @@ class EmojiReactionsRepositoryTest {
         val contactMessage = MessageModel().enrich()
         val groupMessage = GroupMessageModel().enrich()
 
-        testCoreServiceManager.databaseService.messageModelFactory.create(contactMessage)
-        testCoreServiceManager.databaseService.groupMessageModelFactory.create(groupMessage)
+        messageModelFactory.create(contactMessage)
+        groupMessageModelFactory.create(groupMessage)
 
         assertEquals(1, contactMessage.id)
         assertEquals(1, groupMessage.id)
@@ -160,12 +187,22 @@ class EmojiReactionsRepositoryTest {
         contactMessage.assertEmojiReactionSize(0)
         groupMessage.assertEmojiReactionSize(0)
 
-        emojiReactionsRepository.createEntry(contactMessage, "ABCD1234", "⚾")
+        emojiReactionsRepository.createEntry(
+            targetMessage = contactMessage,
+            senderIdentity = "ABCD1234",
+            emojiSequence = "⚾",
+            reactedAt = reactedAt,
+        )
 
         contactMessage.assertEmojiReactionSize(1)
         groupMessage.assertEmojiReactionSize(0)
 
-        emojiReactionsRepository.createEntry(groupMessage, "ABCD1234", "⛵")
+        emojiReactionsRepository.createEntry(
+            targetMessage = groupMessage,
+            senderIdentity = "ABCD1234",
+            emojiSequence = "⛵",
+            reactedAt = reactedAt,
+        )
 
         contactMessage.assertEmojiReactionSize(1)
         groupMessage.assertEmojiReactionSize(1)
@@ -186,8 +223,8 @@ class EmojiReactionsRepositoryTest {
         val contactMessage = MessageModel().enrich()
         val groupMessage = GroupMessageModel().enrich()
 
-        testCoreServiceManager.databaseService.messageModelFactory.create(contactMessage)
-        testCoreServiceManager.databaseService.groupMessageModelFactory.create(groupMessage)
+        messageModelFactory.create(contactMessage)
+        groupMessageModelFactory.create(groupMessage)
 
         assertEquals(1, contactMessage.id)
         assertEquals(1, groupMessage.id)
@@ -195,12 +232,22 @@ class EmojiReactionsRepositoryTest {
         contactMessage.assertEmojiReactionSize(0)
         groupMessage.assertEmojiReactionSize(0)
 
-        emojiReactionsRepository.createEntry(contactMessage, "ABCD1234", reactionSequence)
+        emojiReactionsRepository.createEntry(
+            targetMessage = contactMessage,
+            senderIdentity = "ABCD1234",
+            emojiSequence = reactionSequence,
+            reactedAt = reactedAt,
+        )
 
         contactMessage.assertEmojiReactionSize(1)
         groupMessage.assertEmojiReactionSize(0)
 
-        emojiReactionsRepository.createEntry(groupMessage, "ABCD1234", reactionSequence)
+        emojiReactionsRepository.createEntry(
+            targetMessage = groupMessage,
+            senderIdentity = "ABCD1234",
+            emojiSequence = reactionSequence,
+            reactedAt = reactedAt,
+        )
 
         contactMessage.assertEmojiReactionSize(1)
         groupMessage.assertEmojiReactionSize(1)
@@ -221,7 +268,7 @@ class EmojiReactionsRepositoryTest {
         val testEmojiCache = ModelTypeCache<ReactionMessageIdentifier, EmojiReactionsModel>()
 
         val contactMessage = MessageModel().enrich()
-        testCoreServiceManager.databaseService.messageModelFactory.create(contactMessage)
+        messageModelFactory.create(contactMessage)
 
         // Test successful creation of reaction-message-identifier
         val reactionMessageIdentifier = ReactionMessageIdentifier.fromMessageModel(contactMessage)
@@ -246,7 +293,8 @@ class EmojiReactionsRepositoryTest {
         )
         val emojiReactionsModel = EmojiReactionsModel(
             data = listOf(emojiReactionData),
-            coreServiceManager = testCoreServiceManager,
+            multiDeviceManager = multiDeviceManager,
+            taskManager = taskManager,
         )
         cachedEntry = testEmojiCache.getOrCreate(reactionMessageIdentifier) { emojiReactionsModel }
         assertContentEquals(listOf(emojiReactionData), cachedEntry!!.data)
@@ -286,7 +334,8 @@ class EmojiReactionsRepositoryTest {
         )
         val emojiReactionsModelContact = EmojiReactionsModel(
             data = listOf(emojiReactionDataForContactMessage),
-            coreServiceManager = testCoreServiceManager,
+            multiDeviceManager = multiDeviceManager,
+            taskManager = taskManager,
         )
 
         val cachedEntryContact =
@@ -309,6 +358,7 @@ class EmojiReactionsRepositoryTest {
     }
 
     private fun <T : AbstractMessageModel> T.enrich(text: String = "Text"): T {
+        messageId = MessageId.random()
         type = MessageType.TEXT
         uid = UUID.randomUUID().toString()
         body = text

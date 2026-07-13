@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import ch.threema.android.ToastDuration;
 import ch.threema.app.AppConstants;
 import ch.threema.app.BuildConfig;
@@ -24,8 +25,10 @@ import ch.threema.app.utils.executor.BackgroundExecutor;
 
 import static ch.threema.android.ToastKt.showToast;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
+import ch.threema.data.datatypes.ContactConversationId;
+import ch.threema.domain.models.AcquaintanceLevel;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
-import ch.threema.storage.models.ContactModel;
 import kotlin.Lazy;
 import kotlin.Unit;
 
@@ -96,16 +99,16 @@ public class AppLinksActivity extends ThreemaToolbarActivity {
         finish();
     }
 
-    private void handleContactUrl(String appLinkAction, Uri appLinkData) {
-        final String threemaId = appLinkData.getLastPathSegment();
-        if (threemaId != null) {
-            if (threemaId.equalsIgnoreCase("compose")) {
+    private void handleContactUrl(String appLinkAction, @NonNull Uri appLinkData) {
+        final @Nullable String identity = appLinkData.getLastPathSegment();
+        if (identity != null) {
+            if (identity.equalsIgnoreCase("compose")) {
                 Intent intent = new Intent(this, RecipientListActivity.class);
                 intent.setAction(appLinkAction);
                 intent.setData(appLinkData);
                 startActivity(intent);
-            } else if (threemaId.length() == ProtocolDefines.IDENTITY_LEN) {
-                addNewContactAndOpenChat(threemaId, appLinkData);
+            } else if (identity.length() == ProtocolDefines.IDENTITY_LEN) {
+                addNewContactAndOpenConversation(identity, appLinkData);
             } else {
                 showToast(this, R.string.invalid_input, ToastDuration.LONG);
             }
@@ -120,13 +123,12 @@ public class AppLinksActivity extends ThreemaToolbarActivity {
         overridePendingTransition(0, 0);
     }
 
-    private void addNewContactAndOpenChat(@NonNull String identity, @NonNull Uri appLinkData) {
+    private void addNewContactAndOpenConversation(@NonNull String identity, @NonNull Uri appLinkData) {
         backgroundExecutor.getValue().execute(
             new BasicAddOrUpdateContactBackgroundTask(
                 identity,
-                ContactModel.AcquaintanceLevel.DIRECT,
-                dependencies.getUserService().getIdentity(),
-                dependencies.getApiConnector(),
+                AcquaintanceLevel.DIRECT,
+                dependencies.getValidContactsLookupSteps(),
                 dependencies.getContactModelRepository(),
                 AddContactRestrictionPolicy.CHECK,
                 dependencies.getAppRestrictions(),
@@ -138,21 +140,20 @@ public class AppLinksActivity extends ThreemaToolbarActivity {
                         logger.error("Could not add contact");
                         return;
                     }
-
-                    String text = appLinkData.getQueryParameter("text");
-
-                    Intent intent = new Intent(AppLinksActivity.this, text != null ?
-                        ComposeMessageActivity.class :
-                        ContactDetailActivity.class);
-                    intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                    intent.putExtra(AppConstants.INTENT_DATA_CONTACT, identity);
-                    intent.putExtra(AppConstants.INTENT_DATA_EDITFOCUS, Boolean.TRUE);
-
+                    final @Nullable String text = appLinkData.getQueryParameter("text");
+                    final @NonNull Intent intent;
                     if (text != null) {
-                        text = text.trim();
-                        intent.putExtra(AppConstants.INTENT_DATA_TEXT, text);
+                        intent = ComposeMessageActivity.createIntent(
+                            AppLinksActivity.this,
+                            new ContactConversationId(identity),
+                            text.trim(),
+                            true
+                        );
+                    } else {
+                        intent = ContactDetailActivity.createIntent(AppLinksActivity.this, identity);
+                        intent.putExtra(AppConstants.INTENT_DATA_EDITFOCUS, Boolean.TRUE);
                     }
-
+                    intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
                     startActivity(intent);
                 }
             }

@@ -12,8 +12,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioManager
 import android.media.AudioManager.OnAudioFocusChangeListener
-import android.widget.Toast
-import android.widget.Toast.LENGTH_LONG
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.res.ResourcesCompat
@@ -31,13 +29,16 @@ import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSession.Callback
 import androidx.media3.session.MediaSessionService
+import ch.threema.android.ToastDuration
+import ch.threema.android.buildNotification
 import ch.threema.android.isConnectedToHeadsetOrSpeaker
+import ch.threema.android.showToast
 import ch.threema.app.R
-import ch.threema.app.ThreemaApplication
 import ch.threema.app.listeners.SensorListener
 import ch.threema.app.listeners.SensorListener.keyIsNear
+import ch.threema.app.managers.ServiceManager
 import ch.threema.app.notifications.NotificationChannels
-import ch.threema.app.notifications.NotificationIDs
+import ch.threema.app.notifications.NotificationIDs.VOICE_MESSAGE_PLAYER_NOTIFICATION_ID
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.voicemessage.SamsungQuirkRenderersFactory
@@ -70,17 +71,11 @@ class VoiceMessagePlayerService :
     private var preferenceService: PreferenceService? = null
     private var hasAudioFocus = false
 
-    companion object {
-        private const val TAG = "VoiceMessagePlayerService"
-
-        private const val NOTIFICATION_ID = 59843
-    }
-
     override fun onCreate() {
         logger.info("onCreate")
         super.onCreate()
 
-        ThreemaApplication.getServiceManager()?.let {
+        ServiceManager.get()?.let {
             this.sensorService = it.sensorService
             this.preferenceService = it.preferenceService
         }
@@ -98,7 +93,7 @@ class VoiceMessagePlayerService :
         val mediaNotificationProvider = DefaultMediaNotificationProvider.Builder(this)
             .setChannelName(R.string.notification_channel_voice_message_player)
             .setChannelId(NotificationChannels.NOTIFICATION_CHANNEL_VOICE_MSG_PLAYER)
-            .setNotificationIdProvider { NotificationIDs.VOICE_MSG_PLAYER_NOTIFICATION_ID }
+            .setNotificationIdProvider { VOICE_MESSAGE_PLAYER_NOTIFICATION_ID }
             .build()
         mediaNotificationProvider.setSmallIcon(R.drawable.ic_notification_small)
         setMediaNotificationProvider(mediaNotificationProvider)
@@ -250,43 +245,28 @@ class VoiceMessagePlayerService :
          * background.
          */
         override fun onForegroundServiceStartNotAllowedException() {
+            val context = this@VoiceMessagePlayerService
             @SuppressLint("MissingPermission")
             if (ConfigUtils.isPermissionGranted(
                     this@VoiceMessagePlayerService,
                     Manifest.permission.POST_NOTIFICATIONS,
                 )
             ) {
-                val notificationManagerCompat =
-                    NotificationManagerCompat.from(this@VoiceMessagePlayerService)
-                val builder =
-                    NotificationCompat.Builder(
-                        this@VoiceMessagePlayerService,
-                        NotificationChannels.NOTIFICATION_CHANNEL_ALERT,
+                val notification = buildNotification(context, NotificationChannels.NOTIFICATION_CHANNEL_ALERT) {
+                    setContentIntent(getSessionActivityPendingIntent())
+                    setSmallIcon(R.drawable.ic_notification_small)
+                    setColor(ResourcesCompat.getColor(resources, R.color.md_theme_light_primary, theme))
+                    setContentTitle(getString(R.string.vm_fg_service_not_allowed))
+                    setStyle(
+                        NotificationCompat.BigTextStyle()
+                            .bigText(getString(R.string.vm_fg_service_not_allowed_explain)),
                     )
-                        .setContentIntent(getSessionActivityPendingIntent())
-                        .setSmallIcon(R.drawable.ic_notification_small)
-                        .setColor(
-                            ResourcesCompat.getColor(
-                                resources,
-                                R.color.md_theme_light_primary,
-                                theme,
-                            ),
-                        )
-                        .setContentTitle(getString(R.string.vm_fg_service_not_allowed))
-                        .setStyle(
-                            NotificationCompat.BigTextStyle()
-                                .bigText(getString(R.string.vm_fg_service_not_allowed_explain)),
-                        )
-                        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                        .setAutoCancel(true)
-
-                notificationManagerCompat.notify(NOTIFICATION_ID, builder.build())
+                    setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                    setAutoCancel(true)
+                }
+                NotificationManagerCompat.from(context).notify(VOICE_MESSAGE_PLAYER_NOTIFICATION_ID, notification)
             } else {
-                Toast.makeText(
-                    this@VoiceMessagePlayerService,
-                    R.string.notifications_disabled_title,
-                    LENGTH_LONG,
-                ).show()
+                context.showToast(R.string.notifications_disabled_title, ToastDuration.LONG)
             }
         }
     }
@@ -362,5 +342,9 @@ class VoiceMessagePlayerService :
             .setContentType(C.AUDIO_CONTENT_TYPE_SPEECH)
             .setAllowedCapturePolicy(C.ALLOW_CAPTURE_BY_NONE)
             .build()
+    }
+
+    companion object {
+        private const val TAG = "VoiceMessagePlayerService"
     }
 }

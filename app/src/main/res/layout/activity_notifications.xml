@@ -162,7 +162,7 @@
                             android:layout_marginTop="@dimen/grid_unit_x1"
                             android:contentDescription="@string/menu_settings"
                             android:visibility="visible"
-                            app:icon="@drawable/ic_settings_outline_24dp" />
+                            app:icon="@drawable/ic_settings" />
 
                     </FrameLayout>
 
@@ -343,7 +343,7 @@
                         android:padding="@dimen/grid_unit_x0_5"
                         android:text="@string/individual_notification_settings"
                         android:textColor="?attr/colorOnSurface"
-                        app:drawableLeftCompat="@drawable/ic_settings_outline_24dp"
+                        app:drawableLeftCompat="@drawable/ic_settings"
                         app:drawableTint="?attr/colorOnSurface" />
 
                     <com.google.android.material.materialswitch.MaterialSwitch

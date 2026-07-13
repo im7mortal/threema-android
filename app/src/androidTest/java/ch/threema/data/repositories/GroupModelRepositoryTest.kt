@@ -1,10 +1,11 @@
 package ch.threema.data.repositories
 
-import ch.threema.app.TestCoreServiceManager
+import ch.threema.app.TestMultiDeviceManager
+import ch.threema.app.TestNonceStore
 import ch.threema.app.TestTaskManager
-import ch.threema.app.testutils.TestHelpers
-import ch.threema.app.testutils.mockUser
-import ch.threema.data.models.GroupIdentity
+import ch.threema.base.crypto.NonceFactory
+import ch.threema.data.datatypes.ConversationVisibility
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.GroupModelDataFactory
 import ch.threema.data.storage.DatabaseBackend
 import ch.threema.data.storage.DbGroup
@@ -12,20 +13,26 @@ import ch.threema.data.storage.SqliteDatabaseBackend
 import ch.threema.domain.helpers.UnusedTaskCodec
 import ch.threema.domain.models.GroupId
 import ch.threema.domain.models.UserState
-import ch.threema.storage.TestDatabaseProvider
+import ch.threema.storage.factories.GroupModelFactory
 import ch.threema.storage.models.group.GroupModelOld
+import ch.threema.test.TestDatabaseProvider
+import io.mockk.every
 import io.mockk.mockk
-import java.util.Date
+import java.time.Instant
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlinx.coroutines.test.StandardTestDispatcher
 
 class GroupModelRepositoryTest {
     private lateinit var databaseProvider: TestDatabaseProvider
+    private lateinit var groupModelFactory: GroupModelFactory
     private lateinit var databaseBackend: DatabaseBackend
-    private lateinit var coreServiceManager: TestCoreServiceManager
+    private lateinit var multiDeviceManager: TestMultiDeviceManager
+    private lateinit var taskManager: TestTaskManager
+    private lateinit var nonceFactory: NonceFactory
     private lateinit var groupModelRepository: GroupModelRepository
 
     private fun createTestDbGroup(groupIdentity: GroupIdentity): DbGroup {
@@ -33,36 +40,40 @@ class GroupModelRepositoryTest {
             creatorIdentity = groupIdentity.creatorIdentity,
             groupId = groupIdentity.groupIdHexString,
             name = "Group",
-            createdAt = Date(),
-            synchronizedAt = Date(),
+            createdAt = Instant.now(),
+            synchronizedAt = Instant.now(),
             lastUpdate = null,
-            isArchived = false,
+            conversationVisibility = ConversationVisibility.NORMAL,
             colorIndex = 0,
             groupDescription = "Description",
-            groupDescriptionChangedAt = Date(),
+            groupDescriptionChangedAt = Instant.now(),
             members = setOf("AAAAAAAA", "BBBBBBBB"),
             userState = UserState.MEMBER,
-            notificationTriggerPolicyOverride = null,
+            notificationTriggerPolicyOverridePolicy = null,
+            notificationTriggerPolicyOverrideExpiresAt = null,
         )
     }
 
     @BeforeTest
     fun before() {
         this.databaseProvider = TestDatabaseProvider()
+        groupModelFactory = GroupModelFactory(databaseProvider)
         this.databaseBackend = SqliteDatabaseBackend(databaseProvider, mockk())
-        this.coreServiceManager = TestCoreServiceManager(
-            databaseProvider = databaseProvider,
-            preferenceStore = mockk {
-                mockUser(TestHelpers.TEST_CONTACT)
-            },
-            encryptedPreferenceStore = mockk {
-                mockUser(TestHelpers.TEST_CONTACT)
-            },
-            taskManager = TestTaskManager(UnusedTaskCodec()),
-        )
+        multiDeviceManager = TestMultiDeviceManager()
+        taskManager = TestTaskManager(UnusedTaskCodec())
+        nonceFactory = NonceFactory(TestNonceStore())
+        val testDispatcher = StandardTestDispatcher()
         this.groupModelRepository = ModelRepositories(
-            coreServiceManager = coreServiceManager,
+            databaseProvider = databaseProvider,
             identityProvider = mockk(),
+            multiDeviceManager = multiDeviceManager,
+            taskManager = taskManager,
+            nonceFactory = nonceFactory,
+            globalEventBuses = mockk(relaxed = true),
+            globalEventFlows = mockk(relaxed = true),
+            dispatcherProvider = mockk {
+                every { worker } returns testDispatcher
+            },
         ).groups
     }
 
@@ -84,11 +95,11 @@ class GroupModelRepositoryTest {
         val groupIdentity = GroupIdentity("TESTTEST", 42)
 
         // Create group using the "old" model
-        coreServiceManager.databaseService.groupModelFactory.create(
+        groupModelFactory.create(
             GroupModelOld()
                 .setCreatorIdentity(groupIdentity.creatorIdentity)
                 .setApiGroupId(GroupId(groupIdentity.groupId))
-                .setCreatedAt(Date()),
+                .setCreatedAt(Instant.now()),
         )
 
         // Fetch group using the "new" model
@@ -102,11 +113,11 @@ class GroupModelRepositoryTest {
         val groupId = GroupId(-42)
 
         // Create group using the "old" model
-        coreServiceManager.databaseService.groupModelFactory.create(
+        groupModelFactory.create(
             GroupModelOld()
                 .setCreatorIdentity(creatorIdentity)
                 .setApiGroupId(groupId)
-                .setCreatedAt(Date()),
+                .setCreatedAt(Instant.now()),
         )
 
         // Fetch group using the "new" model
@@ -123,7 +134,7 @@ class GroupModelRepositoryTest {
 
         // This should work because the database is initially empty and the local group id starts
         // with 1.
-        val fetchedGroup = groupModelRepository.getByLocalGroupDbId(1)
+        val fetchedGroup = groupModelRepository.getByGroupDatabaseId(1)
         assertEquals(GroupModelDataFactory.toDataType(testGroup), fetchedGroup?.data)
     }
 

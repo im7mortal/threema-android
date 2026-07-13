@@ -2,15 +2,18 @@ package ch.threema.app.protocolsteps
 
 import androidx.annotation.WorkerThread
 import ch.threema.app.services.license.LicenseService
-import ch.threema.app.stores.IdentityProvider
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.base.ThreemaException
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.common.now
+import ch.threema.data.IdentityProvider
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationVisibility
+import ch.threema.data.datatypes.PredefinedContact
 import ch.threema.data.models.ContactModel
 import ch.threema.data.models.ContactModelData
 import ch.threema.data.repositories.ContactModelRepository
+import ch.threema.data.toContactModelData
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.BasicContact
 import ch.threema.domain.models.ContactSyncState
 import ch.threema.domain.models.IdentityState
@@ -27,6 +30,7 @@ import ch.threema.domain.stores.ContactStore
 import ch.threema.domain.taskmanager.NetworkException
 import ch.threema.domain.taskmanager.ProtocolException
 import ch.threema.domain.types.IdentityString
+import java.time.Instant
 
 private val logger = getThreemaLogger("ValidContactsLookupSteps")
 
@@ -42,16 +46,15 @@ class Invalid(identity: IdentityString) : ContactOrInit(identity)
 
 class UserContact(identity: IdentityString) : ContactOrInit(identity)
 
+class PredefinedContactPublicKeyMismatch(identity: IdentityString) : ContactOrInit(identity)
+
 class ValidContactsLookupSteps(
-    identityProvider: IdentityProvider,
+    private val identityProvider: IdentityProvider,
     private val contactStore: ContactStore,
     private val contactModelRepository: ContactModelRepository,
     private val licenseService: LicenseService<*>,
     private val apiConnector: APIConnector,
 ) {
-    private val myIdentity by lazy {
-        identityProvider.getIdentityString()!!
-    }
 
     @WorkerThread
     fun run(identity: IdentityString): ContactOrInit =
@@ -61,14 +64,15 @@ class ValidContactsLookupSteps(
     fun run(identities: Set<IdentityString>): Map<IdentityString, ContactOrInit> {
         val contactOrInitMap = mutableMapOf<IdentityString, ContactOrInit>()
         val unknownIdentities = mutableSetOf<IdentityString>()
+        val myIdentity = identityProvider.getIdentityString()!!
 
         for (identity in identities) {
-            val result = try {
-                checkLocally(identity, myIdentity, contactStore, contactModelRepository)
-            } catch (e: InvalidIdentityException) {
-                logger.error("Error while checking identity locally", e)
-                continue
-            }
+            val result = checkLocally(
+                identity = identity,
+                myIdentity = myIdentity,
+                contactStore = contactStore,
+                contactModelRepository = contactModelRepository,
+            )
 
             if (result != null) {
                 contactOrInitMap[identity] = result
@@ -118,12 +122,9 @@ class ValidContactsLookupSteps(
         }
 
         // Add special contact
-        if (contactStore.isSpecialContact(identity)) {
-            val specialContact = contactStore.getContactForIdentityIncludingCache(identity)
-            if (specialContact == null || specialContact !is BasicContact) {
-                throw InvalidIdentityException("Special contact of unexpected type. Skipping identity $identity")
-            }
-            return SpecialContact(specialContact)
+        val specialContact = PredefinedContact.getSpecialContact(identity)
+        if (specialContact != null) {
+            return SpecialContact(specialContact.toBasicContact())
         }
 
         // Check if contact is known
@@ -134,10 +135,8 @@ class ValidContactsLookupSteps(
 
         // Check cache
         val cachedContact = contactStore.getContactForIdentityIncludingCache(identity)
-        if (cachedContact != null) {
-            if (cachedContact !is BasicContact) {
-                throw InvalidIdentityException("Cached contact of unexpected type. Skipping identity $identity")
-            }
+        if (cachedContact is BasicContact) {
+            // In case of a cached basic contact we have all the required information to skip fetching the contact from the server.
             return Init(
                 contactModelData = cachedContact.toContactModelData(),
             )
@@ -205,8 +204,34 @@ class ValidContactsLookupSteps(
                     Init(contactModelData)
                 }
             }
-            // TODO(ANDR-3262): Check whether the contact is a predefined contact and perform
-            //  some additional checks for public key, nickname, first name, and last name
+            .map { contactOrInit ->
+                val predefinedContact = PredefinedContact.getPredefinedContact(contactOrInit.identity)
+                if (predefinedContact != null) {
+                    when (contactOrInit) {
+                        is Contact -> error("Contact or init cannot be a contact at this point")
+                        is SpecialContact -> error("Contact or init cannot be a special contact at this point")
+                        is Init -> {
+                            if (contactOrInit.contactModelData.publicKey.contentEquals(predefinedContact.publicKey)) {
+                                contactOrInit.copy(
+                                    contactModelData = contactOrInit.contactModelData.copy(
+                                        verificationLevel = VerificationLevel.FULLY_VERIFIED,
+                                        nickname = predefinedContact.nickname,
+                                    ),
+                                )
+                            } else {
+                                logger.warn("Predefined contact has different public key")
+                                PredefinedContactPublicKeyMismatch(contactOrInit.identity)
+                            }
+                        }
+
+                        is Invalid -> contactOrInit
+                        is UserContact -> error("Contact or init cannot be the user at this point")
+                        is PredefinedContactPublicKeyMismatch -> error("Contact or init cannot be a public key mismatch at this point")
+                    }
+                } else {
+                    contactOrInit
+                }
+            }
             .toMutableSet()
 
         // Identities where we did not receive a response from the server are considered invalid
@@ -218,34 +243,6 @@ class ValidContactsLookupSteps(
         return fetchedContacts
     }
 
-    private fun BasicContact.toContactModelData() = ContactModelData(
-        identity = identity,
-        publicKey = publicKey,
-        createdAt = now(),
-        firstName = firstName.orEmpty(),
-        lastName = firstName.orEmpty(),
-        nickname = null,
-        verificationLevel = verificationLevel,
-        workVerificationLevel = workVerificationLevel,
-        identityType = identityType,
-        activityState = identityState,
-        featureMask = featureMask,
-        typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
-        readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
-        syncState = ContactSyncState.INITIAL,
-        acquaintanceLevel = ch.threema.storage.models.ContactModel.AcquaintanceLevel.DIRECT,
-        isArchived = false,
-        localAvatarExpires = null,
-        androidContactLookupInfo = null,
-        profilePictureBlobId = null,
-        isRestored = false,
-        jobTitle = jobTitle,
-        department = department,
-        notificationTriggerPolicyOverride = null,
-        availabilityStatus = AvailabilityStatus.None,
-        workLastFullSyncAt = null,
-    )
-
     private fun FetchIdentityResult.toContactModelData(workContact: WorkContact?) = ContactModelData(
         identity = identity,
         publicKey = publicKey.also { fetchedPublicKey ->
@@ -253,7 +250,8 @@ class ValidContactsLookupSteps(
                 "Public key mismatch for contact $identity"
             }
         },
-        createdAt = now(),
+        createdAt = Instant.now(),
+        lastUpdateAt = null,
         firstName = workContact?.firstName ?: "",
         lastName = workContact?.lastName ?: "",
         nickname = null,
@@ -265,8 +263,8 @@ class ValidContactsLookupSteps(
         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         syncState = ContactSyncState.INITIAL,
-        acquaintanceLevel = ch.threema.storage.models.ContactModel.AcquaintanceLevel.DIRECT,
-        isArchived = false,
+        acquaintanceLevel = AcquaintanceLevel.DIRECT,
+        conversationVisibility = ConversationVisibility.NORMAL,
         localAvatarExpires = null,
         androidContactLookupInfo = null,
         profilePictureBlobId = null,
@@ -279,11 +277,11 @@ class ValidContactsLookupSteps(
     )
 
     private fun FetchIdentityResult.getIdentityType() = when (type) {
-        0 -> IdentityType.NORMAL
+        0 -> IdentityType.REGULAR
         1 -> IdentityType.WORK
         else -> {
             logger.error("Got unexpected identity type {} for identity {}", type, identity)
-            IdentityType.NORMAL
+            IdentityType.REGULAR
         }
     }
 
@@ -313,6 +311,4 @@ class ValidContactsLookupSteps(
         availability
             ?.let(AvailabilityStatus::fromProtocolBase64)
             ?: AvailabilityStatus.None
-
-    private class InvalidIdentityException(msg: String) : ThreemaException(msg)
 }

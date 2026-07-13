@@ -46,6 +46,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.util.PatternsCompat;
 import ch.threema.app.ThreemaApplication;
+import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.LocaleService;
 
 /**
@@ -244,7 +245,7 @@ public final class LinkifyCompatUtil {
         // Threema-added: try to get the current locale from LocaleService
         String countryCode;
         try {
-            LocaleService localeService = ThreemaApplication.getServiceManager().getLocaleService();
+            LocaleService localeService = ServiceManager.require().getLocaleService();
             countryCode = localeService.getCountryIsoCode();
         } catch (Exception e) {
             countryCode = Locale.getDefault().getCountry();

@@ -16,6 +16,7 @@ import ch.threema.app.ui.SingleToast
 import ch.threema.app.utils.RuntimeUtil
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.data.datatypes.DistributionListConversationId
 import ch.threema.domain.types.IdentityString
 import ch.threema.storage.models.ContactModel
 import ch.threema.storage.models.DistributionListModel
@@ -101,11 +102,13 @@ class DistributionListAddActivity : MemberChooseActivity(), TextEntryDialogClick
         ).show(supportFragmentManager, DIALOG_TAG_ENTER_NAME)
     }
 
-    private fun launchComposeActivity() {
-        distributionListModel?.let { distributionListModelNotNull ->
-            val intent = Intent(this@DistributionListAddActivity, ComposeMessageActivity::class.java)
+    private fun launchConversationActivity() {
+        distributionListModel?.let { distributionListModel ->
+            val intent = ComposeMessageActivity.createIntent(
+                context = this@DistributionListAddActivity,
+                conversationId = DistributionListConversationId(distributionListModel.id),
+            )
             intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            distributionListService.createReceiver(distributionListModelNotNull).prepareIntent(intent)
             startActivity(intent)
             finish()
         }
@@ -131,7 +134,7 @@ class DistributionListAddActivity : MemberChooseActivity(), TextEntryDialogClick
                 )
             }
             RuntimeUtil.runOnUiThread {
-                this.launchComposeActivity()
+                this.launchConversationActivity()
             }
         } catch (e: Exception) {
             logger.error("Failed to edit distribution list", e)

@@ -1,8 +1,11 @@
 package ch.threema.data.storage
 
 import android.database.sqlite.SQLiteException
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.GroupIdentity
+import ch.threema.domain.types.GroupDatabaseId
 import ch.threema.domain.types.IdentityString
+import java.time.Instant
 
 /**
  * This interface fully abstracts the database access.
@@ -18,6 +21,8 @@ interface DatabaseBackend {
      *
      * @throws SQLiteException if insertion fails due to a conflict
      * @throws IllegalArgumentException if the length of the identity or public key is invalid
+     * @throws DatabaseException if the contact could not be added due to a failing precondition,
+     * e.g. because a contact with the same public key already exists
      */
     fun createContact(dbContact: DbContact)
 
@@ -38,6 +43,23 @@ interface DatabaseBackend {
      * - The createdAt timestamp
      */
     fun updateContact(dbContact: DbContact)
+
+    /**
+     * Persists the given `workLastFullSyncAt` timestamps to the database.
+     *
+     * All entries are upserted (inserted or updated).
+     */
+    fun updateContactWorkLastFullSyncAtTimestamps(workLastFullSyncAtTimestamps: Map<IdentityString, Instant>)
+
+    /**
+     * Persists the given availability statuses to the database.
+     *
+     * Entries whose value is [AvailabilityStatus.None] are deleted from the database, while all
+     * other entries are upserted (inserted or updated).
+     *
+     * No-op if the availability status feature is not supported by this build.
+     */
+    fun persistAvailabilityStatuses(availabilityStatuses: Map<IdentityString, AvailabilityStatus>)
 
     /**
      * Delete the contact with the specified identity.
@@ -70,9 +92,9 @@ interface DatabaseBackend {
     fun getAllGroups(): Collection<DbGroup>
 
     /**
-     * Return the group with the specified [localDbId].
+     * Return the group with the specified [groupDatabaseId].
      */
-    fun getGroupByLocalGroupDbId(localDbId: Long): DbGroup?
+    fun getGroupByGroupDatabaseId(groupDatabaseId: GroupDatabaseId): DbGroup?
 
     /**
      * Return the group with the specified [groupIdentity].

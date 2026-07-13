@@ -18,10 +18,10 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatDialog;
 import ch.threema.app.R;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.base.utils.Utils;
 
 import static android.content.Context.CLIPBOARD_SERVICE;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.toHexString;
 
 public class PublicKeyDialog extends SimpleStringAlertDialog {
     private static final Logger logger = getThreemaLogger("PublicKeyDialog");
@@ -64,7 +64,7 @@ public class PublicKeyDialog extends SimpleStringAlertDialog {
     public AppCompatDialog onCreateDialog(Bundle savedInstanceState) {
         title = getArguments().getCharSequence("title");
         byte[] publicKey = getArguments().getByteArray("publicKey");
-        publicKeyString = Utils.byteArrayToHexString(publicKey);
+        publicKeyString = toHexString(publicKey);
 
         final View dialogView = activity.getLayoutInflater().inflate(R.layout.dialog_public_key, null);
         final TextView messageView = dialogView.findViewById(R.id.message);

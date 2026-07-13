@@ -3,8 +3,8 @@ package ch.threema.app.tasks
 import ch.threema.KoinTestRule
 import ch.threema.app.DangerousTest
 import ch.threema.app.TestMultiDeviceManager
-import ch.threema.app.ThreemaApplication
 import ch.threema.app.di.modules.sessionScopedModule
+import ch.threema.app.managers.ServiceManager
 import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.protocolsteps.ExpectedProfilePictureChange
 import ch.threema.app.protocolsteps.PredefinedMessageIds
@@ -12,11 +12,13 @@ import ch.threema.app.testutils.TestHelpers
 import ch.threema.app.testutils.TestHelpers.TestContact
 import ch.threema.app.testutils.clearDatabaseAndCaches
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationVisibility
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.ContactModelData
-import ch.threema.data.models.GroupIdentity
 import ch.threema.data.models.GroupModelData
 import ch.threema.data.repositories.GroupCreateException
 import ch.threema.domain.helpers.TransactionAckTaskCodec
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.ContactSyncState
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
@@ -27,8 +29,8 @@ import ch.threema.domain.models.VerificationLevel
 import ch.threema.domain.models.WorkVerificationLevel
 import ch.threema.domain.protocol.connection.data.CspMessage
 import ch.threema.domain.protocol.connection.data.OutboundD2mMessage
-import ch.threema.storage.models.ContactModel
-import java.util.Date
+import ch.threema.test.TestData.PUBLIC_KEY
+import java.time.Instant
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -43,21 +45,22 @@ class GroupCreateTaskTest {
 
     private val initialContactModelData = ContactModelData(
         identity = "12345678",
-        publicKey = ByteArray(32),
-        createdAt = Date(),
+        publicKey = PUBLIC_KEY,
+        createdAt = Instant.now(),
+        lastUpdateAt = null,
         firstName = "",
         lastName = "",
         verificationLevel = VerificationLevel.SERVER_VERIFIED,
         workVerificationLevel = WorkVerificationLevel.NONE,
         nickname = null,
-        identityType = IdentityType.NORMAL,
-        acquaintanceLevel = ContactModel.AcquaintanceLevel.DIRECT,
+        identityType = IdentityType.REGULAR,
+        acquaintanceLevel = AcquaintanceLevel.DIRECT,
         activityState = IdentityState.ACTIVE,
         syncState = ContactSyncState.INITIAL,
         featureMask = 255u,
         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
-        isArchived = false,
+        conversationVisibility = ConversationVisibility.NORMAL,
         profilePictureBlobId = null,
         androidContactLookupInfo = null,
         localAvatarExpires = null,
@@ -69,7 +72,7 @@ class GroupCreateTaskTest {
         workLastFullSyncAt = null,
     )
 
-    private val serviceManager by lazy { ThreemaApplication.requireServiceManager() }
+    private val serviceManager by lazy { ServiceManager.require() }
 
     private var isMultiDeviceEnabled = false
 
@@ -113,7 +116,7 @@ class GroupCreateTaskTest {
 
         // Note that we use from sync to prevent any reflection. This is only acceptable in tests.
         try {
-            val now = Date()
+            val now = Instant.now()
             serviceManager.modelRepositories.groups.createFromSync(
                 GroupModelData(
                     groupIdentity = GroupIdentity(myContact.identity, 42),
@@ -121,7 +124,7 @@ class GroupCreateTaskTest {
                     createdAt = now,
                     synchronizedAt = null,
                     lastUpdate = now,
-                    isArchived = false,
+                    conversationVisibility = ConversationVisibility.NORMAL,
                     userState = UserState.MEMBER,
                     otherMembers = setOf(initialContactModelData.identity),
                     groupDescription = null,

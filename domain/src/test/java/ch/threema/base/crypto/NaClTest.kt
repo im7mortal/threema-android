@@ -16,6 +16,7 @@ import kotlin.experimental.inv
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
+import org.junit.jupiter.api.assertThrows
 
 class NaClTest {
 
@@ -155,6 +156,20 @@ class NaClTest {
             expected = inputBytes,
             actual = decryptedBytes,
         )
+    }
+
+    @Test
+    fun `deriving shared secret fails with non-contributory key`() {
+        // arrange
+        val zeroPublicKey = ByteArray(32)
+
+        // act & assert
+        assertThrows<CryptoException> {
+            NaCl(
+                privateKey = bobPrivateKey,
+                publicKey = zeroPublicKey,
+            )
+        }
     }
 
     @Test

@@ -74,7 +74,6 @@ import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.RuntimeUtil;
 import ch.threema.app.utils.SSLUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.utils.WebRTCUtil;
 import ch.threema.app.utils.executor.BackgroundExecutor;
 import ch.threema.app.webclient.utils.DefaultNoopPeerConnectionObserver;
@@ -86,6 +85,7 @@ import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.data.models.ContactModel;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 @SuppressWarnings("FieldCanBeLocal")
 @UiThread
@@ -196,7 +196,7 @@ public class WebDiagnosticsActivity extends ThreemaToolbarActivity implements Te
         // Wire up copy button
         assert this.copyButton != null;
         this.copyButton.setOnClickListener(view -> {
-            if (!TestUtil.isEmptyOrNull(this.clipboardString)) {
+            if (!isNullOrEmpty(this.clipboardString)) {
                 WebDiagnosticsActivity.this.copyToClipboard(this.clipboardString);
             }
         });
@@ -204,7 +204,7 @@ public class WebDiagnosticsActivity extends ThreemaToolbarActivity implements Te
         // Wire up send button
         assert this.sendButton != null;
         this.sendButton.setOnClickListener(view -> {
-            if (!TestUtil.isEmptyOrNull(this.clipboardString)) {
+            if (!isNullOrEmpty(this.clipboardString)) {
                 WebDiagnosticsActivity.this.prepareSendToSupport();
             }
         });
@@ -300,8 +300,7 @@ public class WebDiagnosticsActivity extends ThreemaToolbarActivity implements Te
 
         backgroundExecutor.execute(
             new SendToSupportBackgroundTask(
-                dependencies.getUserService().getIdentity(),
-                dependencies.getApiConnector(),
+                dependencies.getValidContactsLookupSteps(),
                 dependencies.getContactModelRepository(),
                 dependencies.getAppRestrictions()
             ) {

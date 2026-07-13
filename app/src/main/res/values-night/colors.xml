@@ -5,9 +5,9 @@
 
     <color name="file_picker_divider_color">#1fffffff</color>
 
-    <color name="ballot_detail_highlight_text_color">#E2E3DD</color>
-    <color name="ballot_detail_highlight_bg_color">#555555</color>
-    <color name="text_color_open_ballots">#C5C5C5</color>
+    <color name="poll_detail_highlight_text_color">#E2E3DD</color>
+    <color name="poll_detail_highlight_bg_color">#555555</color>
+    <color name="text_color_open_polls">#C5C5C5</color>
     <color name="list_item_background_checked">#ff4a4a4a</color>
     <color name="attach_button_background">@color/dark_surface</color>
     <color name="markup_marker_color">#FF888888</color>

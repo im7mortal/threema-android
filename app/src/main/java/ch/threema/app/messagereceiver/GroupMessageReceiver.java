@@ -1,12 +1,11 @@
 package ch.threema.app.messagereceiver;
 
-import android.content.Intent;
 import android.graphics.Bitmap;
 
 import org.slf4j.Logger;
 
+import java.time.Instant;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -15,7 +14,6 @@ import java.util.UUID;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import ch.threema.app.AppConstants;
 import ch.threema.app.emojis.EmojiUtil;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.multidevice.MultiDeviceManager;
@@ -37,18 +35,22 @@ import ch.threema.app.utils.GroupUtil;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.base.ThreemaException;
 import ch.threema.base.crypto.SymmetricEncryptionResult;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.base.utils.Utils;
+
 import ch.threema.data.datatypes.ContactNameFormat;
+import ch.threema.data.datatypes.ConversationId;
+import ch.threema.data.datatypes.GroupConversationId;
+import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverride;
 import ch.threema.data.models.GroupModel;
 import ch.threema.data.models.GroupModelData;
 import ch.threema.data.repositories.ContactModelRepository;
 import ch.threema.data.repositories.GroupModelRepository;
 import ch.threema.domain.models.MessageId;
 import ch.threema.domain.protocol.ThreemaFeature;
-import ch.threema.domain.protocol.csp.messages.ballot.BallotData;
-import ch.threema.domain.protocol.csp.messages.ballot.BallotId;
-import ch.threema.domain.protocol.csp.messages.ballot.BallotVote;
+import ch.threema.domain.protocol.csp.messages.poll.PollData;
+import ch.threema.domain.protocol.csp.messages.poll.PollId;
+import ch.threema.domain.protocol.csp.messages.poll.PollVote;
 import ch.threema.domain.taskmanager.TaskManager;
 import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.protobuf.csp.e2e.Reaction;
@@ -59,11 +61,12 @@ import ch.threema.storage.models.group.GroupModelOld;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.MessageType;
 import ch.threema.storage.models.access.GroupAccessModel;
-import ch.threema.storage.models.ballot.BallotModel;
+import ch.threema.storage.models.poll.PollModel;
 import ch.threema.storage.models.data.MessageContentsType;
 import ch.threema.storage.models.data.media.FileDataModel;
 
 import static ch.threema.app.utils.MessageUtil.canSendUserAcknowledge;
+import static ch.threema.common.JavaCompat.hexToByteArray;
 import static ch.threema.domain.protocol.csp.ProtocolDefines.DELIVERYRECEIPT_MSGUSERACK;
 import static ch.threema.domain.protocol.csp.ProtocolDefines.DELIVERYRECEIPT_MSGUSERDEC;
 
@@ -109,14 +112,23 @@ public class GroupMessageReceiver implements MessageReceiver<GroupMessageModel> 
             : null;
     }
 
+    @NonNull
     @Override
-    public GroupMessageModel createLocalModel(MessageType type, @MessageContentsType int messageContentsType, Date postedAt) {
+    public GroupMessageModel createLocalModel(
+        @Nullable final MessageId messageId,
+        MessageType type,
+        @MessageContentsType int messageContentsType,
+        Instant postedAt
+    ) {
         GroupMessageModel m = new GroupMessageModel();
+        if (type != null && type.getRequiresMessageId()) {
+            m.setMessageId(messageId != null ? messageId : MessageId.random());
+        }
         m.setType(type);
         m.setMessageContentsType(messageContentsType);
         m.setGroupId(group.getId());
         m.setPostedAt(postedAt);
-        m.setCreatedAt(new Date());
+        m.setCreatedAt(Instant.now());
         m.setSaved(false);
         m.setUid(UUID.randomUUID().toString());
         return m;
@@ -124,12 +136,12 @@ public class GroupMessageReceiver implements MessageReceiver<GroupMessageModel> 
 
     @Override
     @Deprecated
-    public GroupMessageModel createAndSaveStatusModel(String statusBody, Date postedAt) {
+    public GroupMessageModel createAndSaveStatusModel(String statusBody, Instant postedAt) {
         GroupMessageModel m = new GroupMessageModel(true);
         m.setType(MessageType.TEXT);
         m.setGroupId(group.getId());
         m.setPostedAt(postedAt);
-        m.setCreatedAt(new Date());
+        m.setCreatedAt(Instant.now());
         m.setSaved(true);
         m.setUid(UUID.randomUUID().toString());
         m.setBody(statusBody);
@@ -154,10 +166,6 @@ public class GroupMessageReceiver implements MessageReceiver<GroupMessageModel> 
             // user is offline and therefore the task has not yet been run.
             messageModel.setState(MessageState.SENT);
         }
-
-        // Create and assign a new message id
-        messageModel.setMessageId(MessageId.random());
-        saveLocalModel(messageModel);
 
         bumpLastUpdate();
 
@@ -187,10 +195,6 @@ public class GroupMessageReceiver implements MessageReceiver<GroupMessageModel> 
             // user is offline and therefore the task has not yet been run.
             messageModel.setState(MessageState.SENT);
         }
-
-        // Create and assign a new message id
-        messageModel.setMessageId(MessageId.random());
-        saveLocalModel(messageModel);
 
         bumpLastUpdate();
 
@@ -226,16 +230,12 @@ public class GroupMessageReceiver implements MessageReceiver<GroupMessageModel> 
         FileDataModel modelFileData = messageModel.getFileData();
         modelFileData.setBlobId(fileBlobId);
         if (encryptionResult != null) {
-            modelFileData.setEncryptionKey(encryptionResult.getKey());
+            modelFileData.setEncryptionKey(encryptionResult.key);
         }
 
         // Set file data model again explicitly to enforce that the body of the message is rewritten
         // and therefore updated.
         messageModel.setFileData(modelFileData);
-
-        if (messageModel.getMessageId() == null) {
-            messageModel.setMessageId(MessageId.random());
-        }
         saveLocalModel(messageModel);
 
         // Note that lastUpdate lastUpdate was bumped when the file message was created
@@ -250,19 +250,14 @@ public class GroupMessageReceiver implements MessageReceiver<GroupMessageModel> 
     }
 
     @Override
-    public void createAndSendBallotSetupMessage(
-        @NonNull final BallotData ballotData,
-        @NonNull final BallotModel ballotModel,
+    public void createAndSendPollSetupMessage(
+        @NonNull final PollData pollData,
+        @NonNull final PollModel pollModel,
         @NonNull GroupMessageModel messageModel,
-        @Nullable MessageId messageId,
         @Nullable Collection<String> recipientIdentities,
         @NonNull TriggerSource triggerSource
     ) throws ThreemaException {
-        final BallotId ballotId = new BallotId(Utils.hexStringToByteArray(ballotModel.getApiBallotId()));
-
-        // Create a new message id if the given message id is null
-        messageModel.setMessageId(messageId != null ? messageId : MessageId.random());
-        saveLocalModel(messageModel);
+        final PollId pollId = new PollId(hexToByteArray(pollModel.getApiPollId()));
 
         bumpLastUpdate();
 
@@ -272,31 +267,31 @@ public class GroupMessageReceiver implements MessageReceiver<GroupMessageModel> 
                 messageModel.getId(),
                 Type_GROUP,
                 getRecipientIdentities(recipientIdentities),
-                ballotId,
-                ballotData
+                pollId,
+                pollData
             ));
         }
     }
 
     @Override
-    public void createAndSendBallotVoteMessage(
-        final BallotVote[] votes,
-        final BallotModel ballotModel,
+    public void createAndSendPollVoteMessage(
+        final PollVote[] votes,
+        final PollModel pollModel,
         @NonNull TriggerSource triggerSource
     ) throws ThreemaException {
         // Create message id
         MessageId messageId = MessageId.random();
 
-        final BallotId ballotId = new BallotId(Utils.hexStringToByteArray(ballotModel.getApiBallotId()));
+        final PollId pollId = new PollId(hexToByteArray(pollModel.getApiPollId()));
 
         // Schedule outgoing text message task
         taskManager.schedule(new OutgoingPollVoteGroupMessageTask(
             messageId,
             Set.of(groupService.getGroupMemberIdentities(group)),
-            ballotId,
-            ballotModel.getCreatorIdentity(),
+            pollId,
+            pollModel.getCreatorIdentity(),
             votes,
-            ballotModel.getType(),
+            pollModel.getType(),
             group.getApiGroupId(),
             group.getCreatorIdentity()
         ));
@@ -319,7 +314,7 @@ public class GroupMessageReceiver implements MessageReceiver<GroupMessageModel> 
         }
     }
 
-    public void sendEditMessage(int messageModelId, @NonNull String body, @NonNull Date editedAt) {
+    public void sendEditMessage(int messageModelId, @NonNull String body, @NonNull Instant editedAt) {
         taskManager.schedule(
             new OutgoingGroupEditMessageTask(
                 messageModelId,
@@ -333,7 +328,7 @@ public class GroupMessageReceiver implements MessageReceiver<GroupMessageModel> 
         );
     }
 
-    public void sendDeleteMessage(int messageModelId, @NonNull Date deletedAt) {
+    public void sendDeleteMessage(int messageModelId, @NonNull Instant deletedAt) {
         taskManager.schedule(
             new OutgoingGroupDeleteMessageTask(
                 messageModelId,
@@ -354,7 +349,7 @@ public class GroupMessageReceiver implements MessageReceiver<GroupMessageModel> 
      * @param emojiSequence The emoji sequence of the reaction
      * @param reactedAt     The timestamp of the reaction
      */
-    public void sendReaction(AbstractMessageModel messageModel, Reaction.ActionCase actionCase, @NonNull String emojiSequence, @NonNull Date reactedAt) {
+    public void sendReaction(AbstractMessageModel messageModel, Reaction.ActionCase actionCase, @NonNull String emojiSequence, @NonNull Instant reactedAt) {
         // identities that support receiving emoji reactions
         Set<String> emojiReactionsIdentities = GroupUtil.getRecipientIdentitiesByFeatureSupport(getFeatureSupport(ThreemaFeature.EMOJI_REACTIONS));
         // all group identities except sender
@@ -486,11 +481,6 @@ public class GroupMessageReceiver implements MessageReceiver<GroupMessageModel> 
     }
 
     @Override
-    public void prepareIntent(@NonNull Intent intent) {
-        intent.putExtra(AppConstants.INTENT_DATA_GROUP_DATABASE_ID, (long) group.getId());
-    }
-
-    @Override
     public Bitmap getNotificationAvatar() {
         return groupService.getAvatar(group, false);
     }
@@ -503,18 +493,6 @@ public class GroupMessageReceiver implements MessageReceiver<GroupMessageModel> 
     @Override
     public Bitmap getAvatar() {
         return groupService.getAvatar(group, true, true);
-    }
-
-    @Override
-    @Deprecated
-    public int getUniqueId() {
-        return GroupUtil.getUniqueId(group);
-    }
-
-    @NonNull
-    @Override
-    public String getUniqueIdString() {
-        return GroupUtil.getUniqueIdString(group);
     }
 
     @Override
@@ -608,6 +586,22 @@ public class GroupMessageReceiver implements MessageReceiver<GroupMessageModel> 
             default:
                 return Reactions_NONE; // Handle unknown adoption rates
         }
+    }
+
+    @Nullable
+    @Override
+    public GroupNotificationTriggerPolicyOverride getNotificationTriggerPolicyOverrideOrNull() {
+        if (groupModel != null) {
+            GroupModelData groupModelData = groupModel.getData();
+            return groupModelData != null ? groupModelData.notificationTriggerPolicyOverride : null;
+        }
+        return null;
+    }
+
+    @NonNull
+    @Override
+    public ConversationId getConversationId() {
+        return new GroupConversationId(group.getId());
     }
 
     @Override

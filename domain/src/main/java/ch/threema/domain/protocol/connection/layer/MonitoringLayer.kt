@@ -21,7 +21,6 @@ import ch.threema.domain.protocol.connection.util.MdLayer4Controller
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.Date
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -200,7 +199,7 @@ internal class MonitoringLayer(
         }
         val buffer = ByteBuffer.wrap(data).order(ByteOrder.nativeOrder())
         lastRcvdEchoSeq = buffer.int
-        val rttMs = Date().time - buffer.long
+        val rttMs = System.currentTimeMillis() - buffer.long
         logger.info("Received echo reply (seq: {}, rtt: {} ms) ", lastRcvdEchoSeq, rttMs)
     }
 
@@ -283,7 +282,7 @@ internal class MonitoringLayer(
         val echoData = ByteBuffer.wrap(ByteArray(12))
             .order(ByteOrder.nativeOrder())
             .putInt(sequenceNumber)
-            .putLong(Date().time)
+            .putLong(System.currentTimeMillis())
             .array()
         return CspContainer(ProtocolDefines.PLTYPE_ECHO_REQUEST.toUByte(), echoData)
     }

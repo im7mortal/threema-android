@@ -1,28 +1,36 @@
 package testdata
 
-import ch.threema.app.managers.CoreServiceManager
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.messagereceiver.ContactMessageReceiver
 import ch.threema.app.messagereceiver.DistributionListMessageReceiver
 import ch.threema.app.messagereceiver.GroupMessageReceiver
 import ch.threema.app.messagereceiver.MessageReceiver
+import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.services.BlockedIdentitiesService
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.DistributionListService
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.UserService
 import ch.threema.base.crypto.NaCl
+import ch.threema.data.IdentityProvider
 import ch.threema.data.datatypes.AndroidContactLookupInfo
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverride
+import ch.threema.data.datatypes.ConversationVisibility
+import ch.threema.data.datatypes.DistributionListConversationId
+import ch.threema.data.datatypes.GroupConversationId
+import ch.threema.data.datatypes.GroupIdentity
+import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverride
 import ch.threema.data.datatypes.IdColor
 import ch.threema.data.models.ContactModelData
 import ch.threema.data.models.ContactModelData.Companion.javaCreate
-import ch.threema.data.models.GroupIdentity
 import ch.threema.data.models.GroupModel
 import ch.threema.data.models.GroupModelData
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.data.repositories.GroupModelRepository
 import ch.threema.data.storage.DatabaseBackend
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.ContactSyncState
 import ch.threema.domain.models.GroupId
 import ch.threema.domain.models.IdentityState
@@ -33,23 +41,21 @@ import ch.threema.domain.models.UserState
 import ch.threema.domain.models.VerificationLevel
 import ch.threema.domain.models.WorkVerificationLevel
 import ch.threema.domain.stores.IdentityStore
+import ch.threema.domain.taskmanager.TaskManager
 import ch.threema.domain.types.GroupDatabaseId
 import ch.threema.domain.types.Identity
 import ch.threema.domain.types.IdentityString
 import ch.threema.storage.DatabaseService
 import ch.threema.storage.models.ContactModel
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel
 import ch.threema.storage.models.ConversationModel
 import ch.threema.storage.models.DistributionListModel
 import ch.threema.storage.models.group.GroupModelOld
+import ch.threema.test.TestIdentityProvider
+import ch.threema.testhelpers.utcDate
 import io.mockk.every
 import io.mockk.mockk
 import java.math.BigInteger
 import java.time.Instant
-import java.time.ZoneOffset
-import java.util.Calendar
-import java.util.Date
-import java.util.TimeZone
 
 object TestData {
 
@@ -70,33 +76,40 @@ object TestData {
 
     val publicKeyAllZeros = ByteArray(32)
 
+    fun createContactConversationModel(contactConversationId: ContactConversationId) =
+        createContactConversationModel(
+            identity = Identity(contactConversationId.identity),
+        )
+
     fun createContactConversationModel(
         identity: Identity,
-        isArchived: Boolean = false,
+        conversationVisibility: ConversationVisibility = ConversationVisibility.NORMAL,
         databaseBackendMock: DatabaseBackend = mockk(relaxed = true),
         databaseServiceMock: DatabaseService = mockk(relaxed = true),
         blockedIdentitiesServiceMock: BlockedIdentitiesService = mockk(relaxed = true),
         contactModelRepositoryMock: ContactModelRepository = mockk(relaxed = true),
         serviceManagerMock: ServiceManager = mockk(relaxed = true),
-        coreServiceManagerMock: CoreServiceManager = mockk(relaxed = true),
+        multiDeviceManager: MultiDeviceManager = mockk(relaxed = true),
+        taskManager: TaskManager = mockk(relaxed = true),
         contactServiceMock: ContactService = mockk(relaxed = true),
         identitySoreMock: IdentityStore = mockk(relaxed = true),
     ): ConversationModel =
         ConversationModel(
             messageReceiver = createAndMockContactMessageReceiver(
                 identity = identity,
-                isArchived = isArchived,
+                conversationVisibility = conversationVisibility,
                 contactModelRepositoryMock = contactModelRepositoryMock,
                 databaseBackendMock = databaseBackendMock,
                 databaseServiceMock = databaseServiceMock,
                 serviceManagerMock = serviceManagerMock,
-                coreServiceManagerMock = coreServiceManagerMock,
+                multiDeviceManager = multiDeviceManager,
+                taskManager = taskManager,
                 blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
                 contactServiceMock = contactServiceMock,
-                identitySoreMock = identitySoreMock,
+                identityStoreMock = identitySoreMock,
             ),
         ).apply {
-            this.isArchived = isArchived
+            this.conversationVisibility = conversationVisibility
         }
 
     fun createAndMockContactMessageReceiver(
@@ -105,19 +118,20 @@ object TestData {
         firstname: String = "Firstname",
         lastname: String = "Lastname",
         nickname: String? = null,
-        createdAt: Date = utcDate(2025, 10, 25),
+        createdAt: Instant = utcDate(2025, 10, 25),
         isRestored: Boolean = false,
         activityState: IdentityState = IdentityState.ACTIVE,
         syncState: ContactSyncState = ContactSyncState.INITIAL,
-        isArchived: Boolean = false,
+        conversationVisibility: ConversationVisibility = ConversationVisibility.NORMAL,
         contactModelRepositoryMock: ContactModelRepository = mockk(relaxed = true),
         databaseBackendMock: DatabaseBackend = mockk(relaxed = true),
         databaseServiceMock: DatabaseService = mockk(relaxed = true),
         serviceManagerMock: ServiceManager = mockk(relaxed = true),
-        coreServiceManagerMock: CoreServiceManager = mockk(relaxed = true),
         blockedIdentitiesServiceMock: BlockedIdentitiesService = mockk(relaxed = true),
         contactServiceMock: ContactService = mockk(relaxed = true),
-        identitySoreMock: IdentityStore = mockk(relaxed = true),
+        identityStoreMock: IdentityStore = mockk(relaxed = true),
+        multiDeviceManager: MultiDeviceManager = mockk(relaxed = true),
+        taskManager: TaskManager = mockk(relaxed = true),
     ): ContactMessageReceiver {
         val contactModelOld = ContactModel.create(identity.value, publicKey).apply {
             this.firstName = lastname
@@ -126,7 +140,7 @@ object TestData {
             this.state = activityState
             this.dateCreated = createdAt
             this.setIsRestored(isRestored)
-            this.isArchived = isArchived
+            this.setConversationVisibility(conversationVisibility)
         }
         val contactModel = createContactModel(
             identity = identity,
@@ -138,9 +152,10 @@ object TestData {
             isRestored = isRestored,
             activityState = activityState,
             syncState = syncState,
-            isArchived = isArchived,
+            conversationVisibility = conversationVisibility,
             databaseBackendMock = databaseBackendMock,
-            coreServiceManagerMock = coreServiceManagerMock,
+            multiDeviceManager = multiDeviceManager,
+            taskManager = taskManager,
         )
 
         every { contactModelRepositoryMock.getByIdentity(identity) } returns contactModel
@@ -156,7 +171,7 @@ object TestData {
             /* databaseService = */
             databaseServiceMock,
             /* identityStore = */
-            identitySoreMock,
+            identityStoreMock,
             /* blockedIdentitiesService = */
             blockedIdentitiesServiceMock,
             /* contactModelRepository = */
@@ -164,13 +179,19 @@ object TestData {
         )
     }
 
+    fun createGroupConversationModel(groupConversationId: GroupConversationId) =
+        createGroupConversationModel(
+            groupDatabaseId = groupConversationId.groupDatabaseId,
+        )
+
     fun createGroupConversationModel(
         groupDatabaseId: GroupDatabaseId,
         apiGroupId: GroupId = GroupId(),
         creatorIdentity: Identity = Identities.OTHER_1,
+        userState: UserState = UserState.MEMBER,
         otherMembers: Set<Identity> = setOf(Identities.OTHER_2),
-        createdAt: Date = utcDate(2025, 10, 25),
-        isArchived: Boolean = false,
+        createdAt: Instant = utcDate(2025, 10, 25),
+        conversationVisibility: ConversationVisibility = ConversationVisibility.NORMAL,
         groupServiceMock: GroupService = mockk(relaxed = true),
         databaseServiceMock: DatabaseService = mockk(relaxed = true),
         databaseBackendMock: DatabaseBackend = mockk(relaxed = true),
@@ -178,7 +199,8 @@ object TestData {
         contactModelRepositoryMock: ContactModelRepository = mockk(relaxed = true),
         groupModelRepositoryMock: GroupModelRepository = mockk(relaxed = true),
         serviceManagerMock: ServiceManager = mockk(relaxed = true),
-        coreServiceManagerMock: CoreServiceManager = mockk(relaxed = true),
+        multiDeviceManager: MultiDeviceManager = mockk(relaxed = true),
+        taskManager: TaskManager = mockk(relaxed = true),
     ): ConversationModel {
         return ConversationModel(
             messageReceiver = createAndMockGroupMessageReceiver(
@@ -186,9 +208,10 @@ object TestData {
                 apiGroupId = apiGroupId,
                 ownIdentity = Identities.ME,
                 creatorIdentity = creatorIdentity,
+                userState = userState,
                 otherMembers = otherMembers,
                 createdAt = createdAt,
-                isArchived = isArchived,
+                conversationVisibility = conversationVisibility,
                 groupServiceMock = groupServiceMock,
                 databaseServiceMock = databaseServiceMock,
                 databaseBackendMock = databaseBackendMock,
@@ -196,10 +219,11 @@ object TestData {
                 contactModelRepositoryMock = contactModelRepositoryMock,
                 groupModelRepositoryMock = groupModelRepositoryMock,
                 serviceManagerMock = serviceManagerMock,
-                coreServiceManagerMock = coreServiceManagerMock,
+                multiDeviceManager = multiDeviceManager,
+                taskManager = taskManager,
             ),
         ).apply {
-            this.isArchived = isArchived
+            this.conversationVisibility = conversationVisibility
         }
     }
 
@@ -213,9 +237,10 @@ object TestData {
         apiGroupId: GroupId = GroupId(),
         ownIdentity: Identity,
         creatorIdentity: Identity,
+        userState: UserState,
         otherMembers: Set<Identity>,
-        createdAt: Date = utcDate(2025, 10, 25),
-        isArchived: Boolean = false,
+        createdAt: Instant = utcDate(2025, 10, 25),
+        conversationVisibility: ConversationVisibility = ConversationVisibility.NORMAL,
         groupServiceMock: GroupService = mockk(relaxed = true),
         databaseServiceMock: DatabaseService = mockk(relaxed = true),
         databaseBackendMock: DatabaseBackend = mockk(relaxed = true),
@@ -223,7 +248,8 @@ object TestData {
         contactModelRepositoryMock: ContactModelRepository = mockk(relaxed = true),
         groupModelRepositoryMock: GroupModelRepository = mockk(relaxed = true),
         serviceManagerMock: ServiceManager = mockk(relaxed = true),
-        coreServiceManagerMock: CoreServiceManager = mockk(relaxed = true),
+        multiDeviceManager: MultiDeviceManager = mockk(relaxed = true),
+        taskManager: TaskManager = mockk(relaxed = true),
     ): GroupMessageReceiver {
         val groupIdentity = GroupIdentity(
             creatorIdentity = creatorIdentity.value,
@@ -233,7 +259,7 @@ object TestData {
             this.id = groupDatabaseId.toInt()
             this.apiGroupId = apiGroupId
             this.creatorIdentity = creatorIdentity.value
-            this.isArchived = isArchived
+            this.conversationVisibility = conversationVisibility
         }
 
         val newGroupModel = GroupModel(
@@ -244,16 +270,19 @@ object TestData {
                 createdAt = createdAt,
                 synchronizedAt = null,
                 lastUpdate = null,
-                isArchived = isArchived,
+                conversationVisibility = conversationVisibility,
                 precomputedIdColor = IdColor.ofGroup(groupIdentity),
                 groupDescription = null,
                 groupDescriptionChangedAt = null,
                 otherMembers = otherMembers.map { it.value }.toSet(),
-                userState = UserState.MEMBER,
+                userState = userState,
                 notificationTriggerPolicyOverride = null,
             ),
             databaseBackend = databaseBackendMock,
-            coreServiceManager = coreServiceManagerMock,
+            identityProvider = TestIdentityProvider(ownIdentity),
+            multiDeviceManager = multiDeviceManager,
+            taskManager = taskManager,
+            globalEventBuses = mockk(relaxed = true),
         )
 
         every {
@@ -273,13 +302,10 @@ object TestData {
         } returns newGroupModel
 
         every {
-            groupModelRepositoryMock.getByLocalGroupDbId(
-                localGroupDbId = groupDatabaseId,
+            groupModelRepositoryMock.getByGroupDatabaseId(
+                groupDatabaseId = groupDatabaseId,
             )
         } returns newGroupModel
-
-        every { coreServiceManagerMock.identityStore.getIdentity() } returns ownIdentity
-        every { coreServiceManagerMock.identityStore.getIdentityString() } returns ownIdentity.value
 
         every { databaseBackendMock.getGroupDatabaseId(groupIdentity) } returns groupDatabaseId
 
@@ -301,9 +327,14 @@ object TestData {
         )
     }
 
+    fun createDistributionListConversationModel(distributionListConversationId: DistributionListConversationId) =
+        createDistributionListConversationModel(
+            distributionListId = distributionListConversationId.distributionListId,
+        )
+
     fun createDistributionListConversationModel(
         distributionListId: Long,
-        isArchived: Boolean = false,
+        conversationVisibility: ConversationVisibility = ConversationVisibility.NORMAL,
         identitiesWithPublicKey: List<Pair<Identity, ByteArray>> = listOf(Identities.OTHER_1 to publicKeyAllZeros),
         distributionListServiceMock: DistributionListService = mockk(relaxed = true),
         contactServiceMock: ContactService = mockk(relaxed = true),
@@ -311,14 +342,15 @@ object TestData {
         databaseBackendMock: DatabaseBackend = mockk(relaxed = true),
         databaseServiceMock: DatabaseService = mockk(relaxed = true),
         serviceManagerMock: ServiceManager = mockk(relaxed = true),
-        coreServiceManagerMock: CoreServiceManager = mockk(relaxed = true),
+        multiDeviceManager: MultiDeviceManager = mockk(relaxed = true),
+        taskManager: TaskManager = mockk(relaxed = true),
         blockedIdentitiesServiceMock: BlockedIdentitiesService = mockk(relaxed = true),
         identityStoreMock: IdentityStore = mockk(relaxed = true),
     ): ConversationModel {
         return ConversationModel(
             messageReceiver = createAndMockDistributionListMessageReceiver(
                 distributionListId = distributionListId,
-                isArchived = isArchived,
+                conversationVisibility = conversationVisibility,
                 identitiesWithPublicKey = identitiesWithPublicKey,
                 distributionListServiceMock = distributionListServiceMock,
                 contactServiceMock = contactServiceMock,
@@ -326,18 +358,19 @@ object TestData {
                 databaseBackendMock = databaseBackendMock,
                 databaseServiceMock = databaseServiceMock,
                 serviceManagerMock = serviceManagerMock,
-                coreServiceManagerMock = coreServiceManagerMock,
+                multiDeviceManager = multiDeviceManager,
+                taskManager = taskManager,
                 blockedIdentitiesServiceMock = blockedIdentitiesServiceMock,
                 identityStoreMock = identityStoreMock,
             ),
         ).apply {
-            this.isArchived = isArchived
+            this.conversationVisibility = conversationVisibility
         }
     }
 
     fun createAndMockDistributionListMessageReceiver(
         distributionListId: Long,
-        isArchived: Boolean = false,
+        conversationVisibility: ConversationVisibility = ConversationVisibility.NORMAL,
         identitiesWithPublicKey: List<Pair<Identity, ByteArray>>,
         distributionListServiceMock: DistributionListService = mockk(relaxed = true),
         contactServiceMock: ContactService = mockk(relaxed = true),
@@ -345,7 +378,8 @@ object TestData {
         databaseBackendMock: DatabaseBackend = mockk(relaxed = true),
         databaseServiceMock: DatabaseService = mockk(relaxed = true),
         serviceManagerMock: ServiceManager = mockk(relaxed = true),
-        coreServiceManagerMock: CoreServiceManager = mockk(relaxed = true),
+        multiDeviceManager: MultiDeviceManager = mockk(relaxed = true),
+        taskManager: TaskManager = mockk(relaxed = true),
         blockedIdentitiesServiceMock: BlockedIdentitiesService = mockk(relaxed = true),
         identityStoreMock: IdentityStore = mockk(relaxed = true),
     ): MessageReceiver<*> {
@@ -361,7 +395,8 @@ object TestData {
                 identity = Identity(memberIdentity),
                 publicKey = contactModelsOld.first { it.identity == memberIdentity }.publicKey,
                 databaseBackendMock = databaseBackendMock,
-                coreServiceManagerMock = coreServiceManagerMock,
+                multiDeviceManager = multiDeviceManager,
+                taskManager = taskManager,
             )
         }
 
@@ -389,7 +424,7 @@ object TestData {
 
         val distributionListModel = DistributionListModel().apply {
             this.id = distributionListId
-            this.isArchived = isArchived
+            this.conversationVisibility = conversationVisibility
         }
 
         return DistributionListMessageReceiver(
@@ -404,29 +439,24 @@ object TestData {
         )
     }
 
-    fun utcDate(year: Int, month: Int, dayOfMonth: Int, hour: Int = 0, minute: Int = 0, second: Int = 0): Date {
-        val zone = TimeZone.getTimeZone(ZoneOffset.UTC.id)
-        return Calendar.getInstance(zone)
-            .apply {
-                set(year, month + 1, dayOfMonth, hour, minute, second)
-            }.time
-    }
-
     fun createContactModel(
         identity: Identity? = Identities.OTHER_1,
         publicKey: ByteArray = publicKeyAllZeros,
         firstname: String = "Firstname",
         lastname: String = "Lastname",
         nickname: String? = null,
-        createdAt: Date = utcDate(2025, 10, 25),
+        createdAt: Instant = utcDate(2025, 10, 25),
+        lastUpdateAt: Instant? = null,
         isRestored: Boolean = false,
         activityState: IdentityState = IdentityState.ACTIVE,
         syncState: ContactSyncState = ContactSyncState.INITIAL,
-        isArchived: Boolean = false,
+        conversationVisibility: ConversationVisibility = ConversationVisibility.NORMAL,
         workLastFullSyncAt: Instant? = null,
         availabilityStatus: AvailabilityStatus = AvailabilityStatus.Busy(),
         databaseBackendMock: DatabaseBackend = mockk(relaxed = true),
-        coreServiceManagerMock: CoreServiceManager = mockk(relaxed = true),
+        identityProvider: IdentityProvider = TestIdentityProvider(identity = null),
+        multiDeviceManager: MultiDeviceManager = mockk(relaxed = true),
+        taskManager: TaskManager = mockk(relaxed = true),
     ): ch.threema.data.models.ContactModel {
         return ch.threema.data.models.ContactModel(
             identity = identity?.value ?: "",
@@ -434,20 +464,21 @@ object TestData {
                 identity = identity?.value ?: "",
                 publicKey = publicKey,
                 createdAt = createdAt,
+                lastUpdateAt = lastUpdateAt,
                 firstName = firstname,
                 lastName = lastname,
                 nickname = nickname,
                 idColor = IdColor(0),
                 verificationLevel = VerificationLevel.FULLY_VERIFIED,
                 workVerificationLevel = WorkVerificationLevel.NONE,
-                identityType = IdentityType.NORMAL,
+                identityType = IdentityType.REGULAR,
                 acquaintanceLevel = AcquaintanceLevel.DIRECT,
                 activityState = activityState,
                 featureMask = BigInteger.ONE,
                 syncState = syncState,
                 readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
                 typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
-                isArchived = isArchived,
+                conversationVisibility = conversationVisibility,
                 androidContactLookupInfo = null,
                 localAvatarExpires = null,
                 isRestored = isRestored,
@@ -459,40 +490,45 @@ object TestData {
                 workLastFullSyncAt = workLastFullSyncAt,
             ),
             databaseBackend = databaseBackendMock,
-            coreServiceManager = coreServiceManagerMock,
+            identityProvider = identityProvider,
+            multiDeviceManager = multiDeviceManager,
+            taskManager = taskManager,
+            globalEventBuses = mockk(relaxed = true),
         )
     }
 
     fun createContactModelData(
         identity: Identity = Identities.OTHER_1,
         publicKey: ByteArray = ByteArray(NaCl.PUBLIC_KEY_BYTES),
-        createdAt: Date = Date(),
+        createdAt: Instant = Instant.now(),
+        lastUpdateAt: Instant? = null,
         firstName: String = "First",
         lastName: String = "Last",
         nickname: String? = null,
         verificationLevel: VerificationLevel = VerificationLevel.FULLY_VERIFIED,
         workVerificationLevel: WorkVerificationLevel = WorkVerificationLevel.NONE,
-        identityType: IdentityType = IdentityType.NORMAL,
+        identityType: IdentityType = IdentityType.REGULAR,
         acquaintanceLevel: AcquaintanceLevel = AcquaintanceLevel.DIRECT,
         activityState: IdentityState = IdentityState.ACTIVE,
         syncState: ContactSyncState = ContactSyncState.INITIAL,
         featureMask: ULong = 0u,
         readReceiptPolicy: ReadReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy: TypingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
-        isArchived: Boolean = false,
+        conversationVisibility: ConversationVisibility = ConversationVisibility.NORMAL,
         androidContactLookupInfo: AndroidContactLookupInfo? = null,
-        localAvatarExpires: Date? = null,
+        localAvatarExpires: Instant? = null,
         isRestored: Boolean = false,
         profilePictureBlobId: ByteArray? = null,
         jobTitle: String? = null,
         department: String? = null,
-        notificationTriggerPolicyOverride: Long? = null,
+        notificationTriggerPolicyOverride: ContactNotificationTriggerPolicyOverride? = null,
         availabilityStatus: AvailabilityStatus = AvailabilityStatus.None,
         workLastFullSyncAt: Instant? = null,
     ) = ContactModelData(
         identity = identity.value,
         publicKey = publicKey,
         createdAt = createdAt,
+        lastUpdateAt = lastUpdateAt,
         firstName = firstName,
         lastName = lastName,
         nickname = nickname,
@@ -505,7 +541,7 @@ object TestData {
         featureMask = featureMask,
         readReceiptPolicy = readReceiptPolicy,
         typingIndicatorPolicy = typingIndicatorPolicy,
-        isArchived = isArchived,
+        conversationVisibility = conversationVisibility,
         androidContactLookupInfo = androidContactLookupInfo,
         localAvatarExpires = localAvatarExpires,
         isRestored = isRestored,
@@ -523,17 +559,19 @@ object TestData {
             groupId = 1,
         ),
         name: String = "Group1",
-        createdAt: Date = Date(42),
-        synchronizedAt: Date = Date(42),
-        lastUpdate: Date = Date(42),
-        isArchived: Boolean = false,
+        createdAt: Instant = Instant.ofEpochMilli(42),
+        synchronizedAt: Instant = Instant.ofEpochMilli(42),
+        lastUpdate: Instant = Instant.ofEpochMilli(42),
+        conversationVisibility: ConversationVisibility = ConversationVisibility.NORMAL,
         groupDescription: String? = null,
-        groupDescriptionChangedAt: Date? = null,
+        groupDescriptionChangedAt: Instant? = null,
         otherMembers: Set<String> = emptySet(),
         userState: UserState = UserState.MEMBER,
-        notificationTriggerPolicyOverride: Long? = null,
+        notificationTriggerPolicyOverride: GroupNotificationTriggerPolicyOverride? = null,
         databaseBackend: DatabaseBackend = mockk(relaxed = true),
-        coreServiceManager: CoreServiceManager = mockk(relaxed = true),
+        identityProvider: IdentityProvider = TestIdentityProvider(identity = null),
+        multiDeviceManager: MultiDeviceManager = mockk(relaxed = true),
+        taskManager: TaskManager = mockk(relaxed = true),
     ) = GroupModel(
         groupIdentity = groupIdentity,
         data = GroupModelData(
@@ -542,7 +580,7 @@ object TestData {
             createdAt = createdAt,
             synchronizedAt = synchronizedAt,
             lastUpdate = lastUpdate,
-            isArchived = isArchived,
+            conversationVisibility = conversationVisibility,
             groupDescription = groupDescription,
             groupDescriptionChangedAt = groupDescriptionChangedAt,
             otherMembers = otherMembers,
@@ -550,6 +588,9 @@ object TestData {
             notificationTriggerPolicyOverride = notificationTriggerPolicyOverride,
         ),
         databaseBackend = databaseBackend,
-        coreServiceManager = coreServiceManager,
+        multiDeviceManager = multiDeviceManager,
+        taskManager = taskManager,
+        identityProvider = identityProvider,
+        globalEventBuses = mockk(relaxed = true),
     )
 }

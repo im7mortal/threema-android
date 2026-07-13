@@ -5,7 +5,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.InputFilter;
@@ -28,9 +27,10 @@ import org.slf4j.Logger;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.text.HtmlCompat;
+import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.BuildConfig;
 import ch.threema.app.R;
-import ch.threema.app.activities.wizard.components.WizardButtonXml;
+import ch.threema.app.ui.interop.ButtonPrimaryXml;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.dialogs.GenericProgressDialog;
 import ch.threema.app.restrictions.AppRestrictionService;
@@ -39,13 +39,12 @@ import ch.threema.app.services.license.LicenseServiceUser;
 import ch.threema.domain.models.SerialCredentials;
 import ch.threema.domain.models.UserCredentials;
 import ch.threema.app.ui.InsetSides;
-import ch.threema.app.ui.SimpleTextWatcher;
+import ch.threema.android.textwatchers.SimpleTextWatcher;
 import ch.threema.app.ui.SpacingValues;
 import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.DialogUtil;
 import ch.threema.app.utils.EditTextUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.utils.executor.BackgroundExecutor;
 import ch.threema.app.utils.executor.BackgroundTask;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
@@ -54,6 +53,8 @@ import kotlin.Lazy;
 
 import static ch.threema.app.startup.AppStartupUtilKt.finishAndRestartLaterIfNotReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrBlank;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 import static ch.threema.common.LazyKt.lazy;
 
 // this should NOT extend ThreemaToolbarActivity
@@ -67,7 +68,7 @@ public class EnterSerialActivity extends ThreemaActivity {
     private TextView stateTextView = null;
     private EditText licenseKeyOrUsernameText, passwordText, serverText;
     private MaterialButton unlockButton;
-    private WizardButtonXml loginButtonCompose;
+    private ButtonPrimaryXml loginButtonCompose;
 
     @NonNull
     private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
@@ -95,7 +96,7 @@ public class EnterSerialActivity extends ThreemaActivity {
 
         ViewExtensionsKt.applyDeviceInsetsAsPadding(
             findViewById(R.id.layout_parent_top),
-            InsetSides.vertical(),
+            InsetSides.all(),
             SpacingValues.symmetric(R.dimen.wizard_contents_padding, R.dimen.wizard_contents_padding_horizontal)
         );
 
@@ -246,11 +247,11 @@ public class EnterSerialActivity extends ThreemaActivity {
             if (ConfigUtils.isOnPremBuild()) {
                 String server = getConfiguredOnPremServerUrl();
 
-                if (!TestUtil.isEmptyOrNull(username) && !TestUtil.isEmptyOrNull(password) && !TestUtil.isEmptyOrNull(server)) {
+                if (!isNullOrEmpty(username) && !isNullOrEmpty(password) && !isNullOrEmpty(server)) {
                     check(new UserCredentials(username, password), server);
                 }
             } else {
-                if (!TestUtil.isEmptyOrNull(username) && !TestUtil.isEmptyOrNull(password)) {
+                if (!isNullOrEmpty(username) && !isNullOrEmpty(password)) {
                     check(new UserCredentials(username, password), null);
                 }
             }
@@ -281,7 +282,7 @@ public class EnterSerialActivity extends ThreemaActivity {
 
     private void checkPrivateActivationLink(@NonNull Uri data) {
         final String key = data.getQueryParameter("key");
-        if (!TestUtil.isEmptyOrNull(key)) {
+        if (!isNullOrEmpty(key)) {
             check(new SerialCredentials(key), null);
         }
     }
@@ -344,12 +345,12 @@ public class EnterSerialActivity extends ThreemaActivity {
             serverText.setText(effectiveServerUrl != null ? getBaseUrl(effectiveServerUrl) : null);
 
             // Check license if credentials and server url are available
-            if (!TestUtil.isEmptyOrNull(effectiveUsername) && !TestUtil.isEmptyOrNull(effectivePassword) && !TestUtil.isEmptyOrNull(effectiveServerUrl)) {
+            if (!isNullOrEmpty(effectiveUsername) && !isNullOrEmpty(effectivePassword) && !isNullOrEmpty(effectiveServerUrl)) {
                 check(new UserCredentials(effectiveUsername, effectivePassword), effectiveServerUrl);
             }
         } else {
             // Check license if credentials are available
-            if (!TestUtil.isEmptyOrNull(effectiveUsername) && !TestUtil.isEmptyOrNull(effectivePassword)) {
+            if (!isNullOrEmpty(effectiveUsername) && !isNullOrEmpty(effectivePassword)) {
                 check(new UserCredentials(effectiveUsername, effectivePassword), null);
             }
         }
@@ -370,7 +371,7 @@ public class EnterSerialActivity extends ThreemaActivity {
             String effectivePassword = configuredPassword != null ? configuredPassword : passwordText.getText().toString();
             String effectiveServerUrl = configuredServerUrl != null ? configuredServerUrl : serverText.getText().toString();
 
-            if (!TestUtil.isEmptyOrNull(effectiveUsername) && !TestUtil.isEmptyOrNull(effectivePassword) && !TestUtil.isEmptyOrNull(effectiveServerUrl)) {
+            if (!isNullOrEmpty(effectiveUsername) && !isNullOrEmpty(effectivePassword) && !isNullOrEmpty(effectiveServerUrl)) {
                 this.check(new UserCredentials(effectiveUsername, effectivePassword), effectiveServerUrl);
             } else {
                 this.setLoginButtonEnabled(true);
@@ -383,7 +384,7 @@ public class EnterSerialActivity extends ThreemaActivity {
             String effectiveUsername = configuredUsername != null ? configuredUsername : licenseKeyOrUsernameText.getText().toString();
             String effectivePassword = configuredPassword != null ? configuredPassword : passwordText.getText().toString();
 
-            if (!TestUtil.isEmptyOrNull(effectiveUsername) && !TestUtil.isEmptyOrNull(effectivePassword)) {
+            if (!isNullOrEmpty(effectiveUsername) && !isNullOrEmpty(effectivePassword)) {
                 this.check(new UserCredentials(effectiveUsername, effectivePassword), null);
             } else {
                 this.setLoginButtonEnabled(true);
@@ -423,15 +424,15 @@ public class EnterSerialActivity extends ThreemaActivity {
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         super.onSaveInstanceState(outState);
 
-        if (licenseKeyOrUsernameText != null && !TestUtil.isBlankOrNull(licenseKeyOrUsernameText.getText())) {
+        if (licenseKeyOrUsernameText != null && !isNullOrBlank(licenseKeyOrUsernameText.getText())) {
             outState.putString(BUNDLE_LICENSE_KEY, licenseKeyOrUsernameText.getText().toString());
         }
 
-        if (passwordText != null && !TestUtil.isBlankOrNull(passwordText.getText())) {
+        if (passwordText != null && !isNullOrBlank(passwordText.getText())) {
             outState.putString(BUNDLE_PASSWORD, passwordText.getText().toString());
         }
 
-        if (serverText != null && !TestUtil.isBlankOrNull(serverText.getText())) {
+        if (serverText != null && !isNullOrBlank(serverText.getText())) {
             outState.putString(BUNDLE_SERVER, serverText.getText().toString());
         }
     }
@@ -448,26 +449,30 @@ public class EnterSerialActivity extends ThreemaActivity {
             preferenceService.setLicensePassword(((UserCredentials) credentials).password);
         }
 
-        new AsyncTask<Void, Void, String>() {
+        new LifecycleAwareAsyncTask<Void, String>() {
             @Override
             protected void onPreExecute() {
                 GenericProgressDialog.newInstance(R.string.flavored__checking_serial, R.string.please_wait).show(getSupportFragmentManager(), DIALOG_TAG_CHECKING);
             }
 
             @Override
-            protected String doInBackground(Void... voids) {
+            protected String doInBackground(Void params) {
                 String error = getString(R.string.error);
                 try {
                     LicenseService licenseService = dependencies.getLicenseService();
                     error = licenseService.validate(credentials);
                     if (error == null) {
                         // validated
-                        if (ConfigUtils.isWorkBuild()) {
-                            AppRestrictionService.getInstance()
-                                .fetchAndStoreWorkMDMSettings(
-                                    dependencies.getApiConnector(),
-                                    (UserCredentials) credentials
-                                );
+                        if (ConfigUtils.isWorkBuild() && credentials != null) {
+                            UserCredentials userCredentials = (UserCredentials) credentials;
+
+                            var result = dependencies.getApiConnector().fetchWorkData(userCredentials.username, userCredentials.password, new String[]{});
+                            if (result.responseCode > 0) {
+                                logger.error("Failed to fetch2 work data. Server response code = {}", result.responseCode);
+                            } else {
+                                AppRestrictionService appRestrictionService = KoinJavaComponent.get(AppRestrictionService.class);
+                                appRestrictionService.storeWorkMDMSettings(result.mdm);
+                            }
                         }
                     }
                 } catch (Exception e) {
@@ -486,7 +491,7 @@ public class EnterSerialActivity extends ThreemaActivity {
                     changeState(error);
                 }
             }
-        }.execute();
+        }.execute(this, null);
     }
 
     /**

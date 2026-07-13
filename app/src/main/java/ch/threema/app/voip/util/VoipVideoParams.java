@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import ch.threema.app.utils.RandomUtil;
 import ch.threema.app.voip.signaling.ToSignalingMessage;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
@@ -270,7 +269,7 @@ public class VoipVideoParams implements ToSignalingMessage {
             .setMaxFps(this.maxFps)
             .setMaxResolution(resolution);
         return Envelope.newBuilder()
-            .setPadding(ByteString.copyFrom(RandomUtil.generateRandomPadding(0, 255)))
+            .setPadding(ByteString.copyFrom(RandomPaddingGenerator.generateRandomPadding(0, 255)))
             .setVideoQualityProfile(profile)
             .build();
     }

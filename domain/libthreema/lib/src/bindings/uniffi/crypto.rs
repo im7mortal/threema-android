@@ -19,9 +19,12 @@ use crate::{
 #[uniffi(flat_error)]
 pub enum CryptoError {
     /// Invalid parameter provided by foreign code.
-    #[cfg(feature = "uniffi")]
     #[error("Invalid parameter: {0}")]
     InvalidParameter(String),
+
+    /// Non-contributory key.
+    #[error("Key is non-contributory")]
+    NonContributoryKey,
 
     /// Unable to encrypt/decrypt.
     #[error("Unable to encrypt/decrypt")]
@@ -124,10 +127,13 @@ pub fn blake2b_mac_512(
 pub struct Argon2idParameters {
     /// Memory size in 1 KiB blocks. Between 8*`parallelism` and (2^32)-1.
     pub memory_cost: u32,
+
     /// Number of iterations. Between 1 and (2^32)-1.
     pub time_cost: u32,
+
     /// Degree of parallelism. Between 1 and (2^24)-1.
     pub parallelism: u32,
+
     /// Size of the output in bytes. Between 1 and 64.
     pub output_length: u8,
 }
@@ -179,10 +185,13 @@ pub struct ScryptParameters {
     /// memory cost will be `2 ^ log_memory_cost` in KiB. For example, `log_memory_cost = 17` would
     /// be 128 MiB.
     pub log_memory_cost: u8,
+
     /// Block size as multiplicator of 128 bytes (aka `r`). Between 1 and (2^32)-1.
     pub block_size: u32,
+
     /// Degree of parallelism / amount of threads (aka `p`). Between 1 and (2^32)-1.
     pub parallelism: u32,
+
     /// Size of the output in bytes. Between 10 and 64.
     pub output_length: u8,
 }
@@ -237,8 +246,8 @@ pub fn x25519_derive_public_key(secret_key: &[u8]) -> Result<Vec<u8>, CryptoErro
 ///
 /// # Errors
 ///
-/// Returns [`CryptoError::InvalidParameter`] if `public_key` or `secret_key` is not exactly 32
-/// bytes.
+/// Returns [`CryptoError::InvalidParameter`] if `public_key` or `secret_key` is not exactly 32 bytes.
+/// Returns [`CryptoError::NonContributoryKey`] if `public_key` is non-contributory.
 #[uniffi::export]
 pub fn x25519_hsalsa20_derive_shared_secret(
     public_key: &[u8],
@@ -252,7 +261,11 @@ pub fn x25519_hsalsa20_derive_shared_secret(
         <[u8; 32]>::try_from(secret_key)
             .map_err(|_| CryptoError::InvalidParameter("'secret_key' must be 32 bytes".to_owned()))?,
     );
-    let shared_secret = x25519::SharedSecretHSalsa20::from(secret_key.diffie_hellman(&public_key));
+    let shared_secret = x25519::SharedSecretHSalsa20::from(
+        secret_key
+            .diffie_hellman(&public_key)
+            .ok_or(CryptoError::NonContributoryKey)?,
+    );
     Ok(shared_secret.as_bytes().to_vec())
 }
 

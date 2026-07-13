@@ -8,7 +8,6 @@ import android.database.SQLException;
 import net.zetetic.database.sqlcipher.SQLiteConnection;
 import net.zetetic.database.sqlcipher.SQLiteDatabase;
 import net.zetetic.database.sqlcipher.SQLiteDatabaseHook;
-import net.zetetic.database.sqlcipher.SQLiteOpenHelper;
 
 import org.slf4j.Logger;
 
@@ -18,12 +17,11 @@ import java.util.List;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.base.utils.Utils;
 import ch.threema.domain.fs.DHSession;
 import ch.threema.domain.fs.DHSessionId;
 import ch.threema.domain.fs.KDFRatchet;
 import ch.threema.domain.stores.DHSessionStoreException;
-import ch.threema.domain.stores.DHSessionStoreInterface;
+import ch.threema.domain.stores.DHSessionStore;
 import ch.threema.domain.taskmanager.ActiveTaskCodec;
 import ch.threema.protobuf.csp.e2e.fs.Version;
 import ch.threema.storage.databaseupdate.DatabaseUpdate;
@@ -31,9 +29,10 @@ import ch.threema.storage.databaseupdate.FSDatabaseUpgradeToVersion2;
 import ch.threema.storage.databaseupdate.FSDatabaseUpgradeToVersion3;
 import ch.threema.storage.databaseupdate.FSDatabaseUpgradeToVersion4;
 
+import static ch.threema.common.JavaCompat.toHexString;
 import static ch.threema.storage.databaseupdate.DatabaseUpdateKt.getFullDescription;
 
-public class SQLDHSessionStore extends PermanentlyCloseableSQLiteOpenHelper implements DHSessionStoreInterface {
+public class SQLDHSessionStore extends PermanentlyCloseableSQLiteOpenHelper implements DHSessionStore {
     private static final Logger logger = getThreemaLogger("SQLDHSessionStore");
 
     public static final String DATABASE_NAME = "threema-fs.db";
@@ -85,8 +84,6 @@ public class SQLDHSessionStore extends PermanentlyCloseableSQLiteOpenHelper impl
             },
             false
         );
-
-        System.loadLibrary("sqlcipher");
     }
 
     public SQLDHSessionStore(
@@ -154,7 +151,7 @@ public class SQLDHSessionStore extends PermanentlyCloseableSQLiteOpenHelper impl
         String selection = COLUMN_MY_IDENTITY + "=? and " + COLUMN_PEER_IDENTITY + "=?";
 
         if (sessionId != null) {
-            selection += " and " + COLUMN_SESSION_ID + "=x'" + Utils.byteArrayToHexString(sessionId.get()) + "'";
+            selection += " and " + COLUMN_SESSION_ID + "=x'" + toHexString(sessionId.get()) + "'";
         }
 
         try (Cursor cursor = this.getReadableDatabase().query(
@@ -325,7 +322,7 @@ public class SQLDHSessionStore extends PermanentlyCloseableSQLiteOpenHelper impl
     public boolean deleteDHSession(String myIdentity, String peerIdentity, DHSessionId sessionId) throws DHSessionStoreException {
         try {
             int numDeleted = this.getWritableDatabase().delete(SESSION_TABLE,
-                COLUMN_MY_IDENTITY + "=? and " + COLUMN_PEER_IDENTITY + "=? and " + COLUMN_SESSION_ID + "=x'" + Utils.byteArrayToHexString(sessionId.get()) + "'",
+                COLUMN_MY_IDENTITY + "=? and " + COLUMN_PEER_IDENTITY + "=? and " + COLUMN_SESSION_ID + "=x'" + toHexString(sessionId.get()) + "'",
                 new String[]{myIdentity, peerIdentity});
             return numDeleted > 0;
         } catch (SQLException e) {
@@ -347,7 +344,7 @@ public class SQLDHSessionStore extends PermanentlyCloseableSQLiteOpenHelper impl
     @Override
     public int deleteAllSessionsExcept(String myIdentity, String peerIdentity, DHSessionId excludeSessionId, boolean fourDhOnly) throws DHSessionStoreException {
         try {
-            String whereClause = COLUMN_MY_IDENTITY + "=? and " + COLUMN_PEER_IDENTITY + "=? and " + COLUMN_SESSION_ID + "!=x'" + Utils.byteArrayToHexString(excludeSessionId.get()) + "'";
+            String whereClause = COLUMN_MY_IDENTITY + "=? and " + COLUMN_PEER_IDENTITY + "=? and " + COLUMN_SESSION_ID + "!=x'" + toHexString(excludeSessionId.get()) + "'";
             if (fourDhOnly) {
                 whereClause += " and " + COLUMN_MY_CURRENT_CHAIN_KEY_4_DH + " is not null";
             }

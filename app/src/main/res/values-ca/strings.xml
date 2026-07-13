@@ -29,6 +29,8 @@
     <string name="menu_done">Fet</string>
     <string name="compose_message_and_enter">Toqueu aquí per escriure</string>
     <string name="send">Enviar</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
     <string name="prefs_privacy">Privacitat</string>
     <string name="prefs_notifications">So i Notificacions</string>
     <string name="prefs_chatdisplay">Xat</string>
@@ -75,7 +77,8 @@ quan arribi el primer missatge.</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="prefs_logging">Registre</string>
     <string name="prefs_title_message_log_switch">Registra a fitxer</string>
-    <string name="prefs_title_sum_message_log_on">Esdeveniments i informació de xarxa es registraran al fitxer debug_log.txt</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
     <string name="prefs_title_sum_message_log_off">No es registraran esdeveniments</string>
     <string name="prefs_reset_push">Reinicialitzar el testimoni push</string>
     <string name="prefs_sum_reset_push">Tornar a registrar el dispositiu per notificacions push amb FCM/HMS</string>
@@ -638,7 +641,6 @@ donar només el vostre nom o un pseudònim. Si no definiu un sobrenom utilitzare
     <string name="new_wizard_anonymous_confirm">No heu entrat ni un número de mòbil ni una adreça de correu electrònic per enllaçar a la vostra ID de ${app_name_short}. No apareixereu a les llistes de contactes dels vostres amics. Realment voleu utilitzar ${app_name} anònimament?</string>
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_anonymous_confirm_phone_only">No heu entrat un número de mòbil per enllaçar a la vostra ID de ${app_name_short}. No apareixereu a les llistes de contactes dels vostres amics. Realment voleu utilitzar ${app_name} anònimament?</string>
-    <string name="new_wizard_scan_id_backup">O escanegeu el codi QR de la vostra exportació de la ID</string>
     <string name="error_saving_file">Error desant el fitxer. Comproveu els permisos.</string>
     <string name="wait_one_minute">Espereu almenys 10 minuts per tal que arribi l\'SMS abans de demanar una trucada.</string>
     <string name="backup_id">ID exportada</string>
@@ -704,7 +706,7 @@ donar només el vostre nom o un pseudònim. Si no definiu un sobrenom utilitzare
     <string name="prefs_language_override">Idioma</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
     <string name="threema_channel_intro">El Canal ${app_name_short} us proporciona notícies sobre totes les coses de ${app_name_short}. Voleu subscriure-us al Canal ${app_name_short} i afegir-lo als vostres contactes? És gratuït i podeu revocar la subscripció en qualsevol moment.</string>
-    <string name="quote">Citar</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
     <string name="contacts_deleted">Els contactes s\'han eliminat</string>
     <string name="take_photo">Fer una foto</string>
     <string name="select_from_gallery">Seleccionar de la galeria</string>
@@ -1118,6 +1120,7 @@ donar només el vostre nom o un pseudònim. Si no definiu un sobrenom utilitzare
     <string name="max_selectable_media_exceeded">No es poden enviar més de %d objectes a la vegada.</string>
     <string name="error_unable_loading_media_thumb">Error. No s\'ha pogut carregar la miniatura de la imatge</string>
     <string name="filter_list">Filtrar la llista</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
     <string name="hint_filter_list">Entreu el text del filtre</string>
     <string name="add">Afegir</string>
     <string name="only_images_or_videos">Només es poden seleccionar imatges o vídeos</string>
@@ -1265,7 +1268,6 @@ Si esteu canviant a un dispositiu nou, desinstal·leu o desactiveu %s al disposi
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
     <!-- The %s is a placeholder for an ID. It must be left as-is. -->
     <!-- Message shown in dialog when the user starts configuring a backup, but we detected that there might be a problem and thus offer a workaround option to choose from -->
@@ -1325,4 +1327,5 @@ Si esteu canviant a un dispositiu nou, desinstal·leu o desactiveu %s al disposi
         <item quantity="one">%d imatge seleccionada</item>
         <item quantity="other">%d imatges seleccionades</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
 </resources>

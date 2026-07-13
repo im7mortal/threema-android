@@ -29,7 +29,7 @@ import ch.threema.app.R;
 import ch.threema.app.activities.DisableBatteryOptimizationsActivity;
 import ch.threema.app.activities.ThreemaActivity;
 import ch.threema.app.activities.ThreemaAppCompatActivity;
-import ch.threema.app.activities.wizard.components.WizardButtonXml;
+import ch.threema.app.ui.interop.ButtonPrimaryXml;
 import ch.threema.app.backuprestore.csv.RestoreService;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.dialogs.GenericAlertDialog;
@@ -47,13 +47,13 @@ import ch.threema.app.utils.FileUtil;
 import ch.threema.app.utils.LocaleUtil;
 import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
 
 import static ch.threema.android.ToastKt.showToast;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class WizardBackupRestoreActivity extends ThreemaAppCompatActivity implements GenericAlertDialog.DialogClickListener,
     PasswordEntryDialog.PasswordEntryDialogClickListener {
@@ -68,6 +68,8 @@ public class WizardBackupRestoreActivity extends ThreemaAppCompatActivity implem
 
     @NonNull
     private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
+    @NonNull
+    private final ActivityService activityService = KoinJavaComponent.get(ActivityService.class);
 
     private File backupFile;
     private String backupPassword;
@@ -107,24 +109,31 @@ public class WizardBackupRestoreActivity extends ThreemaAppCompatActivity implem
 
         // Clean the temp directory to ensure that any backup files
         // from previous restore attempts are deleted.
-        TempFilesCleanupWorker.enqueue(this);
+        TempFilesCleanupWorker.Scheduler scheduler = KoinJavaComponent.get(TempFilesCleanupWorker.Scheduler.class);
+        scheduler.scheduleImmediateFullCleanup();
     }
 
     @Override
     protected void onPause() {
-        ActivityService.activityPaused(this);
+        activityService.pause(this);
         super.onPause();
     }
 
     @Override
     protected void onResume() {
-        ActivityService.activityResumed(this);
+        activityService.resume(this);
         super.onResume();
     }
 
     @Override
+    protected void onDestroy() {
+        activityService.destroy(this);
+        super.onDestroy();
+    }
+
+    @Override
     public void onUserInteraction() {
-        ActivityService.activityUserInteract(this);
+        activityService.userInteract(this);
         super.onUserInteraction();
     }
 
@@ -144,7 +153,7 @@ public class WizardBackupRestoreActivity extends ThreemaAppCompatActivity implem
         );
         backupSubtitle.setMovementMethod(LinkMovementMethod.getInstance());
 
-        final @NonNull WizardButtonXml safeBackupButtonCompose = findViewById(R.id.safe_backup_compose);
+        final @NonNull ButtonPrimaryXml safeBackupButtonCompose = findViewById(R.id.safe_backup_compose);
         if (ConfigUtils.isWorkRestricted() && dependencies.getThreemaSafeMDMConfig().isRestoreDisabled()) {
             safeBackupButtonCompose.setVisibility(View.GONE);
         } else {
@@ -175,7 +184,7 @@ public class WizardBackupRestoreActivity extends ThreemaAppCompatActivity implem
     private void restoreIDExport(String backupString, String backupPassword) {
         Intent intent = new Intent(this, WizardIDRestoreActivity.class);
 
-        if (!TestUtil.isEmptyOrNull(backupString) && !TestUtil.isEmptyOrNull(backupPassword)) {
+        if (!isNullOrEmpty(backupString) && !isNullOrEmpty(backupPassword)) {
             intent.putExtra(AppConstants.INTENT_DATA_ID_BACKUP, backupString);
             intent.putExtra(AppConstants.INTENT_DATA_ID_BACKUP_PW, backupPassword);
         }
@@ -245,7 +254,12 @@ public class WizardBackupRestoreActivity extends ThreemaAppCompatActivity implem
             R.string.cancel,
             AppConstants.MIN_PW_LENGTH_BACKUP,
             AppConstants.MAX_PW_LENGTH_BACKUP,
-            0, 0, 0, PasswordEntryDialog.ForgotHintType.PIN_PASSPHRASE);
+            0,
+            0,
+            0,
+            PasswordEntryDialog.ForgotHintType.PIN_PASSPHRASE,
+            null
+        );
         dialogFragment.setData(file);
         dialogFragment.show(getSupportFragmentManager(), "restorePW");
     }
@@ -279,7 +293,6 @@ public class WizardBackupRestoreActivity extends ThreemaAppCompatActivity implem
                 logger.info("Showing disable-battery-optimizations settings");
                 Intent intent = new Intent(this, DisableBatteryOptimizationsActivity.class);
                 intent.putExtra(DisableBatteryOptimizationsActivity.EXTRA_NAME, getString(R.string.restore));
-                intent.putExtra(DisableBatteryOptimizationsActivity.EXTRA_WIZARD, true);
                 startActivityForResult(intent, REQUEST_ID_DISABLE_BATTERY_OPTIMIZATIONS);
                 break;
             case DIALOG_TAG_NO_INTERNET:
@@ -339,7 +352,7 @@ public class WizardBackupRestoreActivity extends ThreemaAppCompatActivity implem
                     ThreemaActivity.ACTIVITY_ID_BACKUP_PICKER,
                     false,
                     0,
-                    dependencies.getFileService().getBackupPath().getPath()
+                    dependencies.getFileService().getDefaultBackupPath().getPath()
                 );
                 break;
 

@@ -2,14 +2,15 @@ package ch.threema.app.tasks
 
 import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.messagereceiver.MessageReceiver.MessageReceiverType
-import ch.threema.domain.protocol.csp.messages.ballot.BallotData
-import ch.threema.domain.protocol.csp.messages.ballot.BallotId
-import ch.threema.domain.protocol.csp.messages.ballot.GroupPollSetupMessage
-import ch.threema.domain.protocol.csp.messages.ballot.PollSetupMessage
+import ch.threema.domain.protocol.csp.messages.poll.GroupPollSetupMessage
+import ch.threema.domain.protocol.csp.messages.poll.PollData
+import ch.threema.domain.protocol.csp.messages.poll.PollId
+import ch.threema.domain.protocol.csp.messages.poll.PollSetupMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.types.IdentityString
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 class OutgoingPollSetupMessageTask(
@@ -17,8 +18,8 @@ class OutgoingPollSetupMessageTask(
     @MessageReceiverType
     private val receiverType: Int,
     private val recipientIdentities: Set<IdentityString>,
-    private val ballotId: BallotId,
-    private val ballotData: BallotData,
+    private val pollId: PollId,
+    private val pollData: PollData,
 ) : OutgoingCspMessageTask() {
     override val type: String = "OutgoingPollSetupMessageTask"
 
@@ -39,9 +40,9 @@ class OutgoingPollSetupMessageTask(
 
         // Create the message
         val message = PollSetupMessage().also {
-            it.ballotCreatorIdentity = identityStore.getIdentityString()
-            it.ballotId = ballotId
-            it.ballotData = ballotData
+            it.pollCreatorIdentity = identityStore.getIdentityString()
+            it.pollId = pollId
+            it.pollData = pollData
         }
 
         sendContactMessage(
@@ -68,9 +69,9 @@ class OutgoingPollSetupMessageTask(
             ensureMessageId(messageModel),
             {
                 GroupPollSetupMessage().also {
-                    it.ballotCreatorIdentity = identityStore.getIdentityString()
-                    it.ballotId = ballotId
-                    it.ballotData = ballotData
+                    it.pollCreatorIdentity = identityStore.getIdentityString()
+                    it.pollId = pollId
+                    it.pollData = pollData
                 }
             },
             handle,
@@ -81,8 +82,8 @@ class OutgoingPollSetupMessageTask(
         messageModelId,
         receiverType,
         recipientIdentities,
-        ballotId.ballotId,
-        ballotData.generateString(),
+        pollId.pollId,
+        pollData.generateString(),
     )
 
     @Serializable
@@ -91,16 +92,18 @@ class OutgoingPollSetupMessageTask(
         @MessageReceiverType
         private val receiverType: Int,
         private val recipientIdentities: Set<IdentityString>,
-        private val ballotId: ByteArray,
-        private val ballotData: String,
+        @SerialName("ballotId")
+        private val pollId: ByteArray,
+        @SerialName("ballotData")
+        private val pollData: String,
     ) : SerializableTaskData {
         override fun createTask(): Task<*, TaskCodec> =
             OutgoingPollSetupMessageTask(
                 messageModelId = messageModelId,
                 receiverType = receiverType,
                 recipientIdentities = recipientIdentities,
-                ballotId = BallotId(ballotId),
-                ballotData = BallotData.parse(ballotData),
+                pollId = PollId(pollId),
+                pollData = PollData.parse(pollData),
             )
     }
 }

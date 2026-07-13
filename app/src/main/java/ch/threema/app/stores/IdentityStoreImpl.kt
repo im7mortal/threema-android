@@ -1,7 +1,7 @@
 package ch.threema.app.stores
 
-import ch.threema.app.listeners.ProfileListener
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.ProfileEvent
 import ch.threema.base.ThreemaException
 import ch.threema.base.crypto.KeyPair
 import ch.threema.base.crypto.NaCl
@@ -20,10 +20,8 @@ constructor(
     private val identityProvider: MutableIdentityProvider,
     private val preferenceStore: PreferenceStore,
     private val encryptedPreferenceStore: EncryptedPreferenceStore,
+    private val globalEventBuses: GlobalEventBuses,
     private val derivePublicKey: (privateKey: ByteArray) -> ByteArray = NaCl.Companion::derivePublicKey,
-    private val onNicknameChanged: (nickname: String) -> Unit = { nickName ->
-        ListenerManager.profileListeners.handle { listener: ProfileListener -> listener.onNicknameChanged(nickName) }
-    },
 ) : IdentityStore {
 
     private var identityData: IdentityData? = null
@@ -37,6 +35,7 @@ constructor(
             val serverGroup = preferenceStore.getString(PreferenceStore.PREFS_SERVER_GROUP)
                 ?: error("No server group found")
             val publicKey = preferenceStore.getBytes(PreferenceStore.PREFS_PUBLIC_KEY)
+                ?: error("No public key found")
             val privateKey = encryptedPreferenceStore.getBytes(EncryptedPreferenceStore.PREFS_PRIVATE_KEY)
                 ?.takeUnless { it.isEmpty() }
             val publicNickname = preferenceStore.getString(PreferenceStore.PREFS_PUBLIC_NICKNAME)
@@ -57,9 +56,8 @@ constructor(
 
     override fun encryptData(plaintext: ByteArray, nonce: ByteArray, receiverPublicKey: ByteArray) =
         identityData?.privateKey?.let { privateKey ->
-            val nacl = getCachedNaCl(privateKey, receiverPublicKey)
             try {
-                nacl.encrypt(plaintext, nonce)
+                getCachedNaCl(privateKey, receiverPublicKey).encrypt(plaintext, nonce)
             } catch (cryptoException: CryptoException) {
                 logger.error("Failed to encrypt data", cryptoException)
                 null
@@ -68,9 +66,8 @@ constructor(
 
     override fun decryptData(ciphertext: ByteArray, nonce: ByteArray, senderPublicKey: ByteArray) =
         identityData?.privateKey?.let { privateKey ->
-            val nacl = getCachedNaCl(privateKey, senderPublicKey)
             try {
-                nacl.decrypt(ciphertext, nonce)
+                getCachedNaCl(privateKey, senderPublicKey).decrypt(ciphertext, nonce)
             } catch (cryptoException: CryptoException) {
                 logger.error("Failed to decrypt data", cryptoException)
                 null
@@ -78,7 +75,14 @@ constructor(
         }
 
     override fun calcSharedSecret(publicKey: ByteArray) =
-        getCachedNaCl(identityData!!.privateKey!!, publicKey).sharedSecret
+        identityData?.privateKey?.let { privateKey ->
+            try {
+                getCachedNaCl(privateKey, publicKey).sharedSecret
+            } catch (cryptoException: CryptoException) {
+                logger.error("Failed to calculate shared secret", cryptoException)
+                null
+            }
+        }
 
     override fun getIdentity() = identityData?.identity
 
@@ -95,7 +99,7 @@ constructor(
     override fun setPublicNickname(publicNickname: String) {
         this.publicNickname = publicNickname
         preferenceStore.save(PreferenceStore.PREFS_PUBLIC_NICKNAME, publicNickname)
-        onNicknameChanged(publicNickname)
+        globalEventBuses.profiles.emit(ProfileEvent.NicknameUpdated(publicNickname))
     }
 
     override fun storeIdentity(

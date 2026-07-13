@@ -1,6 +1,6 @@
 package ch.threema.data.datatypes
 
-import ch.threema.base.utils.Base64
+import ch.threema.common.Base64
 import ch.threema.protobuf.d2d.sync.WorkAvailabilityStatusCategory
 import ch.threema.protobuf.d2d.sync.workAvailabilityStatus
 import ch.threema.storage.DbAvailabilityStatus
@@ -302,7 +302,7 @@ class AvailabilityStatusTest {
         assertEquals(
             expected = AvailabilityStatus.None,
             actual = AvailabilityStatus.fromProtocolBase64(
-                workAvailabilityStatusBase64 = Base64.encodeBytes(
+                workAvailabilityStatusBase64 = Base64.encode(
                     workAvailabilityStatus {}.toByteArray(),
                 ),
             ),
@@ -311,7 +311,7 @@ class AvailabilityStatusTest {
         assertEquals(
             expected = AvailabilityStatus.None,
             actual = AvailabilityStatus.fromProtocolBase64(
-                workAvailabilityStatusBase64 = Base64.encodeBytes(
+                workAvailabilityStatusBase64 = Base64.encode(
                     workAvailabilityStatus {
                         category = WorkAvailabilityStatusCategory.NONE
                     }.toByteArray(),
@@ -322,7 +322,7 @@ class AvailabilityStatusTest {
         assertEquals(
             expected = AvailabilityStatus.None,
             actual = AvailabilityStatus.fromProtocolBase64(
-                workAvailabilityStatusBase64 = Base64.encodeBytes(
+                workAvailabilityStatusBase64 = Base64.encode(
                     workAvailabilityStatus {
                         category = WorkAvailabilityStatusCategory.NONE
                         description = ""
@@ -334,7 +334,7 @@ class AvailabilityStatusTest {
         assertEquals(
             expected = AvailabilityStatus.Unavailable(),
             actual = AvailabilityStatus.fromProtocolBase64(
-                workAvailabilityStatusBase64 = Base64.encodeBytes(
+                workAvailabilityStatusBase64 = Base64.encode(
                     workAvailabilityStatus {
                         category = WorkAvailabilityStatusCategory.UNAVAILABLE
                     }.toByteArray(),
@@ -345,7 +345,7 @@ class AvailabilityStatusTest {
         assertEquals(
             expected = AvailabilityStatus.Unavailable(),
             actual = AvailabilityStatus.fromProtocolBase64(
-                workAvailabilityStatusBase64 = Base64.encodeBytes(
+                workAvailabilityStatusBase64 = Base64.encode(
                     workAvailabilityStatus {
                         category = WorkAvailabilityStatusCategory.UNAVAILABLE
                         description = ""
@@ -359,7 +359,7 @@ class AvailabilityStatusTest {
                 description = "On vacation",
             ),
             actual = AvailabilityStatus.fromProtocolBase64(
-                workAvailabilityStatusBase64 = Base64.encodeBytes(
+                workAvailabilityStatusBase64 = Base64.encode(
                     workAvailabilityStatus {
                         category = WorkAvailabilityStatusCategory.UNAVAILABLE
                         description = "On vacation"
@@ -371,7 +371,7 @@ class AvailabilityStatusTest {
         assertEquals(
             expected = AvailabilityStatus.Busy(),
             actual = AvailabilityStatus.fromProtocolBase64(
-                workAvailabilityStatusBase64 = Base64.encodeBytes(
+                workAvailabilityStatusBase64 = Base64.encode(
                     workAvailabilityStatus {
                         category = WorkAvailabilityStatusCategory.BUSY
                     }.toByteArray(),
@@ -382,7 +382,7 @@ class AvailabilityStatusTest {
         assertEquals(
             expected = AvailabilityStatus.Busy(),
             actual = AvailabilityStatus.fromProtocolBase64(
-                workAvailabilityStatusBase64 = Base64.encodeBytes(
+                workAvailabilityStatusBase64 = Base64.encode(
                     workAvailabilityStatus {
                         category = WorkAvailabilityStatusCategory.BUSY
                         description = ""
@@ -396,7 +396,7 @@ class AvailabilityStatusTest {
                 description = "In a meeting",
             ),
             actual = AvailabilityStatus.fromProtocolBase64(
-                workAvailabilityStatusBase64 = Base64.encodeBytes(
+                workAvailabilityStatusBase64 = Base64.encode(
                     workAvailabilityStatus {
                         category = WorkAvailabilityStatusCategory.BUSY
                         description = "In a meeting"
@@ -507,6 +507,137 @@ class AvailabilityStatusTest {
         assertNull(
             actual = AvailabilityStatus.fromJson(
                 availabilityStatusJson = """{"type":"ch.threema.data.datatypes.AvailabilityStatus.Unknown","description":"In a meeting"}""",
+            ),
+        )
+    }
+
+    @Test
+    fun toTaskDataModel() {
+        assertEquals(
+            expected = AvailabilityStatusTaskData(
+                identity = TestData.Identities.OTHER_1.value,
+                category = 0,
+                description = "",
+            ),
+            actual = AvailabilityStatus.None.toTaskDataModel(
+                identity = TestData.Identities.OTHER_1.value,
+            ),
+        )
+        assertEquals(
+            expected = AvailabilityStatusTaskData(
+                identity = TestData.Identities.OTHER_1.value,
+                category = 1,
+                description = "Vacation",
+            ),
+            actual = AvailabilityStatus.Unavailable(
+                description = "Vacation",
+            ).toTaskDataModel(
+                identity = TestData.Identities.OTHER_1.value,
+            ),
+        )
+        assertEquals(
+            expected = AvailabilityStatusTaskData(
+                identity = TestData.Identities.OTHER_1.value,
+                category = 1,
+                description = "",
+            ),
+            actual = AvailabilityStatus.Unavailable(
+                description = "",
+            ).toTaskDataModel(
+                identity = TestData.Identities.OTHER_1.value,
+            ),
+        )
+        assertEquals(
+            expected = AvailabilityStatusTaskData(
+                identity = TestData.Identities.OTHER_1.value,
+                category = 2,
+                description = "In a meeting",
+            ),
+            actual = AvailabilityStatus.Busy(
+                description = "In a meeting",
+            ).toTaskDataModel(
+                identity = TestData.Identities.OTHER_1.value,
+            ),
+        )
+        assertEquals(
+            expected = AvailabilityStatusTaskData(
+                identity = TestData.Identities.OTHER_1.value,
+                category = 2,
+                description = "",
+            ),
+            actual = AvailabilityStatus.Busy(
+                description = "",
+            ).toTaskDataModel(
+                identity = TestData.Identities.OTHER_1.value,
+            ),
+        )
+    }
+
+    @Test
+    fun fromTaskDataModel() {
+        assertEquals(
+            expected = AvailabilityStatus.None,
+            actual = AvailabilityStatus.fromTaskDataModel(
+                AvailabilityStatusTaskData(
+                    identity = TestData.Identities.OTHER_1.value,
+                    category = 0,
+                    description = "",
+                ),
+            ),
+        )
+        assertEquals(
+            expected = AvailabilityStatus.None,
+            actual = AvailabilityStatus.fromTaskDataModel(
+                AvailabilityStatusTaskData(
+                    identity = TestData.Identities.OTHER_1.value,
+                    category = 0,
+                    description = "ignored",
+                ),
+            ),
+        )
+        assertEquals(
+            expected = AvailabilityStatus.Unavailable(
+                description = "Vacation",
+            ),
+            actual = AvailabilityStatus.fromTaskDataModel(
+                AvailabilityStatusTaskData(
+                    identity = TestData.Identities.OTHER_1.value,
+                    category = 1,
+                    description = "Vacation",
+                ),
+            ),
+        )
+        assertEquals(
+            expected = AvailabilityStatus.Unavailable(
+                description = "",
+            ),
+            actual = AvailabilityStatus.fromTaskDataModel(
+                AvailabilityStatusTaskData(
+                    identity = TestData.Identities.OTHER_1.value,
+                    category = 1,
+                    description = "",
+                ),
+            ),
+        )
+        assertEquals(
+            expected = AvailabilityStatus.Busy(
+                description = "",
+            ),
+            actual = AvailabilityStatus.fromTaskDataModel(
+                AvailabilityStatusTaskData(
+                    identity = TestData.Identities.OTHER_1.value,
+                    category = 2,
+                    description = "",
+                ),
+            ),
+        )
+        assertNull(
+            AvailabilityStatus.fromTaskDataModel(
+                AvailabilityStatusTaskData(
+                    identity = TestData.Identities.OTHER_1.value,
+                    category = 3,
+                    description = "invalid category",
+                ),
             ),
         )
     }

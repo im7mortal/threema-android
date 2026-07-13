@@ -177,11 +177,10 @@ class GatewayProfilePicturesWorker(
             }
         }
 
-    companion object {
-        private val REFRESH_INTERVAL = 24.hours
-        private val EXPIRY_TOLERANCE = REFRESH_INTERVAL / 2
-
-        fun schedulePeriodicSync(context: Context) {
+    class Scheduler(
+        private val workManager: WorkManager,
+    ) {
+        fun schedulePeriodicSync() {
             val periodicWorkRequest = buildPeriodicWorkRequest<GatewayProfilePicturesWorker>(
                 repeatInterval = REFRESH_INTERVAL,
             ) {
@@ -190,13 +189,16 @@ class GatewayProfilePicturesWorker(
                 }
             }
 
-            WorkManager
-                .getInstance(context)
-                .enqueueUniquePeriodicWork(
-                    uniqueWorkName = WorkerNames.WORKER_GATEWAY_PROFILE_PICTURES,
-                    existingPeriodicWorkPolicy = ExistingPeriodicWorkPolicy.KEEP,
-                    request = periodicWorkRequest,
-                )
+            workManager.enqueueUniquePeriodicWork(
+                uniqueWorkName = WorkerNames.WORKER_GATEWAY_PROFILE_PICTURES,
+                existingPeriodicWorkPolicy = ExistingPeriodicWorkPolicy.KEEP,
+                request = periodicWorkRequest,
+            )
         }
+    }
+
+    companion object {
+        private val REFRESH_INTERVAL = 24.hours
+        private val EXPIRY_TOLERANCE = REFRESH_INTERVAL / 2
     }
 }

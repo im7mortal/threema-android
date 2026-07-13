@@ -12,10 +12,10 @@ import ch.threema.domain.protocol.urls.MediatorUrl
 @SessionScoped
 interface ServerAddressProvider {
     @Throws(ThreemaException::class)
-    fun getChatServerNamePrefix(ipv6: Boolean): String
+    fun getChatServerNamePrefix(): String
 
     @Throws(ThreemaException::class)
-    fun getChatServerNameSuffix(ipv6: Boolean): String
+    fun getChatServerNameSuffix(): String
 
     @Throws(ThreemaException::class)
     fun getChatServerPorts(): IntArray
@@ -30,22 +30,22 @@ interface ServerAddressProvider {
     fun getChatServerPublicKeyAlt(): ByteArray
 
     @Throws(ThreemaException::class)
-    fun getDirectoryServerUrl(ipv6: Boolean): String
+    fun getDirectoryServerUrl(): String
 
     @Throws(ThreemaException::class)
-    fun getWorkServerUrlLegacy(ipv6: Boolean): String?
+    fun getWorkServerUrlLegacy(): String?
 
     @Throws(ThreemaException::class)
     fun getWorkServerUrl(): String?
 
     @Throws(ThreemaException::class)
-    fun getBlobServerDownloadUrl(useIpV6: Boolean): BlobUrl
+    fun getBlobServerDownloadUrl(): BlobUrl
 
     @Throws(ThreemaException::class)
-    fun getBlobServerUploadUrl(useIpV6: Boolean): String
+    fun getBlobServerUploadUrl(): String
 
     @Throws(ThreemaException::class)
-    fun getBlobServerDoneUrl(useIpV6: Boolean): BlobUrl
+    fun getBlobServerDoneUrl(): BlobUrl
 
     @Throws(ThreemaException::class, IllegalArgumentException::class)
     fun getBlobMirrorServerDownloadUrl(multiDevicePropertyProvider: MultiDevicePropertyProvider): BlobUrl
@@ -57,10 +57,10 @@ interface ServerAddressProvider {
     fun getBlobMirrorServerDoneUrl(multiDevicePropertyProvider: MultiDevicePropertyProvider): BlobUrl
 
     @Throws(ThreemaException::class)
-    fun getAvatarServerUrl(ipv6: Boolean): String
+    fun getAvatarServerUrl(): String
 
     @Throws(ThreemaException::class)
-    fun getSafeServerUrl(ipv6: Boolean): String
+    fun getSafeServerUrl(): String
 
     @Throws(ThreemaException::class)
     fun getWebServerUrl(): String?

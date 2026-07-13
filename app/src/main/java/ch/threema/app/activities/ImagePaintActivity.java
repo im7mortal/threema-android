@@ -22,7 +22,6 @@ import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.media.FaceDetector;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.KeyEvent;
@@ -80,6 +79,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.AppConstants;
 import ch.threema.app.R;
 import ch.threema.app.di.DependencyContainer;
@@ -118,11 +118,12 @@ import ch.threema.app.utils.BitmapWorkerTaskParams;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.DialogUtil;
 import ch.threema.app.utils.EditTextUtil;
+import ch.threema.app.utils.FileProviderUtil;
 import ch.threema.app.utils.IntentDataUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 import ch.threema.data.models.GroupModel;
 
@@ -364,7 +365,7 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
             switch (requestCode) {
                 case REQUEST_CODE_STICKER_SELECTOR:
                     final String stickerPath = data.getStringExtra(StickerSelectorActivity.EXTRA_STICKER_PATH);
-                    if (!TestUtil.isEmptyOrNull(stickerPath)) {
+                    if (!isNullOrEmpty(stickerPath)) {
                         addSticker(stickerPath);
                     }
                     break;
@@ -380,9 +381,9 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
     private void addSticker(final String stickerPath) {
         paintView.setActive(false);
 
-        new AsyncTask<Void, Void, Bitmap>() {
+        new LifecycleAwareAsyncTask<Void, Bitmap>() {
             @Override
-            protected Bitmap doInBackground(Void... params) {
+            protected Bitmap doInBackground(Void params) {
                 try {
                     Bitmap bitmap = BitmapFactory.decodeStream(getAssets().open(stickerPath));
                     boolean isFlippedHorizontally = isFlippedHorizontally();
@@ -411,7 +412,7 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
                     });
                 }
             }
-        }.execute();
+        }.execute(this, null);
     }
 
     private void addText(final String text) {
@@ -500,7 +501,7 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
         this.motionView = findViewById(R.id.motion_view);
 
         this.brushIcon = AppCompatResources.getDrawable(this, R.drawable.ic_brush);
-        this.pencilIcon = AppCompatResources.getDrawable(this, R.drawable.ic_pencil_outline);
+        this.pencilIcon = AppCompatResources.getDrawable(this, R.drawable.ic_pencil);
         this.highlighterIcon = AppCompatResources.getDrawable(this, R.drawable.ic_ink_highlighter_outline);
 
         this.penColor = getResources().getColor(R.color.material_red);
@@ -756,7 +757,7 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
                     onLoaded.run();
                 }
             }
-        }.execute(bitmapParams);
+        }.execute(this, bitmapParams);
     }
 
     private void resizeView(View view, int width, int height) {
@@ -783,7 +784,7 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
     private void blurFaces(final boolean useEmoji) {
         this.paintView.setActive(false);
 
-        new AsyncTask<Void, Void, List<FaceItem>>() {
+        new LifecycleAwareAsyncTask<Void, List<FaceItem>>() {
             int numFaces = -1;
             int originalImageWidth, originalImageHeight;
 
@@ -793,7 +794,7 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
             }
 
             @Override
-            protected List<FaceItem> doInBackground(Void... voids) {
+            protected List<FaceItem> doInBackground(Void params) {
                 BitmapFactory.Options options;
                 Bitmap bitmap, orgBitmap;
                 List<FaceItem> faceItemList = new ArrayList<>();
@@ -929,7 +930,7 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
 
                 DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_BLUR_FACES, true);
             }
-        }.execute();
+        }.execute(this, null);
     }
 
     @Override
@@ -1307,7 +1308,7 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
             protected void onPreExecute() {
                 super.onPreExecute();
 
-                String message = String.format(ConfigUtils.getSafeQuantityString(ImagePaintActivity.this, R.plurals.saving_media, 1, 1));
+                String message = getResources().getQuantityString(R.plurals.saving_media, 1, 1);
                 String title = getString(R.string.draw);
                 GenericProgressDialog.newInstance(title, message).show(getSupportFragmentManager(), DIALOG_TAG_SAVING_IMAGE);
             }
@@ -1318,16 +1319,16 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
                 motionView.renderOverlay(canvas);
                 paintView.renderOverlay(canvas, clipWidth, clipHeight);
 
-                new AsyncTask<Bitmap, Void, Boolean>() {
+                new LifecycleAwareAsyncTask<Bitmap, Boolean>() {
 
                     @Override
-                    protected Boolean doInBackground(Bitmap... params) {
+                    protected Boolean doInBackground(Bitmap bitmap) {
                         try {
                             File output = new File(outputUri.getPath());
 
                             FileOutputStream outputStream = new FileOutputStream(output);
                             Matrix matrix = currentOrientation.getTransformationMatrix();
-                            Bitmap transformed = Bitmap.createBitmap(params[0], 0, 0, params[0].getWidth(), params[0].getHeight(), matrix, true);
+                            Bitmap transformed = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
                             transformed.compress(Bitmap.CompressFormat.PNG, 100, outputStream);
                             outputStream.flush();
                             outputStream.close();
@@ -1347,9 +1348,9 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
                             Toast.makeText(ImagePaintActivity.this, R.string.error_saving_file, Toast.LENGTH_SHORT).show();
                         }
                     }
-                }.execute(bitmap);
+                }.execute(ImagePaintActivity.this, bitmap);
             }
-        }.execute(bitmapParams);
+        }.execute(this, bitmapParams);
     }
 
     private void initializeCaptionEditText() {
@@ -1394,7 +1395,7 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
     }
 
     private void initializeMentions() {
-        GroupModel groupModel = dependencies.getGroupModelRepository().getByLocalGroupDbId(groupId);
+        GroupModel groupModel = dependencies.getGroupModelRepository().getByGroupDatabaseId(groupId);
 
         if (groupModel == null) {
             logger.error("Cannot enable mention popup: no group model with id {} found", groupId);
@@ -1601,14 +1602,14 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
     private void crop() {
         try {
             FileService fileService = dependencies.getFileService();
-            cropFile = fileService.createTempFile(".crop", ".png");
+            cropFile = fileService.createShareableTempFile(".crop", ".png");
 
             CropImageActivity.CropImageParameters cropImageParameters =
                 new CropImageActivity.CropImageParameters(
                     /* sourceUri = */
                     imageUri,
                     /* saveUri = */
-                    Uri.fromFile(cropFile)
+                    FileProviderUtil.getUriForFile(this, cropFile)
                 );
             // The flip and rotation to load the image 'correctly'
             cropImageParameters.setFlip(mediaItem.getFlip());

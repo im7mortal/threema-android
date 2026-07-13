@@ -3,7 +3,6 @@ package ch.threema.app.utils
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
-import ch.threema.app.ThreemaApplication
 import ch.threema.base.utils.getThreemaLogger
 import java.io.FileInputStream
 import java.io.FileNotFoundException
@@ -30,16 +29,8 @@ fun getFromUri(context: Context, uri: Uri?): InputStream? {
     if (inputStream == null) {
         // try to open as local file if openInputStream fails for a content Uri
         val filePath = FileUtil.getRealPathFromURI(context, uri)
-        val appPath: String
-        val tmpPath: String
-
-        try {
-            val fileService = ThreemaApplication.requireServiceManager().fileService
-            tmpPath = fileService.tempPath.absolutePath
-            appPath = context.applicationInfo.dataDir
-        } catch (_: Exception) {
-            return null
-        }
+        val tmpPath = context.cacheDir.absolutePath
+        val appPath = context.applicationInfo.dataDir
 
         inputStream = if (filePath != null) {
             // do not allow sending of files from local directories - but allow tmp dir

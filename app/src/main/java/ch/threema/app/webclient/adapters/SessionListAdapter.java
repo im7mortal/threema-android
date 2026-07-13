@@ -21,12 +21,14 @@ import ch.threema.app.R;
 import ch.threema.app.adapters.AbstractRecyclerAdapter;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.utils.LocaleUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.utils.ViewUtil;
 import ch.threema.app.webclient.services.SessionService;
 import ch.threema.app.webclient.state.WebClientSessionState;
 import ch.threema.app.webclient.usecases.DetectBrowserUseCase;
 import ch.threema.storage.models.WebClientSessionModel;
+
+import static ch.threema.common.JavaCompat.areEqual;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 @UiThread
 public class SessionListAdapter extends AbstractRecyclerAdapter<WebClientSessionModel, RecyclerView.ViewHolder> {
@@ -114,7 +116,7 @@ public class SessionListAdapter extends AbstractRecyclerAdapter<WebClientSession
 
         // Set session name
         String sessionName = model.getLabel();
-        holder.sessionNameView.setText(TestUtil.isEmptyOrNull(sessionName) ?
+        holder.sessionNameView.setText(isNullOrEmpty(sessionName) ?
             context.getString(R.string.webclient_unnamed_session) :
             sessionName);
 
@@ -143,7 +145,7 @@ public class SessionListAdapter extends AbstractRecyclerAdapter<WebClientSession
         if (model.getCreated() != null) {
             final String timeStampString = LocaleUtil.formatTimeStampString(
                 this.context,
-                model.getCreated().getTime(),
+                model.getCreated(),
                 true
             );
             holder.createDateView.setText(this.context.getString(
@@ -164,7 +166,7 @@ public class SessionListAdapter extends AbstractRecyclerAdapter<WebClientSession
             final int resId = state == WebClientSessionState.CONNECTED ? R.string.webclient_active_since : R.string.webclient_last_usage;
             final String timeStampString = LocaleUtil.formatTimeStampString(
                 this.context,
-                model.getLastConnection().getTime(),
+                model.getLastConnection(),
                 true
             );
             holder.lastUsageView.setText(this.context.getString(resId, timeStampString));
@@ -179,8 +181,8 @@ public class SessionListAdapter extends AbstractRecyclerAdapter<WebClientSession
         // Show invalid push token error message
         ViewUtil.show(
             holder.invalidPushToken,
-            !TestUtil.isEmptyOrNull(model.getPushToken())
-                && !TestUtil.compare(this.currentPushToken, model.getPushToken()));
+            !isNullOrEmpty(model.getPushToken())
+                && !areEqual(this.currentPushToken, model.getPushToken()));
         switch (model.getState()) {
             case INITIALIZING:
                 ViewUtil.show(holder.loadingIndicator, true);

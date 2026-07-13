@@ -4,8 +4,6 @@ import android.content.ContentValues;
 
 import android.database.Cursor;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.util.ArrayList;
 import java.util.List;
 

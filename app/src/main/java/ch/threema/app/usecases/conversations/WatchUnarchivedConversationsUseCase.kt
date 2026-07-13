@@ -1,23 +1,20 @@
 package ch.threema.app.usecases.conversations
 
-import ch.threema.app.listeners.ConversationListener
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventFlows
+import ch.threema.app.eventbus.events.ConversationEvent
 import ch.threema.app.services.ConversationService
-import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.DispatcherProvider
 import ch.threema.storage.models.ConversationModel
 import kotlinx.coroutines.channels.Channel.Factory.CONFLATED
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.channels.onClosed
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
-import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
-
-private val logger = getThreemaLogger("WatchUnarchivedConversationsUseCase")
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.transform
 
 class WatchUnarchivedConversationsUseCase(
     private val conversationService: ConversationService,
+    private val globalEventFlows: GlobalEventFlows,
     private val dispatcherProvider: DispatcherProvider,
 ) : WatchConversationsUseCase {
 
@@ -31,52 +28,27 @@ class WatchUnarchivedConversationsUseCase(
      *  If a consumer consumes the values slower than they get produced, any unconsumed values are **dropped** in favor of the most recent value.
      *
      *  ##### Error strategy
-     *  Every exception that's not occurring inside the [ConversationListener] will flow downstream.
+     *  Every exception will flow downstream.
      */
-    override fun call(): Flow<List<ConversationModel>> = callbackFlow {
-        // Direct emit promise
-        val currentConversations = getCurrentConversations()
-        trySend(currentConversations)
-            .onClosed {
-                // Collection already ended
-                return@callbackFlow
-            }
-
-        fun trySendCurrent() {
-            trySend(getCurrentConversations())
-                .onClosed { throwable ->
-                    logger.error("Tried to send a new value after channel was closed", throwable)
-                }
-        }
-
-        val conversationListener = object : ConversationListener {
-
-            override fun onNew(conversationModel: ConversationModel) {
-                trySendCurrent()
-            }
-
-            override fun onModified(conversationModel: ConversationModel) {
-                trySendCurrent()
-            }
-
-            override fun onRemoved(conversationModel: ConversationModel) {
-                trySendCurrent()
-            }
-
-            override fun onModifiedAll() {
-                trySendCurrent()
+    override fun call(): Flow<List<ConversationModel>> =
+        globalEventFlows.conversations.transform { event ->
+            when (event) {
+                ConversationEvent.AllConversationsUpdated,
+                is ConversationEvent.ConversationUpdated,
+                is ConversationEvent.ConversationRemoved,
+                is ConversationEvent.NewConversation,
+                -> emit(getCurrentConversations())
+                is ConversationEvent.ConversationArchived,
+                is ConversationEvent.ConversationDeleted,
+                -> Unit
             }
         }
-        ListenerManager.conversationListeners.add(conversationListener)
-        awaitClose {
-            ListenerManager.conversationListeners.remove(conversationListener)
-        }
-    }
-        .buffer(capacity = CONFLATED)
-        .flowOn(dispatcherProvider.io)
+            .onStart {
+                emit(getCurrentConversations())
+            }
+            .buffer(capacity = CONFLATED)
+            .flowOn(dispatcherProvider.io)
 
-    /**
-     *  Reads all conversation models without forcing a reload from database.
-     */
-    private fun getCurrentConversations(): List<ConversationModel> = conversationService.getAll(false)
+    private fun getCurrentConversations(): List<ConversationModel> =
+        conversationService.getAll(false)
 }

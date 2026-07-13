@@ -32,7 +32,7 @@ import androidx.media3.session.MediaController;
 import ch.threema.app.R;
 import ch.threema.app.adapters.decorators.AnimatedImageDrawableDecorator;
 import ch.threema.app.adapters.decorators.AudioChatAdapterDecorator;
-import ch.threema.app.adapters.decorators.BallotChatAdapterDecorator;
+import ch.threema.app.adapters.decorators.PollChatAdapterDecorator;
 import ch.threema.app.adapters.decorators.ChatAdapterDecorator;
 import ch.threema.app.adapters.decorators.ChatAdapterDecoratorListener;
 import ch.threema.app.adapters.decorators.DateSeparatorChatAdapterDecorator;
@@ -42,7 +42,6 @@ import ch.threema.app.adapters.decorators.FirstUnreadChatAdapterDecorator;
 import ch.threema.app.adapters.decorators.ForwardSecurityStatusChatAdapterDecorator;
 import ch.threema.app.adapters.decorators.GroupCallStatusDataChatAdapterDecorator;
 import ch.threema.app.adapters.decorators.GroupStatusAdapterDecorator;
-import ch.threema.app.adapters.decorators.ImageChatAdapterDecorator;
 import ch.threema.app.adapters.decorators.LocationChatAdapterDecorator;
 import ch.threema.app.adapters.decorators.MessagePlayerFactory;
 import ch.threema.app.adapters.decorators.StatusChatAdapterDecorator;
@@ -59,7 +58,7 @@ import ch.threema.app.services.DownloadService;
 import ch.threema.app.services.FileService;
 import ch.threema.app.services.MessageService;
 import ch.threema.app.services.UserService;
-import ch.threema.app.services.ballot.BallotService;
+import ch.threema.app.services.poll.PollService;
 import ch.threema.app.services.license.LicenseService;
 import ch.threema.app.ui.SingleToast;
 import ch.threema.app.ui.listitemholder.ComposeMessageHolder;
@@ -68,7 +67,6 @@ import ch.threema.app.utils.LinkifyUtil;
 import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.app.utils.QuoteUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.data.models.EmojiReactionData;
 import ch.threema.data.repositories.EmojiReactionsRepository;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
@@ -80,6 +78,7 @@ import ch.threema.storage.models.MessageType;
 
 import static ch.threema.app.utils.MessageUtilKt.findIndexByMessageId;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 import static ch.threema.domain.protocol.csp.messages.file.FileData.RENDERING_DEFAULT;
 
 public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> implements EmojiReactionGroup.OnEmojiReactionGroupClickListener {
@@ -92,7 +91,7 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
     @NonNull
     private final VoipStatusDataChatAdapterDecorator.VoipStatusDataChatListener voipStatusDataChatListener;
     @NonNull
-    private final BallotChatAdapterDecorator.BallotChatListener ballotChatListener;
+    private final PollChatAdapterDecorator.PollChatListener pollChatListener;
     @NonNull
     private final ChatAdapterDecoratorListener chatAdapterDecoratorListener;
     @NonNull
@@ -101,8 +100,6 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
     private final MessagePlayerFactory messagePlayerFactory;
     @NonNull
     private final AudioChatAdapterDecorator.UserInteractionListener userInteractionListener;
-    @NonNull
-    private final ImageChatAdapterDecorator.ImageListener imageListener;
     @NonNull
     private final FileChatAdapterDecorator.DownloadAlertDialogListener downloadAlertDialogListener;
     private final MessageService messageService;
@@ -141,8 +138,8 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
         TYPE_AUDIO_RECV,
         TYPE_FILE_SEND,
         TYPE_FILE_RECV,
-        TYPE_BALLOT_SEND,
-        TYPE_BALLOT_RECV,
+        TYPE_POLL_SEND,
+        TYPE_POLL_RECV,
         TYPE_TEXT_QUOTE_SEND,
         TYPE_TEXT_QUOTE_RECV,
         TYPE_STATUS_DATA_SEND,
@@ -169,8 +166,8 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
     public static final int TYPE_AUDIO_RECV = 9;
     public static final int TYPE_FILE_SEND = 10;
     public static final int TYPE_FILE_RECV = 11;
-    public static final int TYPE_BALLOT_SEND = 12;
-    public static final int TYPE_BALLOT_RECV = 13;
+    public static final int TYPE_POLL_SEND = 12;
+    public static final int TYPE_POLL_RECV = 13;
     public static final int TYPE_TEXT_QUOTE_SEND = 14;
     public static final int TYPE_TEXT_QUOTE_RECV = 15;
     public static final int TYPE_STATUS_DATA_SEND = 16;
@@ -218,7 +215,7 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
         ContactService contactService,
         FileService fileService,
         MessageService messageService,
-        BallotService ballotService,
+        PollService pollService,
         PreferenceService preferenceService,
         DownloadService downloadService,
         LicenseService<?> licenseService,
@@ -232,9 +229,8 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
         int unreadMessagesCount,
         ListenableFuture<MediaController> mediaControllerFuture,
         @NonNull VoipStatusDataChatAdapterDecorator.VoipStatusDataChatListener voipStatusDataChatListener,
-        @NonNull BallotChatAdapterDecorator.BallotChatListener ballotChatListener,
+        @NonNull PollChatAdapterDecorator.PollChatListener pollChatListener,
         @NonNull MessagePlayerFactory messagePlayerFactory,
-        @NonNull ImageChatAdapterDecorator.ImageListener imageListener,
         @NonNull FileChatAdapterDecorator.DownloadAlertDialogListener downloadAlertDialogListener,
         @NonNull AudioChatAdapterDecorator.UserInteractionListener userInteractionListener) {
         super(context, R.layout.conversation_list_item_send, values);
@@ -254,10 +250,9 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
         this.chatAdapterDecoratorListener = chatAdapterDecoratorListener;
         this.linkifyListener = linkifyListener;
         this.messagePlayerFactory = messagePlayerFactory;
-        this.imageListener = imageListener;
         this.downloadAlertDialogListener = downloadAlertDialogListener;
         this.userInteractionListener = userInteractionListener;
-        this.ballotChatListener = ballotChatListener;
+        this.pollChatListener = pollChatListener;
 
         this.decoratorHelper = new ChatAdapterDecorator.Helper(
             userService.getIdentity(),
@@ -265,7 +260,7 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
             userService,
             contactService,
             fileService,
-            ballotService,
+            pollService,
             thumbnailCache,
             preferenceService,
             downloadService,
@@ -401,12 +396,6 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
                 switch (m.getType()) {
                     case LOCATION:
                         return o ? TYPE_LOCATION_SEND : TYPE_LOCATION_RECV;
-                    case IMAGE:
-                        /* fallthrough */
-                    case VIDEO:
-                        return o ? TYPE_MEDIA_SEND : TYPE_MEDIA_RECV;
-                    case VOICEMESSAGE:
-                        return o ? TYPE_AUDIO_SEND : TYPE_AUDIO_RECV;
                     case FILE:
                         String mimeType = m.getFileData().getMimeType();
                         int renderingType = m.getFileData().getRenderingType();
@@ -420,8 +409,8 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
                             }
                         }
                         return o ? TYPE_FILE_SEND : TYPE_FILE_RECV;
-                    case BALLOT:
-                        return o ? TYPE_BALLOT_SEND : TYPE_BALLOT_RECV;
+                    case POLL:
+                        return o ? TYPE_POLL_SEND : TYPE_POLL_RECV;
                     case VOIP_STATUS:
                         return o ? TYPE_STATUS_DATA_SEND : TYPE_STATUS_DATA_RECV;
                     case GROUP_CALL_STATUS:
@@ -468,10 +457,10 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
                 return R.layout.conversation_list_item_file_send;
             case TYPE_FILE_RECV:
                 return R.layout.conversation_list_item_file_recv;
-            case TYPE_BALLOT_SEND:
-                return R.layout.conversation_list_item_ballot_send;
-            case TYPE_BALLOT_RECV:
-                return R.layout.conversation_list_item_ballot_recv;
+            case TYPE_POLL_SEND:
+                return R.layout.conversation_list_item_poll_send;
+            case TYPE_POLL_RECV:
+                return R.layout.conversation_list_item_poll_recv;
             case TYPE_TEXT_QUOTE_SEND:
                 return R.layout.conversation_list_item_quote_send;
             case TYPE_TEXT_QUOTE_RECV:
@@ -649,16 +638,10 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
         switch (messageType) {
             case STATUS:
                 return new StatusChatAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, decoratorHelper);
-            case VIDEO:
-                return new VideoChatAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, messagePlayerFactory, decoratorHelper);
-            case IMAGE:
-                return new ImageChatAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, messagePlayerFactory, imageListener, decoratorHelper);
             case LOCATION:
                 return new LocationChatAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, decoratorHelper);
-            case VOICEMESSAGE:
-                return new AudioChatAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, messagePlayerFactory, userInteractionListener, decoratorHelper);
-            case BALLOT:
-                return new BallotChatAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, decoratorHelper, ballotChatListener);
+            case POLL:
+                return new PollChatAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, decoratorHelper, pollChatListener);
             case FILE:
                 if (MimeUtil.isVideoFile(messageModel.getFileData().getMimeType()) &&
                     (messageModel.getFileData().getRenderingType() == FileData.RENDERING_MEDIA ||
@@ -855,7 +838,6 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
                             }
                         } else {
                             if (((messageModel.getType() == MessageType.TEXT && !messageModel.isStatusMessage()) ||
-                                messageModel.getType() == MessageType.IMAGE ||
                                 messageModel.getType() == MessageType.FILE ||
                                 messageModel.getType() == MessageType.LOCATION)) {
                                 String body = messageModel.getCaption();
@@ -896,7 +878,7 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
                         }
                         if ((messageModel.getType() == MessageType.TEXT && !messageModel.isStatusMessage())
                             || messageModel.getType() == MessageType.LOCATION
-                            || messageModel.getType() == MessageType.BALLOT) {
+                            || messageModel.getType() == MessageType.POLL) {
                             String body = messageModel.getBody();
 
                             if (messageModel.getType() == MessageType.TEXT) {
@@ -931,12 +913,12 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
                         } else if (messageModel.getType() == MessageType.FILE) {
                             String searchString = "";
 
-                            if (messageModel.getFileData().getRenderingType() == RENDERING_DEFAULT && !TestUtil.isEmptyOrNull(messageModel.getFileData().getFileName())) {
+                            if (messageModel.getFileData().getRenderingType() == RENDERING_DEFAULT && !isNullOrEmpty(messageModel.getFileData().getFileName())) {
                                 // do not index filename for RENDERING_MEDIA or RENDERING_STICKER as it's not visible in the UI
                                 searchString += messageModel.getFileData().getFileName();
                             }
 
-                            if (!TestUtil.isEmptyOrNull(messageModel.getFileData().getCaption())) {
+                            if (!isNullOrEmpty(messageModel.getFileData().getCaption())) {
                                 searchString += messageModel.getFileData().getCaption();
                             }
 
@@ -944,7 +926,7 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
                                 resultMap.put(index, position);
                                 index++;
                             }
-                        } else if (!TestUtil.isEmptyOrNull(messageModel.getCaption())) {
+                        } else if (!isNullOrEmpty(messageModel.getCaption())) {
                             if (messageModel.getCaption().toLowerCase().contains(filterString.toLowerCase())) {
                                 resultMap.put(index, position);
                                 index++;

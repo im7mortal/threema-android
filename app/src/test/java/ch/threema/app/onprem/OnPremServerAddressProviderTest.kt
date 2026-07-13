@@ -91,12 +91,12 @@ class OnPremServerAddressProviderTest {
 
     @Test
     fun `test chat server name prefix`() {
-        assertEquals("", serverAddressProvider.getChatServerNamePrefix(ipv6 = false))
+        assertEquals("", serverAddressProvider.getChatServerNamePrefix())
     }
 
     @Test
     fun `test chat server name suffix`() {
-        assertEquals("chat.threemaonprem.initrode.com", serverAddressProvider.getChatServerNameSuffix(false))
+        assertEquals("chat.threemaonprem.initrode.com", serverAddressProvider.getChatServerNameSuffix())
     }
 
     @Test
@@ -119,7 +119,7 @@ class OnPremServerAddressProviderTest {
     fun `test directory server url`() {
         assertEquals(
             "https://dir.threemaonprem.initrode.com/directory",
-            serverAddressProvider.getDirectoryServerUrl(ipv6 = false),
+            serverAddressProvider.getDirectoryServerUrl(),
         )
     }
 
@@ -127,7 +127,7 @@ class OnPremServerAddressProviderTest {
     fun `test work server url`() {
         assertEquals(
             "https://work.threemaonprem.initrode.com/",
-            serverAddressProvider.getWorkServerUrlLegacy(ipv6 = false),
+            serverAddressProvider.getWorkServerUrlLegacy(),
         )
     }
 
@@ -135,7 +135,7 @@ class OnPremServerAddressProviderTest {
     fun `test blob server download url`() {
         assertEquals(
             BlobUrl("https://blob-{blobIdPrefix}.threemaonprem.initrode.com/blob/{blobId}"),
-            serverAddressProvider.getBlobServerDownloadUrl(useIpV6 = false),
+            serverAddressProvider.getBlobServerDownloadUrl(),
         )
     }
 
@@ -143,7 +143,7 @@ class OnPremServerAddressProviderTest {
     fun `test blob server upload url`() {
         assertEquals(
             "https://blob.threemaonprem.initrode.com/blob/upload",
-            serverAddressProvider.getBlobServerUploadUrl(useIpV6 = false),
+            serverAddressProvider.getBlobServerUploadUrl(),
         )
     }
 
@@ -151,7 +151,7 @@ class OnPremServerAddressProviderTest {
     fun `test blob server done url`() {
         assertEquals(
             BlobUrl("https://blob-{blobIdPrefix}.threemaonprem.initrode.com/blob/{blobId}/done"),
-            serverAddressProvider.getBlobServerDoneUrl(useIpV6 = false),
+            serverAddressProvider.getBlobServerDoneUrl(),
         )
     }
 
@@ -183,7 +183,7 @@ class OnPremServerAddressProviderTest {
     fun `test avatar server url`() {
         assertEquals(
             "https://avatar.threemaonprem.initrode.com/",
-            serverAddressProvider.getAvatarServerUrl(ipv6 = false),
+            serverAddressProvider.getAvatarServerUrl(),
         )
     }
 
@@ -191,7 +191,7 @@ class OnPremServerAddressProviderTest {
     fun `test safe server url`() {
         assertEquals(
             "https://safe.threemaonprem.initrode.com/",
-            serverAddressProvider.getSafeServerUrl(ipv6 = false),
+            serverAddressProvider.getSafeServerUrl(),
         )
     }
 

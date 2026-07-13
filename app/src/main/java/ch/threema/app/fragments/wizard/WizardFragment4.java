@@ -18,19 +18,19 @@ import org.slf4j.Logger;
 
 import androidx.annotation.NonNull;
 import ch.threema.app.R;
-import ch.threema.app.activities.wizard.components.WizardButtonXml;
+import ch.threema.app.ui.interop.ButtonPrimaryXml;
 import ch.threema.app.dialogs.WizardDialog;
 import ch.threema.app.threemasafe.ThreemaSafeServerInfo;
 import ch.threema.app.utils.ConfigUtils;
-import ch.threema.app.utils.TestUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class WizardFragment4 extends WizardFragment implements View.OnClickListener {
     private static final Logger logger = getThreemaLogger("WizardFragment4");
     private TextView nicknameText, phoneText, emailText, syncContactsText, phoneWarnText, emailWarnText, safeText;
     private ImageView phoneWarn, emailWarn;
     private ProgressBar phoneProgress, emailProgress, syncContactsProgress, safeProgress;
-    private WizardButtonXml finishButtonCompose;
+    private ButtonPrimaryXml finishButtonCompose;
     private SettingsInterface callback;
     public static final int PAGE_ID = 4;
 
@@ -87,14 +87,14 @@ public class WizardFragment4 extends WizardFragment implements View.OnClickListe
 
     void initValues() {
         if (isResumed()) {
-            String email = TestUtil.isEmptyOrNull(callback.getEmail()) ? callback.getPresetEmail() : callback.getEmail();
-            String phone = TestUtil.isEmptyOrNull(callback.getPhone()) ? callback.getPresetPhone() : callback.getPhone();
+            String email = isNullOrEmpty(callback.getEmail()) ? callback.getPresetEmail() : callback.getEmail();
+            String phone = isNullOrEmpty(callback.getPhone()) ? callback.getPresetPhone() : callback.getPhone();
 
             nicknameText.setText(callback.getNickname());
-            emailText.setText(TestUtil.isEmptyOrNull(email) ?
+            emailText.setText(isNullOrEmpty(email) ?
                 getString(R.string.not_linked) :
                 (EMAIL_LINKED_PLACEHOLDER.equals(email) ? getString(R.string.unchanged) : email));
-            phoneText.setText(TestUtil.isEmptyOrNull(phone) ?
+            phoneText.setText(isNullOrEmpty(phone) ?
                 getString(R.string.not_linked) :
                 (PHONE_LINKED_PLACEHOLDER.equals(phone) ? getString(R.string.unchanged) : phone));
             syncContactsText.setText(callback.getSyncContacts() ? R.string.on : R.string.off);
@@ -173,7 +173,7 @@ public class WizardFragment4 extends WizardFragment implements View.OnClickListe
 
     public void setContactsSyncInProgress(boolean inProgress, String text) {
         syncContactsProgress.setVisibility(inProgress ? View.VISIBLE : View.GONE);
-        if (TestUtil.isEmptyOrNull(text)) {
+        if (isNullOrEmpty(text)) {
             syncContactsText.setText(callback.getSyncContacts() ? R.string.on : R.string.off);
         } else {
             syncContactsText.setText(text);
@@ -182,8 +182,8 @@ public class WizardFragment4 extends WizardFragment implements View.OnClickListe
 
     public void setThreemaSafeInProgress(boolean inProgress, String text) {
         safeProgress.setVisibility(inProgress ? View.VISIBLE : View.GONE);
-        if (TestUtil.isEmptyOrNull(text)) {
-            if (TestUtil.isEmptyOrNull(callback.getSafePassword())) {
+        if (isNullOrEmpty(text)) {
+            if (isNullOrEmpty(callback.getSafePassword())) {
                 safeText.setText(R.string.off);
             } else {
                 if (callback.getSafeServerInfo().isDefaultServer()) {

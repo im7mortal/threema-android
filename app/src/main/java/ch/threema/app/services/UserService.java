@@ -6,7 +6,6 @@ import android.os.Handler;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.Date;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -16,7 +15,6 @@ import ch.threema.app.profilepicture.ProfilePicture;
 import ch.threema.base.SessionScoped;
 import ch.threema.domain.models.LicenseCredentials;
 import ch.threema.domain.taskmanager.TriggerSource;
-import ch.threema.localcrypto.exceptions.MasterKeyLockedException;
 import ch.threema.storage.models.ContactModel;
 
 /**
@@ -161,7 +159,7 @@ public interface UserService {
     void setUserProfilePictureFromSync(
         @NonNull ContactService.ProfilePictureUploadData uploadData,
         @NonNull TriggerSource triggerSource
-    ) throws MasterKeyLockedException, IOException;
+    ) throws IOException;
 
     /**
      * Remove the user profile picture. Note that this will trigger a user profile sync if multi

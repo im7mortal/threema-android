@@ -4,8 +4,6 @@ import android.content.Context;
 import android.util.AttributeSet;
 
 import androidx.annotation.NonNull;
-import ch.threema.app.R;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.ContactUtil;
 import ch.threema.domain.models.VerificationLevel;
 import ch.threema.domain.models.WorkVerificationLevel;
@@ -37,8 +35,11 @@ public class VerificationLevelImageView extends androidx.appcompat.widget.AppCom
         @NonNull WorkVerificationLevel workVerificationLevel
     ) {
         setContentDescription(
-            getVerificationLevelDescription(
-                verificationLevel, workVerificationLevel
+            context.getString(
+                ContactUtil.getVerificationLevelDescription(
+                    verificationLevel,
+                    workVerificationLevel
+                )
             )
         );
         setImageDrawable(
@@ -49,34 +50,4 @@ public class VerificationLevelImageView extends androidx.appcompat.widget.AppCom
             )
         );
     }
-
-    /**
-     * Get the verification level description from the given verification level. This also depends
-     * on the build and whether the contact is a work contact or not.
-     *
-     * @return String defined text in strings.xml for the according verification level
-     */
-    private @NonNull String getVerificationLevelDescription(
-        @NonNull VerificationLevel verificationLevel,
-        @NonNull WorkVerificationLevel workVerificationLevel
-    ) {
-        boolean isWorkVerifiedOnWorkBuild = ConfigUtils.isWorkBuild()
-            && workVerificationLevel == WorkVerificationLevel.WORK_SUBSCRIPTION_VERIFIED;
-        switch (verificationLevel) {
-            case FULLY_VERIFIED:
-                if (isWorkVerifiedOnWorkBuild) {
-                    return context.getString(R.string.verification_level3_work_explain);
-                } else {
-                    return context.getString(R.string.verification_level3_explain);
-                }
-            case SERVER_VERIFIED:
-                if (isWorkVerifiedOnWorkBuild) {
-                    return context.getString(R.string.verification_level2_work_explain);
-                }
-                return context.getString(R.string.verification_level2_explain);
-            default:
-                return context.getString(R.string.verification_level1_explain);
-        }
-    }
-
 }

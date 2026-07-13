@@ -12,13 +12,12 @@ import android.widget.ArrayAdapter
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import android.widget.Toast.LENGTH_SHORT
+import androidx.activity.result.launch
 import androidx.annotation.StringRes
 import androidx.annotation.UiThread
 import androidx.core.view.isVisible
 import androidx.core.widget.NestedScrollView
 import androidx.fragment.app.DialogFragment
-import androidx.fragment.app.setFragmentResultListener
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import ch.threema.android.ToastDuration
@@ -43,7 +42,8 @@ import ch.threema.app.dialogs.SimpleStringAlertDialog
 import ch.threema.app.dialogs.TextEntryDialog
 import ch.threema.app.dialogs.TextEntryDialog.TextEntryDialogClickListener
 import ch.threema.app.emojis.EmojiTextView
-import ch.threema.app.listeners.ProfileListener
+import ch.threema.app.eventbus.GlobalEventFlows
+import ch.threema.app.eventbus.events.ProfileEvent
 import ch.threema.app.listeners.SMSVerificationListener
 import ch.threema.app.managers.ListenerManager
 import ch.threema.app.multidevice.MultiDeviceManager
@@ -60,19 +60,19 @@ import ch.threema.app.ui.InsetSides.Companion.horizontal
 import ch.threema.app.ui.QRCodePopup
 import ch.threema.app.ui.TooltipPopup
 import ch.threema.app.ui.applyDeviceInsetsAsPadding
+import ch.threema.app.usecases.ShareIdentityUseCase
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.DialogUtil
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.app.utils.LocaleUtil
-import ch.threema.app.utils.ShareUtil
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.common.takeUnlessEmpty
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.domain.models.Nickname
 import ch.threema.domain.protocol.api.LinkMobileNoException
-import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.taskmanager.TriggerSource
+import ch.threema.domain.types.IdentityString
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import kotlin.system.exitProcess
 import kotlinx.coroutines.launch
@@ -95,6 +95,8 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
     private val appRestrictions: AppRestrictions by inject()
     private val resetAppTask: ResetAppTask by inject()
     private val dispatcherProvider: DispatcherProvider by inject()
+    private val globalEventFlows: GlobalEventFlows by inject()
+    private val shareIdentityUseCase: ShareIdentityUseCase by inject()
 
     private var fragmentView: View? = null
     private var avatarView: AvatarEditView? = null
@@ -123,34 +125,6 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
         }
     }
 
-    private val profileListener: ProfileListener = object : ProfileListener {
-        override fun onAvatarChanged(triggerSource: TriggerSource) {
-            if (
-                triggerSource != TriggerSource.LOCAL ||
-                isDisabledProfilePicReleaseSettings ||
-                preferenceService.getProfilePicRelease() != PreferenceService.PROFILEPIC_RELEASE_NOBODY
-            ) {
-                return
-            }
-
-            // a profile picture has been set so it's safe to assume user wants others to see his pic
-            preferenceService.setProfilePicRelease(PreferenceService.PROFILEPIC_RELEASE_EVERYONE)
-            // Sync new policy setting to device group (if md is active)
-            if (multiDeviceManager.isMultiDeviceActive) {
-                taskCreator.scheduleReflectUserProfileShareWithPolicySyncTask(ProfilePictureSharePolicy.Policy.EVERYONE)
-            }
-            lifecycleScope.launch {
-                updatePicReleaseSpinnerText()
-            }
-        }
-
-        override fun onNicknameChanged(newNickname: String?) {
-            lifecycleScope.launch {
-                reloadNickname()
-            }
-        }
-    }
-
     private val checkLockToRevokeIdLauncher = registerForActivityResult(CheckAppLockContract()) { unlocked ->
         if (unlocked) {
             showRevocationPasswordDialog()
@@ -170,23 +144,11 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         retainInstance = true
-
-        if (BuildConfig.AVAILABILITY_STATUS_ENABLED) {
-            setFragmentResultListener(
-                requestKey = REQUEST_KEY_EDIT_AVAILABILITY_STATUS,
-            ) { _, bundle ->
-                val didChangeStatus = bundle.getBoolean(EditAvailabilityStatusBottomSheetDialog.RESULT_KEY_DID_CHANGE_STATUS)
-                if (didChangeStatus && this.view != null && isAdded) {
-                    Snackbar.make(requireView(), R.string.edit_availability_status_did_change, LENGTH_SHORT).show()
-                }
-            }
-        }
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         fragmentView = view
         if (fragmentView != null) {
-            ListenerManager.profileListeners.add(profileListener)
             return fragmentView
         }
 
@@ -250,9 +212,7 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
             )
             changeAvailabilityStatusButton.setOnClickListener {
                 EditAvailabilityStatusBottomSheetDialog
-                    .newInstance(
-                        requestKey = REQUEST_KEY_EDIT_AVAILABILITY_STATUS,
-                    )
+                    .newInstance()
                     .show(
                         /* manager = */
                         parentFragmentManager,
@@ -286,11 +246,11 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
             }
             deleteIdButton.setOnClickListener {
                 logger.info("Delete ID clicked")
-                startIdDeletion()
+                checkLockToDeleteIdLauncher.launch()
             }
             revocationPasswordButton.setOnClickListener {
                 logger.info("Set revocation key clicked")
-                startIdRevocationSetup()
+                checkLockToRevokeIdLauncher.launch()
             }
             editProfileButton.isVisible = true
             editProfileButton.setOnClickListener {
@@ -304,7 +264,7 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
         } else {
             exportIdButton.setOnClickListener {
                 logger.info("Export ID clicked")
-                startIdExport()
+                checkLockToExportIdLauncher.launch()
             }
         }
 
@@ -312,14 +272,15 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
             revocationPasswordLayout.isVisible = false
         }
 
-        if (userService.hasIdentity()) {
+        val myIdentity: IdentityString? = userService.identity
+        if (myIdentity != null) {
             myIdView.text = userService.getIdentity()
             if (ConfigUtils.isOnPremBuild()) {
                 shareIdButton.isVisible = false
             } else {
                 shareIdButton.setOnClickListener {
                     logger.info("Share ID button clicked")
-                    ShareUtil.shareContact(requireContext(), null)
+                    shareMyId(myIdentity)
                 }
             }
             myIdQrButton.setOnClickListener {
@@ -346,9 +307,24 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
 
         reloadNickname()
 
-        ListenerManager.profileListeners.add(this.profileListener)
-
+        viewLifecycleOwner.lifecycleScope.launch {
+            globalEventFlows.profiles.collect(::handleProfileEvent)
+        }
         return fragmentView
+    }
+
+    private fun shareMyId(identity: IdentityString) {
+        val result = shareIdentityUseCase.call(identity, name = getString(R.string.title_mythreemaid))
+        if (result == ShareIdentityUseCase.Result.Error) {
+            showToast(R.string.no_activity_for_mime_type, ToastDuration.LONG)
+        }
+    }
+
+    private fun handleProfileEvent(event: ProfileEvent) {
+        when (event) {
+            is ProfileEvent.NicknameUpdated -> reloadNickname()
+            is ProfileEvent.ProfilePictureUpdated -> Unit
+        }
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -381,13 +357,15 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
         spinner.setOnItemClickListener { _, _, position: Int, _ ->
             onPicReleaseSpinnerItemClicked(position)
         }
-        updatePicReleaseSpinnerText()
+        viewLifecycleOwner.lifecycleScope.launch {
+            preferenceService.watchProfilePicRelease().collect(::updatePicReleaseSpinnerText)
+        }
     }
 
-    private fun updatePicReleaseSpinnerText() {
-        val spinner = picReleaseSpinner
-            ?: return
-        spinner.setText(spinner.adapter.getItem(preferenceService.getProfilePicRelease()) as CharSequence?, false)
+    private fun updatePicReleaseSpinnerText(profilePicRelease: Int) {
+        picReleaseSpinner?.let { spinner ->
+            spinner.setText(spinner.adapter.getItem(profilePicRelease) as CharSequence?, false)
+        }
     }
 
     private fun onPicReleaseSpinnerItemClicked(position: Int) {
@@ -534,6 +512,8 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
             0,
             /* showForgotPwHint = */
             PasswordEntryDialog.ForgotHintType.NONE,
+            /* requestKey = */
+            null,
         )
         dialogFragment.setTargetFragment(this, 0)
         dialogFragment.show(parentFragmentManager, DIALOG_TAG_SET_REVOCATION_KEY)
@@ -599,30 +579,6 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
         dialog.show(parentFragmentManager, DIALOG_TAG_LINKED_MOBILE)
     }
 
-    private fun startIdRevocationSetup() {
-        if (preferenceService.getLockMechanism() != PreferenceService.LOCKING_MECH_NONE) {
-            checkLockToRevokeIdLauncher.launch(Unit)
-        } else {
-            showRevocationPasswordDialog()
-        }
-    }
-
-    private fun startIdDeletion() {
-        if (preferenceService.getLockMechanism() != PreferenceService.LOCKING_MECH_NONE) {
-            checkLockToDeleteIdLauncher.launch(Unit)
-        } else {
-            confirmIdDelete()
-        }
-    }
-
-    private fun startIdExport() {
-        if (preferenceService.getLockMechanism() != PreferenceService.LOCKING_MECH_NONE) {
-            checkLockToExportIdLauncher.launch(Unit)
-        } else {
-            startActivity(ExportIDActivity.createIntent(requireContext()))
-        }
-    }
-
     private fun showEditNicknameDialog() {
         val nicknameEditDialog = TextEntryDialog.newInstance(
             /* title = */
@@ -642,7 +598,7 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
             /* inputFilterType = */
             0,
             /* maxLength = */
-            ProtocolDefines.PUSH_FROM_LEN,
+            Nickname.MAX_BYTE_LENGTH,
         )
         nicknameEditDialog.setTargetFragment(this, 0)
         nicknameEditDialog.show(parentFragmentManager, DIALOG_TAG_EDIT_NICKNAME)
@@ -939,11 +895,6 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
         super.onStop()
     }
 
-    override fun onDestroyView() {
-        ListenerManager.profileListeners.remove(profileListener)
-        super.onDestroyView()
-    }
-
     @Deprecated("Deprecated in Java")
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String?>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
@@ -968,7 +919,5 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
         private const val DIALOG_TAG_DELETE_ID = "deleteId"
         private const val DIALOG_TAG_LINKED_MOBILE_CONFIRM = "cfm"
         private const val DIALOG_TAG_VERIFY_MOBILE_ERROR = "ve"
-
-        private const val REQUEST_KEY_EDIT_AVAILABILITY_STATUS = "edit-availability-status-from-user-profile"
     }
 }

@@ -32,6 +32,8 @@
     <string name="title_job_title">Пасада</string>
     <string name="title_department">Аддзел</string>
     <string name="send">Адправіць</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
     <string name="prefs_privacy">Прыватнасць</string>
     <string name="prefs_notifications">Гукі і апавяшчэнні</string>
     <string name="prefs_chatdisplay">Чат</string>
@@ -83,7 +85,8 @@
     <string name="prefs_sum_threema_push_off">Правяраць наяўнасць новых паведамленняў з дапамогай сістэмнай push службы</string>
     <string name="prefs_logging">Вядзенне журнала</string>
     <string name="prefs_title_message_log_switch">Запіс журналу</string>
-    <string name="prefs_title_sum_message_log_on">Падзеі і інфармацыя аб сетцы будуць запісвацца ў файл debug_log.txt</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
     <string name="prefs_title_sum_message_log_off">Падзеі не будуць запісвацца</string>
     <string name="prefs_reset_push">Скід push-меткі</string>
     <string name="prefs_sum_reset_push">Паўторна зарэгістраваць прыладу для атрымання push-паведамленняў з дапамогай FCM/HMS</string>
@@ -217,7 +220,7 @@
     <string name="try_again">Паспрабаваць яшчэ раз</string>
     <string name="decoding_message">Расшыфроўка паведамлення</string>
     <string name="expired_barcode">Тэрмін дзеяння кода скончыўся. Калі ласка, адскануйце яго яшчэ раз, непасрэдна з праграмы іншага карыстальніка.</string>
-    <string name="pending">Чаканне</string>
+    <string name="pending">У чаканні</string>
     <string name="unlinking_email">Адвязванне электроннай пошты</string>
     <string name="unlink">Адвязаць</string>
     <string name="threema_version">Версія</string>
@@ -273,7 +276,7 @@
     <string name="emoji_flags">Сцяжкі</string>
     <string name="emoji_search">Пошук эмодзі</string>
     <string name="emoji_search_no_result">Няма вынікаў пошуку</string>
-    <string name="title_lock">Заблакаваць</string>
+    <string name="title_lock">Заблакіраваць</string>
     <string name="new_messages_locked">Ёсць новыя паведамленні</string>
     <string name="new_messages_locked_description">Націсніце, каб паглядзець новыя паведамленні.</string>
     <string name="new_unprocessed_messages">Ёсць новыя паведамленні</string>
@@ -325,7 +328,7 @@
     <string name="state_read">прачытана</string>
     <string name="state_delivered">дастаўлена</string>
     <string name="state_sending">адпраўка</string>
-    <string name="state_pending">чаканне</string>
+    <string name="state_pending">у чаканні</string>
     <string name="state_failed">не ўдалося</string>
     <string name="state_sent">адпраўлена</string>
     <string name="state_dialog_created">Створана</string>
@@ -345,8 +348,11 @@
     <string name="status_rename_group">Суполка пераназвана ў «%1$s»</string>
     <string name="status_group_new_photo">Суполка абноўлена.</string>
     <string name="status_group_new_member">\"%1$s\" дададзены(а) ў суполку.</string>
+    <string name="status_group_you_were_added">Вы былі дададзены ў суполку.</string>
     <string name="status_group_member_left">\"%1$s\" пакінуў суполку.</string>
+    <string name="status_group_you_left">Вы пакінулі суполку.</string>
     <string name="status_group_member_kicked">\"%1$s\" выдалены(а) з суполкі.</string>
+    <string name="status_group_you_were_removed">Вы былі выдалены з суполкі.</string>
     <string name="can_not_send_no_group_members">Вы не можаце адправіць паведамленне ў пустую суполку</string>
     <string name="you_are_not_a_member_of_this_group">Вы не з\'яўляецеся ўдзельнікам гэтай суполкі</string>
     <string name="title_public_nickname">Псеўданім</string>
@@ -415,7 +421,7 @@
     <string name="verification_level2_work_explain">Унутраны кантакт, даныя якога загадзя ўведзены вашай арганізацыяй.</string>
     <string name="verification_level3_work_explain">Унутраны кантакт, асобу і адкрыты ключ якога вы асабіста пацвердзілі, адсканаваўшы яго QR-код.</string>
     <string name="verification_level3_explain">Кантакт, асобу і адкрыты ключ якога вы асабіста пацвердзілі, адсканаваўшы яго QR-код.</string>
-    <string name="verification_level2_explain">Кантакт, нумар тэлефона і (або) адрас эл. пошты якога ёсць у вашай адраснай кнізе.</string>
+    <string name="verification_level2_explain">Кантакт, чый нумар тэлефона і/або адрас электроннай пошты захаваны ў вашай адраснай кнізе.</string>
     <string name="verification_level1_explain">Невядомы кантакт: альбо гэты кантакт не прывязаў нумар тэлефона і адрас эл. пошты да свайго ID, альбо ў вашай адраснай кнізе адсутнічаюць даныя гэтага кантакту.</string>
     <string name="state_dialog_received">Атрымана</string>
     <string name="prefs_title_hide_screenshots">Забарона мініяцюр і здымкаў экрана</string>
@@ -478,6 +484,7 @@
     <string name="ballot_result_final">Канчатковы вынік</string>
     <string name="invalid_cannot_send">Вы не можаце адпраўляць паведамленні несапраўднаму кантакту</string>
     <string name="ballot_answer_count_error">Задайце не менш за два варыянты адказаў для гэтага апытання.</string>
+    <string name="ballot_removed">Апытанне выдалена</string>
     <string name="contact_state_inactive">Не актыўны</string>
     <string name="contact_state_invalid">Несапраўдны</string>
     <string name="back">Назад</string>
@@ -565,7 +572,7 @@
     <string name="storage_explain">Калі ў вас сканчаецца вольнае месца, вы можаце выдаліць старыя зашыфраваныя мэдыяфайлы, вызваліўшы такім чынам месца. Мініяцюры пры гэтым будуць захаваны. Звярніце ўвагу, што гэта не аўтаматычны працэс. Пакуль вы не націснеце адну з кнопак ніжэй, нічога выдалена не будзе.</string>
     <string name="delete_data">Выдаліць даныя</string>
     <string name="delete_date_confirm_message">Калі вы працягнеце, файлы будуць выдаленыя, застануцца толькі мініяцюры.</string>
-    <string name="storage_management">Кіраванне памяццю</string>
+    <string name="storage_management">Кіраванне сховішчам</string>
     <string name="media">Медыя</string>
     <string name="prefs_storage_mgmt_title">Выдаленне медыя, файлаў і паведамленняў</string>
     <string name="num_messages">Колькасць паведамленняў</string>
@@ -691,7 +698,6 @@
     <string name="new_wizard_anonymous_confirm">Вы не пазначылі ні нумар тэлефона, ні адрас электроннай пошты для прывязкі да свайго ${app_name_short} ID. Вы не з’явіцеся ў спісах кантактаў іншых карыстальнікаў. Сапраўды хочаце карыстацца ${app_name} ананімна?</string>
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_anonymous_confirm_phone_only">Вы не ўказалі нумар мабільнага тэлефона для прывязкі да свайго ${app_name_short} ID. Вы не з\'явіцеся ў спісе кантактаў вашых сяброў. Вы сапраўды хочаце выкарыстоўваць ${app_name} ананімна?</string>
-    <string name="new_wizard_scan_id_backup">Адсканаваць экспартаваны QR-код</string>
     <string name="error_saving_file">Не ўдалося захаваць некаторыя файлы</string>
     <string name="wait_one_minute">Калі ласка, пачакайце SMS не менш за 10 хвілін, перш, чым запытаць выклік.</string>
     <string name="backup_id">Аднавіць толькі ID</string>
@@ -774,7 +780,8 @@
     <string name="prefs_language_override">Мова</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
     <string name="threema_channel_intro">Канал ${app_name_short} дае вам навіны аб усім ${app_name_short}. Вы хочаце падпісацца на канал ${app_name_short} і дадаць яго ў свае кантакты? Гэта бясплатна, і вы можаце адмовіцца ад падпіскі ў любы час.</string>
-    <string name="quote">Цытаваць</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
+    <string name="reply_to_message">Адказаць</string>
     <string name="contacts_deleted">Кантакты былі выдалены</string>
     <string name="take_photo">Сфатаграфаваць</string>
     <string name="select_from_gallery">Выбраць з галерэі</string>
@@ -1217,7 +1224,9 @@
     <string name="max_selectable_media_exceeded">Адначасова можна адправіць не больш за %d аб\'ектаў.</string>
     <string name="error_unable_loading_media_thumb">Адбылася памылка. Не атрымалася загрузіць эскіз мультымедыя</string>
     <string name="filter_list">Спіс фільтраў</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
     <string name="hint_filter_list">Увядзіце тэкст для фільтрацыі</string>
+    <string name="hint_search_list">Увядзіце тэкст для пошуку</string>
     <string name="add">Дадаць</string>
     <string name="only_images_or_videos">Можна выбіраць толькі відарысы ці відэа</string>
     <string name="media_gallery_gifs">GIF-файлы</string>
@@ -1357,7 +1366,7 @@
     <string name="forward_security_cleared">Сеансы Perfect Forward Secrecy з гэтым кантактам ачышчаны</string>
     <string name="message_without_forward_security">Атрымана паведамленне без Perfect Forward Secrecy. Праверце, ці наўмысна адпраўнік адключыў гэту наладу.</string>
     <string name="forward_security_disabled">Perfect Forward Secrecy адключана для гэтага чата.</string>
-    <string name="forward_security_established">Паведамленні з гэтым партнёрам па чаце цяпер абаронены Perfect Forward Secrecy.</string>
+    <string name="forward_security_established">Паведамленні з гэтым суразмоўцам цяпер абаронены з дапамогай Perfect Forward Secrecy.</string>
     <string name="forward_security_established_rx">Паведамленні, атрыманыя ў гэтым чаце, цяпер абаронены Perfect Forward Secrecy.</string>
     <string name="forward_security_reset">Сеанс Perfect Forward Secrecy быў скінуты. Гэта можа адбыцца, калі суразмоўца мяняе прыладу або пераўсталёўвае праграму.</string>
     <string name="forward_security_reset_simple">Сеанс Perfect Forward Secrecy з гэтым кантактам быў скінуты.</string>
@@ -1488,7 +1497,7 @@
     <string name="real_not_now">Не цяпер</string>
     <string name="add_contact_in">Дадаць кантакт у…</string>
     <string name="really_remove_all_stars">Вы сапраўды хочаце зняць зорачку з усіх паведамленняў?</string>
-    <string name="prefs_sum_storage_management">Кіраванне памяццю і выдаленне паведамленняў або мультымедыі</string>
+    <string name="prefs_sum_storage_management">Кіраванне сховішчам і выдаленне паведамленняў або медыя</string>
     <string name="delete_automatically">Выдаліць аўтаматычна</string>
     <string name="keep_messages">Захоўваць паведамленні для:</string>
     <string name="clean_up_manually">Ачысціць уручную</string>
@@ -1580,10 +1589,10 @@
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="error_reporting_summary_always_ask">Заўсёды пытацца, ці адпраўляць справаздачу аб памылцы ў ${company_name}</string>
     <string name="error_detected_dialog_title">Адправіць ананімную справаздачу</string>
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
-    <string name="crash_detected_dialog_text">Здаецца, у працы ${app_name_short} адбыўся збой. Хочаце адправіць ананімную справаздачу аб памылцы?</string>
     <string name="crash_detected_dialog_remember_choice">Запомніць мой выбар</string>
     <string name="crash_detected_dialog_send_button">Адправіць</string>
+    <string name="error_reporting_learn_more_button">Даведацца больш</string>
+    <string name="error_reporting_details_button">Тэхнічныя дэталі</string>
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
     <string name="prefs_error_reporting_id">Ананімны ID прылады</string>
     <!-- The %s is a placeholder for an ID. It must be left as-is. -->
@@ -1614,6 +1623,7 @@
     <!-- Button label on dialog when configuring a backup, shown on dialog that lets the user choose how they want to select the backup folder. This option lets them bypass the file picker and use the default Documents folder instead -->
     <string name="backup_path_selection_documents">Выкарыстоўваць папку «Дакументы»</string>
     <!-- accessibility -->
+    <string name="cd_menu_more">Больш варыянтаў</string>
     <string name="cd_edited">паведамленне было адрэдагавана</string>
     <string name="cd_created_at">створана: %s</string>
     <string name="cd_edited_at">адрэдагавана: %s</string>
@@ -1760,7 +1770,6 @@
     <string name="edit_availability_status_modal_optional_message_placeholder">На сустрэчы</string>
     <string name="edit_availability_status_modal_optional_message_description">Задайце ўласнае паведамленне пра статус, калі выбрана «Заняты» або «Недаступны».</string>
     <string name="edit_availability_status_modal_optional_message_too_long">Тэкст занадта доўгі, калі ласка, скараціце яго</string>
-    <string name="edit_availability_status_did_change">Статус даступнасці зменены</string>
     <string name="tooltip_title_availability_status">Статус даступнасці</string>
     <string name="tooltip_text_availability_status_in_chat">Перад адпраўкай паведамлення вы можаце ўбачыць, ці заняты чалавек. Уласны статус можна задаць у сваім профілі.</string>
     <string name="tooltip_text_availability_status_in_profile">Усталюйце статус, каб паказваць іншым, калі вы занятыя або недаступныя.</string>
@@ -1846,6 +1855,8 @@
         <item quantity="many">%d паведамленняў выдалена</item>
         <item quantity="other">%d паведамленняў выдалена</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
+    <string name="notifications_for_one_week">На 1 тыдзень</string>
     <plurals name="notifications_for_x_hours">
         <item quantity="one">На %d гадзіну</item>
         <item quantity="few">На працягу %d гадзін</item>

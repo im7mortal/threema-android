@@ -27,8 +27,8 @@ import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import ch.threema.app.R
-import ch.threema.app.compose.common.ThemedText
 import ch.threema.app.compose.common.anim.ExpandingBox
+import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.ui.CustomTextSelectionCallback
 import ch.threema.app.utils.LinkifyUtil
 

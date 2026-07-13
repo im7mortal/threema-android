@@ -33,7 +33,7 @@ import ch.threema.app.utils.RuntimeUtil;
 import static ch.threema.android.ThreadUtilKt.isMainThread;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
-import ch.threema.data.models.GroupIdentity;
+import ch.threema.data.datatypes.GroupIdentity;
 import ch.threema.data.datatypes.IdColor;
 
 import java.util.function.Supplier;
@@ -73,7 +73,7 @@ final public class AvatarCacheServiceImpl implements AvatarCacheService {
 
         this.identityPlaceholder = VectorDrawableCompat.create(appContext.getResources(), R.drawable.ic_contact, null);
         this.groupPlaceholder = VectorDrawableCompat.create(appContext.getResources(), R.drawable.ic_group, null);
-        this.distributionListPlaceholder = VectorDrawableCompat.create(appContext.getResources(), R.drawable.ic_distribution_list, null);
+        this.distributionListPlaceholder = VectorDrawableCompat.create(appContext.getResources(), R.drawable.ic_distribution_list_avatar, null);
         this.avatarSizeSmall = appContext.getResources().getDimensionPixelSize(R.dimen.avatar_size_small);
 
         // Use dark theme default gray for placeholder

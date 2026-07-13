@@ -5,7 +5,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
-import android.os.Build;
 import android.os.PowerManager;
 
 import org.slf4j.Logger;
@@ -17,6 +16,7 @@ import androidx.fragment.app.Fragment;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static android.content.Context.POWER_SERVICE;
+import static ch.threema.base.TestUtilKt.isInDeviceTest;
 
 public class PowermanagerUtil {
     private static final Logger logger = getThreemaLogger("PowermanagerUtil");
@@ -120,7 +120,7 @@ public class PowermanagerUtil {
      */
     public static boolean isIgnoringBatteryOptimizations(@NonNull Context context) {
         // App is always whitelisted in device tests
-        if (TestUtil.isInDeviceTest()) {
+        if (isInDeviceTest()) {
             return true;
         }
         final PowerManager powerManager = (PowerManager) context.getApplicationContext().getSystemService(POWER_SERVICE);

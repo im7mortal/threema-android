@@ -22,9 +22,9 @@ import ch.threema.app.BuildConfig;
 import ch.threema.app.utils.FileUtil;
 import ch.threema.base.ProgressListener;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.toHexString;
 import static kotlin.io.ByteStreamsKt.readBytes;
 
-import ch.threema.base.utils.Utils;
 import ch.threema.common.ByteArrayExtensionsKt;
 import ch.threema.domain.protocol.blob.BlobLoader;
 import ch.threema.domain.protocol.blob.BlobScope;
@@ -76,7 +76,7 @@ public class DownloadServiceImpl implements DownloadService {
         synchronized (this.downloads) {
             Download download = getDownloadByBlobId(blobId);
             if (download != null) {
-                logger.info("Blob {} remove downloader", Utils.byteArrayToHexString(blobId));
+                logger.info("Blob {} remove downloader", toHexString(blobId));
                 downloads.remove(download);
             }
         }
@@ -88,7 +88,7 @@ public class DownloadServiceImpl implements DownloadService {
             if (!matchingDownloads.isEmpty()) {
                 for (Download download : matchingDownloads) {
                     logger.info("Blob {} remove downloader for message {}. Cancel = {}",
-                        Utils.byteArrayToHexString(download.blobId),
+                        toHexString(download.blobId),
                         messageModelId,
                         cancel);
                     if (cancel) {
@@ -129,7 +129,7 @@ public class DownloadServiceImpl implements DownloadService {
                 return null;
             }
 
-            final String blobIdHex = Utils.byteArrayToHexString(blobId);
+            final String blobIdHex = toHexString(blobId);
             logger.info("Blob {} for message {} download requested", blobIdHex, messageModelId);
 
             byte[] blobBytes = null;
@@ -176,7 +176,9 @@ public class DownloadServiceImpl implements DownloadService {
                         if (getDownloadByBlobId(blobId) != null) {
                             logger.info("Blob {} now saving", blobIdHex);
                             //write to temporary file
-                            FileUtil.createNewFileOrLog(downloadFile, logger);
+                            if (!downloadFile.createNewFile()) {
+                                logger.debug("File {} already exists", downloadFile.getAbsolutePath());
+                            }
                             if (downloadFile.isFile()) {
                                 try (BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(downloadFile))) {
                                     bos.write(blobBytes);

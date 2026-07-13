@@ -3,10 +3,11 @@ package ch.threema.app.systemupdates.updates;
 import org.koin.java.KoinJavaComponent;
 
 import ch.threema.app.preference.service.PreferenceService;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.storage.DatabaseProvider;
 import ch.threema.storage.models.WebClientSessionModel;
 import kotlin.Lazy;
+
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class SystemUpdateToVersion40 implements SystemUpdate {
 
@@ -18,7 +19,7 @@ public class SystemUpdateToVersion40 implements SystemUpdate {
         PreferenceService preferenceService = preferenceServiceLazy.getValue();
         String currentPushToken = preferenceService.getPushToken();
 
-        if (!TestUtil.isEmptyOrNull(currentPushToken)) {
+        if (!isNullOrEmpty(currentPushToken)) {
             // update all
             databaseProviderLazy.getValue().getWritableDatabase()
                 .execSQL(

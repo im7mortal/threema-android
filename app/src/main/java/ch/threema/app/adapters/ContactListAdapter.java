@@ -25,10 +25,11 @@ import org.slf4j.Logger;
 
 import java.text.Collator;
 import java.text.Normalizer;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -124,10 +125,10 @@ public class ContactListAdapter extends FilterableListAdapter implements Section
 
     private List<ContactModel> updateRecentlyAdded(List<ContactModel> all) {
         ArrayList<ContactModel> recents = new ArrayList<>();
-        Date recentlyAddedDate = new Date(System.currentTimeMillis() - DateUtils.DAY_IN_MILLIS);
+        Instant recentlyAddedDate = Instant.now().minus(1, ChronoUnit.DAYS);
 
         for (ContactModel contactModel : all) {
-            if (contactModel != null && contactModel.getDateCreated() != null && recentlyAddedDate.before(contactModel.getDateCreated()) && !"ECHOECHO".equalsIgnoreCase(contactModel.getIdentity())) {
+            if (contactModel != null && contactModel.getDateCreated() != null && recentlyAddedDate.isBefore(contactModel.getDateCreated()) && !"ECHOECHO".equalsIgnoreCase(contactModel.getIdentity())) {
                 recents.add(contactModel);
             }
         }

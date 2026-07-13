@@ -2,13 +2,11 @@ package ch.threema.app.pinlock
 
 import android.content.Context
 import android.os.Bundle
-import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
@@ -46,14 +44,15 @@ import ch.threema.android.ResolvableString
 import ch.threema.android.buildActivityIntent
 import ch.threema.android.navigateToLauncher
 import ch.threema.android.toResolvedString
-import ch.threema.app.BuildConfig
 import ch.threema.app.R
 import ch.threema.app.activities.ThreemaAppCompatActivity
-import ch.threema.app.compose.common.SpacerHorizontal
-import ch.threema.app.compose.common.SpacerVertical
-import ch.threema.app.compose.common.ThemedText
+import ch.threema.app.compose.common.BlockScreenCapture
 import ch.threema.app.compose.common.buttons.primary.ButtonPrimary
 import ch.threema.app.compose.common.extensions.get
+import ch.threema.app.compose.common.spacer.SpacerHorizontal
+import ch.threema.app.compose.common.spacer.SpacerRemainingVertical
+import ch.threema.app.compose.common.spacer.SpacerVertical
+import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.preview.PreviewThreemaAll
 import ch.threema.app.compose.theme.ThreemaTheme
 import ch.threema.app.compose.theme.ThreemaThemePreview
@@ -85,10 +84,6 @@ class PinLockActivity : ThreemaAppCompatActivity() {
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (!BuildConfig.DEBUG) {
-            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        }
-
         lifecycleScope.launch {
             awaitAppFullyReady()
             onCreate()
@@ -97,8 +92,8 @@ class PinLockActivity : ThreemaAppCompatActivity() {
 
     private fun onCreate() {
         setContent {
+            BlockScreenCapture()
             EventHandler(viewModel, ::handleScreenEvent)
-
             BackHandler(onBack = viewModel::onPressBack)
 
             ThreemaTheme {
@@ -185,9 +180,7 @@ private fun PinLockScreenContent(
                 text = stringResource(R.string.pinentry_enter_pin),
             )
 
-            SpacerVertical(GridUnit.x2)
-
-            Spacer(modifier = Modifier.weight(1f))
+            SpacerRemainingVertical(minHeight = GridUnit.x2)
 
             PinTextField(
                 pin = pin,
@@ -197,9 +190,7 @@ private fun PinLockScreenContent(
                 onImeSubmit = onClickSubmit,
             )
 
-            Spacer(modifier = Modifier.weight(1f))
-
-            SpacerVertical(GridUnit.x2)
+            SpacerRemainingVertical(minHeight = GridUnit.x2)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),

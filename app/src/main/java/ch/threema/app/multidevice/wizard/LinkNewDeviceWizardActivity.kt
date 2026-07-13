@@ -22,8 +22,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import ch.threema.android.buildActivityIntent
 import ch.threema.app.R
-import ch.threema.app.ThreemaApplication
 import ch.threema.app.activities.ThreemaActivity
+import ch.threema.app.managers.ServiceManager
 import ch.threema.app.multidevice.wizard.steps.LinkNewDeviceFragment
 import ch.threema.app.multidevice.wizard.steps.LinkNewDevicePFSInfoFragment
 import ch.threema.app.multidevice.wizard.steps.LinkNewDeviceResultFragment
@@ -156,7 +156,7 @@ class LinkNewDeviceWizardActivity : ThreemaActivity() {
     }
 
     private fun determineInitialFragment(): Class<out LinkNewDeviceFragment> =
-        if (ThreemaApplication.getServiceManager()?.multiDeviceManager?.isMultiDeviceActive == true) {
+        if (ServiceManager.get()?.multiDeviceManager?.isMultiDeviceActive == true) {
             LinkNewDeviceScanQrFragment::class.java
         } else {
             LinkNewDevicePFSInfoFragment::class.java

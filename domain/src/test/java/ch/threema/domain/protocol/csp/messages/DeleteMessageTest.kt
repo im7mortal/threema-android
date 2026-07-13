@@ -18,7 +18,7 @@ class DeleteMessageTest {
      */
     private val messageId = MessageId.random()
     private val protobufMessageId: ByteArray =
-        DeleteMessageData(messageId.messageIdLong).toProtobufBytes()
+        DeleteMessageData(messageId).toProtobufBytes()
 
     private val bytesMessageData: ByteArray = protobufMessageId
 
@@ -152,7 +152,7 @@ class DeleteMessageTest {
 
         // assert
         assertEquals(incomingMessageId, deleteMessage.messageId.messageIdLong)
-        assertEquals(incomingMessageCreatedAt, deleteMessage.date.time)
+        assertEquals(incomingMessageCreatedAt, deleteMessage.timestamp.toEpochMilli())
         assertEquals(incomingMessageSenderIdentity, deleteMessage.fromIdentity)
         assertEquals(messageId.messageIdLong, deleteMessage.data.messageId)
     }
@@ -173,7 +173,7 @@ class DeleteMessageTest {
 
         // assert
         assertEquals(outgoingMessageId, deleteMessage.messageId.messageIdLong)
-        assertEquals(outgoingMessageCreatedAt, deleteMessage.date.time)
+        assertEquals(outgoingMessageCreatedAt, deleteMessage.timestamp.toEpochMilli())
         assertEquals(messageId.messageIdLong, deleteMessage.data.messageId)
     }
 }

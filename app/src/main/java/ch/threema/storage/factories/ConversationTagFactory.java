@@ -5,15 +5,20 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.SQLException;
 
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.sqlite.db.SupportSQLiteQueryBuilder;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
+import ch.threema.data.datatypes.ConversationId;
 import ch.threema.storage.CursorHelper;
 import ch.threema.storage.DatabaseCreationProvider;
 import ch.threema.storage.DatabaseProvider;
@@ -28,129 +33,144 @@ public class ConversationTagFactory extends ModelFactory {
         super(databaseProvider, ConversationTagModel.TABLE);
     }
 
+    @NonNull
     public List<ConversationTagModel> getAll() {
-        try (Cursor cursor = getReadableDatabase().query(this.getTableName(),
-            null,
-            null,
-            null,
-            null,
-            null,
-            null)) {
-
+        try (Cursor cursor = getReadableDatabase().query(this.getTableName(), null, null, null, null, null, null)) {
             return convertList(cursor);
         }
     }
 
-    public ConversationTagModel getByConversationUidAndTag(@NonNull String conversationUid, @NonNull ConversationTag tag) {
+    public ConversationTagModel getByConversationIdAndTag(@NonNull ConversationId conversationId, @NonNull ConversationTag tag) {
         return getFirst(
-            ConversationTagModel.COLUMN_CONVERSATION_UID + "=? AND "
-                + ConversationTagModel.COLUMN_TAG + "=? ",
+            ConversationTagModel.COLUMN_CONVERSATION_UID + "=? AND " + ConversationTagModel.COLUMN_TAG + "=? ",
             new String[]{
-                conversationUid,
+                conversationId.toDatabaseValue(),
                 tag.value
-            });
+            }
+        );
     }
 
     public long countByTag(@NonNull ConversationTag tag) {
-        return DatabaseUtil.count(getReadableDatabase().rawQuery(
-            "SELECT COUNT(*) FROM " + this.getTableName()
-                + " WHERE " + ConversationTagModel.COLUMN_TAG + "=?",
-            new String[]{
-                tag.value
-            }
-        ));
+        return DatabaseUtil.count(
+            getReadableDatabase().rawQuery(
+                "SELECT COUNT(*) FROM " + this.getTableName() + " WHERE " + ConversationTagModel.COLUMN_TAG + "=?",
+                new String[]{
+                    tag.value
+                }
+            )
+        );
     }
 
     @NonNull
-    public List<String> getAllConversationUidsByTag(@NonNull ConversationTag tag) {
+    public List<ConversationId> getAllConversationIdsByTag(@NonNull ConversationTag tag) {
         try (Cursor cursor = getReadableDatabase().query(
             SupportSQLiteQueryBuilder.builder(getTableName())
                 .columns(new String[]{ConversationTagModel.COLUMN_CONVERSATION_UID})
                 .selection(ConversationTagModel.COLUMN_TAG + " = ?", new String[]{tag.value})
                 .create()
         )) {
-            List<String> conversationUids = new ArrayList<>(cursor.getCount());
-            int columnIndex =
-                cursor.getColumnIndexOrThrow(ConversationTagModel.COLUMN_CONVERSATION_UID);
+            final @NonNull List<ConversationId> conversationIds = new ArrayList<>(cursor.getCount());
+            final int columnIndex = cursor.getColumnIndexOrThrow(ConversationTagModel.COLUMN_CONVERSATION_UID);
             while (cursor.moveToNext()) {
-                conversationUids.add(cursor.getString(columnIndex));
+                final @Nullable String conversationIdDatabaseValue = cursor.getString(columnIndex);
+                if (conversationIdDatabaseValue != null) {
+                    final @Nullable ConversationId conversationId = ConversationId.fromDatabaseValue(conversationIdDatabaseValue);
+                    if (conversationId != null) {
+                        conversationIds.add(conversationId);
+                    }
+                }
             }
-            return conversationUids;
+            return conversationIds;
         } catch (SQLException | IllegalArgumentException e) {
-            logger.error("Could not get uids by tag '{}'", tag, e);
+            logger.error("Could not get conversation ids by tag '{}'", tag, e);
             return List.of();
         }
     }
 
-    private List<ConversationTagModel> convertList(Cursor cursor) {
-        List<ConversationTagModel> result = new ArrayList<>();
-        if (cursor != null) {
-            while (cursor.moveToNext()) {
-                result.add(convert(cursor));
-            }
+    @NonNull
+    private List<ConversationTagModel> convertList(@Nullable Cursor cursor) {
+        if (cursor == null) {
+            return new ArrayList<>();
+        }
+        final List<ConversationTagModel> result = new ArrayList<>();
+        while (cursor.moveToNext()) {
+            result.add(convert(cursor));
         }
         return result;
     }
 
-    private ConversationTagModel convert(Cursor cursor) {
-        if (cursor != null && cursor.getPosition() >= 0) {
-            final ConversationTagModel c = new ConversationTagModel();
-
-            //convert default
-            new CursorHelper(cursor, getColumnIndexCache()).current(new CursorHelper.Callback() {
-                @Override
-                public boolean next(CursorHelper cursorHelper) {
-                    c
-                        .setConversationUid(cursorHelper.getString(ConversationTagModel.COLUMN_CONVERSATION_UID))
-                        .setTag(cursorHelper.getString(ConversationTagModel.COLUMN_TAG))
-                        .setCreatedAt(cursorHelper.getDate(ConversationTagModel.COLUMN_CREATED_AT));
-
+    @Nullable
+    private ConversationTagModel convert(@Nullable Cursor cursor) {
+        if (cursor == null || cursor.getPosition() < 0) {
+            return null;
+        }
+        final @NonNull AtomicReference<ConversationTagModel> conversationTagModel = new AtomicReference<>();
+        new CursorHelper(cursor, getColumnIndexCache())
+            .current(
+                (CursorHelper.Callback) cursorHelper -> {
+                    final @Nullable String conversationIdDatabaseValue = cursorHelper.getString(ConversationTagModel.COLUMN_CONVERSATION_UID);
+                    if (conversationIdDatabaseValue == null) {
+                        return false;
+                    }
+                    final @Nullable ConversationId conversationId = ConversationId.fromDatabaseValue(conversationIdDatabaseValue);
+                    if (conversationId == null) {
+                        return false;
+                    }
+                    final @Nullable String tag = cursorHelper.getString(ConversationTagModel.COLUMN_TAG);
+                    final @Nullable Instant createdAt = cursorHelper.getInstant(ConversationTagModel.COLUMN_CREATED_AT);
+                    conversationTagModel.set(new ConversationTagModel(conversationId, tag, createdAt));
                     return false;
                 }
-            });
-
-            return c;
-        }
-
-        return null;
+            );
+        return conversationTagModel.get();
     }
 
-    private ContentValues buildContentValues(ConversationTagModel model) {
+    @NonNull
+    private ContentValues buildContentValues(@NonNull ConversationTagModel conversationTagModel) {
         ContentValues contentValues = new ContentValues();
-        contentValues.put(ConversationTagModel.COLUMN_CONVERSATION_UID, model.getConversationUid());
-        contentValues.put(ConversationTagModel.COLUMN_TAG, model.getTag());
-        contentValues.put(ConversationTagModel.COLUMN_CREATED_AT, model.getCreatedAt() != null ? model.getCreatedAt().getTime() : null);
+        contentValues.put(ConversationTagModel.COLUMN_CONVERSATION_UID, conversationTagModel.getConversationId().toDatabaseValue());
+        contentValues.put(ConversationTagModel.COLUMN_TAG, conversationTagModel.getTag());
+        contentValues.put(
+            ConversationTagModel.COLUMN_CREATED_AT,
+            conversationTagModel.getCreatedAt() != null
+                ? conversationTagModel.getCreatedAt().toEpochMilli()
+                : null
+        );
         return contentValues;
     }
 
-    public void create(ConversationTagModel model) {
-        logger.debug("create conversation tag {} {}", model.getConversationUid(), model.getTag());
-        ContentValues contentValues = buildContentValues(model);
+    public void create(@NonNull ConversationTagModel conversationTagModel) {
+        logger.debug("create conversation tag {} {}", conversationTagModel.getConversationId(), conversationTagModel.getTag());
+        ContentValues contentValues = buildContentValues(conversationTagModel);
         getWritableDatabase().insertOrThrow(this.getTableName(), null, contentValues);
     }
 
-    public void deleteByConversationUidAndTag(@NonNull String conversationUid, @NonNull ConversationTag tag) {
-        deleteByConversationUidAndTag(conversationUid, tag.value);
+    public void deleteByConversationIdAndTag(@NonNull ConversationId conversationId, @NonNull ConversationTag tag) {
+        deleteByConversationIdAndTag(conversationId, tag.value);
     }
 
-    public void deleteByConversationUidAndTag(@NonNull String conversationUid, @NonNull String tag) {
-        getWritableDatabase().delete(this.getTableName(),
-            ConversationTagModel.COLUMN_CONVERSATION_UID + "=? AND "
-                + ConversationTagModel.COLUMN_TAG + "=? ",
+    public void deleteByConversationIdAndTag(@NonNull ConversationId conversationId, @NonNull String tag) {
+        getWritableDatabase().delete(
+            this.getTableName(),
+            ConversationTagModel.COLUMN_CONVERSATION_UID + "=? AND " + ConversationTagModel.COLUMN_TAG + "=? ",
             new String[]{
-                conversationUid,
+                conversationId.toDatabaseValue(),
                 tag
-            });
+            }
+        );
     }
 
-    public void deleteByConversationUid(String conversationUid) {
-        getWritableDatabase().delete(this.getTableName(),
+    public void deleteByConversationId(@NonNull ConversationId conversationId) {
+        getWritableDatabase().delete(
+            this.getTableName(),
             ConversationTagModel.COLUMN_CONVERSATION_UID + "=?",
             new String[]{
-                conversationUid
-            });
+                conversationId.toDatabaseValue()
+            }
+        );
     }
 
+    @Nullable
     private ConversationTagModel getFirst(String selection, String[] selectionArgs) {
         Cursor cursor = getReadableDatabase().query(
             this.getTableName(),
@@ -176,7 +196,7 @@ public class ConversationTagFactory extends ModelFactory {
     public static class Creator implements DatabaseCreationProvider {
         @Override
         @NonNull
-        public String [] getCreationStatements() {
+        public String[] getCreationStatements() {
             return new String[]{
                 "CREATE TABLE IF NOT EXISTS `" + ConversationTagModel.TABLE + "` (" +
                     "`" + ConversationTagModel.COLUMN_CONVERSATION_UID + "` VARCHAR NOT NULL, " +

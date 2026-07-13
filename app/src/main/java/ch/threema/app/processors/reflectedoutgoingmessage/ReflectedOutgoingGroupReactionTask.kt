@@ -44,6 +44,8 @@ internal class ReflectedOutgoingGroupReactionTask(
             message.data.actionCase,
             /* emojiSequence = */
             emojiSequence,
+            /* createdAt = */
+            message.timestamp,
         )
     }
 }

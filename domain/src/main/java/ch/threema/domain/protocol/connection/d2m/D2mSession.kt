@@ -1,6 +1,6 @@
 package ch.threema.domain.protocol.connection.d2m
 
-import ch.threema.base.utils.TimeMeasureUtil
+import ch.threema.common.Stopwatch
 import ch.threema.domain.protocol.connection.InputPipe
 import ch.threema.domain.protocol.connection.ServerConnectionDispatcher
 import ch.threema.domain.protocol.connection.data.D2mProtocolException
@@ -27,7 +27,7 @@ internal class D2mSession(
         DONE,
     }
 
-    private val timeMeasureUtil = TimeMeasureUtil()
+    private val stopwatch = Stopwatch()
 
     private val propertiesProvider = configuration.multiDevicePropertyProvider
 
@@ -66,7 +66,7 @@ internal class D2mSession(
         }
 
         val clientHello = createClientHello(serverHello)
-        timeMeasureUtil.start()
+        stopwatch.start()
         outbound.send(clientHello)
     }
 
@@ -93,11 +93,11 @@ internal class D2mSession(
     }
 
     private fun processServerInfo(serverInfo: InboundD2mMessage.ServerInfo) {
-        timeMeasureUtil.stop()
+        stopwatch.stop()
         if (loginState != LoginState.AWAIT_SERVER_INFO) {
             throw getUnexpectedMessageException(serverInfo)
         }
-        logger.info("Server info received (rtt: {} ms)", timeMeasureUtil.elapsedTime)
+        logger.info("Server info received (rtt: {})", stopwatch.elapsedTime)
         withProperties { it.notifyServerInfo(serverInfo) }
     }
 

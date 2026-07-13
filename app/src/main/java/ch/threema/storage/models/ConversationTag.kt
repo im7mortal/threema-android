@@ -6,6 +6,5 @@ package ch.threema.storage.models
  * Do not change a tag's value, as it is used for persisting tags in the DB.
  */
 enum class ConversationTag(@JvmField val value: String) {
-    PINNED("star"),
     MARKED_AS_UNREAD("unread"),
 }

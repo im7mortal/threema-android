@@ -32,6 +32,12 @@
     <string name="title_job_title">Intitulé du poste</string>
     <string name="title_department">Service</string>
     <string name="send">Envoyer</string>
+    <string name="prefs_linked_devices">Appareils associés</string>
+    <string name="prefs_community_and_sharing">Communauté et partage</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <string name="prefs_advanced">Avancé</string>
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
+    <string name="prefs_about">À propos</string>
     <string name="prefs_privacy">Confidentialité</string>
     <string name="prefs_notifications">Sons et notifications</string>
     <string name="prefs_chatdisplay">Fenêtre de chat</string>
@@ -83,7 +89,10 @@
     <string name="prefs_sum_threema_push_off">Vérifiez la présence de nouveaux messages en utilisant le service Push système</string>
     <string name="prefs_logging">Journalisation</string>
     <string name="prefs_title_message_log_switch">Consigner dans le fichier</string>
-    <string name="prefs_title_sum_message_log_on">Les événements seront consignés dans le fichier debug_log.txt</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_on_since">Activité du système enregistrée depuis %1$s (%2$s)</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_forced_on">L\'activité du système est enregistrée. Supprimez le fichier « %1$s » pour désactiver l\'enregistrement. (%2$s)</string>
     <string name="prefs_title_sum_message_log_off">Les événements ne seront pas consignés</string>
     <string name="prefs_reset_push">Réinitialiser le jeton Push</string>
     <string name="prefs_sum_reset_push">Réenregistrer l\'appareil pour des notifications Push avec FCM ou HMS</string>
@@ -193,6 +202,7 @@
     <string name="attach_camera">Appareil photo</string>
     <string name="menu_restore">Restaurer depuis la sauvegarde</string>
     <string name="restore_id_hint">Saisissez ou copiez la chaîne de texte de l\'exportation de l\'ID pour le restaurer</string>
+    <string name="restore_id_string_label">Chaîne de texte d\'exportation de l\'ID</string>
     <string name="location_placeholder">Emplacement</string>
     <string name="video_placeholder">Vidéo</string>
     <string name="audio_placeholder">Audio</string>
@@ -345,8 +355,11 @@
     <string name="status_rename_group">Groupe renommé en « %1$s »</string>
     <string name="status_group_new_photo">Image de groupe mise à jour.</string>
     <string name="status_group_new_member">« %1$s » ajouté au groupe.</string>
+    <string name="status_group_you_were_added">Vous avez été ajouté au groupe.</string>
     <string name="status_group_member_left">« %1$s » a quitté le groupe.</string>
+    <string name="status_group_you_left">Vous avez quitté le groupe.</string>
     <string name="status_group_member_kicked">« %1$s » a été retiré du groupe.</string>
+    <string name="status_group_you_were_removed">Vous avez été retiré du groupe.</string>
     <string name="can_not_send_no_group_members">Vous ne pouvez pas envoyer de message à un groupe vide</string>
     <string name="you_are_not_a_member_of_this_group">Vous n\'êtes pas membre de ce groupe</string>
     <string name="title_public_nickname">Surnom</string>
@@ -481,6 +494,7 @@ Veuillez saisir une question pour votre enquête.</string>
     <string name="ballot_result_final">Résultat final</string>
     <string name="invalid_cannot_send">Vous ne pouvez pas envoyer de message à un contact erroné</string>
     <string name="ballot_answer_count_error">Veuillez définir au moins deux réponses pour cette enquête.</string>
+    <string name="ballot_removed">Sondage supprimé</string>
     <string name="contact_state_inactive">Inactif</string>
     <string name="contact_state_invalid">Erroné</string>
     <string name="back">Retour</string>
@@ -688,7 +702,6 @@ Veuillez saisir une question pour votre enquête.</string>
     <string name="new_wizard_anonymous_confirm">Vous n\'avez saisi ni numéro de téléphone portable, ni adresse e-mail à associer à votre ID ${app_name_short}. Vous n\'apparaîtrez pas dans la liste de contacts de vos amis. Voulez-vous vraiment utiliser ${app_name} de façon complètement anonyme?</string>
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_anonymous_confirm_phone_only">Vous n’avez pas saisi de numéro de téléphone à associer à votre identifiant ${app_name_short}. Vous ne serez donc pas automatiquement ajouté aux listes de contacts. Voulez-vous vraiment utiliser ${app_name} de manière anonyme ?</string>
-    <string name="new_wizard_scan_id_backup">Ou scannez le code QR de votre exportation d\'ID</string>
     <string name="error_saving_file">Erreur lors de l\'enregistrement du fichier. Vérifiez les permissions.</string>
     <string name="wait_one_minute">Veuillez patienter au moins 10 minutes que le SMS arrive avant de passer un appel.</string>
     <string name="backup_id">ID exporté</string>
@@ -771,7 +784,8 @@ Veuillez saisir une question pour votre enquête.</string>
     <string name="prefs_language_override">Langue</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
     <string name="threema_channel_intro">La chaîne ${app_name_short} vous fournit des informations sur tout ce qui concerne ${app_name_short}. Souhaitez-vous vous abonner à la chaîne ${app_name_short} et l’ajouter à vos contacts ? C’est gratuit et vous pouvez vous désabonner à tout moment.</string>
-    <string name="quote">Citation</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
+    <string name="reply_to_message">Répondre</string>
     <string name="contacts_deleted">Les contacts ont été supprimés</string>
     <string name="take_photo">Prendre une photo</string>
     <string name="select_from_gallery">Sélectionner depuis la galerie</string>
@@ -1213,7 +1227,10 @@ Veuillez saisir une question pour votre enquête.</string>
     <string name="max_selectable_media_exceeded">Impossible d’envoyer plus de %d objets à la fois.</string>
     <string name="error_unable_loading_media_thumb">Impossible de charger la miniature</string>
     <string name="filter_list">Liste de filtres</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
+    <string name="search_list">Rechercher dans la liste</string>
     <string name="hint_filter_list">Entrez un texte de filtre</string>
+    <string name="hint_search_list">Saisissez le texte à rechercher</string>
     <string name="add">Ajouter</string>
     <string name="only_images_or_videos">Seuls des images et des vidéos peuvent être sélectionnés</string>
     <string name="media_gallery_gifs">GIF</string>
@@ -1573,10 +1590,11 @@ Veuillez saisir une question pour votre enquête.</string>
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="error_reporting_summary_always_ask">Demander systématiquement s\'il faut envoyer un rapport d\'erreur à ${company_name}</string>
     <string name="error_detected_dialog_title">Envoyer un rapport anonyme</string>
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
-    <string name="crash_detected_dialog_text">Il semblerait que ${app_name_short} ait récemment planté. Souhaitez-vous envoyer un rapport d\'erreur anonyme ?</string>
+    <string name="crash_detected_dialog_text">Il semble qu\'un problème soit survenu récemment. Souhaitez-vous envoyer un rapport d\'erreur anonyme ?</string>
     <string name="crash_detected_dialog_remember_choice">Se souvenir de mon choix</string>
     <string name="crash_detected_dialog_send_button">Envoyer</string>
+    <string name="error_reporting_learn_more_button">En savoir plus</string>
+    <string name="error_reporting_details_button">Détails techniques</string>
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
     <string name="prefs_error_reporting_id">Identifiant anonyme de l\'appareil</string>
     <!-- The %s is a placeholder for an ID. It must be left as-is. -->
@@ -1605,6 +1623,7 @@ Veuillez saisir une question pour votre enquête.</string>
     <!-- Button label on dialog when configuring a backup, shown on dialog that lets the user choose how they want to select the backup folder. This option lets them bypass the file picker and use the default Documents folder instead -->
     <string name="backup_path_selection_documents">Utiliser le dossier « Documents »</string>
     <!-- accessibility -->
+    <string name="cd_menu_more">Plus d\'options</string>
     <string name="cd_edited">message a été modifié</string>
     <string name="cd_created_at">créé à %s</string>
     <string name="cd_edited_at">modifié à %s</string>
@@ -1751,7 +1770,6 @@ Veuillez saisir une question pour votre enquête.</string>
     <string name="edit_availability_status_modal_optional_message_placeholder">En réunion</string>
     <string name="edit_availability_status_modal_optional_message_description">Définissez un message de statut personnalisé lorsque Occupé ou Indisponible est sélectionné.</string>
     <string name="edit_availability_status_modal_optional_message_too_long">Texte trop long, veuillez le raccourcir</string>
-    <string name="edit_availability_status_did_change">Statut de disponibilité modifié</string>
     <string name="tooltip_title_availability_status">Statut de disponibilité</string>
     <string name="tooltip_text_availability_status_in_chat">Voyez si quelqu\'un est occupé ou indisponible avant de lui envoyer un message. Vous pouvez définir votre propre statut dans votre profil.</string>
     <string name="tooltip_text_availability_status_in_profile">Définissez votre statut pour montrer quand vous êtes occupé(e) ou indisponible.</string>
@@ -1811,6 +1829,8 @@ Veuillez saisir une question pour votre enquête.</string>
         <item quantity="one">%d message supprimé</item>
         <item quantity="other">%d messages supprimés</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
+    <string name="notifications_for_one_week">Pour 1 semaine</string>
     <plurals name="notifications_for_x_hours">
         <item quantity="one">Pendant %d heure</item>
         <item quantity="other">Pendant %d heures</item>

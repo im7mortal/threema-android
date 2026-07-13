@@ -91,6 +91,17 @@ pub mod setup {
             /// The hash derived from the `remote_secret` (32 bytes).
             pub remote_secret_hash: ByteBuf,
         }
+        impl From<create::RemoteSecretCreateResult> for RemoteSecretCreateResult {
+            fn from(result: create::RemoteSecretCreateResult) -> Self {
+                Self {
+                    remote_secret: ByteBuf::from(result.remote_secret.0.to_vec()),
+                    remote_secret_authentication_token: ByteBuf::from(
+                        result.remote_secret_authentication_token.0.to_vec(),
+                    ),
+                    remote_secret_hash: ByteBuf::from(result.remote_secret.derive_hash().0.to_vec()),
+                }
+            }
+        }
 
         /// Binding version of [`create::RemoteSecretCreateLoop`].
         #[derive(Tsify, Serialize)]
@@ -116,13 +127,7 @@ pub mod setup {
                         request,
                     }) => Self::Instruction(request.into()),
 
-                    create::RemoteSecretCreateLoop::Done(result) => Self::Done(RemoteSecretCreateResult {
-                        remote_secret: ByteBuf::from(result.remote_secret.0.to_vec()),
-                        remote_secret_authentication_token: ByteBuf::from(
-                            result.remote_secret_authentication_token.0.to_vec(),
-                        ),
-                        remote_secret_hash: ByteBuf::from(result.remote_secret.derive_hash().0.to_vec()),
-                    }),
+                    create::RemoteSecretCreateLoop::Done(result) => Self::Done(result.into()),
                 }
             }
         }

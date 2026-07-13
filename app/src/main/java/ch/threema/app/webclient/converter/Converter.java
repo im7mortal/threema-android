@@ -4,7 +4,6 @@ import androidx.annotation.AnyThread;
 import androidx.annotation.NonNull;
 
 import ch.threema.app.ThreemaApplication;
-import ch.threema.app.exceptions.NoIdentityException;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.BlockedIdentitiesService;
 import ch.threema.app.services.ContactService;
@@ -15,7 +14,6 @@ import ch.threema.app.services.GroupService;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.services.UserService;
 import ch.threema.app.webclient.exceptions.ConversionException;
-import ch.threema.localcrypto.exceptions.MasterKeyLockedException;
 
 /**
  * A converter converts arbitrary data to MessagePack representation.
@@ -25,7 +23,7 @@ public abstract class Converter {
 
     @NonNull
     protected static ServiceManager getServiceManager() {
-        return ThreemaApplication.requireServiceManager();
+        return ServiceManager.require();
     }
 
     @NonNull
@@ -37,7 +35,7 @@ public abstract class Converter {
     protected static ContactService getContactService() throws ConversionException {
         try {
             return getServiceManager().getContactService();
-        } catch (NullPointerException | MasterKeyLockedException e) {
+        } catch (NullPointerException e) {
             throw new ConversionException(e);
         }
     }
@@ -60,7 +58,7 @@ public abstract class Converter {
     protected static GroupService getGroupService() throws ConversionException {
         try {
             return getServiceManager().getGroupService();
-        } catch (NullPointerException | MasterKeyLockedException e) {
+        } catch (NullPointerException e) {
             throw new ConversionException(e);
         }
     }
@@ -69,7 +67,7 @@ public abstract class Converter {
     protected static DistributionListService getDistributionListService() throws ConversionException {
         try {
             return getServiceManager().getDistributionListService();
-        } catch (NullPointerException | MasterKeyLockedException | NoIdentityException e) {
+        } catch (NullPointerException e) {
             throw new ConversionException(e);
         }
     }

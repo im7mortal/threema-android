@@ -2,8 +2,6 @@ package ch.threema.app.stores
 
 import java.time.Instant
 import kotlinx.coroutines.flow.Flow
-import org.json.JSONArray
-import org.json.JSONObject
 
 interface PreferenceStore {
     fun remove(key: String)
@@ -19,12 +17,6 @@ interface PreferenceStore {
      */
     fun save(key: String, value: Array<String>)
 
-    /**
-     * Save list preference quietly without firing a UI listener event (for use in workers or other background processing)
-     * Warning: strings in array must NOT contain ";" characters.
-     */
-    fun saveQuietly(key: String, value: Array<String>)
-
     fun save(key: String, value: Int)
 
     fun save(key: String, value: Boolean)
@@ -35,15 +27,9 @@ interface PreferenceStore {
 
     fun save(key: String, value: Float)
 
-    fun save(key: String, value: JSONArray)
-
-    fun save(key: String, value: JSONObject)
-
     fun save(key: String, value: Instant?)
 
     fun getString(key: String): String?
-
-    fun watchString(key: String): Flow<String?>
 
     fun getLong(key: String) = getLong(key, defaultValue = 0L)
 
@@ -61,9 +47,7 @@ interface PreferenceStore {
 
     fun getBoolean(key: String, defaultValue: Boolean): Boolean
 
-    fun watchBoolean(key: String, defaultValue: Boolean): Flow<Boolean>
-
-    fun getBytes(key: String): ByteArray
+    fun getBytes(key: String): ByteArray?
 
     fun getInstant(key: String): Instant?
 
@@ -71,14 +55,23 @@ interface PreferenceStore {
 
     fun getMap(key: String): Map<String, String?>
 
-    @Deprecated("only kept for system update, use getMap instead")
-    fun getIntMap(key: String): Map<Int, String>
-
-    fun getJSONArray(key: String): JSONArray
-
-    fun getJSONObject(key: String): JSONObject?
-
     fun getStringSet(key: String): Set<String>?
+
+    fun watchString(key: String): Flow<String?>
+
+    fun watchBoolean(key: String) = watchBoolean(key, defaultValue = false)
+
+    fun watchBoolean(key: String, defaultValue: Boolean): Flow<Boolean>
+
+    fun watchLong(key: String) = watchLong(key, defaultValue = 0L)
+
+    fun watchLong(key: String, defaultValue: Long): Flow<Long>
+
+    fun watchInt(key: String): Flow<Int> = watchInt(key, defaultValue = 0)
+
+    fun watchInt(key: String, defaultValue: Int): Flow<Int>
+
+    fun watchInstant(key: String): Flow<Instant?>
 
     fun containsKey(key: String): Boolean
 

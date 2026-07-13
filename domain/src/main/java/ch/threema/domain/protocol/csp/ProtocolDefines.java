@@ -32,11 +32,11 @@ public class ProtocolDefines {
     public static final int BLOB_ID_LEN = 16;
     public static final int BLOB_KEY_LEN = 32;
     public static final int GROUP_ID_LEN = 8;
-    public static final int BALLOT_ID_LEN = 8;
+    public static final int POLL_ID_LEN = 8;
 
-    public static final int BALLOT_STATE_LEN = 1;
-    public static final int BALLOT_ASSESSMENT_TYPE_LEN = 1;
-    public static final int BALLOT_VISIBILITY_LEN = 1;
+    public static final int POLL_STATE_LEN = 1;
+    public static final int POLL_ASSESSMENT_TYPE_LEN = 1;
+    public static final int POLL_VISIBILITY_LEN = 1;
 
     public static final int MAX_AVAILABILITY_STATUS_DESCRIPTION_BYTES = 256;
 
@@ -75,8 +75,8 @@ public class ProtocolDefines {
     public static final int MSGTYPE_VIDEO = 0x13;
     @Deprecated
     public static final int MSGTYPE_AUDIO = 0x14;
-    public static final int MSGTYPE_BALLOT_CREATE = 0x15;
-    public static final int MSGTYPE_BALLOT_VOTE = 0x16;
+    public static final int MSGTYPE_POLL_CREATE = 0x15;
+    public static final int MSGTYPE_POLL_VOTE = 0x16;
     public static final int MSGTYPE_FILE = 0x17;
     public static final int MSGTYPE_CONTACT_SET_PHOTO = 0x18;
     public static final int MSGTYPE_CONTACT_DELETE_PHOTO = 0x19;
@@ -96,8 +96,8 @@ public class ProtocolDefines {
     public static final int MSGTYPE_GROUP_CALL_START = 0x4f;
     public static final int MSGTYPE_GROUP_SET_PHOTO = 0x50;
     public static final int MSGTYPE_GROUP_REQUEST_SYNC = 0x51;
-    public static final int MSGTYPE_GROUP_BALLOT_CREATE = 0x52;
-    public static final int MSGTYPE_GROUP_BALLOT_VOTE = 0x53;
+    public static final int MSGTYPE_GROUP_POLL_CREATE = 0x52;
+    public static final int MSGTYPE_GROUP_POLL_VOTE = 0x53;
     public static final int MSGTYPE_GROUP_DELETE_PHOTO = 0x54;
     public static final int MSGTYPE_VOIP_CALL_OFFER = 0x60;
     public static final int MSGTYPE_VOIP_CALL_ANSWER = 0x61;
@@ -158,9 +158,6 @@ public class ProtocolDefines {
     public static final int PUSHTOKEN_TYPE_HMS = 0x13;
 
     /* nonces */
-    public static final byte[] IMAGE_NONCE = new byte[]{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
-    public static final byte[] VIDEO_NONCE = new byte[]{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
-    public static final byte[] AUDIO_NONCE = new byte[]{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
     public static final byte[] GROUP_PHOTO_NONCE = new byte[]{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
     public static final byte[] CONTACT_PHOTO_NONCE = new byte[]{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
     public static final byte[] FILE_NONCE = new byte[]{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01};
@@ -185,9 +182,6 @@ public class ProtocolDefines {
     public static final int AUTO_DELETE_KEEP_MESSAGES_DAYS_OFF_VALUE = 0;
     public static final int AUTO_DELETE_KEEP_MESSAGES_DAYS_MIN = 7;
     public static final int AUTO_DELETE_KEEP_MESSAGES_DAYS_MAX = 3650;
-
-    /* Special Contacts */
-    public static final String SPECIAL_CONTACT_PUSH = "*3MAPUSH";
 
     /* Profile pictures */
     public static final int PROFILE_PICTURE_WIDTH_PX = 512;

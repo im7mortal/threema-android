@@ -4,12 +4,12 @@ import android.content.ContentValues;
 
 import android.database.Cursor;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.Objects;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import ch.threema.data.models.GroupIdentity;
+import ch.threema.data.datatypes.GroupIdentity;
 import ch.threema.storage.CursorHelper;
 import ch.threema.storage.DatabaseCreationProvider;
 import ch.threema.storage.DatabaseProvider;
@@ -36,7 +36,7 @@ public class OutgoingGroupSyncRequestLogModelFactory extends ModelFactory {
             });
     }
 
-    public boolean createOrUpdate(@NonNull GroupIdentity groupIdentity, @Nullable Date lastRequest) {
+    public boolean createOrUpdate(@NonNull GroupIdentity groupIdentity, @Nullable Instant lastRequest) {
         OutgoingGroupSyncRequestLogModel existingModel = get(groupIdentity);
 
         if (existingModel == null) {
@@ -51,7 +51,7 @@ public class OutgoingGroupSyncRequestLogModelFactory extends ModelFactory {
         }
     }
 
-    public boolean create(@NonNull GroupIdentity groupIdentity, @Nullable Date lastRequest) {
+    public boolean create(@NonNull GroupIdentity groupIdentity, @Nullable Instant lastRequest) {
         ContentValues contentValues = buildValues(groupIdentity, lastRequest);
         long newId = getWritableDatabase().insertOrThrow(this.getTableName(), null, contentValues);
         return newId > 0;
@@ -73,18 +73,18 @@ public class OutgoingGroupSyncRequestLogModelFactory extends ModelFactory {
         contentValues.put(OutgoingGroupSyncRequestLogModel.COLUMN_API_GROUP_ID, outgoingGroupSyncRequestLogModel.getApiGroupId());
         contentValues.put(OutgoingGroupSyncRequestLogModel.COLUMN_CREATOR_IDENTITY, outgoingGroupSyncRequestLogModel.getCreatorIdentity());
         contentValues.put(OutgoingGroupSyncRequestLogModel.COLUMN_LAST_REQUEST, outgoingGroupSyncRequestLogModel.getLastRequest() != null
-            ? outgoingGroupSyncRequestLogModel.getLastRequest().getTime()
+            ? outgoingGroupSyncRequestLogModel.getLastRequest().toEpochMilli()
             : null
         );
         return contentValues;
     }
 
-    private ContentValues buildValues(@NonNull GroupIdentity groupIdentity, @Nullable Date lastRequest) {
+    private ContentValues buildValues(@NonNull GroupIdentity groupIdentity, @Nullable Instant lastRequest) {
         ContentValues contentValues = new ContentValues();
         contentValues.put(OutgoingGroupSyncRequestLogModel.COLUMN_API_GROUP_ID, groupIdentity.getGroupIdHexString());
         contentValues.put(OutgoingGroupSyncRequestLogModel.COLUMN_CREATOR_IDENTITY, groupIdentity.getCreatorIdentity());
         contentValues.put(OutgoingGroupSyncRequestLogModel.COLUMN_LAST_REQUEST, lastRequest != null
-            ? lastRequest.getTime()
+            ? lastRequest.toEpochMilli()
             : null
         );
         return contentValues;
@@ -123,7 +123,7 @@ public class OutgoingGroupSyncRequestLogModelFactory extends ModelFactory {
             Objects.requireNonNull(cursorHelper.getInt(OutgoingGroupSyncRequestLogModel.COLUMN_ID)),
             Objects.requireNonNull(cursorHelper.getString(OutgoingGroupSyncRequestLogModel.COLUMN_API_GROUP_ID)),
             Objects.requireNonNull(cursorHelper.getString(OutgoingGroupSyncRequestLogModel.COLUMN_CREATOR_IDENTITY)),
-            cursorHelper.getDate(OutgoingGroupSyncRequestLogModel.COLUMN_LAST_REQUEST)
+            cursorHelper.getInstant(OutgoingGroupSyncRequestLogModel.COLUMN_LAST_REQUEST)
         );
     }
 

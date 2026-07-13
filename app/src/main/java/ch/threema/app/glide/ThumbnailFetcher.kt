@@ -17,7 +17,7 @@ class ThumbnailFetcher(
 
     override fun loadData(priority: Priority, callback: DataFetcher.DataCallback<in Bitmap>) {
         val thumbnail: Bitmap? = try {
-            fileService.getMessageThumbnailBitmap(messageModel, null)
+            fileService.getMessageThumbnailBitmap(messageModel)
         } catch (_: Exception) {
             null
         }

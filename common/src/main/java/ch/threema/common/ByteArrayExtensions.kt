@@ -65,3 +65,20 @@ fun ByteArray.readLittleEndianShort(offset: Int): Short =
         ((this[offset + 0].toInt() and 0xff) shl 0) +
             ((this[offset + 1].toInt() and 0xff) shl 8)
         ).toShort()
+
+fun ByteArray.isAllZeroes(): Boolean =
+    all { it == 0.toByte() }
+
+fun concatenateByteArrays(vararg byteArrays: ByteArray): ByteArray =
+    ByteBuffer.allocate(byteArrays.sumOf { it.size })
+        .also { byteBuffer ->
+            byteArrays.forEach { byteArray ->
+                byteBuffer.put(byteArray)
+            }
+        }
+        .array()
+
+fun ByteArray.toSeparatedHexString(separator: Char): String =
+    toHexString()
+        .chunked(2)
+        .joinToString(separator = separator.toString())

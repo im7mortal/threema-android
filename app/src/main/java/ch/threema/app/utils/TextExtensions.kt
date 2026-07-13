@@ -91,7 +91,7 @@ fun CharSequence?.highlightMatches(
  *  Specify the clickable part in the ongoing text in this form: `I am a sentence and [this part] is clickable.`
  *  Where `this part` will end up formatted and clickable.
  *
- *  See [ch.threema.app.compose.common.linkifyWeb] for Compose version returning [androidx.compose.ui.text.AnnotatedString].
+ *  See [ch.threema.app.compose.common.text.linkifyWeb] for Compose version returning [androidx.compose.ui.text.AnnotatedString].
  *
  *  @return The spanned string containing the [url] at the specified section in the text, or just this text
  *  without a clickable section, of no `[]`-marker was found.

@@ -2,21 +2,21 @@ package ch.threema.app.activities.wizard
 
 import android.content.Context
 import android.os.Bundle
-import androidx.core.app.NotificationManagerCompat
 import ch.threema.android.buildActivityIntent
 import ch.threema.app.R
 import ch.threema.app.activities.ThreemaAppCompatActivity
-import ch.threema.app.backuprestore.csv.RestoreService
 import ch.threema.app.services.UserService
+import ch.threema.app.services.notification.NotificationService
 import org.koin.android.ext.android.inject
 
 class WizardStartActivity : ThreemaAppCompatActivity() {
 
     private val userService: UserService by inject()
+    private val notificationService: NotificationService by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        NotificationManagerCompat.from(this).cancel(RestoreService.RESTORE_COMPLETION_NOTIFICATION_ID)
+        notificationService.cancelRestoreCompletionNotification()
         launchNextActivity()
     }
 

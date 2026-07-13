@@ -15,7 +15,7 @@ class DatabaseUpdateToVersion110(
         // Get all problematic identities that have a public key with invalid length and that are invalid.
         val problematicIdentities = sqLiteDatabase.query(
             "SELECT `identity` FROM `contacts` WHERE length(cast(publicKey as blob)) != ? AND state = ?",
-            arrayOf(NaCl.PUBLIC_KEY_BYTES, "INVALID"),
+            arrayOf<Any>(NaCl.PUBLIC_KEY_BYTES, "INVALID"),
         ).toIdentities()
 
         // We can delete contacts if there are no 1:1 messages. Contacts where group messages still exist can be deleted as the group messages can

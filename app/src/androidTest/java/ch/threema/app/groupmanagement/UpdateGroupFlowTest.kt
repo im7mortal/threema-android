@@ -10,11 +10,13 @@ import ch.threema.app.tasks.ReflectLocalGroupUpdate
 import ch.threema.app.testutils.TestHelpers
 import ch.threema.app.testutils.clearDatabaseAndCaches
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationVisibility
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.ContactModelData
-import ch.threema.data.models.GroupIdentity
 import ch.threema.data.models.GroupModel
 import ch.threema.data.models.GroupModelData
 import ch.threema.domain.helpers.ControlledTaskManager
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.ContactSyncState
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
@@ -26,8 +28,8 @@ import ch.threema.domain.models.WorkVerificationLevel
 import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.taskmanager.TaskManager
-import ch.threema.storage.models.ContactModel
-import java.util.Date
+import ch.threema.test.TestData.PUBLIC_KEY
+import java.time.Instant
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -50,21 +52,22 @@ class UpdateGroupFlowTest : GroupFlowTest() {
      */
     private val initialContactData = ContactModelData(
         identity = "12345678",
-        publicKey = ByteArray(32),
-        createdAt = Date(),
+        publicKey = PUBLIC_KEY,
+        createdAt = Instant.now(),
+        lastUpdateAt = null,
         firstName = "",
         lastName = "",
         verificationLevel = VerificationLevel.SERVER_VERIFIED,
         workVerificationLevel = WorkVerificationLevel.NONE,
         nickname = null,
-        identityType = IdentityType.NORMAL,
-        acquaintanceLevel = ContactModel.AcquaintanceLevel.DIRECT,
+        identityType = IdentityType.REGULAR,
+        acquaintanceLevel = AcquaintanceLevel.DIRECT,
         activityState = IdentityState.ACTIVE,
         syncState = ContactSyncState.INITIAL,
         featureMask = 255u,
         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
-        isArchived = false,
+        conversationVisibility = ConversationVisibility.NORMAL,
         profilePictureBlobId = null,
         androidContactLookupInfo = null,
         localAvatarExpires = null,
@@ -82,21 +85,22 @@ class UpdateGroupFlowTest : GroupFlowTest() {
      */
     private val initialGroupMemberData = ContactModelData(
         identity = "TESTTEST",
-        publicKey = ByteArray(32),
-        createdAt = Date(),
+        publicKey = ByteArray(32) { 2.toByte() },
+        createdAt = Instant.now(),
+        lastUpdateAt = null,
         firstName = "",
         lastName = "",
         verificationLevel = VerificationLevel.SERVER_VERIFIED,
         workVerificationLevel = WorkVerificationLevel.NONE,
         nickname = null,
-        identityType = IdentityType.NORMAL,
-        acquaintanceLevel = ContactModel.AcquaintanceLevel.DIRECT,
+        identityType = IdentityType.REGULAR,
+        acquaintanceLevel = AcquaintanceLevel.DIRECT,
         activityState = IdentityState.ACTIVE,
         syncState = ContactSyncState.INITIAL,
         featureMask = 255u,
         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
-        isArchived = false,
+        conversationVisibility = ConversationVisibility.NORMAL,
         profilePictureBlobId = null,
         androidContactLookupInfo = null,
         localAvatarExpires = null,
@@ -111,10 +115,10 @@ class UpdateGroupFlowTest : GroupFlowTest() {
     private val myInitialGroupModelData = GroupModelData(
         groupIdentity = GroupIdentity(myContact.identity, 42),
         name = "MyExistingGroup",
-        createdAt = Date(),
+        createdAt = Instant.now(),
         synchronizedAt = null,
-        lastUpdate = Date(),
-        isArchived = false,
+        lastUpdate = Instant.now(),
+        conversationVisibility = ConversationVisibility.NORMAL,
         groupDescription = null,
         groupDescriptionChangedAt = null,
         otherMembers = setOf(initialGroupMemberData.identity),
@@ -125,10 +129,10 @@ class UpdateGroupFlowTest : GroupFlowTest() {
     private val initialGroupModelData = GroupModelData(
         groupIdentity = GroupIdentity(initialContactData.identity, 42),
         name = "ExistingGroup",
-        createdAt = Date(),
+        createdAt = Instant.now(),
         synchronizedAt = null,
-        lastUpdate = Date(),
-        isArchived = false,
+        lastUpdate = Instant.now(),
+        conversationVisibility = ConversationVisibility.NORMAL,
         groupDescription = null,
         groupDescriptionChangedAt = null,
         // User is the only member besides from the creator
@@ -204,9 +208,7 @@ class UpdateGroupFlowTest : GroupFlowTest() {
         assertNotNull(groupModel)
 
         // Assert that the new member is not yet a member of the group
-        assertTrue {
-            groupModel.data?.otherMembers?.contains(initialContactData.identity) == false
-        }
+        assertEquals(false, groupModel.data?.otherMembers?.contains(initialContactData.identity))
 
         val groupChanges = GroupChanges(
             name = "NewGroupName",
@@ -221,9 +223,7 @@ class UpdateGroupFlowTest : GroupFlowTest() {
             ReflectionExpectation.REFLECTION_SUCCESS,
         )
 
-        assertTrue {
-            groupModel.data?.otherMembers?.contains(initialContactData.identity) == true
-        }
+        assertEquals(true, groupModel.data?.otherMembers?.contains(initialContactData.identity))
     }
 
     @Test
@@ -243,9 +243,7 @@ class UpdateGroupFlowTest : GroupFlowTest() {
             ReflectionExpectation.REFLECTION_SKIPPED,
         )
 
-        assertTrue {
-            groupModel.data?.otherMembers?.contains(initialContactData.identity) == true
-        }
+        assertEquals(true, groupModel.data?.otherMembers?.contains(initialContactData.identity))
     }
 
     @Test
@@ -265,7 +263,7 @@ class UpdateGroupFlowTest : GroupFlowTest() {
             ReflectionExpectation.REFLECTION_SUCCESS,
         )
 
-        assertTrue { groupModel.data?.otherMembers?.isEmpty() == true }
+        assertEquals(true, groupModel.data?.otherMembers?.isEmpty())
     }
 
     @Test
@@ -285,7 +283,7 @@ class UpdateGroupFlowTest : GroupFlowTest() {
             ReflectionExpectation.REFLECTION_SKIPPED,
         )
 
-        assertTrue { groupModel.data?.otherMembers?.isEmpty() == true }
+        assertEquals(true, groupModel.data?.otherMembers?.isEmpty())
     }
 
     @Test
@@ -353,9 +351,7 @@ class UpdateGroupFlowTest : GroupFlowTest() {
             ReflectionExpectation.REFLECTION_SKIPPED,
         )
 
-        assertTrue {
-            groupModel.data?.otherMembers?.contains(initialGroupMemberData.identity) == false
-        }
+        assertEquals(false, groupModel.data?.otherMembers?.contains(initialGroupMemberData.identity))
     }
 
     @Test
@@ -375,9 +371,7 @@ class UpdateGroupFlowTest : GroupFlowTest() {
             ReflectionExpectation.REFLECTION_SKIPPED,
         )
 
-        assertTrue {
-            groupModel.data?.otherMembers?.contains(initialGroupMemberData.identity) == false
-        }
+        assertEquals(false, groupModel.data?.otherMembers?.contains(initialGroupMemberData.identity))
     }
 
     @Test

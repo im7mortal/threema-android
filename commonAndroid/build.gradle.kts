@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "ch.threema.android"
-    compileSdk = 35
+    compileSdk = 36
     defaultConfig {
         minSdk = 24
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -30,6 +30,7 @@ dependencies {
 
     implementation(libs.androidx.core)
     implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.lifecycle.runtime.android)
     implementation(libs.androidx.work.runtime)
     implementation(libs.androidx.lifecycle.runtime.android)
     compileOnly(libs.compose.annotation)

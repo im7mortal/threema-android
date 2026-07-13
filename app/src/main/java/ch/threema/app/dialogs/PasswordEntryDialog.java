@@ -1,6 +1,5 @@
 package ch.threema.app.dialogs;
 
-import android.app.Activity;
 import android.content.DialogInterface;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
@@ -12,6 +11,7 @@ import android.text.SpannableString;
 import android.text.method.LinkMovementMethod;
 import android.text.util.Linkify;
 import android.view.View;
+import android.view.Window;
 import android.view.WindowManager;
 import android.widget.TextView;
 
@@ -31,9 +31,11 @@ import org.slf4j.Logger;
 
 import androidx.fragment.app.Fragment;
 import ch.threema.app.R;
-import ch.threema.app.ui.SimpleTextWatcher;
+import ch.threema.android.textwatchers.SimpleTextWatcher;
 import ch.threema.app.utils.DialogUtil;
 import ch.threema.app.utils.LocaleUtil;
+
+import static androidx.fragment.app.FragmentKt.setFragmentResult;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
@@ -42,9 +44,11 @@ public class PasswordEntryDialog extends ThreemaDialogFragment implements Generi
     private static final Logger logger = getThreemaLogger("PasswordEntryDialog");
     private static final String DIALOG_TAG_CONFIRM_CHECKBOX = "dtcc";
 
+    public static final @NonNull String KEY_PASSWORD = "password";
+    public static final @NonNull String KEY_INCLUDE_MEDIA = "include-media";
+
     protected @Nullable PasswordEntryDialogClickListener callback;
-    protected Activity activity;
-    protected AlertDialog alertDialog;
+    protected @Nullable AlertDialog alertDialog;
     protected boolean isLinkify = false;
     protected boolean requiresPasswordConfirmation = true;
     protected int minLength, maxLength;
@@ -65,10 +69,11 @@ public class PasswordEntryDialog extends ThreemaDialogFragment implements Generi
         @StringRes int negative,
         int minLength,
         int maxLength,
-        int confirmHint,
+        @StringRes int confirmHint,
         int inputType,
-        int checkboxText,
-        ForgotHintType showForgotPwHint
+        @StringRes int checkboxText,
+        @NonNull ForgotHintType showForgotPwHint,
+        @Nullable String requestKey
     ) {
         PasswordEntryDialog dialog = new PasswordEntryDialog();
         Bundle args = new Bundle();
@@ -83,6 +88,9 @@ public class PasswordEntryDialog extends ThreemaDialogFragment implements Generi
         args.putInt("inputType", inputType);
         args.putInt("checkboxText", checkboxText);
         args.putSerializable("showForgotPwHint", showForgotPwHint);
+        if (requestKey != null) {
+            args.putString("requestKey", requestKey);
+        }
 
         dialog.setArguments(args);
         return dialog;
@@ -97,10 +105,11 @@ public class PasswordEntryDialog extends ThreemaDialogFragment implements Generi
         @StringRes int negative,
         int minLength,
         int maxLength,
-        int confirmHint,
+        @StringRes int confirmHint,
         int inputType,
-        int checkboxText,
-        int checkboxConfirmText
+        @StringRes int checkboxText,
+        @StringRes int checkboxConfirmText,
+        @Nullable String requestKey
     ) {
         PasswordEntryDialog dialog = new PasswordEntryDialog();
         Bundle args = new Bundle();
@@ -115,6 +124,9 @@ public class PasswordEntryDialog extends ThreemaDialogFragment implements Generi
         args.putInt("inputType", inputType);
         args.putInt("checkboxText", checkboxText);
         args.putInt("checkboxConfirmText", checkboxConfirmText);
+        if (requestKey != null) {
+            args.putString("requestKey", requestKey);
+        }
 
         dialog.setArguments(args);
         return dialog;
@@ -153,48 +165,38 @@ public class PasswordEntryDialog extends ThreemaDialogFragment implements Generi
         }
 
         // Check if the activity implements our callback
-        if (activity instanceof PasswordEntryDialogClickListener) {
-            callback = (PasswordEntryDialogClickListener) activity;
+        if (getActivity() instanceof PasswordEntryDialogClickListener) {
+            callback = (PasswordEntryDialogClickListener) requireActivity();
         }
-    }
-
-    public void setCallback(@Nullable PasswordEntryDialogClickListener passwordEntryDialogClickListener) {
-        this.callback = passwordEntryDialogClickListener;
-    }
-
-    @Override
-    public void onAttach(@NonNull Activity activity) {
-        super.onAttach(activity);
-
-        this.activity = activity;
     }
 
     @NonNull
     @Override
-    public AppCompatDialog onCreateDialog(Bundle savedInstanceState) {
+    public AppCompatDialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         if (savedInstanceState != null && alertDialog != null) {
+            // TODO(ANDR-4620): Create a new dialog in this case, as this prevents the dialog to survive a config change
             return alertDialog;
         }
-
-        final int title = getArguments().getInt("title");
-        int message = getArguments().getInt("message");
-        int hint = getArguments().getInt("hint");
-        int positive = getArguments().getInt("positive");
-        int negative = getArguments().getInt("negative");
-        int inputType = getArguments().getInt("inputType", 0);
-        minLength = getArguments().getInt("minLength", 0);
-        maxLength = getArguments().getInt("maxLength", 0);
-        final int confirmHint = getArguments().getInt("confirmHint", 0);
-        final int checkboxText = getArguments().getInt("checkboxText", 0);
-        final int checkboxConfirmText = getArguments().getInt("checkboxConfirmText", 0);
-        final ForgotHintType showForgotPwHint = (ForgotHintType) getArguments().getSerializable("showForgotPwHint");
+        final @StringRes int title = requireArguments().getInt("title");
+        final @StringRes int message = requireArguments().getInt("message");
+        final @StringRes int hint = requireArguments().getInt("hint");
+        final @StringRes int positive = requireArguments().getInt("positive");
+        final @StringRes int negative = requireArguments().getInt("negative");
+        final int inputType = requireArguments().getInt("inputType", 0);
+        minLength = requireArguments().getInt("minLength", 0);
+        maxLength = requireArguments().getInt("maxLength", 0);
+        final @StringRes int confirmHint = requireArguments().getInt("confirmHint", 0);
+        final @StringRes int checkboxText = requireArguments().getInt("checkboxText", 0);
+        final @StringRes int checkboxConfirmText = requireArguments().getInt("checkboxConfirmText", 0);
+        final @Nullable ForgotHintType showForgotPwHint = (ForgotHintType) requireArguments().getSerializable("showForgotPwHint");
+        final @Nullable String requestKey = requireArguments().getString("requestKey");
 
         final String tag = this.getTag();
 
         // InputType defaults
         final int inputTypePasswordHidden = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS | InputType.TYPE_TEXT_VARIATION_PASSWORD;
 
-        final View dialogView = activity.getLayoutInflater().inflate(R.layout.dialog_password_entry, null);
+        final View dialogView = requireActivity().getLayoutInflater().inflate(R.layout.dialog_password_entry, null);
         final TextView messageTextView = dialogView.findViewById(R.id.message_text);
         final TextView forgotPwTextView = dialogView.findViewById(R.id.forgot_password);
         final TextInputEditText editText1 = dialogView.findViewById(R.id.password1);
@@ -206,7 +208,9 @@ public class PasswordEntryDialog extends ThreemaDialogFragment implements Generi
         var passwordWatcher = new SimpleTextWatcher() {
             @Override
             public void afterTextChanged(@NonNull Editable editable) {
-                updateViews();
+                if (alertDialog != null) {
+                    updateViews(alertDialog);
+                }
             }
         };
         editText1.addTextChangedListener(passwordWatcher);
@@ -265,7 +269,7 @@ public class PasswordEntryDialog extends ThreemaDialogFragment implements Generi
         } else {
             editText2Layout.setHint(getString(confirmHint));
             editText1Layout.setHelperTextEnabled(true);
-            editText1Layout.setHelperText(String.format(activity.getString(R.string.password_too_short), minLength));
+            editText1Layout.setHelperText(String.format(requireContext().getString(R.string.password_too_short), minLength));
         }
 
         if (showForgotPwHint != null) {
@@ -298,17 +302,22 @@ public class PasswordEntryDialog extends ThreemaDialogFragment implements Generi
         builder.setPositiveButton(
             getString(positive),
             (dialog, whichButton) -> {
-                if (callback == null) {
-                    return;
-                }
                 final @Nullable Editable editable = editText1.getText();
                 if (editable == null) {
                     return;
                 }
-                if (checkboxText != 0) {
-                    callback.onYes(tag, editable.toString(), checkBox.isChecked(), object);
-                } else {
-                    callback.onYes(tag, editable.toString(), false, object);
+                final @NonNull String password = editable.toString();
+                final boolean includeMedia = checkboxText != 0 && checkBox.isChecked();
+                if (callback != null) {
+                    callback.onYes(tag, password, includeMedia, object);
+                }
+                if (requestKey != null) {
+                    final @NonNull Bundle resultBundle = new Bundle();
+                    resultBundle.putAll(requestData);
+                    resultBundle.putSerializable(ThreemaDialogFragment.BUNDLE_KEY_CLICKED_BUTTON, ClickedButton.POSITIVE);
+                    resultBundle.putString(KEY_PASSWORD, password);
+                    resultBundle.putBoolean(KEY_INCLUDE_MEDIA, includeMedia);
+                    setFragmentResult(PasswordEntryDialog.this, requestKey, resultBundle);
                 }
             }
         );
@@ -317,6 +326,12 @@ public class PasswordEntryDialog extends ThreemaDialogFragment implements Generi
             (dialog, whichButton) -> {
                 if (callback != null) {
                     callback.onNo(tag);
+                }
+                if (requestKey != null) {
+                    final @NonNull Bundle resultBundle = new Bundle();
+                    resultBundle.putAll(requestData);
+                    resultBundle.putSerializable(ThreemaDialogFragment.BUNDLE_KEY_CLICKED_BUTTON, ClickedButton.NEGATIVE);
+                    setFragmentResult(PasswordEntryDialog.this, requestKey, resultBundle);
                 }
             }
         );
@@ -328,7 +343,11 @@ public class PasswordEntryDialog extends ThreemaDialogFragment implements Generi
         builder.setBackgroundInsetBottom(getResources().getDimensionPixelSize(R.dimen.dialog_inset_top_bottom));
 
         alertDialog = builder.create();
-        alertDialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
+        Window window = alertDialog.getWindow();
+        if (window != null) {
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN);
+            window.addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        }
         return alertDialog;
     }
 
@@ -342,35 +361,36 @@ public class PasswordEntryDialog extends ThreemaDialogFragment implements Generi
     @Override
     public void onStart() {
         super.onStart();
-
+        if (alertDialog == null) {
+            return;
+        }
         if (isLinkify) {
-            View textView = alertDialog.findViewById(R.id.message_text);
-
+            final View textView = alertDialog.findViewById(R.id.message_text);
             if (textView instanceof TextView) {
                 ((TextView) textView).setMovementMethod(LinkMovementMethod.getInstance());
             }
         }
 
-        updateViews();
+        updateViews(alertDialog);
 
-        ColorStateList colorStateList = DialogUtil.getButtonColorStateList(activity);
+        final @NonNull ColorStateList colorStateList = DialogUtil.getButtonColorStateList(requireContext());
 
         alertDialog.getButton(DialogInterface.BUTTON_POSITIVE).setTextColor(colorStateList);
         alertDialog.getButton(DialogInterface.BUTTON_NEGATIVE).setTextColor(colorStateList);
     }
 
-    private void updateViews() {
-        var okButton = alertDialog.getButton(DialogInterface.BUTTON_POSITIVE);
-        final TextInputEditText editText1 = alertDialog.findViewById(R.id.password1);
-        final TextInputLayout editText1Layout = alertDialog.findViewById(R.id.password1layout);
+    private void updateViews(@NonNull AlertDialog dialog) {
+        var okButton = dialog.getButton(DialogInterface.BUTTON_POSITIVE);
+        final TextInputEditText editText1 = dialog.findViewById(R.id.password1);
+        final TextInputLayout editText1Layout = dialog.findViewById(R.id.password1layout);
         if (editText1Layout == null || editText1 == null || editText1.getText() == null) {
             return;
         }
         var password1 = editText1.getText().toString();
 
         if (requiresPasswordConfirmation) {
-            final TextInputEditText editText2 = alertDialog.findViewById(R.id.password2);
-            final TextInputLayout editText2Layout = alertDialog.findViewById(R.id.password2layout);
+            final TextInputEditText editText2 = dialog.findViewById(R.id.password2);
+            final TextInputLayout editText2Layout = dialog.findViewById(R.id.password2layout);
             if (editText2Layout == null || editText2 == null || editText2.getText() == null) {
                 return;
             }

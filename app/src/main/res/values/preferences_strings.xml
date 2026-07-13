@@ -25,8 +25,7 @@
     <string name="preferences__debug_log_switch" translatable="false">pref_key_debug_log_switch</string>
     <string name="preferences__debug_log_enable_time" translatable="false">pref_key_debug_log_enable_time</string>
     <string name="preferences__reset_push" translatable="false">pref_key_resetpush</string>
-    <string name="preferences__recent_emojis" translatable="false">pref_key_recent_emojis</string>
-    <string name="preferences__recent_emojis2" translatable="false">pref_key_recent_emojis2</string>
+    <string name="preferences__recent_emojis" translatable="false">pref_key_recent_emojis2</string>
     <string name="preferences__emoji_search_index_version" translatable="false">pref_key_emoji_search_index_version</string>
     <string name="preferences__notification_preview" translatable="false">pref_key_notification_preview</string>
     <string name="preferences__pin_lock_code" translatable="false">pref_key_pin_lock_code</string>
@@ -59,8 +58,8 @@
     <string name="preferences__error_reporting_category" translatable="false">pref_key_error_reporting_category</string>
     <string name="preferences__error_reporting" translatable="false">pref_key_error_reporting</string>
     <string name="preferences__sentry_id" translatable="false">pref_key_sentry_id</string>
-    <string name="preferences__cause_crash" translatable="false">pref_key_cause_crash</string>
     <string name="preferences__lockout_deadline" translatable="false">pref_key_lock_deadline</string>
+    <string name="preferences__lockout_timeout_index" translatable="false">pref_key_lock_lockout_timeout_index</string>
     <string name="preferences__lockout_attempts" translatable="false">pref_key_lock_attempts</string>
     <string name="preferences__wizard_running" translatable="false">pref_wizard_running</string>
     <string name="preferences__push_token" translatable="false">pref_push_token</string>
@@ -120,6 +119,7 @@
     <string name="preferences__device_info" translatable="false">pref_device_info</string>
     <string name="preferences__webrtc_debug" translatable="false">pref_webrtc_debug</string>
     <string name="preferences__webclient_debug" translatable="false">pref_webclient_debug</string>
+    <string name="preferences__contacts_diagnostics" translatable="false">pref_contacts_diagnostics</string>
     <string name="preferences__powermanager_workarounds" translatable="false">pref_pm_workarounds</string>
     <string name="preferences__notification_priority" translatable="false">pref_notification_priority</string>
     <string name="preferences__notification_channels" translatable="false">pref_notification_channels</string>
@@ -171,11 +171,11 @@
     <string name="preferences__hide_screenshots_notice" translatable="false">prefs_key_hide_screenshots_notice</string>
     <string name="preferences__license_status" translatable="false">pref_license_status</string>
     <string name="preferences__developer_menu" translatable="false">pref_developer_menu</string>
-    <string name="preferences__generate_voip_messages" translatable="false">pref_key_generate_voip_messages</string>
-    <string name="preferences__open_pattern_library" translatable="false">pref_key_open_pattern_library</string>
-    <string name="preferences__open_android_contact_sync_debug_activity" translatable="false">pref_open_android_contact_sync_debug_activity</string>
-    <string name="preferences__remove_menu" translatable="false">pref_key_remove_menu</string>
+    <string name="preferences__linked_devices" translatable="false">pref_key_linked_devices</string>
+    <string name="preferences__community_and_sharing" translatable="false">pref_key_community_and_sharing</string>
     <string name="preferences__rate" translatable="false">pref_key_rate</string>
+    <string name="preferences__invite_a_friend" translatable="false">pref_invite_a_friend</string>
+    <string name="preferences__threema_channel" translatable="false">pref_threema_channel</string>
     <string name="preferences__data_backup_uri" translatable="false">pref_data_backup_uri</string>
     <string name="preferences__data_backup_picker_launched" translatable="false">pref_data_backup_picker_launched</string>
     <string name="preferences__show_unread_badge" translatable="false">pref_show_unread_badge</string>
@@ -185,7 +185,6 @@
     <string name="preferences__work_time_start" translatable="false">pref_work_time_start</string>
     <string name="preferences__work_time_end" translatable="false">pref_work_time_end</string>
     <string name="preferences__working_days_enable" translatable="false">pref_working_days_enable</string>
-    <string name="preferences__generate_test_quotes" translatable="false">pref_key_generate_test_quotes</string>
     <string name="preferences__tooltip_work_hint_shown" translatable="false">pref_tooltip_work_hint_shown</string>
     <string name="preferences__tooltip_emoji_reactions_shown" translatable="false">pref_tooltip_emoji_reactions_shown</string>
     <string name="preferences__tooltip_emoji_reactions_shown_counter" translatable="false">pref_tooltip_emoji_reactions_shown_counter</string>
@@ -198,7 +197,7 @@
     <string name="preferences__tooltip_video_toggle" translatable="false">pref_tooltip_video_toggle</string>
     <string name="preferences__tooltip_audio_selector_hint" translatable="false">pref_tooltip_audio_selector_hint</string>
     <string name="preferences__videocall_profile_explain" translatable="false">pref_videocall_explain</string>
-    <string name="preferences__ballot_overview_hidden" translatable="false">pref_ballot_overview_hidden</string>
+    <string name="preferences__poll_overview_hidden" translatable="false">pref_ballot_overview_hidden</string>
     <string name="preferences__video_call_tooltip_shown" translatable="false">pref_video_call_tooltip_shown</string>
     <string name="preferences__camera_permission_request_shown" translatable="false">pref_camera_permission_request_shown</string>
     <string name="preferences__disable_smart_replies" translatable="false">pref_disable_smart_replies</string>
@@ -231,9 +230,10 @@
     <string name="preferences__auto_delete_days" translatable="false">pref_auto_delete_days</string>
     <string name="preferences__ignore_bluetooth_permission_request" translatable="false">pref_ignore_bluetooth_permission_request</string>
     <string name="preferences__grant_bluetooth_permission" translatable="false">pref_grant_bluetooth_permission</string>
-    <string name="preferences__last_notification_rationale_shown" translatable="false">last_notification_rationale_shown</string>
     <string name="preferences__media_gallery_content_types" translatable="false">pref_media_gallery_content_types</string>
     <string name="preferences__advanced_options" translatable="false">pref_advanced_options</string>
+    <string name="preferences__web_desktop" translatable="false">pref_web_desktop</string>
+    <string name="preferences__multi_device" translatable="false">pref_multi_device</string>
     <string name="preferences__email_sync_hash" translatable="false">pref_email_sync_hash</string>
     <string name="preferences__phone_number_sync_hash" translatable="false">pref_phone_number_sync_hash</string>
     <string name="preferences__contact_sync_time" translatable="false">pref_contact_sync_time</string>
@@ -245,14 +245,10 @@
     <string name="preferences__notification_channels_version" translatable="false">pref_notification_channels_version</string>
     <string name="preferences__last_shortcut_update_date" translatable="false">pref_last_shortcut_update_date</string>
     <string name="preferences__last_notification_request_timestamp" translatable="false">pref_last_notification_request_timestamp</string>
-    <string name="preferences__dev_reset_dismissed_problems" translatable="false">pref_dev_reset_dismissed_problems</string>
-    <string name="preferences__dev_reset_one_time_hints" translatable="false">pref_dev_reset_one_time_hints</string>
-    <string name="preferences__dev_create_messages_with_reactions" translatable="false">pref_dev_create_create_messages_with_reactions</string>
-    <string name="preferences__dev_create_text_messages" translatable="false">pref_dev_create_create_text_messages</string>
-    <string name="preferences__dev_create_nonces" translatable="false">pref_dev_create_nonces</string>
     <string name="preferences__last_multi_device_group_check_timestamp" translatable="false">pref_last_multi_device_group_check_timestamp</string>
     <string name="preferences__hidden_info_section" translatable="false">pref_hidden_info</string>
     <string name="preferences__installer_package" translatable="false">pref_key_installer_package</string>
     <string name="preferences__problem_dismissed_prefix" translatable="false">pref_problem_dismissed_</string>
     <string name="preferences__referral_banner" translatable="false">pref_key_referral_banner</string>
+    <string name="preferences__backup_center" translatable="false">pref_key_backup_center</string>
 </resources>

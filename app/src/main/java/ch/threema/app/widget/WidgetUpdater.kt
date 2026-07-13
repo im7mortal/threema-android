@@ -5,8 +5,8 @@ import android.content.ComponentName
 import android.content.Context
 import ch.threema.app.R
 import ch.threema.app.receivers.WidgetProvider
-import org.koin.mp.KoinPlatform
 
+// TODO(ANDR-4706): The functionality of this class should only be called from [WidgetUpdaterMonitor]
 class WidgetUpdater(
     private val appContext: Context,
 ) {
@@ -15,13 +15,5 @@ class WidgetUpdater(
         val widgetIds = appWidgetManager.getAppWidgetIds(ComponentName(appContext, WidgetProvider::class.java))
         // TODO(ANDR-4366): Replace use of deprecated method
         appWidgetManager.notifyAppWidgetViewDataChanged(widgetIds, R.id.widget_list)
-    }
-
-    companion object {
-        @JvmStatic
-        @Deprecated("Inject instance instead of using static method")
-        fun update() {
-            KoinPlatform.getKoin().get<WidgetUpdater>().updateWidgets()
-        }
     }
 }

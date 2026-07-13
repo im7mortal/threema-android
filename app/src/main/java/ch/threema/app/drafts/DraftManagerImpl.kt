@@ -1,10 +1,12 @@
 package ch.threema.app.drafts
 
 import ch.threema.app.preference.service.PreferenceService
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
+import ch.threema.data.datatypes.ConversationId
+import ch.threema.data.datatypes.ConversationIdObfuscated
 import ch.threema.domain.models.MessageId
-import ch.threema.domain.types.ConversationUID
+import ch.threema.domain.types.MessageIdString
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,21 +22,22 @@ class DraftManagerImpl(
     private val preferenceService: PreferenceService,
     dispatcherProvider: DispatcherProvider,
 ) : DraftManager {
-    private val messageDraftsFlow = MutableStateFlow(mapOf<ConversationUID, MessageDraft>())
+    private val messageDraftsFlow = MutableStateFlow(mapOf<ConversationIdObfuscated, MessageDraft>())
     private val coroutineScope = CoroutineScope(dispatcherProvider.worker)
 
-    override val drafts: StateFlow<Map<ConversationUID, MessageDraft>> = messageDraftsFlow
+    override val drafts: StateFlow<Map<ConversationIdObfuscated, MessageDraft>> = messageDraftsFlow
 
     fun init() {
         try {
-            val messages = preferenceService.getMessageDrafts() ?: emptyMap()
-            val quotes = preferenceService.getQuoteDrafts() ?: emptyMap()
+            val messages: Map<ConversationIdObfuscated, String?> = preferenceService.getMessageDrafts() ?: emptyMap()
+            val quotes: Map<ConversationIdObfuscated, String?> = preferenceService.getQuoteDrafts() ?: emptyMap()
 
             messageDraftsFlow.value = messages
-                .mapValues { (conversationUniqueId, text) ->
+                .mapValues { (conversationIdObfuscated: ConversationIdObfuscated, text: String?) ->
                     MessageDraft(
                         text = text ?: "",
-                        quotedMessageId = quotes[conversationUniqueId]?.let(MessageId::fromString),
+                        quotedMessageId = quotes[conversationIdObfuscated]
+                            ?.let(MessageId::fromString),
                     )
                 }
         } catch (e: Exception) {
@@ -52,12 +55,13 @@ class DraftManagerImpl(
 
     private fun persistDrafts() {
         try {
-            val messageDrafts = messageDraftsFlow.value
+            val messageDrafts: Map<ConversationIdObfuscated, MessageDraft> = messageDraftsFlow.value
             logger.debug("Persisting {} drafts", messageDrafts.size)
-            val texts = messageDrafts.mapValues { (_, draft) ->
-                draft.text
-            }
-            val quotes = messageDrafts
+            val texts: Map<ConversationIdObfuscated, String> = messageDrafts
+                .mapValues { (_, draft) ->
+                    draft.text
+                }
+            val quotes: Map<ConversationIdObfuscated, MessageIdString?> = messageDrafts
                 .mapValues { (_, draft) ->
                     draft.quotedMessageId?.toString()
                 }
@@ -71,20 +75,20 @@ class DraftManagerImpl(
         }
     }
 
-    override fun get(conversationUID: ConversationUID): MessageDraft? =
-        messageDraftsFlow.value[conversationUID]
+    override fun get(conversationId: ConversationId): MessageDraft? =
+        messageDraftsFlow.value[conversationId.obfuscated]
 
-    override fun remove(conversationUID: ConversationUID) {
-        set(conversationUID, text = null)
+    override fun remove(conversationId: ConversationId) {
+        set(conversationId, text = null)
     }
 
-    override fun set(conversationUID: ConversationUID, text: String?, quotedMessageId: MessageId?) {
+    override fun set(conversationId: ConversationId, text: String?, quotedMessageId: MessageId?) {
         messageDraftsFlow.update { messageDrafts ->
             if (text.isNullOrBlank()) {
-                messageDrafts.minus(conversationUID)
+                messageDrafts.minus(conversationId.obfuscated)
             } else {
                 messageDrafts.plus(
-                    conversationUID to MessageDraft(
+                    conversationId.obfuscated to MessageDraft(
                         text = text,
                         quotedMessageId = quotedMessageId,
                     ),

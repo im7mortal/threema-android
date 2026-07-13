@@ -3,19 +3,11 @@ package ch.threema.app.groupmanagement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import ch.threema.app.DangerousTest
-import ch.threema.app.listeners.GroupListener
-import ch.threema.app.managers.ListenerManager
 import ch.threema.app.testutils.TestHelpers.TestContact
 import ch.threema.app.testutils.TestHelpers.TestGroup
-import ch.threema.data.models.GroupIdentity
 import ch.threema.domain.models.GroupId
 import ch.threema.domain.protocol.csp.messages.GroupNameMessage
 import ch.threema.domain.types.IdentityString
-import junit.framework.TestCase.assertEquals
-import junit.framework.TestCase.assertFalse
-import junit.framework.TestCase.assertTrue
-import junit.framework.TestCase.fail
-import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlinx.coroutines.test.runTest
 import org.junit.runner.RunWith
@@ -52,8 +44,6 @@ class IncomingGroupNameTest : GroupConversationListTest<GroupNameMessage>() {
                 myContact.identity,
             )
 
-        val renameTracker = GroupRenameTracker(groupARenamed).apply { start() }
-
         val message = createEncryptedRenameMessage(
             newGroupName = groupARenamed.groupName,
             groupCreatorIdentity = groupARenamed.groupCreator.identity,
@@ -63,10 +53,6 @@ class IncomingGroupNameTest : GroupConversationListTest<GroupNameMessage>() {
 
         // Process the group rename message
         processMessage(message, groupARenamed.groupCreator.identityStore)
-
-        // Assert that the listeners were triggered
-        renameTracker.assertRename()
-        renameTracker.stop()
 
         // Assert that the group name change has been processed
         assertGroupConversations(
@@ -95,8 +81,6 @@ class IncomingGroupNameTest : GroupConversationListTest<GroupNameMessage>() {
                 myContact.identity,
             )
 
-        val renameTracker = GroupRenameTracker(null).apply { start() }
-
         val message = createEncryptedRenameMessage(
             newGroupName = groupARenamed.groupName,
             // Note that this will be ignored anyway
@@ -109,9 +93,6 @@ class IncomingGroupNameTest : GroupConversationListTest<GroupNameMessage>() {
         // Process the group rename message
         processMessage(message, contactB.identityStore)
 
-        renameTracker.assertNoRename()
-        renameTracker.stop()
-
         assertGroupConversations(
             expectedGroups = initialGroups,
         )
@@ -122,22 +103,10 @@ class IncomingGroupNameTest : GroupConversationListTest<GroupNameMessage>() {
         // be this user in this test
     }
 
-    override fun testCommonGroupReceiveStepUnknownGroupUserNotCreator() {
-        runWithoutGroupRename {
-            super.testCommonGroupReceiveStepUnknownGroupUserNotCreator()
-        }
-    }
-
     override fun testCommonGroupReceiveStepLeftGroupUserCreator() {
         // Don't test this step. The group rename message is always sent as creator of the group
         // and if the sender of the message is the creator of a group owned by this user, then the
         // message comes from this user itself - which is impossible.
-    }
-
-    override fun testCommonGroupReceiveStepLeftGroupUserNotCreator() {
-        runWithoutGroupRename {
-            super.testCommonGroupReceiveStepLeftGroupUserNotCreator()
-        }
     }
 
     override fun testCommonGroupReceiveStepSenderNotMemberUserCreator() {
@@ -154,11 +123,6 @@ class IncomingGroupNameTest : GroupConversationListTest<GroupNameMessage>() {
         // receive steps.
     }
 
-    @AfterTest
-    fun removeAllGroupListeners() {
-        GroupRenameTracker.stopAllListeners()
-    }
-
     private fun createEncryptedRenameMessage(
         newGroupName: String,
         groupCreatorIdentity: IdentityString,
@@ -170,110 +134,5 @@ class IncomingGroupNameTest : GroupConversationListTest<GroupNameMessage>() {
         fromIdentity = fromContact.identity
         setApiGroupId(apiGroupId)
         toIdentity = myContact.identity
-    }
-
-    /**
-     * Run [processMessage] and assert that no group rename happens.
-     */
-    private fun runWithoutGroupRename(processMessage: () -> Unit) {
-        val groupRenameTracker = GroupRenameTracker(null).apply { start() }
-
-        processMessage()
-
-        groupRenameTracker.assertNoRename()
-        groupRenameTracker.stop()
-    }
-
-    private class GroupRenameTracker(private val group: TestGroup?) {
-        private var hasBeenRenamed = false
-
-        private val groupListener = object : GroupListener {
-            override fun onCreate(groupIdentity: GroupIdentity) {
-                fail()
-            }
-
-            override fun onRename(groupIdentity: GroupIdentity) {
-                assertFalse(hasBeenRenamed)
-                group?.let {
-                    assertEquals(it.apiGroupId.toLong(), groupIdentity.groupId)
-                    assertEquals(it.groupCreator.identity, groupIdentity.creatorIdentity)
-                }
-                hasBeenRenamed = true
-            }
-
-            override fun onUpdatePhoto(groupIdentity: GroupIdentity) {
-                fail()
-            }
-
-            override fun onRemove(groupDbId: Long) {
-                fail()
-            }
-
-            override fun onNewMember(
-                groupIdentity: GroupIdentity,
-                identityNew: String?,
-            ) {
-                fail()
-            }
-
-            override fun onMemberLeave(
-                groupIdentity: GroupIdentity,
-                identityLeft: String,
-            ) {
-                fail()
-            }
-
-            override fun onMemberKicked(
-                groupIdentity: GroupIdentity,
-                identityKicked: String?,
-            ) {
-                fail()
-            }
-
-            override fun onUpdate(groupIdentity: GroupIdentity) {
-                fail()
-            }
-
-            override fun onLeave(groupIdentity: GroupIdentity) {
-                fail()
-            }
-
-            override fun onGroupStateChanged(
-                groupIdentity: GroupIdentity,
-                oldState: Int,
-                newState: Int,
-            ) {
-                fail()
-            }
-        }
-
-        companion object {
-            private val groupListeners: MutableList<GroupListener> = mutableListOf()
-
-            fun stopAllListeners() {
-                for (groupListener in groupListeners) {
-                    ListenerManager.groupListeners.remove(groupListener)
-                }
-                groupListeners.clear()
-            }
-        }
-
-        fun start() {
-            ListenerManager.groupListeners.add(groupListener)
-            groupListeners.add(groupListener)
-        }
-
-        fun assertRename() {
-            assertTrue(hasBeenRenamed)
-        }
-
-        fun assertNoRename() {
-            assertFalse(hasBeenRenamed)
-        }
-
-        fun stop() {
-            ListenerManager.groupListeners.remove(groupListener)
-            groupListeners.remove(groupListener)
-        }
     }
 }

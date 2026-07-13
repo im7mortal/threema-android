@@ -2,6 +2,8 @@ package ch.threema.app.webclient.services;
 
 import android.content.Context;
 
+import org.koin.java.KoinJavaComponent;
+
 import androidx.annotation.AnyThread;
 import androidx.annotation.NonNull;
 
@@ -132,7 +134,7 @@ public class ServicesContainer {
         this.file = file;
         this.synchronizeContacts = synchronizeContacts;
         this.license = license;
-        this.sessionWakeUp = SessionWakeUpServiceImpl.getInstance();
+        this.sessionWakeUp = KoinJavaComponent.get(SessionWakeUpService.class);
         this.apiConnector = apiConnector;
         this.contactModelRepository = contactModelRepository;
         this.groupModelRepository = groupModelRepository;

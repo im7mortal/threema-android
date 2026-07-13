@@ -2,6 +2,7 @@ package ch.threema.app.apptaskexecutor
 
 import ch.threema.app.apptaskexecutor.tasks.AppTask
 import ch.threema.app.apptaskexecutor.tasks.PersistableAppTask
+import ch.threema.app.monitors.Monitor
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.DispatcherProvider
 import kotlin.coroutines.Continuation
@@ -29,7 +30,7 @@ private val logger = getThreemaLogger("AppTaskExecutor")
 class AppTaskExecutor(
     private val appTaskPersistenceProvider: AppTaskPersistenceProvider,
     private val dispatcherProvider: DispatcherProvider,
-) {
+) : Monitor("AppTaskExecutor") {
     private val mutex = Mutex()
 
     private val taskQueue = Channel<Pair<AppTask, CompletableDeferred<Unit>>>(capacity = Channel.UNLIMITED)
@@ -40,7 +41,7 @@ class AppTaskExecutor(
      * @throws IllegalStateException if the tasks executor has already been started
      */
     @Throws(IllegalStateException::class)
-    suspend fun start() {
+    override suspend fun run() {
         if (!mutex.tryLock()) {
             error("Tasks are already being run")
         }
@@ -53,7 +54,6 @@ class AppTaskExecutor(
                 initPersistedTasks()
             }
         } finally {
-            logger.error("Running app tasks has been stopped.")
             mutex.unlock()
         }
     }
@@ -126,7 +126,7 @@ class AppTaskExecutor(
 
     /**
      * Runs all tasks that are currently queued and those that will be queued in the future. This method runs forever, except the coroutine has been
-     * cancelled.
+     * canceled.
      */
     private suspend fun runQueuedTasks() {
         coroutineScope {

@@ -29,7 +29,7 @@ fun Avatar(
     bitmap: ImmutableBitmap?,
     contentDescription: String?,
     @DrawableRes fallbackIcon: Int = R.drawable.ic_contact,
-    showWorkBadge: Boolean,
+    showIdentityTypeBadge: Boolean,
     availabilityStatus: AvailabilityStatus? = null,
     onClick: (() -> Unit)? = null,
 ) {
@@ -60,7 +60,7 @@ fun Avatar(
                 ),
             )
         }
-        if (showWorkBadge) {
+        if (showIdentityTypeBadge) {
             Image(
                 modifier = Modifier
                     .fillMaxSize(0.4f)
@@ -87,7 +87,7 @@ private fun Avatar_Preview() {
         Avatar(
             bitmap = null,
             contentDescription = null,
-            showWorkBadge = true,
+            showIdentityTypeBadge = true,
             onClick = {},
         )
     }
@@ -100,7 +100,7 @@ private fun Avatar_Preview_Unavailable() {
         Avatar(
             bitmap = null,
             contentDescription = null,
-            showWorkBadge = true,
+            showIdentityTypeBadge = true,
             availabilityStatus = AvailabilityStatus.Unavailable(),
             onClick = {},
         )
@@ -114,7 +114,7 @@ private fun Avatar_Preview_Busy() {
         Avatar(
             bitmap = null,
             contentDescription = null,
-            showWorkBadge = true,
+            showIdentityTypeBadge = true,
             availabilityStatus = AvailabilityStatus.Busy(),
             onClick = {},
         )

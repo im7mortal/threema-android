@@ -7,6 +7,8 @@ import android.util.AttributeSet;
 
 import androidx.annotation.NonNull;
 
+import ch.threema.android.textwatchers.SimpleTextWatcher;
+
 public class PrefixEditText extends ThreemaTextInputEditText {
     String prefix = "";
 

@@ -4,10 +4,10 @@ import android.content.Context
 import ch.threema.app.logging.DebugLogHelper
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.app.utils.PowermanagerUtil
 import ch.threema.app.webclient.services.SessionService
 import ch.threema.base.SessionScoped
+import ch.threema.common.DispatcherProvider
 import ch.threema.common.TimeProvider
 import ch.threema.common.minus
 import ch.threema.localcrypto.MasterKeyManager

@@ -9,55 +9,96 @@
         app:title="@string/prefs_privacy" />
     <Preference
         app:fragment="ch.threema.app.preference.SettingsSecurityFragment"
-        app:icon="@drawable/ic_lock_outline"
+        app:icon="@drawable/ic_lock"
         app:key="pref_key_security"
-        app:persistent="true"
         app:title="@string/prefs_security" />
     <Preference
         app:fragment="ch.threema.app.preference.SettingsAppearanceFragment"
         app:icon="@drawable/ic_palette_outline"
         app:key="pref_key_appearance"
-        app:persistent="true"
         app:title="@string/prefs_header_appearance" />
     <Preference
         app:fragment="ch.threema.app.preference.SettingsNotificationsFragment"
         app:icon="@drawable/ic_notifications_active_outline"
         app:key="pref_key_notifications"
-        app:persistent="true"
         app:title="@string/prefs_notifications" />
     <Preference
         app:fragment="ch.threema.app.preference.SettingsChatFragment"
         app:icon="@drawable/ic_forum_outline"
         app:key="pref_key_chatdisplay"
-        app:persistent="true"
         app:title="@string/prefs_chatdisplay" />
     <Preference
         app:fragment="ch.threema.app.preference.SettingsMediaFragment"
         app:icon="@drawable/ic_folder_multiple_images_outline"
         app:key="pref_key_particular_settings"
-        app:persistent="true"
         app:title="@string/prefs_media_title" />
+    <Preference
+        app:icon="@drawable/ic_sync"
+        app:isPreferenceVisible="false"
+        app:key="@string/preferences__backup_center"
+        app:summary="@string/prefs_backup_center_summary"
+        app:title="@string/prefs_backup_center_title" />
     <Preference
         app:fragment="ch.threema.app.preference.SettingsCallsFragment"
         app:icon="@drawable/ic_videocall"
         app:key="pref_key_calls"
-        app:persistent="true"
         app:title="@string/prefs_title_calls" />
-    <Preference
-        app:fragment="ch.threema.app.preference.SettingsRateFragment"
-        app:icon="@drawable/ic_star_outlined"
-        app:key="@string/preferences__rate"
-        app:title="@string/rate_title" />
-    <Preference
-        app:fragment="ch.threema.app.preference.SettingsAboutFragment"
-        app:icon="@drawable/ic_about_outline"
-        app:key="pref_key_about"
-        app:title="@string/menu_about" />
-    <Preference
-        app:fragment="ch.threema.app.dev.preference.SettingsDeveloperFragment"
-        app:icon="@drawable/ic_directions_bike"
-        app:key="pref_key_developers"
-        app:title="@string/prefs_developers" />
+
+    <PreferenceCategory
+        app:key="@string/preferences__linked_devices"
+        app:title="@string/prefs_linked_devices">
+        <Preference
+            app:icon="@drawable/ic_multi_device"
+            app:key="@string/preferences__multi_device"
+            app:title="@string/md_linked_devices" />
+
+        <Preference
+            app:icon="@drawable/ic_web_notification"
+            app:key="@string/preferences__web_desktop"
+            app:title="@string/webclient" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        app:key="@string/preferences__community_and_sharing"
+        app:title="@string/prefs_community_and_sharing">
+        <Preference
+            app:fragment="ch.threema.app.preference.SettingsRateFragment"
+            app:icon="@drawable/ic_star_outlined"
+            app:key="@string/preferences__rate"
+            app:title="@string/rate_title" />
+
+        <Preference
+            app:icon="@drawable/ic_person_add_outline"
+            app:key="@string/preferences__invite_a_friend"
+            app:title="@string/title_invite_friend" />
+
+        <Preference
+            app:icon="@drawable/ic_rss_feed_outline"
+            app:key="@string/preferences__threema_channel"
+            app:title="@string/threema_channel" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/prefs_advanced">
+        <Preference
+            app:fragment="ch.threema.app.preference.SettingsAdvancedOptionsFragment"
+            app:icon="@drawable/ic_outline_science"
+            app:key="@string/preferences__advanced_options"
+            app:title="@string/prefs_advanced_options" />
+        <Preference
+            app:fragment="ch.threema.app.dev.preference.SettingsDeveloperFragment"
+            app:icon="@drawable/ic_directions_bike"
+            app:key="pref_key_developers"
+            app:title="@string/prefs_developers" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="@string/prefs_about">
+        <Preference
+            app:fragment="ch.threema.app.preference.SettingsAboutFragment"
+            app:icon="@drawable/ic_about_outline"
+            app:key="pref_key_about"
+            app:title="@string/menu_about" />
+    </PreferenceCategory>
+
     <Preference
         app:icon="@drawable/icon_work_square"
         app:key="pref_key_work"

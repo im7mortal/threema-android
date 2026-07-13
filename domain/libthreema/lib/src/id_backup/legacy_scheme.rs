@@ -7,7 +7,6 @@
 //! WLEU-5DS4-XF7S-OPH4-CTCL-N2CF-3C4C-HPB7-YZWW-U3S6
 //! ```
 use libthreema_macros::concat_fixed_bytes;
-use subtle::ConstantTimeEq as _;
 
 use super::{BackupKey, IdentityBackupData, IdentityBackupError, Salt};
 use crate::crypto::{
@@ -15,6 +14,7 @@ use crate::crypto::{
     deprecated::{pbkdf2::pbkdf2_hmac_array, salsa20::XSalsa20},
     digest::Digest as _,
     sha2::Sha256,
+    subtle::ConstantTimeEq as _,
 };
 
 const HASH_LENGTH: usize = 2;

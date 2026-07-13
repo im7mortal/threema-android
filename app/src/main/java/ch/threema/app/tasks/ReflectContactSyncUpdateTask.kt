@@ -2,17 +2,17 @@ package ch.threema.app.tasks
 
 import ch.threema.app.services.ApiService
 import ch.threema.app.services.ConversationCategoryService
-import ch.threema.app.services.ConversationTagService
 import ch.threema.app.services.FileService
-import ch.threema.app.utils.ContactUtil
-import ch.threema.app.utils.ConversationUtil
 import ch.threema.base.crypto.NonceFactory
 import ch.threema.base.crypto.SymmetricEncryptionService
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.data.datatypes.AvailabilityStatus
-import ch.threema.data.datatypes.NotificationTriggerPolicyOverride
+import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverride
+import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverridePolicy
+import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.models.ContactModelData
 import ch.threema.data.repositories.ContactModelRepository
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
 import ch.threema.domain.models.ReadReceiptPolicy
@@ -34,15 +34,12 @@ import ch.threema.protobuf.common.deltaImage
 import ch.threema.protobuf.common.image
 import ch.threema.protobuf.common.unit
 import ch.threema.protobuf.d2d.sync.Contact
-import ch.threema.protobuf.d2d.sync.ContactKt.NotificationTriggerPolicyOverrideKt.policy
-import ch.threema.protobuf.d2d.sync.ContactKt.notificationTriggerPolicyOverride
 import ch.threema.protobuf.d2d.sync.ContactKt.readReceiptPolicyOverride
 import ch.threema.protobuf.d2d.sync.ContactKt.typingIndicatorPolicyOverride
 import ch.threema.protobuf.d2d.sync.ConversationCategory
-import ch.threema.protobuf.d2d.sync.ConversationVisibility
+import ch.threema.protobuf.d2d.sync.ConversationVisibility as ProtocolsConversationVisibility
 import ch.threema.protobuf.d2d.sync.contact
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel
-import ch.threema.storage.models.ConversationTag
+import ch.threema.protobuf.toProtobuf
 import com.google.protobuf.kotlin.toByteString
 import java.time.Instant
 import kotlinx.serialization.Serializable
@@ -563,7 +560,7 @@ abstract class ReflectContactSyncUpdateTask(
         override fun getContactSync(): Contact = contact {
             identity = contactIdentity
             identityType = when (newIdentityType) {
-                IdentityType.NORMAL -> Contact.IdentityType.REGULAR
+                IdentityType.REGULAR -> Contact.IdentityType.REGULAR
                 IdentityType.WORK -> Contact.IdentityType.WORK
             }
         }
@@ -602,7 +599,7 @@ abstract class ReflectContactSyncUpdateTask(
             identity = contactIdentity
             acquaintanceLevel = when (newAcquaintanceLevel) {
                 AcquaintanceLevel.DIRECT -> Contact.AcquaintanceLevel.DIRECT
-                AcquaintanceLevel.GROUP -> Contact.AcquaintanceLevel.GROUP_OR_DELETED
+                AcquaintanceLevel.GROUP_OR_DELETED -> Contact.AcquaintanceLevel.GROUP_OR_DELETED
             }
         }
 
@@ -619,39 +616,6 @@ abstract class ReflectContactSyncUpdateTask(
             override fun createTask(): Task<*, TaskCodec> =
                 ReflectAcquaintanceLevelUpdate(
                     newAcquaintanceLevel = acquaintanceLevel,
-                    contactIdentity = identity,
-                )
-        }
-    }
-
-    class ReflectAvailabilityStatusUpdate(
-        private val newAvailabilityStatus: AvailabilityStatus,
-        contactIdentity: IdentityString,
-    ) : ReflectContactSyncUpdateTask(contactIdentity) {
-
-        override val type: String = "ReflectAvailabilityStatusUpdate"
-
-        override fun isChangeValid(currentData: ContactModelData): Boolean =
-            currentData.availabilityStatus == newAvailabilityStatus
-
-        override fun getContactSync(): Contact = contact {
-            identity = contactIdentity
-            workAvailabilityStatus = newAvailabilityStatus.toProtocolModel()
-        }
-
-        override fun serialize(): SerializableTaskData = ReflectAvailabilityStatusUpdateData(
-            availabilityStatus = newAvailabilityStatus,
-            identity = contactIdentity,
-        )
-
-        @Serializable
-        data class ReflectAvailabilityStatusUpdateData(
-            private val availabilityStatus: AvailabilityStatus,
-            private val identity: IdentityString,
-        ) : SerializableTaskData {
-            override fun createTask(): Task<*, TaskCodec> =
-                ReflectAvailabilityStatusUpdate(
-                    newAvailabilityStatus = availabilityStatus,
                     contactIdentity = identity,
                 )
         }
@@ -741,7 +705,7 @@ abstract class ReflectContactSyncUpdateTask(
      * Reflect a new notification-trigger-policy-override
      */
     class ReflectNotificationTriggerPolicyOverrideUpdate(
-        private val newNotificationTriggerPolicyOverride: NotificationTriggerPolicyOverride,
+        private val newNotificationTriggerPolicyOverride: ContactNotificationTriggerPolicyOverride?,
         contactIdentity: IdentityString,
     ) : ReflectContactSyncUpdateTask(
         contactIdentity,
@@ -749,48 +713,85 @@ abstract class ReflectContactSyncUpdateTask(
         override val type = "ReflectNotificationTriggerPolicyOverrideUpdate"
 
         override fun isChangeValid(currentData: ContactModelData) =
-            currentData.notificationTriggerPolicyOverride == newNotificationTriggerPolicyOverride.dbValue
+            currentData.notificationTriggerPolicyOverride == newNotificationTriggerPolicyOverride
 
         override fun getContactSync(): Contact = contact {
             identity = contactIdentity
 
-            notificationTriggerPolicyOverride = notificationTriggerPolicyOverride {
-                when (newNotificationTriggerPolicyOverride) {
-                    NotificationTriggerPolicyOverride.NotMuted -> default = unit {}
-
-                    NotificationTriggerPolicyOverride.MutedIndefinite -> policy = policy {
-                        policy = Contact.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.NEVER
-                    }
-
-                    NotificationTriggerPolicyOverride.MutedIndefiniteExceptMentions -> throw IllegalStateException(
-                        "Contact receivers can never have this setting",
-                    )
-
-                    is NotificationTriggerPolicyOverride.MutedUntil -> policy = policy {
-                        policy = Contact.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.NEVER
-                        expiresAt = newNotificationTriggerPolicyOverride.utcMillis
-                    }
-                }
-            }
+            notificationTriggerPolicyOverride = newNotificationTriggerPolicyOverride.toProtobuf()
         }
 
-        override fun serialize(): SerializableTaskData = ReflectNotificationTriggerPolicyOverrideUpdateData(
-            notificationTriggerPolicyOverride = newNotificationTriggerPolicyOverride.dbValue,
+        override fun serialize(): SerializableTaskData = ReflectNotificationTriggerPolicyOverrideUpdateDataV2(
+            notificationTriggerPolicyOverridePolicy = newNotificationTriggerPolicyOverride?.policy?.serializedValue,
+            notificationTriggerPolicyOverrideExpiresAt = newNotificationTriggerPolicyOverride?.expiresAt?.toEpochMilli(),
             contactIdentity = contactIdentity,
         )
 
+        /**
+         * Note that this is only used for backwards compatibility as we used to persist this task data. We still need to be able to restore this task
+         * data as some clients may have persisted it.
+         */
+        @Deprecated("Use ReflectNotificationTriggerPolicyOverrideUpdateDataV2 instead")
         @Serializable
         data class ReflectNotificationTriggerPolicyOverrideUpdateData(
             private val notificationTriggerPolicyOverride: Long?,
             private val contactIdentity: IdentityString,
         ) : SerializableTaskData {
+            override fun createTask(): Task<*, TaskCodec> = ReflectNotificationTriggerPolicyOverrideUpdate(
+                newNotificationTriggerPolicyOverride = deserializeContactNotificationTriggerPolicyOverride(),
+                contactIdentity = contactIdentity,
+            )
+
+            private fun deserializeContactNotificationTriggerPolicyOverride(): ContactNotificationTriggerPolicyOverride? {
+                if (notificationTriggerPolicyOverride == null) {
+                    return null
+                }
+
+                return when {
+                    // In case the value is -1, the contact is indefinitely muted
+                    notificationTriggerPolicyOverride == -1L -> ContactNotificationTriggerPolicyOverride(
+                        policy = ContactNotificationTriggerPolicyOverridePolicy.NEVER,
+                        expiresAt = null,
+                    )
+
+                    // In case the value is greater than 0, it denotes the timestamp until when the contact is muted
+                    notificationTriggerPolicyOverride > 0 -> ContactNotificationTriggerPolicyOverride(
+                        policy = ContactNotificationTriggerPolicyOverridePolicy.NEVER,
+                        expiresAt = Instant.ofEpochMilli(notificationTriggerPolicyOverride),
+                    )
+
+                    // In case of 0 or any negative value other than -1, there is no notification trigger policy override set
+                    else -> null
+                }
+            }
+        }
+
+        @Serializable
+        data class ReflectNotificationTriggerPolicyOverrideUpdateDataV2(
+            private val notificationTriggerPolicyOverridePolicy: Int?,
+            private val notificationTriggerPolicyOverrideExpiresAt: Long?,
+            private val contactIdentity: IdentityString,
+        ) : SerializableTaskData {
             override fun createTask(): Task<*, TaskCodec> =
                 ReflectNotificationTriggerPolicyOverrideUpdate(
-                    newNotificationTriggerPolicyOverride = NotificationTriggerPolicyOverride.fromDbValueContact(
-                        notificationTriggerPolicyOverride,
-                    ),
+                    newNotificationTriggerPolicyOverride = deserializeContactNotificationTriggerPolicyOverride(),
                     contactIdentity = contactIdentity,
                 )
+
+            private fun deserializeContactNotificationTriggerPolicyOverride(): ContactNotificationTriggerPolicyOverride? {
+                if (notificationTriggerPolicyOverridePolicy == null) {
+                    return null
+                }
+
+                val policy = ContactNotificationTriggerPolicyOverridePolicy.deserialize(notificationTriggerPolicyOverridePolicy)
+                    ?: error("Could not deserialize contact notification trigger policy with value $notificationTriggerPolicyOverridePolicy")
+                val expiresAt = notificationTriggerPolicyOverrideExpiresAt?.let { expiresAt -> Instant.ofEpochMilli(expiresAt) }
+
+                return ContactNotificationTriggerPolicyOverride(
+                    policy = policy,
+                    expiresAt = expiresAt,
+                )
+            }
         }
     }
 
@@ -809,9 +810,10 @@ abstract class ReflectContactSyncUpdateTask(
 
         override val type = "ReflectConversationCategoryUpdate"
 
-        override fun isChangeValid(currentData: ContactModelData): Boolean {
-            return conversationCategoryService.isPrivateChat(ContactUtil.getUniqueIdString(contactIdentity)) == isPrivateChat
-        }
+        override fun isChangeValid(currentData: ContactModelData): Boolean =
+            conversationCategoryService.isMarkedAsPrivate(
+                conversationId = ContactConversationId(contactIdentity),
+            ) == isPrivateChat
 
         override fun getContactSync(): Contact = contact {
             identity = contactIdentity
@@ -840,179 +842,109 @@ abstract class ReflectContactSyncUpdateTask(
         }
     }
 
-    /**
-     * Reflect a new conversation visibility regarding the archive option.
-     *
-     * TODO(ANDR-3721): There should only be one task that reflects the conversation visibility.
-     */
-    class ReflectConversationVisibilityArchiveUpdate(
-        private val isArchived: Boolean,
+    class ReflectConversationVisibilityUpdate(
+        private val conversationVisibility: ConversationVisibility,
         contactIdentity: IdentityString,
     ) : ReflectContactSyncUpdateTask(
         contactIdentity,
     ) {
-        override val type = "ReflectConversationVisibilityArchiveUpdate"
+        override val type = "ReflectConversationVisibilityUpdate"
 
-        override fun isChangeValid(currentData: ContactModelData) = currentData.isArchived == isArchived
+        override fun isChangeValid(currentData: ContactModelData): Boolean =
+            currentData.conversationVisibility == conversationVisibility
 
         override fun getContactSync(): Contact = contact {
             identity = contactIdentity
 
-            conversationVisibility = if (isArchived) {
-                ConversationVisibility.ARCHIVED
-            } else {
-                ConversationVisibility.NORMAL
+            conversationVisibility = when (this@ReflectConversationVisibilityUpdate.conversationVisibility) {
+                ConversationVisibility.NORMAL -> ProtocolsConversationVisibility.NORMAL
+                ConversationVisibility.ARCHIVED -> ProtocolsConversationVisibility.ARCHIVED
+                ConversationVisibility.PINNED -> ProtocolsConversationVisibility.PINNED
             }
         }
 
-        override fun serialize(): SerializableTaskData = ReflectConversationVisibilityArchiveUpdateData(
-            isArchived = isArchived,
+        override fun serialize(): SerializableTaskData = ReflectConversationVisibilityUpdateData(
+            conversationVisibilitySerialized = conversationVisibility.serializedValue,
             contactIdentity = contactIdentity,
         )
 
+        @Serializable
+        data class ReflectConversationVisibilityUpdateData(
+            private val conversationVisibilitySerialized: Int,
+            private val contactIdentity: IdentityString,
+        ) : SerializableTaskData {
+            override fun createTask(): Task<*, TaskCodec> =
+                ReflectConversationVisibilityUpdate(
+                    conversationVisibility = requireConversationVisibility(),
+                    contactIdentity = contactIdentity,
+                )
+
+            private fun requireConversationVisibility() = ConversationVisibility
+                .deserialize(conversationVisibilitySerialized)
+                ?: error("Could not deserialize conversation visibility from value $conversationVisibilitySerialized")
+        }
+    }
+
+    /**
+     * Note: This is only used to create the correct fully qualified name for the contained task data.
+     */
+    @Suppress("unused")
+    object ReflectConversationVisibilityArchiveUpdate {
+        /**
+         * There used to be a separate task for reflecting the information whether a contact was archived or not. This task does not exist anymore and
+         * is replaced by [ReflectConversationVisibilityUpdate]. This task data may still be persisted on some devices. In that case we now create a
+         * [ReflectConversationVisibilityUpdate] from this task.
+         *
+         * TODO(ANDR-4974): Remove this.
+         */
+        @Deprecated("This data should not be used anymore. It just exists in case it has been persisted.")
         @Serializable
         data class ReflectConversationVisibilityArchiveUpdateData(
             private val isArchived: Boolean,
             private val contactIdentity: IdentityString,
         ) : SerializableTaskData {
-            override fun createTask(): Task<*, TaskCodec> =
-                ReflectConversationVisibilityArchiveUpdate(
-                    isArchived = isArchived,
+            override fun createTask(): Task<*, TaskCodec> {
+                val conversationVisibility = when (isArchived) {
+                    true -> ConversationVisibility.ARCHIVED
+                    false -> ConversationVisibility.NORMAL
+                }
+                return ReflectConversationVisibilityUpdate(
+                    conversationVisibility = conversationVisibility,
                     contactIdentity = contactIdentity,
                 )
+            }
         }
     }
 
     /**
-     *  Reflect a new `workLastFullSyncAt` timestamp
+     * Note: This is only used to create the correct fully qualified name for the contained task data.
      */
-    class ReflectWorkLastFullSyncAtUpdate(
-        private val workLastFullSyncAt: Instant,
-        contactIdentity: IdentityString,
-    ) : ReflectContactSyncUpdateTask(
-        contactIdentity,
-    ) {
-        override val type = "ReflectWorkLastFullSyncAtUpdate"
+    @Suppress("unused")
+    object ReflectConversationVisibilityPinnedUpdate {
 
-        override fun isChangeValid(currentData: ContactModelData) = currentData.workLastFullSyncAt == workLastFullSyncAt
-
-        override fun getContactSync(): Contact {
-            val updatedWorkLastFullSyncAt = workLastFullSyncAt
-            return contact {
-                this.identity = contactIdentity
-                this.workLastFullSyncAt = updatedWorkLastFullSyncAt.toEpochMilli()
-            }
-        }
-
-        override fun serialize(): SerializableTaskData = ReflectWorkLastFullSyncAtUpdateData(
-            workLastFullSyncAt = workLastFullSyncAt.toEpochMilli(),
-            identity = contactIdentity,
-        )
-
-        @Serializable
-        data class ReflectWorkLastFullSyncAtUpdateData(
-            private val workLastFullSyncAt: Long,
-            private val identity: IdentityString,
-        ) : SerializableTaskData {
-            override fun createTask(): Task<*, TaskCodec> =
-                ReflectWorkLastFullSyncAtUpdate(
-                    workLastFullSyncAt = Instant.ofEpochMilli(workLastFullSyncAt),
-                    contactIdentity = identity,
-                )
-        }
-    }
-
-    /**
-     *  Reflect a new `workLastFullSyncAt` timestamp together with a `workAvailabilityStatus`.
-     */
-    class ReflectWorkLastFullSyncAtWithAvailabilityStatusUpdate(
-        private val workLastFullSyncAt: Instant,
-        private val availabilityStatus: AvailabilityStatus,
-        contactIdentity: IdentityString,
-    ) : ReflectContactSyncUpdateTask(
-        contactIdentity,
-    ) {
-        override val type = "ReflectWorkLastFullSyncAtWithAvailabilityStatusUpdate"
-
-        override fun isChangeValid(currentData: ContactModelData) =
-            currentData.workLastFullSyncAt == workLastFullSyncAt &&
-                currentData.availabilityStatus == availabilityStatus
-
-        override fun getContactSync(): Contact {
-            val updatedWorkLastFullSyncAt = workLastFullSyncAt.toEpochMilli()
-            val updatedAvailabilityStatus = availabilityStatus.toProtocolModel()
-            return contact {
-                this.identity = contactIdentity
-                this.workLastFullSyncAt = updatedWorkLastFullSyncAt
-                this.workAvailabilityStatus = updatedAvailabilityStatus
-            }
-        }
-
-        override fun serialize(): SerializableTaskData = ReflectWorkLastFullSyncAtWithAvailabilityStatusUpdateData(
-            workLastFullSyncAt = workLastFullSyncAt.toEpochMilli(),
-            availabilityStatus = availabilityStatus,
-            identity = contactIdentity,
-        )
-
-        @Serializable
-        data class ReflectWorkLastFullSyncAtWithAvailabilityStatusUpdateData(
-            private val workLastFullSyncAt: Long,
-            private val availabilityStatus: AvailabilityStatus,
-            private val identity: IdentityString,
-        ) : SerializableTaskData {
-            override fun createTask(): Task<*, TaskCodec> =
-                ReflectWorkLastFullSyncAtWithAvailabilityStatusUpdate(
-                    workLastFullSyncAt = Instant.ofEpochMilli(workLastFullSyncAt),
-                    availabilityStatus = availabilityStatus,
-                    contactIdentity = identity,
-                )
-        }
-    }
-
-    /**
-     * Reflect a new conversation visibility regarding the pin option.
-     *
-     * TODO(ANDR-3721): There should only be one task that reflects the conversation visibility.
-     */
-    class ReflectConversationVisibilityPinnedUpdate(
-        private val isPinned: Boolean,
-        contactIdentity: IdentityString,
-    ) : ReflectContactSyncUpdateTask(
-        contactIdentity,
-    ),
-        KoinComponent {
-        private val conversationTagService: ConversationTagService by inject()
-
-        override val type = "ReflectConversationVisibilityPinnedUpdate"
-
-        override fun isChangeValid(currentData: ContactModelData) =
-            conversationTagService.isTaggedWith(ConversationUtil.getContactConversationUid(contactIdentity), ConversationTag.PINNED) == isPinned
-
-        override fun getContactSync(): Contact = contact {
-            identity = contactIdentity
-
-            conversationVisibility = if (isPinned) {
-                ConversationVisibility.PINNED
-            } else {
-                ConversationVisibility.NORMAL
-            }
-        }
-
-        override fun serialize(): SerializableTaskData = ReflectConversationVisibilityPinnedUpdateData(
-            isPinned = isPinned,
-            contactIdentity = contactIdentity,
-        )
-
+        /**
+         * There used to be a separate task for reflecting the information whether a contact was archived or not. This task does not exist anymore and
+         * is replaced by [ReflectConversationVisibilityUpdate]. This task data may still be persisted on some devices. In that case we create now a
+         * [ReflectConversationVisibilityUpdate] from this task.
+         *
+         * TODO(ANDR-4974): Remove this.
+         */
+        @Deprecated("This data should not be used anymore. It just exists in case it has been persisted.")
         @Serializable
         data class ReflectConversationVisibilityPinnedUpdateData(
             private val isPinned: Boolean,
             private val contactIdentity: IdentityString,
         ) : SerializableTaskData {
-            override fun createTask(): Task<*, TaskCodec> =
-                ReflectConversationVisibilityPinnedUpdate(
-                    isPinned = isPinned,
+            override fun createTask(): Task<*, TaskCodec> {
+                val conversationVisibility = when (isPinned) {
+                    true -> ConversationVisibility.PINNED
+                    false -> ConversationVisibility.NORMAL
+                }
+                return ReflectConversationVisibilityUpdate(
+                    conversationVisibility = conversationVisibility,
                     contactIdentity = contactIdentity,
                 )
+            }
         }
     }
 }

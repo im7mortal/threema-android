@@ -49,4 +49,40 @@ class StringExtensionsTest {
         assertEquals("Hello World", "Hello World".capitalize())
         assertEquals("Äöü", "äöü".capitalize())
     }
+
+    @Test
+    fun `without linebreaks`() {
+        assertEquals("abcd efgh", "\n\nabc\rd e\r\n\r\nfg\r\rh\n".withoutLineBreaks(replaceWith = ""))
+        assertEquals("Hello world ", "Hello\r\nworld\n".withoutLineBreaks(replaceWith = " "))
+    }
+
+    @Test
+    fun `truncate UTF-8 strings`() {
+        assertEquals(
+            "0000000000111111111122222222223",
+            "0000000000111111111122222222223".truncateUTF8String(32),
+        )
+        assertEquals(
+            "hello my best friend",
+            "hello my best friend".truncateUTF8String(32),
+        )
+        assertEquals(
+            "coco",
+            "coco".truncateUTF8String(4),
+        )
+
+        // with multibyte characters
+        assertEquals(
+            "0000000000111111111122222222223",
+            "0000000000111111111122222222223Ç".truncateUTF8String(32),
+        )
+        assertEquals(
+            "Aj aj aj Çoc",
+            "Aj aj aj Çoco Jambo".truncateUTF8String(13),
+        )
+        assertEquals(
+            "Çoc",
+            "Çoco Jambo".truncateUTF8String(4),
+        )
+    }
 }

@@ -109,7 +109,7 @@
         android:contentDescription="@string/menu_add_contact"
         android:focusable="true"
         android:visibility="visible"
-        app:srcCompat="@drawable/ic_add_circle_outline_black_24dp"
+        app:srcCompat="@drawable/ic_add_circle_outline"
         app:tint="?attr/colorOnSurface" />
 
 </RelativeLayout>

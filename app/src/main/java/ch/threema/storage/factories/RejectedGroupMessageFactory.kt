@@ -51,7 +51,7 @@ class RejectedGroupMessageFactory(databaseProvider: DatabaseProvider) :
         writableDatabase.runDelete(
             table = tableName,
             whereClause = "$COLUMN_MESSAGE_ID=? AND $COLUMN_REJECTED_IDENTITY=? AND $COLUMN_GROUP_ID=?",
-            whereArgs = arrayOf(rejectedMessageId.toString(), rejectedIdentity, groupModel.getDatabaseId()),
+            whereArgs = arrayOf<Any>(rejectedMessageId.toString(), rejectedIdentity, groupModel.getDatabaseId()),
         )
     }
 
@@ -67,7 +67,7 @@ class RejectedGroupMessageFactory(databaseProvider: DatabaseProvider) :
         writableDatabase.runDelete(
             table = tableName,
             whereClause = "$COLUMN_REJECTED_IDENTITY=? AND $COLUMN_GROUP_ID=?",
-            whereArgs = arrayOf(identity, group.getDatabaseId()),
+            whereArgs = arrayOf<Any>(identity, group.getDatabaseId()),
         )
     }
 

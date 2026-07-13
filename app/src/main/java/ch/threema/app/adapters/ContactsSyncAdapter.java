@@ -17,7 +17,6 @@ import ch.threema.app.routines.SynchronizeContactsRoutine;
 import ch.threema.app.services.SynchronizeContactsService;
 import ch.threema.app.utils.IntentDataUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.localcrypto.exceptions.MasterKeyLockedException;
 
 public class ContactsSyncAdapter extends AbstractThreadedSyncAdapter {
     private static final Logger logger = getThreemaLogger("ContactsSyncAdapter");
@@ -47,7 +46,7 @@ public class ContactsSyncAdapter extends AbstractThreadedSyncAdapter {
         }
 
         try {
-            ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+            ServiceManager serviceManager = ServiceManager.get();
 
             if (serviceManager == null) {
                 return;
@@ -86,8 +85,6 @@ public class ContactsSyncAdapter extends AbstractThreadedSyncAdapter {
                 // not in a thread: `onPerformSync` is already called in a background thread
                 routine.run();
             }
-        } catch (MasterKeyLockedException e) {
-            logger.debug("Master key is locked, skipping");
         } finally {
             logger.debug(
                 "sync finished Sync [numEntries={}, updates={}, inserts={}, deletes={}",

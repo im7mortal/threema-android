@@ -32,6 +32,12 @@
     <string name="title_job_title">İş Ünvanı</string>
     <string name="title_department">Departman</string>
     <string name="send">Gönder</string>
+    <string name="prefs_linked_devices">Bağlı Cihazlar</string>
+    <string name="prefs_community_and_sharing">Topluluk &amp; paylaşım</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <string name="prefs_advanced">Gelişmiş</string>
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
+    <string name="prefs_about">Hakkında</string>
     <string name="prefs_privacy">Gizlilik</string>
     <string name="prefs_notifications">Ses &amp; Bildirimler</string>
     <string name="prefs_chatdisplay">Sohbet</string>
@@ -83,7 +89,10 @@
     <string name="prefs_sum_threema_push_off">Sistem Dürtme hizmetini kullanarak yeni mesajları kontrol et</string>
     <string name="prefs_logging">Günlük tutma</string>
     <string name="prefs_title_message_log_switch">Hata ayıklama günlüğü</string>
-    <string name="prefs_title_sum_message_log_on">Olaylar ve ağ bilgileri debug_log.txt dosyasına kayıt edilecek</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_on_since">%1$s (%2$s) tarihten beri sistem etkinliklerini kaydetmek</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_forced_on">Sistem etkinliği kaydediliyor. Günlük tutmayı devre dışı bırakmak için \"%1$s\" dosyasını silin. (%2$s)</string>
     <string name="prefs_title_sum_message_log_off">Olaylar günlüğe kaydedilmeyecek</string>
     <string name="prefs_reset_push">Dürtme jetonu sıfırla</string>
     <string name="prefs_sum_reset_push">FCM/HMS ile Dürtme bildirimleri için cihazı yeniden kaydet</string>
@@ -194,6 +203,7 @@ tekrar denemeden önce girdiğiniz numaranın doğru olduğundan ve mobil ağa b
     <string name="attach_camera">Kamera</string>
     <string name="menu_restore">Yedekten geri yükle</string>
     <string name="restore_id_hint">Geri yükleme için dışa aktarılan kimliğin metin dizesini girin veya yapıştırın</string>
+    <string name="restore_id_string_label">Kimlik dışa aktarma metin dizesi</string>
     <string name="location_placeholder">Konum</string>
     <string name="video_placeholder">Video</string>
     <string name="audio_placeholder">Ses</string>
@@ -346,8 +356,11 @@ tekrar denemeden önce girdiğiniz numaranın doğru olduğundan ve mobil ağa b
     <string name="status_rename_group">Grubun adı “%1$s\" olarak değiştirildi</string>
     <string name="status_group_new_photo">Grup resmi güncellendi.</string>
     <string name="status_group_new_member">“%1$s” gruba eklendi.</string>
+    <string name="status_group_you_were_added">Gruba eklendin.</string>
     <string name="status_group_member_left">“%1$s” gruptan ayrıldı.</string>
+    <string name="status_group_you_left">Gruptan ayrıldınız.</string>
     <string name="status_group_member_kicked">“%1$s” gruptan kaldırıldı.</string>
+    <string name="status_group_you_were_removed">Gruptan çıkarıldınız.</string>
     <string name="can_not_send_no_group_members">Boş bir gruba mesaj gönderemezsiniz</string>
     <string name="you_are_not_a_member_of_this_group">Bu grubun üyesi değilsiniz</string>
     <string name="title_public_nickname">Takma isim</string>
@@ -480,6 +493,7 @@ ${app_name_short} uygulamasında silerseniz, kişi senkronizasyonundan sonra tek
     <string name="ballot_result_final">Kesin sonuç</string>
     <string name="invalid_cannot_send">Geçersiz bir kişiye mesaj gönderemezsiniz</string>
     <string name="ballot_answer_count_error">Lütfen anket için en az iki cevap girin.</string>
+    <string name="ballot_removed">Anket kaldırıldı</string>
     <string name="contact_state_inactive">Etkin değil</string>
     <string name="contact_state_invalid">Geçersiz</string>
     <string name="back">Geri</string>
@@ -686,7 +700,6 @@ sunucularımıza güvenli bir şekilde iletildi. Kişisel anahtar hiçbir zaman 
     <string name="new_wizard_anonymous_confirm">${app_name_short} kimliğinize bağlamak için telefon numarası veya e-posta adresi girmediniz. Arkadaşlarınızın kişi listelerinde görünmezsiniz. ${app_name}\'ı tamamen anonim şekilde kullanmak istiyor musunuz?</string>
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_anonymous_confirm_phone_only">${app_name_short} kimliğinize bağlamak için bir telefon numarası girmediniz. Bu nedenle, otomatik olarak kişi listelerine eklenmeyeceksiniz. ${app_name} uygulamasını gerçekten anonim olarak kullanmak istiyor musunuz?</string>
-    <string name="new_wizard_scan_id_backup">ya da dışa aktarılan kimliğin kare kodunu tarayın</string>
     <string name="error_saving_file">Dosya kaydedilirken hata oluştu. İzinleri kontrol edin.</string>
     <string name="wait_one_minute">Lütfen arama talebinde bulunmadan önce kısa mesajın gelmesi için en az 10 dakika bekleyin.</string>
     <string name="backup_id">Dışa aktarılan kimlik</string>
@@ -769,7 +782,8 @@ sunucularımıza güvenli bir şekilde iletildi. Kişisel anahtar hiçbir zaman 
     <string name="prefs_language_override">Dil</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
     <string name="threema_channel_intro">${app_name_short} Kanalı size ${app_name_short} ile ilgili her şey hakkında haberler sunuyor. ${app_name_short} Kanalına abone olmak ve rehberinize eklemek ister misiniz? Ücretsizdir ve istediğiniz zaman aboneliğinizi iptal edebilirsiniz.</string>
-    <string name="quote">Alıntıla</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
+    <string name="reply_to_message">Cevapla</string>
     <string name="contacts_deleted">Kişiler silindi</string>
     <string name="take_photo">Fotoğraf çek</string>
     <string name="select_from_gallery">Galeriden seç</string>
@@ -1210,7 +1224,10 @@ sunucularımıza güvenli bir şekilde iletildi. Kişisel anahtar hiçbir zaman 
     <string name="max_selectable_media_exceeded">Bir seferde %d nesneden fazlası gönderilemez.</string>
     <string name="error_unable_loading_media_thumb">Hata. Medya küçük resmi yüklenemedi</string>
     <string name="filter_list">Ara…</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
+    <string name="search_list">Listeyi ara</string>
     <string name="hint_filter_list">Filtrele</string>
+    <string name="hint_search_list">Arama metnini girin</string>
     <string name="add">Ekle</string>
     <string name="only_images_or_videos">Yalnızca resimler veya videolar seçilebilir</string>
     <string name="media_gallery_gifs">GIF\'ler</string>
@@ -1570,10 +1587,11 @@ sunucularımıza güvenli bir şekilde iletildi. Kişisel anahtar hiçbir zaman 
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="error_reporting_summary_always_ask">Her seferinde ${company_name} şirketine hata raporu gönderilip gönderilmeyeceğini sorun.</string>
     <string name="error_detected_dialog_title">Anonim raporlar gönder</string>
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
-    <string name="crash_detected_dialog_text">Görünüşe göre ${app_name_short} uygulaması yakın zamanda çöktü. Anonim bir hata raporu göndermek ister misiniz?</string>
+    <string name="crash_detected_dialog_text">Son zamanlarda bir sorun oluşmuş gibi görünüyor. Anonim bir hata raporu göndermek ister misiniz?</string>
     <string name="crash_detected_dialog_remember_choice">Seçimimi hatırla</string>
     <string name="crash_detected_dialog_send_button">Gönder</string>
+    <string name="error_reporting_learn_more_button">Daha fazla bilgi edinin</string>
+    <string name="error_reporting_details_button">Teknik Detaylar</string>
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
     <string name="prefs_error_reporting_id">Anonim cihaz kimliği</string>
     <!-- The %s is a placeholder for an ID. It must be left as-is. -->
@@ -1602,6 +1620,7 @@ sunucularımıza güvenli bir şekilde iletildi. Kişisel anahtar hiçbir zaman 
     <!-- Button label on dialog when configuring a backup, shown on dialog that lets the user choose how they want to select the backup folder. This option lets them bypass the file picker and use the default Documents folder instead -->
     <string name="backup_path_selection_documents">\"Belgeler\" klasörünü kullanın</string>
     <!-- accessibility -->
+    <string name="cd_menu_more">Daha fazla seçenek</string>
     <string name="cd_edited">düzenlenecek mesaj</string>
     <string name="cd_created_at">oluşturuldu %s</string>
     <string name="cd_edited_at">düzenlendi %s</string>
@@ -1748,7 +1767,6 @@ sunucularımıza güvenli bir şekilde iletildi. Kişisel anahtar hiçbir zaman 
     <string name="edit_availability_status_modal_optional_message_placeholder">Bir toplantıda</string>
     <string name="edit_availability_status_modal_optional_message_description">Meşgul veya Müsait Değil seçeneği seçildiğinde özel bir durum mesajı ayarlayın.</string>
     <string name="edit_availability_status_modal_optional_message_too_long">Metin çok uzun, lütfen kısaltın</string>
-    <string name="edit_availability_status_did_change">Kullanılabilirlik durumu değişti</string>
     <string name="tooltip_title_availability_status">Müsaitlik durumu</string>
     <string name="tooltip_text_availability_status_in_chat">Birine mesaj atmadan önce meşgul veya uygun olmadığını kontrol edin. Kendi durumunuzu profilinizde ayarlayabilirsiniz.</string>
     <string name="tooltip_text_availability_status_in_profile">Meşgul veya müsait olmadığınızda durumunuzu gösterin.</string>
@@ -1808,6 +1826,8 @@ sunucularımıza güvenli bir şekilde iletildi. Kişisel anahtar hiçbir zaman 
         <item quantity="one">%d mesaj silindi</item>
         <item quantity="other">%d mesaj silindi</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
+    <string name="notifications_for_one_week">1 hafta için</string>
     <plurals name="notifications_for_x_hours">
         <item quantity="one">%d saat</item>
         <item quantity="other">%d saat</item>

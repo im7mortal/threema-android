@@ -6,6 +6,6 @@ import androidx.compose.runtime.Stable
 
 @Stable
 data class ButtonIconInfo(
-    @DrawableRes val icon: Int,
-    @StringRes val contentDescription: Int?,
+    @DrawableRes val iconRes: Int,
+    @StringRes val contentDescription: Int? = null,
 )

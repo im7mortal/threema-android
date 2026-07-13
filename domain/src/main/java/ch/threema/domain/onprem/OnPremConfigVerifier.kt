@@ -1,7 +1,7 @@
 package ch.threema.domain.onprem
 
 import ch.threema.base.ThreemaException
-import ch.threema.base.utils.Base64
+import ch.threema.common.Base64
 import ch.threema.common.lastLine
 import ch.threema.common.secureContentEquals
 import ch.threema.common.withoutLastLine

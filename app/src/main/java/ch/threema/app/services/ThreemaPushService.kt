@@ -11,16 +11,17 @@ import android.content.Intent
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING
 import android.os.Build
 import android.os.IBinder
-import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
+import ch.threema.android.buildNotification
 import ch.threema.app.R
-import ch.threema.app.ThreemaApplication
 import ch.threema.app.activities.DummyActivity
 import ch.threema.app.activities.ThreemaPushNotificationInfoActivity
+import ch.threema.app.managers.ServiceManager
 import ch.threema.app.notifications.NotificationChannels
+import ch.threema.app.notifications.NotificationIDs.THREEMA_PUSH_ACTIVE_NOTIFICATION_ID
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.webclient.services.SessionAndroidService
 import ch.threema.base.utils.getThreemaLogger
@@ -49,20 +50,17 @@ class ThreemaPushService : Service() {
 
         createNotificationChannel()
 
-        // Create notification
-        val builder: NotificationCompat.Builder = NotificationCompat.Builder(
-            this,
-            NotificationChannels.NOTIFICATION_CHANNEL_THREEMA_PUSH,
-        )
-            .setContentTitle(getString(R.string.threema_push))
-            .setContentText(getString(R.string.threema_push_notification_text))
-            .setSmallIcon(R.drawable.ic_notification_push)
-            .setLocalOnly(true)
-            .setContentIntent(contentIntent)
+        val notification = buildNotification(this, NotificationChannels.NOTIFICATION_CHANNEL_THREEMA_PUSH) {
+            setContentTitle(getString(R.string.threema_push))
+            setContentText(getString(R.string.threema_push_notification_text))
+            setSmallIcon(R.drawable.ic_notification_push)
+            setLocalOnly(true)
+            setContentIntent(contentIntent)
+        }
         ServiceCompat.startForeground(
             this,
             THREEMA_PUSH_ACTIVE_NOTIFICATION_ID,
-            builder.build(),
+            notification,
             FG_SERVICE_TYPE,
         )
         logger.info("startForeground called")
@@ -72,7 +70,7 @@ class ThreemaPushService : Service() {
         // Initialization may lock the app for a while, so we display the above notification
         // *before* getting the service to avoid a "Context.startForegroundService() did not
         // then call Service.startForeground()" exception.
-        val serviceManager = ThreemaApplication.getServiceManager()
+        val serviceManager = ServiceManager.get()
         if (serviceManager == null) {
             logger.error("Service Manager not available (passphrase locked?). Can't start Threema Push.")
             stopSelf()
@@ -184,7 +182,6 @@ class ThreemaPushService : Service() {
     }
 
     companion object {
-        private const val THREEMA_PUSH_ACTIVE_NOTIFICATION_ID = 27392
         private const val LIFETIME_SERVICE_TAG = "threemaPushService"
         private val FG_SERVICE_TYPE =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING else 0

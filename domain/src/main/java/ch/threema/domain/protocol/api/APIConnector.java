@@ -17,12 +17,11 @@ import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -37,10 +36,11 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 import ch.threema.base.ThreemaException;
-import ch.threema.base.utils.Base64;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.HashKt.sha256;
 
+import ch.threema.common.Base64;
 import ch.threema.domain.protocol.ServerAddressProvider;
 import ch.threema.domain.protocol.Version;
 import ch.threema.domain.protocol.api.work.WorkContact;
@@ -49,6 +49,9 @@ import ch.threema.domain.protocol.api.work.WorkDirectory;
 import ch.threema.domain.protocol.api.work.WorkDirectoryCategory;
 import ch.threema.domain.protocol.api.work.WorkDirectoryContact;
 import ch.threema.domain.protocol.api.work.WorkDirectoryFilter;
+import ch.threema.domain.protocol.api.work.WorkDirectorySettings;
+import ch.threema.domain.protocol.api.work.WorkMDMSettings;
+import ch.threema.domain.protocol.api.work.WorkOrganization;
 import ch.threema.domain.stores.IdentityStore;
 import ch.threema.domain.stores.TokenStoreInterface;
 import ch.threema.libthreema.CryptoException;
@@ -94,13 +97,11 @@ public class APIConnector {
     @NonNull
     private final Version version;
     private final ServerAddressProvider serverAddressProvider;
-    private final boolean ipv6;
 
     @NonNull
     private final HttpRequester httpRequester;
 
     public APIConnector(
-        boolean ipv6,
         ServerAddressProvider serverAddressProvider,
         boolean isWork,
         @NonNull OkHttpClient okHttpClient,
@@ -108,18 +109,16 @@ public class APIConnector {
         @Nullable String language,
         @Nullable APIAuthenticator authenticator
     ) {
-        this(ipv6, serverAddressProvider, isWork, new HttpRequester(okHttpClient, authenticator, language, version), version);
+        this(serverAddressProvider, isWork, new HttpRequester(okHttpClient, authenticator, language, version), version);
     }
 
     protected APIConnector(
-        boolean ipv6,
         ServerAddressProvider serverAddressProvider,
         boolean isWork,
         @NonNull HttpRequester httpRequester,
         @NonNull Version version
     ) {
         this.version = version;
-        this.ipv6 = ipv6;
         this.serverAddressProvider = serverAddressProvider;
         this.isWork = isWork;
         this.httpRequester = httpRequester;
@@ -143,8 +142,7 @@ public class APIConnector {
         byte[] hashedSeed = null;
         if (seed != null) {
             // Hash the seed to ensure it is unbiased and has the right length
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            hashedSeed = md.digest(seed);
+            hashedSeed = sha256(seed);
         }
         // Generate new key pair and store
         logger.debug("Generating new key pair");
@@ -153,7 +151,7 @@ public class APIConnector {
         // Phase 1: send public key to server
         logger.debug("Sending public key to server");
         JSONObject p1Body = new JSONObject();
-        p1Body.put("publicKey", Base64.encodeBytes(keypair.publicKey));
+        p1Body.put("publicKey", Base64.encode(keypair.publicKey));
 
         String p1ResultString = this.postJson(url, p1Body);
         JSONObject p1Result = new JSONObject(p1ResultString);
@@ -170,9 +168,9 @@ public class APIConnector {
         byte[] response = calcTokenResponse(sharedSecret, token);
 
         JSONObject p2Body = requestData.createIdentityRequestDataJSON();
-        p2Body.put("publicKey", Base64.encodeBytes(keypair.publicKey));
+        p2Body.put("publicKey", Base64.encode(keypair.publicKey));
         p2Body.put("token", tokenString);
-        p2Body.put("response", Base64.encodeBytes(response));
+        p2Body.put("response", Base64.encode(response));
 
         String p2ResultString = this.postJson(url, p2Body);
         JSONObject p2Result = new JSONObject(p2ResultString);
@@ -557,7 +555,7 @@ public class APIConnector {
             String normalizedEmail = entry.getKey().toLowerCase().trim();
             byte[] emailHash =
                 emailMac.doFinal(normalizedEmail.getBytes(StandardCharsets.US_ASCII));
-            emailHashes.put(Base64.encodeBytes(emailHash), entry.getValue());
+            emailHashes.put(Base64.encode(emailHash), entry.getValue());
 
             // Gmail address? If so, hash with the other domain as well
             String normalizedEmailAlt = null;
@@ -570,7 +568,7 @@ public class APIConnector {
             if (normalizedEmailAlt != null) {
                 byte[] emailHashAlt =
                     emailMac.doFinal(normalizedEmailAlt.getBytes(StandardCharsets.US_ASCII));
-                emailHashes.put(Base64.encodeBytes(emailHashAlt), entry.getValue());
+                emailHashes.put(Base64.encode(emailHashAlt), entry.getValue());
             }
         }
 
@@ -600,7 +598,7 @@ public class APIConnector {
 
                 byte[] mobileNoHash =
                     mobileNoMac.doFinal(normalizedMobileNo.getBytes(StandardCharsets.US_ASCII));
-                mobileNoHashes.put(Base64.encodeBytes(mobileNoHash), entry.getValue());
+                mobileNoHashes.put(Base64.encode(mobileNoHash), entry.getValue());
             } catch (NumberParseException e) {
                 // Skip/ignore this number
                 logger.debug("Failed to parse phone number {}: {}", entry.getKey(), e.getMessage());
@@ -808,7 +806,7 @@ public class APIConnector {
         if (expiration < 1) {
             throw new ThreemaException("Received invalid expiration");
         }
-        Date expirationDate = new Date(new Date().getTime() + expiration * 1000L);
+        Instant expirationDate = Instant.now().plus(expiration, ChronoUnit.SECONDS);
 
         return new SfuToken(baseUrl, allowedSfuHostnameSuffixes, token, expirationDate);
     }
@@ -918,10 +916,9 @@ public class APIConnector {
     ) throws Exception {
 
         // Calculate key
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-        byte[] sha256 = md.digest(revocationKey.getBytes(StandardCharsets.UTF_8));
+        byte[] sha256 = sha256(revocationKey);
 
-        String base64KeyPart = Base64.encodeBytes(Arrays.copyOfRange(sha256, 0, 4));
+        String base64KeyPart = Base64.encode(Arrays.copyOfRange(sha256, 0, 4));
         String url = getServerUrl() + "identity/set_revocation_key";
 
         JSONObject request = new JSONObject();
@@ -1038,7 +1035,7 @@ public class APIConnector {
         String turnUsername = p2Result.getString("turnUsername");
         String turnPassword = p2Result.getString("turnPassword");
         int expiration = p2Result.getInt("expiration");
-        Date expirationDate = new Date(new Date().getTime() + expiration * 1000L);
+        Instant expirationDate = Instant.now().plus(expiration, ChronoUnit.SECONDS);
 
         return new TurnServerInfo(turnUrls, turnUrlsDualStack, turnUsername, turnPassword,
             expirationDate);
@@ -1168,8 +1165,6 @@ public class APIConnector {
      */
     @NonNull
     public WorkData fetchWorkData(String username, String password, @NonNull String[] identities) throws Exception {
-        WorkData workData = new WorkData();
-
         JSONObject request = new JSONObject();
         request.put("username", username);
         request.put("password", password);
@@ -1182,32 +1177,37 @@ public class APIConnector {
 
         HttpRequesterResult httpRequesterResult = httpRequester.post(getWorkServerUrlLegacy() + "fetch2", request);
         if (httpRequesterResult instanceof HttpRequesterResult.Error) {
-            workData.responseCode = ((HttpRequesterResult.Error) httpRequesterResult).responseCode;
-            return workData;
-        }
-        @NonNull String responseBody = ((HttpRequesterResult.Success) httpRequesterResult).responseBody;
-        JSONObject jsonResponse = new JSONObject(responseBody);
-        if (jsonResponse.has("support") && !jsonResponse.isNull("support")) {
-            workData.supportUrl = jsonResponse.getString("support");
+            var responseCode = ((HttpRequesterResult.Error) httpRequesterResult).responseCode;
+            return WorkData.error(responseCode);
         }
 
+        @NonNull String responseBody = ((HttpRequesterResult.Success) httpRequesterResult).responseBody;
+        JSONObject jsonResponse = new JSONObject(responseBody);
+
+        String supportUrl = null;
+        if (jsonResponse.has("support") && !jsonResponse.isNull("support")) {
+            supportUrl = jsonResponse.getString("support");
+        }
+
+        String logoDark = null;
+        String logoLight = null;
         if (jsonResponse.has("logo")) {
             final JSONObject logos = jsonResponse.getJSONObject("logo");
             if (logos.has("dark") && !logos.isNull("dark")) {
-                workData.logoDark = logos.getString("dark");
+                logoDark = logos.getString("dark");
             }
             if (logos.has("light") && !logos.isNull("light")) {
-                workData.logoLight = logos.getString("light");
+                logoLight = logos.getString("light");
             }
         }
 
-        workData.checkInterval = (jsonResponse.has("checkInterval") ?
+        int checkInterval = (jsonResponse.has("checkInterval") ?
             jsonResponse.getInt("checkInterval") : 0);
 
         // Current UNIX-ish timestamp in milliseconds of the server.
         final @Nullable Long timeRaw = jsonResponse.has(JSON_FIELD_TIME) ? jsonResponse.getLong(JSON_FIELD_TIME) : null;
         final @Nullable Instant time = timeRaw != null ? Instant.ofEpochMilli(timeRaw) : null;
-
+        List<WorkContact> workContacts = new ArrayList<>();
         if (jsonResponse.has("contacts")) {
             JSONArray contacts = jsonResponse.getJSONArray("contacts");
 
@@ -1216,7 +1216,7 @@ public class APIConnector {
 
                 // validate fields
                 if (contact.has("id") && contact.has("pk")) {
-                    workData.workContacts.add(
+                    workContacts.add(
                         new WorkContact(
                             contact.getString("id"),
                             Base64.decode(contact.getString("pk")),
@@ -1232,51 +1232,66 @@ public class APIConnector {
             }
         }
 
+        WorkMDMSettings mdm = null;
         if (jsonResponse.has("mdm")) {
             JSONObject jsonMDM = jsonResponse.getJSONObject("mdm");
-            workData.mdm.override = jsonMDM.optBoolean("override", false);
+            var override = jsonMDM.optBoolean("override", false);
+            var mdmParameters = new HashMap<String, Object>();
             if (jsonMDM.has("params")) {
                 JSONObject jsonMAMParameters = jsonMDM.getJSONObject("params");
                 Iterator<String> keys = jsonMAMParameters.keys();
-
                 while (keys.hasNext()) {
                     String currentKey = keys.next();
-                    workData.mdm.parameters.put(
+                    mdmParameters.put(
                         currentKey,
                         jsonMAMParameters.get(currentKey)
                     );
                 }
-
             }
+            mdm = new WorkMDMSettings(override, mdmParameters);
         }
 
         // Since Release: work-directory
         JSONObject jsonResponseOrganization = jsonResponse.optJSONObject("org");
+        WorkOrganization organization = null;
         if (jsonResponseOrganization != null) {
-            workData.organization.setName(
+            organization = new WorkOrganization(
                 jsonResponseOrganization.isNull("name")
                     ? null
                     : jsonResponseOrganization.optString("name")
             );
         }
 
-        JSONObject directory = jsonResponse.optJSONObject("directory");
-        if (directory != null) {
-            workData.directory.enabled = directory.optBoolean("enabled", false);
-            JSONObject categories = directory.optJSONObject("cat");
-            if (categories != null) {
-                Iterator<String> keys = categories.keys();
-
+        WorkDirectorySettings workDirectorySettings = null;
+        JSONObject directoryJson = jsonResponse.optJSONObject("directory");
+        if (directoryJson != null) {
+            var directoryEnabled = directoryJson.optBoolean("enabled", false);
+            var directoryCategories = new ArrayList<WorkDirectoryCategory>();
+            JSONObject categoriesJson = directoryJson.optJSONObject("cat");
+            if (categoriesJson != null) {
+                Iterator<String> keys = categoriesJson.keys();
                 while (keys.hasNext()) {
                     String categoryId = keys.next();
-                    workData.directory.categories.add(new WorkDirectoryCategory(
+                    directoryCategories.add(new WorkDirectoryCategory(
                         categoryId,
-                        categories.getString(categoryId)));
+                        categoriesJson.getString(categoryId)
+                    ));
                 }
             }
-
+            workDirectorySettings = new WorkDirectorySettings(directoryEnabled, directoryCategories);
         }
-        return workData;
+
+        return new WorkData(
+            workContacts,
+            mdm != null ? mdm : new WorkMDMSettings(),
+            workDirectorySettings != null ? workDirectorySettings : new WorkDirectorySettings(),
+            organization != null ? organization : new WorkOrganization(),
+            logoDark,
+            logoLight,
+            supportUrl,
+            checkInterval,
+            0
+        );
     }
 
 
@@ -1617,22 +1632,29 @@ public class APIConnector {
      * @param request       Phase 1 request. This request will be updated with the signed token.
      * @param identityStore Identity store used to sign the token.
      * @throws JSONException    if a required field cannot be retrieved from the `p1Result`
-     * @throws IOException      if base64 decoding of the token fails
      * @throws ThreemaException if the token is invalid or if signing fails
      */
     private void makeTokenResponse(
         @NonNull JSONObject p1Result,
         @NonNull JSONObject request,
         @NonNull IdentityStore identityStore
-    ) throws JSONException, IOException, ThreemaException {
-        byte[] token = Base64.decode(p1Result.getString("token"));
-        byte[] tokenRespKeyPub = Base64.decode(p1Result.getString("tokenRespKeyPub"));
+    ) throws JSONException, ThreemaException {
+        try {
+            byte[] token = Base64.decode(p1Result.getString("token"));
+            byte[] tokenRespKeyPub = Base64.decode(p1Result.getString("tokenRespKeyPub"));
 
-        // Create authenticator response for token with our secret key
-        byte[] response = calcTokenResponse(identityStore.calcSharedSecret(tokenRespKeyPub), token);
+            // Create authenticator response for token with our secret key
+            byte[] sharedSecret = identityStore.calcSharedSecret(tokenRespKeyPub);
+            if (sharedSecret == null) {
+                throw new ThreemaException("Could not calculate shared secret");
+            }
+            byte[] response = calcTokenResponse(sharedSecret, token);
 
-        request.put("token", Base64.encodeBytes(token));
-        request.put("response", Base64.encodeBytes(response));
+            request.put("token", Base64.encode(token));
+            request.put("response", Base64.encode(response));
+        } catch (IllegalArgumentException e) {
+            throw new ThreemaException("Invalid Base64", e);
+        }
     }
 
     public @Nullable APIConnector.FetchIdentityResult getFetchResultByIdentity(
@@ -1650,11 +1672,11 @@ public class APIConnector {
     }
 
     private String getServerUrl() throws ThreemaException {
-        return serverAddressProvider.getDirectoryServerUrl(ipv6);
+        return serverAddressProvider.getDirectoryServerUrl();
     }
 
     private String getWorkServerUrlLegacy() throws ThreemaException {
-        return serverAddressProvider.getWorkServerUrlLegacy(ipv6);
+        return serverAddressProvider.getWorkServerUrlLegacy();
     }
 
     @NonNull
@@ -1757,10 +1779,10 @@ public class APIConnector {
         public final String[] turnUrlsDualStack;
         public final String turnUsername;
         public final String turnPassword;
-        public final Date expirationDate;
+        public final Instant expirationDate;
 
         public TurnServerInfo(String[] turnUrls, String[] turnUrlsDualStack, String turnUsername,
-                              String turnPassword, Date expirationDate) {
+                              String turnPassword, Instant expirationDate) {
             this.turnUrls = turnUrls;
             this.turnUrlsDualStack = turnUrlsDualStack;
             this.turnUsername = turnUsername;

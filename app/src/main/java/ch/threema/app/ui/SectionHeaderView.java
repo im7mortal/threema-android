@@ -7,7 +7,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import ch.threema.app.R;
-import ch.threema.app.utils.TestUtil;
+
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class SectionHeaderView extends LinearLayout {
     private TextView textView;
@@ -47,7 +48,7 @@ public class SectionHeaderView extends LinearLayout {
 
     public void setText(String text) {
         if (this.textView != null) {
-            if (!TestUtil.isEmptyOrNull(text)) {
+            if (!isNullOrEmpty(text)) {
                 this.textView.setText(text);
             } else {
                 this.textView.setText("");

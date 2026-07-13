@@ -77,8 +77,9 @@
         <item name="windowActionModeOverlay">true</item>
 
         <!-- drawables -->
-        <item name="android:actionModeCloseDrawable">@drawable/ic_close_daynight</item>
-        <item name="actionModeCloseDrawable">@drawable/ic_close_daynight</item>
+        <item name="homeAsUpIndicator">@drawable/ic_arrow_left</item>
+        <item name="android:actionModeCloseDrawable">@drawable/ic_close</item>
+        <item name="actionModeCloseDrawable">@drawable/ic_close</item>
         <item name="android:fastScrollThumbDrawable">@drawable/fastscroll_thumb_material</item>
 
         <!-- mapping for system styles -->
@@ -116,9 +117,6 @@
         <item name="android:windowAnimationStyle">@style/Threema.Animation.ActivityTransitions
         </item>
         <item name="tabStyle">@style/Threema.TabStyle</item>
-        <item name="snackbarStyle">@style/Threema.Snackbar.Style</item>
-        <item name="snackbarButtonStyle">@style/Threema.Snackbar.ButtonStyle</item>
-        <item name="snackbarTextViewStyle">@style/Threema.Snackbar.TextViewStyle</item>
         <item name="materialSearchBarStyle">@style/Threema.SearchBar.Style</item>
         <item name="floatingActionButtonPrimaryStyle">@style/Threema.FloatingActionButton.Primary
         </item>
@@ -265,100 +263,6 @@
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
         <item name="windowSplashScreenIconBackgroundColor">@color/ic_launcher_background</item>
         <item name="postSplashScreenTheme">@style/Theme.Threema.WithToolbar</item>
-    </style>
-
-    <style name="Theme.Threema.Wizard" parent="Theme.Material3.Dark">
-        <item name="elevationOverlayEnabled">true</item>
-        <item name="elevationOverlayColor">@color/md_theme_dark_outline</item>
-
-        <item name="windowActionBar">false</item>
-        <item name="windowNoTitle">true</item>
-
-        <item name="colorPrimary">@color/md_theme_dark_primary</item>
-        <item name="colorOnPrimary">@color/md_theme_dark_onPrimary</item>
-        <item name="colorPrimaryContainer">@color/md_theme_dark_primaryContainer</item>
-        <item name="colorOnPrimaryContainer">@color/md_theme_dark_onPrimaryContainer</item>
-        <item name="colorSecondary">@color/md_theme_dark_secondary</item>
-        <item name="colorOnSecondary">@color/md_theme_dark_onSecondary</item>
-        <item name="colorSecondaryContainer">@color/md_theme_dark_secondaryContainer</item>
-        <item name="colorOnSecondaryContainer">@color/md_theme_dark_onSecondaryContainer</item>
-        <item name="colorTertiary">@color/md_theme_dark_tertiary</item>
-        <item name="colorOnTertiary">@color/md_theme_dark_onTertiary</item>
-        <item name="colorTertiaryContainer">@color/md_theme_dark_tertiaryContainer</item>
-        <item name="colorOnTertiaryContainer">@color/md_theme_dark_onTertiaryContainer</item>
-        <item name="colorError">@color/md_theme_dark_error</item>
-        <item name="colorOnError">@color/md_theme_dark_onError</item>
-        <item name="colorErrorContainer">@color/md_theme_dark_errorContainer</item>
-        <item name="colorOnErrorContainer">@color/md_theme_dark_onErrorContainer</item>
-        <item name="android:colorBackground">@color/md_theme_dark_background</item>
-        <item name="colorOnBackground">@color/md_theme_dark_onBackground</item>
-        <item name="colorSurface">@color/md_theme_dark_surface</item>
-        <item name="colorOnSurface">@color/md_theme_dark_onSurface</item>
-        <item name="colorSurfaceVariant">@color/md_theme_dark_surfaceVariant</item>
-        <item name="colorOnSurfaceVariant">@color/md_theme_dark_onSurfaceVariant</item>
-        <item name="colorOutline">@color/md_theme_dark_outline</item>
-        <item name="colorOutlineVariant">@color/md_theme_dark_outlineVariant</item>
-        <item name="colorSurfaceInverse">@color/md_theme_dark_inverseSurface</item>
-        <item name="colorOnSurfaceInverse">@color/md_theme_dark_inverseOnSurface</item>
-        <item name="colorPrimaryInverse">@color/md_theme_dark_inversePrimary</item>
-
-        <!-- deprecated color mappings -->
-        <!-- darker variant for the status bar and contextual app bars -->
-        <item name="colorPrimaryDark">@color/md_theme_dark_secondary</item>
-        <!-- theme UI controls like checkboxes and text fields -->
-        <item name="colorAccent">@color/md_theme_dark_primary</item>
-        <item name="android:windowBackground">@color/md_theme_dark_background</item>
-
-        <!-- action mode appears on top of tool bar -->
-        <item name="android:textColorPrimary">@color/md_theme_dark_onSurface</item>
-        <item name="textColorPrimary">@color/md_theme_dark_onSurface</item>
-
-        <!-- used to tint menu/hamburger icons in action bar -->
-        <item name="android:textColorSecondary">@color/md_theme_dark_onSurface</item>
-        <item name="textColorSecondary">@color/md_theme_dark_onSurface</item>
-
-        <item name="colorControlNormal">@color/md_theme_dark_onSurface</item>
-        <item name="android:colorControlNormal">@color/md_theme_dark_onSurface</item>
-
-        <!-- mapping for system styles -->
-        <!-- ie. dialog titles -->
-        <item name="textAppearanceHeadlineSmall">@style/Threema.TextAppearance.Headline</item>
-        <item name="textAppearanceBodyLarge">@style/Threema.TextAppearance.BodyLarge</item>
-        <item name="textAppearanceBodyMedium">@style/Threema.TextAppearance.BodyMedium</item>
-        <item name="textAppearanceBodySmall">@style/Threema.TextAppearance.BodySmall</item>
-
-        <item name="materialButtonStyle">@style/Threema.MaterialButton.Wizard</item>
-        <item name="alertDialogStyle">@style/Threema.Dialog.Wizard</item>
-        <item name="materialAlertDialogTheme">@style/Threema.MaterialAlertDialog</item>
-
-        <!-- Action mode & Action bar -->
-        <item name="actionModeStyle">@style/Threema.ActionMode</item>
-        <item name="actionModeCloseButtonStyle">@style/Threema.ActionMode.CloseButton.Style</item>
-        <item name="actionBarTheme">@style/ThemeOverlay.MaterialComponents.ActionBar</item>
-        <item name="actionBarStyle">@style/Widget.MaterialComponents.Light.ActionBar.Solid</item>
-        <item name="actionBarPopupTheme">@style/ThemeOverlay.MaterialComponents.Dark</item>
-        <item name="actionOverflowMenuStyle">@style/Threema.PopupMenuStyle.Overflow</item>
-        <item name="actionOverflowButtonStyle">@style/Threema.ActionOverflowButtonStyle</item>
-
-        <!-- Necessary when using menus with MenuInflater as the attr/popupMenuStyle will not work -->
-        <item name="textAppearanceLargePopupMenu">@style/Threema.TextAppearance.PopupMenu.Large
-        </item>
-        <item name="textAppearanceSmallPopupMenu">@style/Threema.TextAppearance.PopupMenu.Small
-        </item>
-
-        <!-- Status bar and navigation bar color -->
-        <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
-        <item name="android:statusBarColor">@color/md_theme_dark_background</item>
-        <item name="android:navigationBarColor">@color/md_theme_dark_background</item>
-    </style>
-
-    <style name="Theme.Threema.Wizard.Translucent" parent="Theme.Threema.Wizard">
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:colorBackgroundCacheHint">@null</item>
-        <item name="android:windowIsTranslucent">true</item>
-        <item name="android:windowAnimationStyle">@style/Threema.Animation.None</item>
     </style>
 
     <style name="Theme.Threema.Camera" parent="Theme.Threema.WithToolbar">

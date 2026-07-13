@@ -12,7 +12,6 @@ import ch.threema.domain.protocol.csp.coders.MessageBox
 import ch.threema.domain.protocol.multidevice.MultiDeviceKeys
 import ch.threema.domain.taskmanager.MessageFilterInstruction
 import ch.threema.domain.taskmanager.TaskCodec
-import java.util.Date
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -78,7 +77,7 @@ open class ServerAckTaskCodec : TaskCodec {
                 encryptedEnvelopeResult.encryptedEnvelope,
             ),
         )
-        return Date().time.toULong()
+        return System.currentTimeMillis().toULong()
     }
 
     override suspend fun reflect(encryptedEnvelopeResult: MultiDeviceKeys.EncryptedEnvelopeResult): UInt {
@@ -139,7 +138,7 @@ open class ServerAckTaskCodec : TaskCodec {
     private fun createReflectAck(reflectId: UInt): InboundD2mMessage {
         return InboundD2mMessage.ReflectAck(
             reflectId,
-            Date().time.toULong(),
+            System.currentTimeMillis().toULong(),
         )
     }
 }

@@ -1,7 +1,7 @@
 //! Debug-related utilities.
 use core::fmt;
 
-use data_encoding::HEXLOWER;
+use data_encoding::HEXLOWER_PERMISSIVE;
 
 use crate::crypto::x25519;
 
@@ -23,7 +23,7 @@ pub(crate) fn debug_str_redacted(field: &str, formatter: &mut fmt::Formatter<'_>
 
 /// Formatter to format bytes as hex.
 pub(crate) fn debug_bytes_hex(bytes: &[u8], formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-    formatter.write_str(&HEXLOWER.encode(bytes))
+    formatter.write_str(&HEXLOWER_PERMISSIVE.encode(bytes))
 }
 
 /// Formatter to format a [`x25519::StaticSecret`] to its public key.

@@ -2,6 +2,7 @@
 <resources>
 
     <!-- adaptive dimensions for margins and paddings depending on screen width -->
+    <dimen name="dynamic_grid_unit_x0_25">4dp</dimen>
     <dimen name="dynamic_grid_unit_x0_5">8dp</dimen>
     <dimen name="dynamic_grid_unit_x1">16dp</dimen>
     <dimen name="dynamic_grid_unit_x1_5">24dp</dimen>

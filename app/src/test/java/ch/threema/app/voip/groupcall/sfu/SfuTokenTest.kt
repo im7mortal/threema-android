@@ -1,10 +1,13 @@
 package ch.threema.app.voip.groupcall.sfu
 
+import ch.threema.common.plus
 import ch.threema.domain.protocol.api.SfuToken
+import java.time.Instant
 import java.util.*
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.days
 
 private const val SFU_BASE_URL = "https://server-1-sfu.threema.ch/"
 private val SFU_BASE_URL_ALLOWED_SUFFIXES: Set<String> = setOf(
@@ -92,11 +95,11 @@ internal class SfuTokenTest {
 
     private fun getToken(allowedSuffixes: Set<String> = SFU_BASE_URL_ALLOWED_SUFFIXES): SfuToken {
         // Some date in the future. As long as it is not relevant for the tests any date can be used.
-        val expirationDate = Date(Date().time + 86_400_000L)
+        val expirationDate = Instant.now() + 1.days
         return SfuToken(
             SFU_BASE_URL,
             allowedSuffixes,
-            "${expirationDate.time / 1000L}:ABCD1234:YvKFP429AWBkIsJ4upEm9b6OJ3tayu",
+            "${expirationDate.epochSecond}:ABCD1234:YvKFP429AWBkIsJ4upEm9b6OJ3tayu",
             expirationDate,
         )
     }

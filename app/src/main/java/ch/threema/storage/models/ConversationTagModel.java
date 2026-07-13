@@ -1,6 +1,10 @@
 package ch.threema.storage.models;
 
-import java.util.Date;
+import java.time.Instant;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import ch.threema.data.datatypes.ConversationId;
 
 public class ConversationTagModel {
     public static final String TABLE = "conversation_tag";
@@ -8,48 +12,32 @@ public class ConversationTagModel {
     public static final String COLUMN_TAG = "tag";
     public static final String COLUMN_CREATED_AT = "createdAt";
 
-    private String conversationUid;
-    private String tag;
-    private Date createdAt;
+    private final @NonNull ConversationId conversationId;
+    private final @Nullable String tag;
+    private final @Nullable Instant createdAt;
 
-    public ConversationTagModel(String conversationUid, String tag) {
-        this.conversationUid = conversationUid;
+    public ConversationTagModel(@NonNull ConversationId conversationId, @Nullable String tag, @Nullable Instant createdAt) {
+        this.conversationId = conversationId;
         this.tag = tag;
-        this.createdAt = new Date();
+        this.createdAt = (createdAt != null) ? createdAt : Instant.now();
     }
 
-    public ConversationTagModel(String conversationUid, ConversationTag tag) {
-        this(conversationUid, tag.value);
+    public ConversationTagModel(@NonNull ConversationId conversationId, @NonNull ConversationTag tag) {
+        this(conversationId, tag.value, null);
     }
 
-    public ConversationTagModel() {
+    @NonNull
+    public ConversationId getConversationId() {
+        return this.conversationId;
     }
 
-
-    public ConversationTagModel setConversationUid(String conversationUid) {
-        this.conversationUid = conversationUid;
-        return this;
-    }
-
-    public String getConversationUid() {
-        return this.conversationUid;
-    }
-
-    public ConversationTagModel setTag(String tag) {
-        this.tag = tag;
-        return this;
-    }
-
+    @Nullable
     public String getTag() {
         return this.tag;
     }
 
-    public ConversationTagModel setCreatedAt(Date createdAt) {
-        this.createdAt = createdAt;
-        return this;
-    }
-
-    public Date getCreatedAt() {
+    @Nullable
+    public Instant getCreatedAt() {
         return this.createdAt;
     }
 }

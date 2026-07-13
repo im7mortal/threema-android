@@ -2,7 +2,6 @@ package ch.threema.domain.protocol.blob
 
 import ch.threema.base.ProgressListener
 import ch.threema.base.ThreemaException
-import ch.threema.base.utils.Utils
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.Http
 import ch.threema.common.buildNew
@@ -52,8 +51,6 @@ class BlobUploader private constructor(
     private val serverAddressProvider: ServerAddressProvider,
     @JvmField var progressListener: ProgressListener?,
     private val shouldPersist: Boolean,
-    // used for usual blob server request:
-    private val useIpv6: Boolean?,
     // used for mirror blob server request:
     private val multiDevicePropertyProvider: MultiDevicePropertyProvider?,
     private val blobScope: BlobScope?,
@@ -76,7 +73,6 @@ class BlobUploader private constructor(
             version: Version,
             serverAddressProvider: ServerAddressProvider,
             progressListener: ProgressListener?,
-            useIpv6: Boolean,
             shouldPersist: Boolean,
         ): BlobUploader = BlobUploader(
             baseOkhttpClient = baseOkhttpClient,
@@ -88,7 +84,6 @@ class BlobUploader private constructor(
             serverAddressProvider = serverAddressProvider,
             progressListener = progressListener,
             shouldPersist = shouldPersist,
-            useIpv6 = useIpv6,
             multiDevicePropertyProvider = null,
             blobScope = null,
         )
@@ -118,7 +113,6 @@ class BlobUploader private constructor(
             serverAddressProvider = serverAddressProvider,
             shouldPersist = shouldPersist,
             progressListener = progressListener,
-            useIpv6 = null,
             multiDevicePropertyProvider = multiDevicePropertyProvider,
             blobScope = blobScope,
         )
@@ -163,7 +157,7 @@ class BlobUploader private constructor(
                 progressListener?.onFinished(true)
 
                 logger.info("Blob upload completed. ID = $blobIdHex")
-                return Utils.hexStringToByteArray(blobIdHex)
+                return blobIdHex.hexToByteArray()
             }
         } catch (ioException: IOException) {
             // Mutable field `isCancelled` will be mutated by calls to progressListener.onFinished
@@ -202,16 +196,13 @@ class BlobUploader private constructor(
                 ),
             )
         } else {
-            if (useIpv6 == null) {
-                throw ThreemaException("Missing parameter useIpv6")
-            }
-            val blobServerUploadUrl: String = serverAddressProvider.getBlobServerUploadUrl(useIpv6)
+            val blobServerUploadUrl: String = serverAddressProvider.getBlobServerUploadUrl()
             return URL(appendQueryParametersForUsualServer(blobServerUploadUrl))
         }
     }
 
     /**
-     * @param rawUrl An url string **without** any query parameters. The value of this will not be mutated.
+     * @param rawUrl A url string **without** any query parameters. The value of this will not be mutated.
      */
     private fun appendQueryParametersForUsualServer(rawUrl: String): String {
         return "$rawUrl?${getPersistParam()}"

@@ -19,7 +19,7 @@ import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageState
 import ch.threema.storage.models.group.GroupMessageModel
-import java.util.Date
+import java.time.Instant
 
 private val logger = getThreemaLogger("ReflectedOutgoingMessageTask")
 
@@ -91,16 +91,16 @@ internal sealed class ReflectedOutgoingBaseMessageTask<
      */
     protected fun createMessageModel(messageType: ch.threema.storage.models.MessageType, contentsType: Int): ModelType {
         val messageModel = messageReceiver.createLocalModel(
+            MessageId(outgoingMessage.messageId),
             messageType,
             contentsType,
             null,
         )
 
-        messageModel.messageId = MessageId(outgoingMessage.messageId)
         messageModel.isSaved = true
         messageModel.isOutbox = true
         messageModel.state = MessageState.SENDING
-        messageModel.createdAt = Date(outgoingMessage.createdAt)
+        messageModel.createdAt = Instant.ofEpochMilli(outgoingMessage.createdAt)
         messageModel.forwardSecurityMode = message.forwardSecurityMode
 
         return messageModel

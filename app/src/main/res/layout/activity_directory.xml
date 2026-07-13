@@ -22,7 +22,7 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginVertical="@dimen/grid_unit_x4"
             android:importantForAccessibility="no"
-            android:src="@drawable/ic_contacts_outline"
+            android:src="@drawable/ic_contacts"
             app:tint="?attr/colorOnSurface" />
 
         <TextView

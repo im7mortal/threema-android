@@ -1,15 +1,23 @@
 package ch.threema.android
 
 import android.app.Activity
+import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty
 
 inline fun <reified T : Activity> buildActivityIntent(context: Context, noinline build: Intent.() -> Unit = {}): Intent =
-    buildActivityIntent(context, T::class, build)
+    buildIntent(context, T::class, build)
 
-fun <T : Activity> buildActivityIntent(context: Context, clazz: KClass<T>, build: Intent.() -> Unit = {}): Intent {
+inline fun <reified T : Service> buildServiceIntent(context: Context, noinline build: Intent.() -> Unit = {}): Intent =
+    buildIntent(context, T::class, build)
+
+inline fun <reified T : BroadcastReceiver> buildBroadcastReceiverIntent(context: Context, noinline build: Intent.() -> Unit = {}): Intent =
+    buildIntent(context, T::class, build)
+
+fun <T : Any> buildIntent(context: Context, clazz: KClass<T>, build: Intent.() -> Unit = {}): Intent {
     val intent = Intent(context, clazz.java)
     intent.apply(build)
     return intent

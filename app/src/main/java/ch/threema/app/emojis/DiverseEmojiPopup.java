@@ -12,6 +12,7 @@ import android.widget.PopupWindow;
 
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
+import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.utils.AnimationUtil;
 
 public class DiverseEmojiPopup extends PopupWindow implements View.OnClickListener {
@@ -33,7 +34,7 @@ public class DiverseEmojiPopup extends PopupWindow implements View.OnClickListen
         this.context = context;
         this.parentView = parentView;
         this.emojiManager = EmojiManager.getInstance(context);
-        this.emojiService = ThreemaApplication.requireServiceManager().getEmojiService();
+        this.emojiService = ServiceManager.require().getEmojiService();
         this.popupHeight = 2 * context.getResources().getDimensionPixelSize(R.dimen.emoji_popup_image_margin) +
             context.getResources().getDimensionPixelSize(R.dimen.emoji_popup_cardview_margin_bottom) +
             context.getResources().getDimensionPixelSize(R.dimen.emoji_picker_emoji_size);

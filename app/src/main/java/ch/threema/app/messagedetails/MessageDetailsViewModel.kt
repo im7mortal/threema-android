@@ -3,10 +3,15 @@ package ch.threema.app.messagedetails
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import ch.threema.app.eventbus.GlobalEventFlows
+import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.MessageService
 import ch.threema.app.utils.QuoteUtil
 import ch.threema.app.utils.StateBitmapUtil
+import ch.threema.common.ByteSize
+import ch.threema.common.bytes
 import ch.threema.data.datatypes.ContactNameFormat
 import ch.threema.data.repositories.EmojiReactionsRepository
 import ch.threema.domain.protocol.csp.messages.fs.ForwardSecurityMode
@@ -15,19 +20,46 @@ import ch.threema.storage.models.DistributionListMessageModel
 import ch.threema.storage.models.MessageState
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.group.GroupMessageModel
-import java.util.Date
+import java.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 class MessageDetailsViewModel(
     messageService: MessageService,
+    private val globalEventFlows: GlobalEventFlows,
     private val emojiReactionsRepository: EmojiReactionsRepository,
     private val preferenceService: PreferenceService,
     private val messageId: Int,
     private val messageType: String,
 ) : ViewModel() {
+    init {
+        viewModelScope.launch {
+            // TODO(ANDR-4681): Instead of collecting message events, it would be better if we could subscribe to changes
+            //  directly from the MessageModel class (which does not exist yet at the time of this writing)
+            globalEventFlows.messages
+                .mapNotNull { event ->
+                    when (event) {
+                        is MessageEvent.NewMessage -> null
+                        is MessageEvent.MessagesUpdated -> event.messages.find { it.uid == uiState.value.message.uid }
+                        is MessageEvent.MessageRemovedLocally -> event.message
+                        is MessageEvent.MessageEdited -> event.message
+                        is MessageEvent.MessageDeletedForAll -> event.message
+                    }
+                }
+                .filter { message ->
+                    message.uid == uiState.value.message.uid
+                }
+                .collect { message ->
+                    refreshMessage(message)
+                }
+        }
+    }
+
     private val _uiState: MutableStateFlow<ChatMessageDetailsUiState> = let {
         val message = messageService.getMessageModelFromId(messageId, messageType)
         MutableStateFlow(
@@ -45,7 +77,7 @@ class MessageDetailsViewModel(
     private fun AbstractMessageModel.hasReactions(): Boolean =
         emojiReactionsRepository.safeGetReactionsByMessage(this).isNotEmpty()
 
-    fun refreshMessage(updatedMessage: AbstractMessageModel) {
+    private fun refreshMessage(updatedMessage: AbstractMessageModel) {
         _uiState.update {
             it.copy(
                 message = updatedMessage.toUiModel(
@@ -71,8 +103,8 @@ data class MessageUiModel(
     val id: Int,
     val uid: String,
     val text: String,
-    val createdAt: Date,
-    val editedAt: Date?,
+    val createdAt: Instant,
+    val editedAt: Instant?,
     val isDeleted: Boolean,
     val isOutbox: Boolean,
     @DrawableRes val deliveryIconRes: Int?,
@@ -83,14 +115,14 @@ data class MessageUiModel(
 )
 
 data class MessageTimestampsUiModel(
-    val createdAt: Date? = null,
-    val sentAt: Date? = null,
-    val receivedAt: Date? = null,
-    val deliveredAt: Date? = null,
-    val readAt: Date? = null,
-    val modifiedAt: Date? = null,
-    val editedAt: Date? = null,
-    val deletedAt: Date? = null,
+    val createdAt: Instant? = null,
+    val sentAt: Instant? = null,
+    val receivedAt: Instant? = null,
+    val deliveredAt: Instant? = null,
+    val readAt: Instant? = null,
+    val modifiedAt: Instant? = null,
+    val editedAt: Instant? = null,
+    val deletedAt: Instant? = null,
 ) {
     fun hasProperties(): Boolean {
         return createdAt != null ||
@@ -107,13 +139,13 @@ data class MessageTimestampsUiModel(
 data class MessageDetailsUiModel(
     val messageId: String? = null,
     val mimeType: String? = null,
-    val fileSizeInBytes: Long? = null,
+    val fileSize: ByteSize? = null,
     val pfsState: ForwardSecurityMode? = null,
 ) {
     fun hasProperties(): Boolean {
         return messageId != null ||
             mimeType != null ||
-            fileSizeInBytes != null ||
+            fileSize != null ||
             pfsState != null
     }
 }
@@ -156,7 +188,7 @@ fun AbstractMessageModel?.toMessageTimestampsUiModel(): MessageTimestampsUiModel
 
     return if (this.isOutbox) {
         val shouldShowAdditionalTimestamps =
-            this.state != MessageState.SENT && !(this.type == MessageType.BALLOT && this is GroupMessageModel)
+            this.state != MessageState.SENT && !(this.type == MessageType.POLL && this is GroupMessageModel)
 
         val shouldShowPostedAt =
             (
@@ -165,7 +197,7 @@ fun AbstractMessageModel?.toMessageTimestampsUiModel(): MessageTimestampsUiModel
                     state != MessageState.FS_KEY_MISMATCH &&
                     state != MessageState.PENDING
                 ) ||
-                type == MessageType.BALLOT
+                type == MessageType.POLL
 
         val shouldShowModifiedAt =
             !(this.state == MessageState.READ && this.modifiedAt == this.readAt) &&
@@ -185,7 +217,7 @@ fun AbstractMessageModel?.toMessageTimestampsUiModel(): MessageTimestampsUiModel
         MessageTimestampsUiModel(
             createdAt = this.postedAt,
             receivedAt = this.createdAt,
-            readAt = if (this.state != MessageState.READ) this.modifiedAt else null,
+            readAt = this.readAt,
             editedAt = this.editedAt,
             deletedAt = this.deletedAt,
         )
@@ -199,8 +231,8 @@ fun AbstractMessageModel?.toMessageDetailsUiModel(): MessageDetailsUiModel {
     if (this.isStatusMessage || this.type == MessageType.GROUP_CALL_STATUS) {
         return MessageDetailsUiModel()
     }
-    val fileSize: Long? = if (this.type == MessageType.FILE) {
-        this.fileData.fileSize.takeIf { fileSize -> fileSize > 0L }
+    val fileSize: ByteSize? = if (this.type == MessageType.FILE) {
+        this.fileData.fileSize.takeIf { fileSize -> fileSize > 0L }?.bytes
     } else {
         null
     }
@@ -212,7 +244,7 @@ fun AbstractMessageModel?.toMessageDetailsUiModel(): MessageDetailsUiModel {
 
     return MessageDetailsUiModel(
         mimeType = mimeType,
-        fileSizeInBytes = fileSize,
+        fileSize = fileSize,
         messageId = messageId,
         pfsState = pfsState,
     )

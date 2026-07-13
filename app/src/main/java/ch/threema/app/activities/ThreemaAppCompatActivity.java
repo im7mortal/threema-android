@@ -64,7 +64,7 @@ public abstract class ThreemaAppCompatActivity extends AppCompatActivity {
             ConfigUtils.setCurrentDayNightMode(newDayNightMode == UI_MODE_NIGHT_YES ? MODE_NIGHT_YES : MODE_NIGHT_NO);
 
             // Reset avatar cache on theme change so that the default avatars are loaded with the correct (themed) color
-            ServiceManager sm = ThreemaApplication.getServiceManager();
+            ServiceManager sm = ServiceManager.get();
             if (sm != null) {
                 sm.getAvatarCacheService().clear();
             }

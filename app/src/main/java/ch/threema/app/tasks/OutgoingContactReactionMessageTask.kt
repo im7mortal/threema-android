@@ -11,7 +11,7 @@ import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.types.IdentityString
 import ch.threema.protobuf.csp.e2e.Reaction.ActionCase
 import com.google.protobuf.ByteString
-import java.util.Date
+import java.time.Instant
 import kotlinx.serialization.Serializable
 
 class OutgoingContactReactionMessageTask(
@@ -20,7 +20,7 @@ class OutgoingContactReactionMessageTask(
     private val messageId: MessageId,
     private val actionCase: ActionCase,
     private val emojiSequence: String,
-    private val createdAt: Date,
+    private val createdAt: Instant,
 ) : OutgoingCspMessageTask() {
     override val type: String = "OutgoingContactReactionMessageTask"
 
@@ -56,7 +56,7 @@ class OutgoingContactReactionMessageTask(
         messageId = messageId.messageId,
         actionCase = actionCase,
         emojiSequence = emojiSequence,
-        createdAt = createdAt.time,
+        createdAt = createdAt.toEpochMilli(),
     )
 
     @Serializable
@@ -75,7 +75,7 @@ class OutgoingContactReactionMessageTask(
                 messageId = MessageId(messageId),
                 actionCase = actionCase,
                 emojiSequence = emojiSequence,
-                createdAt = Date(createdAt),
+                createdAt = Instant.ofEpochMilli(createdAt),
             )
     }
 }

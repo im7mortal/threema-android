@@ -16,6 +16,8 @@ import java.util.Locale;
 
 import androidx.core.os.LocaleListCompat;
 
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
+
 public class LocaleUtil {
     public static final String UTF8_ENCODING = "UTF-8";
 
@@ -39,7 +41,7 @@ public class LocaleUtil {
         if (!locales.isEmpty()) {
             Locale appLocale = locales.get(0);
 
-            if (appLocale != null && !TestUtil.isEmptyOrNull(appLocale.getLanguage())) {
+            if (appLocale != null && !isNullOrEmpty(appLocale.getLanguage())) {
                 return appLocale.getLanguage();
             }
         }
@@ -89,6 +91,11 @@ public class LocaleUtil {
     }
 
     @NonNull
+    public static String formatDateRelative(@NonNull Instant when) {
+        return DateUtils.getRelativeTimeSpanString(when.toEpochMilli(), System.currentTimeMillis(), DateUtils.DAY_IN_MILLIS, DateUtils.FORMAT_SHOW_DATE).toString();
+    }
+
+    @NonNull
     public static String formatTimerText(long elapsedTime, boolean showMs) {
         int minutes = (int) (elapsedTime / 60000);
         int seconds = (int) ((elapsedTime % 60000) / 1000);
@@ -117,9 +124,9 @@ public class LocaleUtil {
      */
     public static @NonNull String normalize(@NonNull String input) {
         String normalized = Normalizer.normalize(input, Normalizer.Form.NFD);
-        if (!TestUtil.isEmptyOrNull(normalized)) {
+        if (!isNullOrEmpty(normalized)) {
             String replaced = normalized.replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
-            if (!TestUtil.isEmptyOrNull(replaced)) {
+            if (!isNullOrEmpty(replaced)) {
                 return replaced.toUpperCase();
             }
         }

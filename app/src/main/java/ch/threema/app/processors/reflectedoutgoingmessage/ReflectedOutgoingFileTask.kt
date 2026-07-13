@@ -1,6 +1,7 @@
 package ch.threema.app.processors.reflectedoutgoingmessage
 
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.utils.MimeUtil
 import ch.threema.base.utils.getThreemaLogger
@@ -12,6 +13,8 @@ import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageState
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.media.FileDataModel
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("ReflectedOutgoingFileTask")
 
@@ -23,7 +26,9 @@ internal class ReflectedOutgoingFileTask(
     message = FileMessage.fromReflected(outgoingMessage),
     type = CspE2eMessageType.FILE,
     serviceManager = serviceManager,
-) {
+),
+    KoinComponent {
+    private val globalEventBuses: GlobalEventBuses by inject()
     private val messageService by lazy { serviceManager.messageService }
 
     override fun processOutgoingMessage() {
@@ -53,13 +58,9 @@ internal class ReflectedOutgoingFileTask(
             fileData = fileData,
         )
 
-        // 4. Save group message model and inform listeners about new message
+        // 4. Save group message model and inform event bus about new message
         messageService.save(messageModel)
-        ListenerManager.messageListeners.handle { messageListener ->
-            messageListener.onNew(
-                messageModel,
-            )
-        }
+        globalEventBuses.messages.emit(MessageEvent.NewMessage(messageModel))
 
         // 5. Download thumbnail and content blob (if auto download enabled)
         processMediaContent(fileData, messageModel)

@@ -1,18 +1,18 @@
 package ch.threema.app.usecases.conversations
 
-import ch.threema.app.listeners.ContactListener
+import ch.threema.app.eventbus.GlobalEventFlows
+import ch.threema.app.eventbus.events.ContactEvent
+import ch.threema.app.eventbus.events.GroupEvent
 import ch.threema.app.listeners.ContactSettingsListener
-import ch.threema.app.listeners.GroupListener
 import ch.threema.app.listeners.SynchronizeContactsListener
 import ch.threema.app.managers.ListenerManager
 import ch.threema.app.routines.SynchronizeContactsRoutine
 import ch.threema.app.services.ConversationService
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationId
+import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.data.repositories.GroupModelRepository
-import ch.threema.domain.models.ContactReceiverIdentifier
-import ch.threema.domain.models.GroupReceiverIdentifier
-import ch.threema.domain.models.ReceiverIdentifier
 import ch.threema.storage.models.ConversationModel
 import kotlinx.coroutines.channels.Channel.Factory.CONFLATED
 import kotlinx.coroutines.channels.awaitClose
@@ -20,6 +20,8 @@ import kotlinx.coroutines.channels.onClosed
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.launch
 
 private val logger = getThreemaLogger("WatchAvatarIterationsUseCase")
 
@@ -40,9 +42,10 @@ private val logger = getThreemaLogger("WatchAvatarIterationsUseCase")
 class WatchAvatarIterationsUseCase(
     private val conversationService: ConversationService,
     private val groupModelRepository: GroupModelRepository,
+    private val globalEventFlows: GlobalEventFlows,
 ) {
     /**
-     *  Creates a *cold* [Flow] associating a receiver with its latest avatar iteration value.
+     *  Creates a cold [Flow] that associates a conversation with its latest avatar iteration value.
      *
      *  ##### Direct emit promise
      *  This flow fulfills the promise to directly emit the current initial iterations map. If the current initial iterations could not be determined
@@ -54,7 +57,7 @@ class WatchAvatarIterationsUseCase(
      *  ##### Error strategy
      *  In the unlikely case that we fail to determine current initial iterations map, an empty map will be emitted as a fallback value.
      */
-    fun call(): Flow<Map<ReceiverIdentifier, AvatarIteration>> = callbackFlow {
+    fun call(): Flow<Map<ConversationId, AvatarIteration>> = callbackFlow {
         // Map mutations happen synchronized
         val iterationsMap = getInitialIterationsMapOrEmpty().toMutableMap()
 
@@ -65,7 +68,7 @@ class WatchAvatarIterationsUseCase(
                 return@callbackFlow
             }
 
-        fun updateIterationsAndSend(update: (MutableMap<ReceiverIdentifier, AvatarIteration>) -> Unit) {
+        fun updateIterationsAndSend(update: (MutableMap<ConversationId, AvatarIteration>) -> Unit) {
             synchronized(iterationsMap) {
                 update(iterationsMap)
                 val iterationsSnapshot = iterationsMap.toMap()
@@ -77,18 +80,20 @@ class WatchAvatarIterationsUseCase(
         }
 
         // Catching both "The contact updated its profile picture" and "The user set a profile picture for his contact in Threema" event
-        val contactListener = object : ContactListener {
-            override fun onAvatarChanged(identity: String) {
-                val contactReceiverIdentifier = ContactReceiverIdentifier(identity)
-                updateIterationsAndSend { iterations ->
-                    addNewReceiversOfType(
-                        iterations = iterations,
-                        typeFilter = ConversationModel::isContactConversation,
-                    )
-                    val currentIteration = iterations[contactReceiverIdentifier] ?: AvatarIteration.initial
-                    iterations[contactReceiverIdentifier] = currentIteration.inc()
+        launch {
+            globalEventFlows.contacts
+                .filterIsInstance<ContactEvent.ContactProfilePictureUpdated>()
+                .collect { event ->
+                    val contactConversationId = ContactConversationId(identity = event.identity.value)
+                    updateIterationsAndSend { iterations ->
+                        addNewReceiversOfType(
+                            iterations = iterations,
+                            typeFilter = ConversationModel::isContactConversation,
+                        )
+                        val currentIteration = iterations[contactConversationId] ?: AvatarIteration.initial
+                        iterations[contactConversationId] = currentIteration.inc()
+                    }
                 }
-            }
         }
 
         // Catching "The user set a profile picture for his synced contact via Android address book" event
@@ -127,34 +132,33 @@ class WatchAvatarIterationsUseCase(
         }
 
         // Catching "The group picture was changed by the admin" event
-        val groupListener = object : GroupListener {
-            override fun onUpdatePhoto(groupIdentity: GroupIdentity) {
-                val groupModel = groupModelRepository.getByGroupIdentity(groupIdentity) ?: return
-                val groupModelData = groupModel.data ?: return
-                val groupReceiverIdentifier = GroupReceiverIdentifier(
-                    groupDatabaseId = groupModel.getDatabaseId(),
-                    groupCreatorIdentity = groupModelData.groupIdentity.creatorIdentity,
-                    groupApiId = groupModelData.groupIdentity.groupId,
-                )
-                updateIterationsAndSend { iterations ->
-                    addNewReceiversOfType(
-                        iterations = iterations,
-                        typeFilter = ConversationModel::isGroupConversation,
-                    )
-                    val currentIteration: AvatarIteration = iterations[groupReceiverIdentifier] ?: AvatarIteration.initial
-                    iterations[groupReceiverIdentifier] = currentIteration.inc()
+        launch {
+            globalEventFlows.groups
+                .filterIsInstance<GroupEvent.GroupProfilePictureUpdated>()
+                .collect { event ->
+                    val groupConversationId = groupModelRepository
+                        .getByGroupIdentity(event.groupIdentity)
+                        ?.let { groupModel ->
+                            GroupConversationId(
+                                groupDatabaseId = groupModel.getDatabaseId(),
+                            )
+                        }
+                        ?: return@collect
+                    updateIterationsAndSend { iterations ->
+                        addNewReceiversOfType(
+                            iterations = iterations,
+                            typeFilter = ConversationModel::isGroupConversation,
+                        )
+                        val currentIteration: AvatarIteration = iterations[groupConversationId] ?: AvatarIteration.initial
+                        iterations[groupConversationId] = currentIteration.inc()
+                    }
                 }
-            }
         }
 
-        ListenerManager.contactListeners.add(contactListener)
         ListenerManager.synchronizeContactsListeners.add(synchronizeContactsListener)
-        ListenerManager.groupListeners.add(groupListener)
         ListenerManager.contactSettingsListeners.add(contactSettingsListener)
         awaitClose {
-            ListenerManager.contactListeners.remove(contactListener)
             ListenerManager.synchronizeContactsListeners.remove(synchronizeContactsListener)
-            ListenerManager.groupListeners.remove(groupListener)
             ListenerManager.contactSettingsListeners.remove(contactSettingsListener)
         }
     }
@@ -163,7 +167,7 @@ class WatchAvatarIterationsUseCase(
     /**
      *  @return The initial iterations map, or an empty map in case of any internal error
      */
-    private fun getInitialIterationsMapOrEmpty(): Map<ReceiverIdentifier, AvatarIteration> {
+    private fun getInitialIterationsMapOrEmpty(): Map<ConversationId, AvatarIteration> {
         val conversations = runCatching {
             conversationService.getAll(
                 /* forceReloadFromDatabase = */
@@ -174,7 +178,7 @@ class WatchAvatarIterationsUseCase(
             return emptyMap()
         }
         return conversations.associate { conversationModel ->
-            conversationModel.receiverModel.identifier to AvatarIteration.initial
+            conversationModel.id to AvatarIteration.initial
         }
     }
 
@@ -184,7 +188,7 @@ class WatchAvatarIterationsUseCase(
      *  Mutates [iterations]
      */
     private fun addNewReceiversOfType(
-        iterations: MutableMap<ReceiverIdentifier, AvatarIteration>,
+        iterations: MutableMap<ConversationId, AvatarIteration>,
         typeFilter: (ConversationModel) -> Boolean,
     ) {
         conversationService
@@ -194,16 +198,13 @@ class WatchAvatarIterationsUseCase(
             )
             .filter(typeFilter)
             .forEach { conversationModel ->
-                iterations.putIfAbsent(
-                    conversationModel.receiverModel.identifier,
-                    AvatarIteration.initial,
-                )
+                iterations.putIfAbsent(conversationModel.id, AvatarIteration.initial)
             }
     }
 
-    private fun incrementAllContactReceiverIterations(iterations: MutableMap<ReceiverIdentifier, AvatarIteration>) {
+    private fun incrementAllContactReceiverIterations(iterations: MutableMap<ConversationId, AvatarIteration>) {
         iterations.entries.forEach { entry ->
-            if (entry.key is ContactReceiverIdentifier) {
+            if (entry.key is ContactConversationId) {
                 entry.setValue(entry.value.inc())
             }
         }
@@ -211,9 +212,9 @@ class WatchAvatarIterationsUseCase(
 }
 
 /**
- *  Avatar assets are identified by a local filename depending on the receiver's identifier only. If an avatar is changed, the path will still be the
- *  same as before. There is no unique id per avatar iteration. So this [value] can be used to invalidate composables. The actual integer value has no
- *  further meaning to it.
+ *  Avatar assets are identified by a local filename depending on the receiver's [ch.threema.data.datatypes.ConversationIdObfuscated] only.
+ *  If an avatar is changed, the path will still be the same as before. There is no unique id per avatar iteration. So this [value] can be used to
+ *  invalidate composables. The actual integer value has no further meaning to it.
  */
 @JvmInline
 value class AvatarIteration private constructor(val value: Int) {

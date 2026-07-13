@@ -21,7 +21,7 @@ interface AppStartupMonitor {
     /**
      * Returns a flow that indicates all the systems and what status they are currently in.
      */
-    fun observeSystems(): StateFlow<Map<AppSystem, SystemStatus>>
+    fun watchSystems(): StateFlow<Map<AppSystem, SystemStatus>>
 
     /**
      * Returns a flow that indicates which system are currently pending.
@@ -31,7 +31,7 @@ interface AppStartupMonitor {
      * If an empty set is emitted, it is guaranteed that the app has reached a full ready state and can be used normally. At this point,
      * systems will only enter the pending status again if the master key is locked.
      */
-    fun observePendingSystems(): StateFlow<Set<AppSystem>>
+    fun watchPendingSystems(): StateFlow<Set<AppSystem>>
 
     suspend fun awaitSystem(system: AppSystem)
 
@@ -43,5 +43,5 @@ interface AppStartupMonitor {
 
     fun hasErrors(): Boolean
 
-    fun observeErrors(): StateFlow<Set<AppStartupError>>
+    fun watchErrors(): StateFlow<Set<AppStartupError>>
 }

@@ -13,7 +13,7 @@ import ch.threema.app.services.ContactService;
 import ch.threema.app.services.MessageService;
 import ch.threema.app.services.UserService;
 
-import static ch.threema.app.dev.UtilsKt.hasDevFeatures;
+import static ch.threema.base.HasDevFeaturesKt.HAS_DEV_FEATURES;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.data.repositories.ContactModelRepository;
 import ch.threema.domain.fs.DHSession;
@@ -51,7 +51,7 @@ public class ForwardSecurityStatusSender implements ForwardSecurityStatusListene
         @NonNull UserService userService,
         @NonNull ContactModelRepository contactModelRepository
     ) {
-        this.debug = hasDevFeatures();
+        this.debug = HAS_DEV_FEATURES;
         this.contactService = contactService;
         this.messageService = messageService;
         this.apiConnector = apiConnector;

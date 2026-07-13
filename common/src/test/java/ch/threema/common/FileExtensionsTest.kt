@@ -85,9 +85,28 @@ class FileExtensionsTest {
         val directory11 = File(directory1, "11")
         directory11.mkdir()
 
-        val totalSize = root.getTotalSize()
+        val totalSize = root.getTotalDirectorySize()
 
-        assertEquals(14, totalSize)
+        assertEquals(14.bytes, totalSize)
+    }
+
+    @Test
+    fun `get total size of non-existing directory`() {
+        val root = createTempDirectory("root")
+        val directory = File(root, "A")
+
+        assertEquals(0.bytes, directory.getTotalDirectorySize())
+    }
+
+    @Test
+    fun `cannot get total directory size of file`() {
+        val root = createTempDirectory("root")
+        val file = File(root, "A")
+        file.createNewFile()
+
+        assertFailsWith<IllegalArgumentException> {
+            file.getTotalDirectorySize()
+        }
     }
 
     @Test
@@ -120,5 +139,87 @@ class FileExtensionsTest {
         assertFailsWith<IOException> {
             directory.deleteSecurely(createTempDirectory())
         }
+    }
+
+    @Test
+    fun `deleteOrThrow deletes files`() {
+        val directory = createTempDirectory()
+        val file = File(directory, "some-file")
+        file.createNewFile()
+
+        file.deleteOrThrow()
+
+        assertFalse(file.exists())
+    }
+
+    @Test
+    fun `deleteOrThrow throws if the file can not be deleted`() {
+        val directory = createTempDirectory()
+        File(directory, "some-file").createNewFile()
+
+        assertFailsWith<IOException> {
+            directory.deleteOrThrow()
+        }
+    }
+
+    @Test
+    fun `deleteOrThrow does not throw if the file already does not exist`() {
+        val directory = createTempDirectory()
+        File(directory, "does-not-exist").deleteOrThrow()
+    }
+
+    @Test
+    fun `renameOrThrow renames files`() {
+        val directory = createTempDirectory()
+        val file = File(directory, "A")
+        file.createNewFile()
+
+        val renamedFile = File(directory, "B")
+        file.renameOrThrow(renamedFile)
+
+        assertFalse(file.exists())
+        assertTrue(renamedFile.exists())
+    }
+
+    @Test
+    fun `renameOrThrow throws if file does not exist`() {
+        val directory = createTempDirectory()
+        val file = File(directory, "A")
+
+        assertFailsWith<IOException> {
+            file.renameOrThrow(File(directory, "B"))
+        }
+    }
+
+    @Test
+    fun `get file extension with dot`() {
+        val directory = createTempDirectory()
+        val fileWithoutExtension = File(directory, "no-extension")
+        assertEquals("", fileWithoutExtension.extensionIncludingDot)
+
+        val fileWithExtension = File(directory, "extension.pdf")
+        assertEquals(".pdf", fileWithExtension.extensionIncludingDot)
+    }
+
+    @Test
+    fun `get unique file`() {
+        val directory = createTempDirectory()
+        val file1 = directory.getUniqueFile(fileName = "my test")
+        assertEquals(File(directory, "my test"), file1)
+
+        file1.createNewFile()
+        val file2 = directory.getUniqueFile(fileName = "my test")
+        assertEquals(File(directory, "my test (1)"), file2)
+
+        file2.createNewFile()
+        val file3 = directory.getUniqueFile(fileName = "my test")
+        assertEquals(File(directory, "my test (2)"), file3)
+
+        val fileWithExtension1 = directory.getUniqueFile(fileName = "my test.txt")
+        assertEquals(File(directory, "my test.txt"), fileWithExtension1)
+
+        fileWithExtension1.createNewFile()
+        val fileWithExtension2 = directory.getUniqueFile(fileName = "my test.txt")
+        assertEquals(File(directory, "my test (1).txt"), fileWithExtension2)
     }
 }

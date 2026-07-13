@@ -1,10 +1,12 @@
 package ch.threema.storage.factories;
 
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 import static ch.threema.storage.models.data.DisplayTag.DISPLAY_TAG_STARRED;
 
 import android.content.ContentValues;
 import android.database.sqlite.SQLiteException;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 
@@ -16,7 +18,6 @@ import java.util.Iterator;
 import java.util.List;
 
 import ch.threema.app.services.MessageService;
-import ch.threema.app.utils.TestUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.domain.protocol.csp.messages.fs.ForwardSecurityMode;
 import ch.threema.storage.CursorHelper;
@@ -28,9 +29,7 @@ import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.MessageType;
 import ch.threema.storage.models.data.DisplayTag;
 import ch.threema.storage.models.data.MessageContentsType;
-import ch.threema.storage.models.data.media.AudioDataModel;
 import ch.threema.storage.models.data.media.FileDataModel;
-import ch.threema.storage.models.data.media.VideoDataModel;
 
 abstract class AbstractMessageModelFactory extends ModelFactory {
     private static final Logger logger = getThreemaLogger("AbstractMessageModelFactory");
@@ -58,23 +57,23 @@ abstract class AbstractMessageModelFactory extends ModelFactory {
                 messageModel.setBody(cursorFactory.getString(AbstractMessageModel.COLUMN_BODY));
                 messageModel.setRead(cursorFactory.getBoolean(AbstractMessageModel.COLUMN_IS_READ));
                 messageModel.setSaved(cursorFactory.getBoolean(AbstractMessageModel.COLUMN_IS_SAVED));
-                messageModel.setPostedAt(cursorFactory.getDate(AbstractMessageModel.COLUMN_POSTED_AT));
-                messageModel.setCreatedAt(cursorFactory.getDate(AbstractMessageModel.COLUMN_CREATED_AT));
-                messageModel.setModifiedAt(cursorFactory.getDate(AbstractMessageModel.COLUMN_MODIFIED_AT));
+                messageModel.setPostedAt(cursorFactory.getInstant(AbstractMessageModel.COLUMN_POSTED_AT));
+                messageModel.setCreatedAt(cursorFactory.getInstant(AbstractMessageModel.COLUMN_CREATED_AT));
+                messageModel.setModifiedAt(cursorFactory.getInstant(AbstractMessageModel.COLUMN_MODIFIED_AT));
                 messageModel.setStatusMessage(cursorFactory.getBoolean(AbstractMessageModel.COLUMN_IS_STATUS_MESSAGE));
                 messageModel.setCaption(cursorFactory.getString(AbstractMessageModel.COLUMN_CAPTION));
                 messageModel.setQuotedMessageId(cursorFactory.getString(AbstractMessageModel.COLUMN_QUOTED_MESSAGE_API_MESSAGE_ID));
                 messageModel.setMessageContentsType(cursorFactory.getInt(AbstractMessageModel.COLUMN_MESSAGE_CONTENTS_TYPE));
                 messageModel.setMessageFlags(cursorFactory.getInt(AbstractMessageModel.COLUMN_MESSAGE_FLAGS));
-                messageModel.setDeliveredAt(cursorFactory.getDate(AbstractMessageModel.COLUMN_DELIVERED_AT));
-                messageModel.setReadAt(cursorFactory.getDate(AbstractMessageModel.COLUMN_READ_AT));
-                messageModel.setEditedAt(cursorFactory.getDate(AbstractMessageModel.COLUMN_EDITED_AT));
-                messageModel.setDeletedAt(cursorFactory.getDate(AbstractMessageModel.COLUMN_DELETED_AT));
+                messageModel.setDeliveredAt(cursorFactory.getInstant(AbstractMessageModel.COLUMN_DELIVERED_AT));
+                messageModel.setReadAt(cursorFactory.getInstant(AbstractMessageModel.COLUMN_READ_AT));
+                messageModel.setEditedAt(cursorFactory.getInstant(AbstractMessageModel.COLUMN_EDITED_AT));
+                messageModel.setDeletedAt(cursorFactory.getInstant(AbstractMessageModel.COLUMN_DELETED_AT));
                 messageModel.setForwardSecurityMode(forwardSecurityMode);
                 messageModel.setDisplayTags(cursorFactory.getInt(AbstractMessageModel.COLUMN_DISPLAY_TAGS));
 
                 String stateString = cursorFactory.getString(AbstractMessageModel.COLUMN_STATE);
-                if (!TestUtil.isEmptyOrNull(stateString)) {
+                if (!isNullOrEmpty(stateString)) {
                     try {
                         messageModel.setState(MessageState.valueOf(stateString));
                     } catch (IllegalArgumentException e) {
@@ -83,22 +82,20 @@ abstract class AbstractMessageModelFactory extends ModelFactory {
                 }
 
                 int type = cursorFactory.getInt(AbstractMessageModel.COLUMN_TYPE);
-                MessageType[] types = MessageType.values();
-                if (type >= 0 && type < types.length) {
-                    messageModel.setType(types[type]);
-                }
+                messageModel.setType(MessageType.deserialize(type));
                 return false;
             }
         });
     }
 
     ContentValues buildContentValues(AbstractMessageModel messageModel) {
+        ensureMessageIdIsSetIfRequiredByType(messageModel);
         ContentValues contentValues = new ContentValues();
         contentValues.put(AbstractMessageModel.COLUMN_UID, messageModel.getUid());
         contentValues.put(AbstractMessageModel.COLUMN_API_MESSAGE_ID, messageModel.getApiMessageId());
         contentValues.put(AbstractMessageModel.COLUMN_IDENTITY, messageModel.getIdentity());
         contentValues.put(AbstractMessageModel.COLUMN_OUTBOX, messageModel.isOutbox());
-        contentValues.put(AbstractMessageModel.COLUMN_TYPE, messageModel.getType() != null ? messageModel.getType().ordinal() : null);
+        contentValues.put(AbstractMessageModel.COLUMN_TYPE, messageModel.getType() != null ? messageModel.getType().serializedValue : null);
         contentValues.put(AbstractMessageModel.COLUMN_CORRELATION_ID, messageModel.getCorrelationId());
         contentValues.put(AbstractMessageModel.COLUMN_BODY, messageModel.getBody());
         contentValues.put(AbstractMessageModel.COLUMN_IS_READ, messageModel.isRead());
@@ -122,6 +119,13 @@ abstract class AbstractMessageModelFactory extends ModelFactory {
         return contentValues;
     }
 
+    private void ensureMessageIdIsSetIfRequiredByType(@NonNull AbstractMessageModel message) {
+        var type = message.getType();
+        if (type != null && type.getRequiresMessageId() && message.getApiMessageId() == null) {
+            throw new IllegalArgumentException("Message of type " + type + " requires a message id");
+        }
+    }
+
     void appendFilter(QueryBuilder queryBuilder, @Nullable MessageService.MessageFilter filter, List<String> placeholders) {
         if (filter != null) {
             if (!filter.withStatusMessages()) {
@@ -140,7 +144,7 @@ abstract class AbstractMessageModelFactory extends ModelFactory {
             if (filter.types() != null && filter.types().length > 0) {
                 queryBuilder.appendWhere(AbstractMessageModel.COLUMN_TYPE + " IN (" + DatabaseUtil.makePlaceholders(filter.types().length) + ")");
                 for (MessageType f : filter.types()) {
-                    placeholders.add(String.valueOf(f.ordinal()));
+                    placeholders.add(String.valueOf(f.serializedValue));
                 }
             }
 
@@ -170,13 +174,7 @@ abstract class AbstractMessageModelFactory extends ModelFactory {
             while (i.hasNext()) {
                 AbstractMessageModel m = (AbstractMessageModel) i.next();
                 boolean remove = false;
-                if (m.getType() == MessageType.VIDEO) {
-                    VideoDataModel d = m.getVideoData();
-                    remove = (d == null || !d.isDownloaded());
-                } else if (m.getType() == MessageType.VOICEMESSAGE) {
-                    AudioDataModel d = m.getAudioData();
-                    remove = (d == null || !d.isDownloaded());
-                } else if (m.getType() == MessageType.FILE) {
+                if (m.getType() == MessageType.FILE) {
                     FileDataModel d = m.getFileData();
                     remove = (d == null || !d.isDownloaded());
                 }
@@ -214,7 +212,7 @@ abstract class AbstractMessageModelFactory extends ModelFactory {
                     + " AND " + AbstractMessageModel.COLUMN_STATE + " IN (?, ?)"
                     + " AND " + AbstractMessageModel.COLUMN_OUTBOX + " = 1",
                 new String[]{
-                    String.valueOf(MessageType.FILE.ordinal()),
+                    String.valueOf(MessageType.FILE.serializedValue),
                     MessageState.PENDING.toString(),
                     MessageState.UPLOADING.toString(),
                 }

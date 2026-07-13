@@ -1,19 +1,19 @@
 package ch.threema.app.utils
 
 import ch.threema.domain.protocol.csp.ProtocolDefines
-import java.util.Date
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 object AutoDeleteUtil {
     /**
-     * Get difference in days between the time represented by two Date objects
+     * Get difference in days between the time represented by two Instant objects
      * @param d1 first date
      * @param d2 second date
      * @return Time difference in days. Fractions of days are truncated
      */
-    fun getDifferenceDays(d1: Date?, d2: Date?): Long {
+    fun getDifferenceDays(d1: Instant?, d2: Instant?): Long {
         if (d1 != null && d2 != null) {
-            val diff = d2.time - d1.time
+            val diff = d2.toEpochMilli() - d1.toEpochMilli()
             return TimeUnit.DAYS.convert(diff, TimeUnit.MILLISECONDS)
         }
         return 0

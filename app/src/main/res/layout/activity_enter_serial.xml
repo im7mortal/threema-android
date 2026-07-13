@@ -5,137 +5,103 @@
     android:id="@+id/top_view"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/black"
     android:fillViewport="true">
 
-    <FrameLayout
+    <LinearLayout
+        android:id="@+id/layout_parent_top"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="@dimen/wizard_contents_padding_horizontal"
+        android:paddingTop="@dimen/wizard_contents_padding">
 
-        <ImageView
-            android:id="@+id/wizard_background"
-            android:layout_width="wrap_content"
-            android:layout_height="fill_parent"
-            android:adjustViewBounds="true"
-            android:clickable="false"
-            android:importantForAccessibility="no"
-            android:scaleType="centerCrop"
-            android:src="@drawable/background_pic" />
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/grid_unit_x2">
+
+            <ImageView
+                android:id="@+id/enter_serial_welcome_title"
+                android:layout_width="0dp"
+                android:layout_height="58dp"
+                android:layout_marginHorizontal="@dimen/grid_unit_x5"
+                android:adjustViewBounds="true"
+                android:importantForAccessibility="no"
+                android:src="@drawable/logo_main"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintWidth_percent="0.7" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <TextView
+            android:id="@+id/layout_top"
+            style="@style/WizardTextBodyMedium"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/grid_unit_x4"
+            android:layout_marginBottom="@dimen/grid_unit_x1"
+            android:gravity="center_horizontal"
+            tools:text="@string/flavored__enter_serial_body" />
 
         <LinearLayout
-            android:id="@+id/layout_parent_top"
-            android:layout_width="fill_parent"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingHorizontal="@dimen/wizard_contents_padding_horizontal"
-            android:paddingTop="@dimen/wizard_contents_padding">
+            android:layout_marginTop="@dimen/grid_unit_x4"
+            android:gravity="center_vertical">
 
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:layout_width="match_parent"
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/grid_unit_x2">
+                android:layout_marginEnd="@dimen/grid_unit_x1"
+                android:layout_weight="1"
+                app:endIconMode="clear_text"
+                app:hintAnimationEnabled="false"
+                app:hintEnabled="false"
+                app:startIconDrawable="@drawable/ic_key_outline"
+                app:startIconTint="?attr/colorOnBackground">
 
-                <ImageView
-                    android:id="@+id/enter_serial_welcome_title"
-                    android:layout_width="0dp"
-                    android:layout_height="58dp"
-                    android:layout_marginHorizontal="@dimen/grid_unit_x5"
-                    android:adjustViewBounds="true"
-                    android:importantForAccessibility="no"
-                    android:src="@drawable/logo_main_white"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent"
-                    app:layout_constraintWidth_percent="0.7" />
+                <ch.threema.app.ui.ThreemaTextInputEditText
+                    android:id="@+id/license_key"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:ellipsize="end"
+                    android:hint="@string/enter_serial_hint"
+                    android:imeOptions="actionGo|flagNoPersonalizedLearning"
+                    android:inputType="textCapCharacters|textNoSuggestions"
+                    android:singleLine="true" />
 
-            </androidx.constraintlayout.widget.ConstraintLayout>
+                <requestFocus />
 
-            <TextView
-                android:id="@+id/layout_top"
-                style="@style/WizardMediumText"
-                android:layout_width="match_parent"
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/unlock_button"
+                style="@style/Threema.MaterialButton.Icon.Circle.Filled"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/grid_unit_x4"
-                android:layout_marginBottom="@dimen/grid_unit_x1"
-                android:gravity="center_horizontal"
-                tools:text="@string/flavored__enter_serial_body" />
-
-            <androidx.constraintlayout.widget.ConstraintLayout
-                android:id="@+id/unlock_layout"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/grid_unit_x4">
-
-                <ImageView
-                    android:id="@+id/unlock_logo"
-                    style="@style/WizardEditTextIcon"
-                    android:layout_width="0dp"
-                    android:layout_height="0dp"
-                    app:layout_constraintBottom_toBottomOf="@+id/lastname_layout"
-                    app:layout_constraintDimensionRatio="1"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="@+id/lastname_layout"
-                    app:srcCompat="@drawable/ic_key_outline" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/lastname_layout"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="@dimen/grid_unit_x1"
-                    app:endIconMode="clear_text"
-                    app:hintAnimationEnabled="false"
-                    app:hintEnabled="false"
-                    app:layout_constraintBottom_toTopOf="@id/unlock_state"
-                    app:layout_constraintEnd_toStartOf="@+id/unlock_button"
-                    app:layout_constraintStart_toEndOf="@+id/unlock_logo"
-                    app:layout_constraintTop_toTopOf="parent">
-
-                    <ch.threema.app.emojis.EmojiEditText
-                        android:id="@+id/license_key"
-                        style="@style/WizardEditText"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:ellipsize="end"
-                        android:hint="@string/enter_serial_hint"
-                        android:imeOptions="actionGo"
-                        android:inputType="textCapCharacters|textNoSuggestions"
-                        android:singleLine="true" />
-
-                    <requestFocus />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/unlock_button"
-                    style="@style/Threema.MaterialButton.Icon.Circle.Filled"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:clickable="false"
-                    android:contentDescription="@string/send"
-                    android:enabled="false"
-                    android:rotation="180"
-                    app:icon="@drawable/ic_arrow_left"
-                    app:layout_constraintBottom_toBottomOf="@+id/lastname_layout"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintTop_toTopOf="@+id/lastname_layout" />
-
-                <TextView
-                    android:id="@+id/unlock_state"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/grid_unit_x1"
-                    android:textColor="@color/material_red"
-                    android:textSize="@dimen/wizard_text_medium"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="@+id/lastname_layout"
-                    app:layout_constraintTop_toBottomOf="@+id/lastname_layout"
-                    tools:text="@string/invalid_input" />
-
-            </androidx.constraintlayout.widget.ConstraintLayout>
+                android:layout_margin="0dp"
+                android:clickable="false"
+                android:contentDescription="@string/send"
+                android:elevation="0dp"
+                android:enabled="false"
+                app:icon="@drawable/ic_arrow_right"
+                tools:enabled="true" />
 
         </LinearLayout>
 
-    </FrameLayout>
+        <TextView
+            android:id="@+id/unlock_state"
+            style="@style/WizardTextBodyMedium"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/grid_unit_x1"
+            android:paddingHorizontal="@dimen/grid_unit_x1"
+            android:textColor="?attr/colorError"
+            tools:text="@string/invalid_input" />
+
+    </LinearLayout>
 
 </ScrollView>

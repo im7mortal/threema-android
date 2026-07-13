@@ -1,63 +1,51 @@
 package ch.threema.app.voicemessage;
 
-import android.content.Context;
 import android.media.MediaRecorder;
 import android.media.MicrophoneDirection;
-import android.net.Uri;
 import android.os.Build;
 
 import org.slf4j.Logger;
 
+import java.io.File;
 import java.io.IOException;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import ch.threema.app.utils.FileUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
+import ch.threema.app.utils.ConfigUtils;
 
 public class AudioRecorder implements MediaRecorder.OnErrorListener, MediaRecorder.OnInfoListener {
     private static final Logger logger = getThreemaLogger("AudioRecorder");
 
-    private final Context context;
     private OnStopListener onStopListener;
 
-    public AudioRecorder(Context context) {
-        this.context = context;
-    }
+    private static final int defaultSamplingRate = ConfigUtils.hasBrokenAudioRecorder() ? 44000 : 44100;
 
-    @Nullable
-    public MediaRecorder prepare(@NonNull Uri uri, int samplingRate) {
-        logger.info("Preparing MediaRecorder with sampling rate {}", samplingRate);
+    @NonNull
+    public MediaRecorder prepare(@NonNull File outputFile) throws IOException {
+        logger.info("Preparing MediaRecorder");
         MediaRecorder mediaRecorder = new MediaRecorder();
 
         mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-        if (Build.VERSION.SDK_INT >= 30) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             mediaRecorder.setPrivacySensitive(true);
         }
         mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-        mediaRecorder.setOutputFile(FileUtil.getRealPathFromURI(context, uri));
+        mediaRecorder.setOutputFile(outputFile.getPath());
         mediaRecorder.setAudioChannels(1);
         mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
         mediaRecorder.setAudioEncodingBitRate(32000);
-        mediaRecorder.setAudioSamplingRate(samplingRate != 0 ? samplingRate : VoiceRecorderActivity.getDefaultSamplingRate());
+        mediaRecorder.setAudioSamplingRate(defaultSamplingRate);
         mediaRecorder.setMaxFileSize(20L * 1024 * 1024);
 
-        if (Build.VERSION.SDK_INT >= 29) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             mediaRecorder.setPreferredMicrophoneDirection(MicrophoneDirection.MIC_DIRECTION_TOWARDS_USER);
         }
 
         mediaRecorder.setOnErrorListener(this);
         mediaRecorder.setOnInfoListener(this);
 
-        try {
-            mediaRecorder.prepare();
-        } catch (IllegalStateException e) {
-            logger.info("IllegalStateException preparing MediaRecorder: {}", e.getMessage());
-            return null;
-        } catch (IOException e) {
-            logger.info("IOException preparing MediaRecorder: {}", e.getMessage());
-            return null;
-        }
+        mediaRecorder.prepare();
         return mediaRecorder;
     }
 

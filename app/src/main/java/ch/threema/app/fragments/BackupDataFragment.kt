@@ -318,6 +318,8 @@ class BackupDataFragment : Fragment(), DialogClickListener, PasswordEntryDialogC
             R.string.backup_data_media,
             /* checkboxConfirmText = */
             R.string.backup_data_media_confirm,
+            /* requestKey = */
+            null,
         )
         dialogFragment.setTargetFragment(this, 0)
         dialogFragment.show(parentFragmentManager, DIALOG_TAG_PASSWORD)

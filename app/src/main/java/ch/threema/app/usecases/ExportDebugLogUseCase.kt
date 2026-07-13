@@ -1,10 +1,10 @@
 package ch.threema.app.usecases
 
 import ch.threema.app.files.AppDirectoryProvider
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.app.utils.FileHandlingZipOutputStream
 import ch.threema.app.utils.FileHandlingZipOutputStream.Companion.initializeZipOutputStream
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.common.toEnumeration
 import ch.threema.logging.backend.DebugLogFileManager
 import java.io.File
@@ -27,7 +27,7 @@ class ExportDebugLogUseCase(
 ) {
     @Throws(IOException::class, SecurityException::class)
     suspend fun call(): File = withContext(dispatcherProvider.io) {
-        val zipFile = File(appDirectoryProvider.cacheDirectory, ZIP_FILE_NAME)
+        val zipFile = File(appDirectoryProvider.shareDirectory, ZIP_FILE_NAME)
         if (zipFile.exists() && !zipFile.delete()) {
             logger.error("Failed to delete zip file")
         }

@@ -631,9 +631,5 @@ class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeList
         const val VOICE_MESSAGE_FILE_EXTENSION = ".aac"
 
         private const val PERMISSION_REQUEST_CODE_BLUETOOTH_CONNECT = 45454
-
-        @JvmStatic
-        val defaultSamplingRate: Int
-            get() = if (ConfigUtils.hasBrokenAudioRecorder()) 44000 else 44100
     }
 }

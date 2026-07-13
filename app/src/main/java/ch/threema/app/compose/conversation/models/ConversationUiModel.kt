@@ -2,17 +2,17 @@ package ch.threema.app.compose.conversation.models
 
 import androidx.compose.runtime.Immutable
 import ch.threema.android.ResolvableString
+import ch.threema.app.compose.common.IconInfo
 import ch.threema.app.usecases.conversations.AvatarIteration
 import ch.threema.app.utils.TextUtil
 import ch.threema.data.datatypes.AvailabilityStatus
-import ch.threema.domain.models.ContactReceiverIdentifier
-import ch.threema.domain.models.DistributionListReceiverIdentifier
-import ch.threema.domain.models.GroupReceiverIdentifier
-import ch.threema.domain.models.ReceiverIdentifier
-import ch.threema.domain.types.ConversationUID
+import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationId
+import ch.threema.data.datatypes.DistributionListConversationId
+import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.domain.types.Identity
 import ch.threema.storage.models.MessageType
-import java.util.Date
+import java.time.Instant
 
 /**
  *  @property icon In case of a contact conversation, this icon indicates the state of the latest message. In case of a group- or distribution
@@ -27,8 +27,7 @@ import java.util.Date
 @Immutable
 sealed interface ConversationUiModel {
 
-    val conversationUID: ConversationUID
-    val receiverIdentifier: ReceiverIdentifier
+    val conversationId: ConversationId
     val latestMessageData: LatestMessageData?
     val receiverDisplayName: String?
     val conversationName: String
@@ -43,8 +42,7 @@ sealed interface ConversationUiModel {
 
     @Immutable
     data class ContactConversation(
-        override val conversationUID: ConversationUID,
-        override val receiverIdentifier: ContactReceiverIdentifier,
+        override val conversationId: ContactConversationId,
         override val latestMessageData: LatestMessageData?,
         override val receiverDisplayName: String?,
         override val conversationName: String,
@@ -56,15 +54,14 @@ sealed interface ConversationUiModel {
         override val icon: IconInfo?,
         override val muteStatusIcon: Int?,
         override val avatarIteration: AvatarIteration,
-        val showWorkBadge: Boolean,
+        val showIdentityTypeBadge: Boolean,
         val isTyping: Boolean,
         val availabilityStatus: AvailabilityStatus?,
     ) : ConversationUiModel
 
     @Immutable
     data class GroupConversation(
-        override val conversationUID: ConversationUID,
-        override val receiverIdentifier: GroupReceiverIdentifier,
+        override val conversationId: GroupConversationId,
         override val latestMessageData: LatestMessageData?,
         override val receiverDisplayName: String?,
         override val conversationName: String,
@@ -82,8 +79,7 @@ sealed interface ConversationUiModel {
 
     @Immutable
     data class DistributionListConversation(
-        override val conversationUID: ConversationUID,
-        override val receiverIdentifier: DistributionListReceiverIdentifier,
+        override val conversationId: DistributionListConversationId,
         override val latestMessageData: LatestMessageData?,
         override val receiverDisplayName: String?,
         override val conversationName: String,
@@ -97,7 +93,7 @@ sealed interface ConversationUiModel {
         override val avatarIteration: AvatarIteration,
     ) : ConversationUiModel
 
-    fun matchesFilterQuery(query: String?): Boolean {
+    fun matchesSearchQuery(query: String?): Boolean {
         if (query == null) {
             return true
         }
@@ -119,8 +115,8 @@ sealed interface ConversationUiModel {
         val caption: String?,
         val isOutbox: Boolean,
         val isDeleted: Boolean,
-        val postedAt: Date?,
-        val modifiedAt: Date?,
+        val postedAt: Instant?,
+        val modifiedAt: Instant?,
         val mentionNames: Map<Identity, ResolvableString>,
     )
 

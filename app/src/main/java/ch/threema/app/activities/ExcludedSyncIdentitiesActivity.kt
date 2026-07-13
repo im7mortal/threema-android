@@ -3,7 +3,7 @@ package ch.threema.app.activities
 import android.content.Context
 import ch.threema.android.buildActivityIntent
 import ch.threema.app.R
-import ch.threema.app.ThreemaApplication
+import ch.threema.app.managers.ServiceManager
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.taskmanager.TriggerSource
@@ -17,7 +17,7 @@ class ExcludedSyncIdentitiesActivity : IdentityListActivity() {
     }
 
     private val identityList: IdentityList? by lazy {
-        val excludedSyncIdentitiesService = ThreemaApplication.getServiceManager()?.excludedSyncIdentitiesService
+        val excludedSyncIdentitiesService = ServiceManager.get()?.excludedSyncIdentitiesService
             ?: return@lazy null
 
         object : IdentityList {

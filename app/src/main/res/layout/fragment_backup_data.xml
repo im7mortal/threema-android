@@ -209,7 +209,7 @@
         android:contentDescription="@string/backup_data_new"
         android:text="@string/backup_data_new"
         android:visibility="visible"
-        app:icon="@drawable/ic_add_white_24dp"
+        app:icon="@drawable/ic_add"
         app:layout_anchorGravity="bottom|right|end" />
 
 </FrameLayout>

@@ -19,9 +19,12 @@ data class AndroidContactLookupInfo(
 ) {
     /**
      * Get the contact uri that can be used to access the android contact.
+     *
+     * TODO(ANDR-4984): Evaluate if omitting the contact id has any effect on the contact confusion.
+     * Note: Currently, we do not make use of the contact id. This is an experiment whether it helps for contact confusion.
      */
     fun getContactUri(): Uri = Uri.withAppendedPath(
         ContactsContract.Contacts.CONTENT_LOOKUP_URI,
-        lookupKey + (if (contactId != null) "/$contactId" else ""),
+        lookupKey,
     )
 }

@@ -22,7 +22,7 @@ class DistributionListAvatarFetcher(
     private val distributionListDefaultAvatar: VectorDrawableCompat? by lazy {
         VectorDrawableCompat.create(
             context.resources,
-            R.drawable.ic_distribution_list,
+            R.drawable.ic_distribution_list_avatar,
             null,
         )
     }

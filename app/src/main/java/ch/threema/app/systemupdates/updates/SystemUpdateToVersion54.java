@@ -7,7 +7,6 @@ import org.koin.java.KoinJavaComponent;
 
 import androidx.preference.PreferenceManager;
 import ch.threema.app.R;
-import ch.threema.app.preference.service.PreferenceService;
 import kotlin.Lazy;
 
 /**
@@ -21,13 +20,13 @@ public class SystemUpdateToVersion54 implements SystemUpdate {
     public void run() {
         var appContext = appContextLazy.getValue();
 
-        String lockMechanism = PreferenceService.LOCKING_MECH_NONE;
+        String lockMechanism = "none";
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(appContext);
         if (sharedPreferences.contains(appContext.getString(R.string.preferences__lock_mechanism))) {
-            lockMechanism = sharedPreferences.getString(appContext.getString(R.string.preferences__lock_mechanism), PreferenceService.LOCKING_MECH_NONE);
+            lockMechanism = sharedPreferences.getString(appContext.getString(R.string.preferences__lock_mechanism), "none");
         }
 
-        if (!PreferenceService.LOCKING_MECH_NONE.equals(lockMechanism)) {
+        if (!"none".equals(lockMechanism)) {
             if (sharedPreferences.getBoolean("pref_key_system_lock_enabled", false) ||
                 sharedPreferences.getBoolean("pref_key_pin_lock_enabled", false)) {
 

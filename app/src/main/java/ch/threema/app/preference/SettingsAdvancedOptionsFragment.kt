@@ -28,6 +28,7 @@ import androidx.preference.TwoStatePreference
 import ch.threema.android.Destroyer.Companion.createDestroyer
 import ch.threema.android.ToastDuration
 import ch.threema.android.buildActivityIntent
+import ch.threema.android.format
 import ch.threema.android.ownedBy
 import ch.threema.android.registerPermissionResultContract
 import ch.threema.android.registerSimpleActivityResultContract
@@ -39,7 +40,6 @@ import ch.threema.app.R
 import ch.threema.app.activities.DisableBatteryOptimizationsActivity
 import ch.threema.app.asynctasks.SendToSupportBackgroundTask
 import ch.threema.app.asynctasks.SendToSupportResult
-import ch.threema.app.dev.hasDevFeatures
 import ch.threema.app.dialogs.CancelableHorizontalProgressDialog
 import ch.threema.app.dialogs.GenericAlertDialog
 import ch.threema.app.dialogs.GenericAlertDialog.DialogClickListener
@@ -48,11 +48,13 @@ import ch.threema.app.dialogs.SimpleStringAlertDialog
 import ch.threema.app.dialogs.TextEntryDialog
 import ch.threema.app.dialogs.TextEntryDialog.TextEntryDialogClickListener
 import ch.threema.app.errorreporting.SentryIdProvider
-import ch.threema.app.listeners.ConversationListener
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.ConversationEvent
 import ch.threema.app.logging.DebugLogHelper
-import ch.threema.app.managers.ListenerManager
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.preference.service.PreferenceService.ErrorReportingState
+import ch.threema.app.preference.usecases.WatchDebugLogSummaryUseCase
+import ch.threema.app.protocolsteps.ValidContactsLookupSteps
 import ch.threema.app.push.PushService
 import ch.threema.app.restrictions.AppRestrictions
 import ch.threema.app.services.ContactService
@@ -64,12 +66,12 @@ import ch.threema.app.services.ThreemaPushService
 import ch.threema.app.services.UserService
 import ch.threema.app.services.WallpaperService
 import ch.threema.app.services.notification.NotificationService
+import ch.threema.app.troubleshooting.contacts.ContactsDiagnosticsActivity
 import ch.threema.app.ui.MediaItem
 import ch.threema.app.usecases.ExportDebugLogUseCase
 import ch.threema.app.usecases.ShareDebugLogUseCase
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.DialogUtil
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.app.utils.HibernationUtil
 import ch.threema.app.utils.MimeUtil
 import ch.threema.app.utils.PowermanagerUtil
@@ -79,14 +81,17 @@ import ch.threema.app.utils.logScreenVisibility
 import ch.threema.app.voip.activities.WebRTCDebugActivity
 import ch.threema.app.webclient.activities.WebDiagnosticsActivity
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.common.TimeProvider
 import ch.threema.common.minus
 import ch.threema.data.models.ContactModel
 import ch.threema.data.repositories.ContactModelRepository
-import ch.threema.domain.protocol.api.APIConnector
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.io.IOException
-import kotlin.collections.indexOf
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import kotlin.system.exitProcess
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -118,7 +123,7 @@ class SettingsAdvancedOptionsFragment :
     private val messageService: MessageService by inject()
     private val contactService: ContactService by inject()
     private val groupService: GroupService by inject()
-    private val apiConnector: APIConnector by inject()
+    private val validContactsLookupSteps: ValidContactsLookupSteps by inject()
     private val contactModelRepository: ContactModelRepository by inject()
     private val dispatcherProvider: DispatcherProvider by inject()
     private val hibernationUtil: HibernationUtil by inject()
@@ -128,6 +133,8 @@ class SettingsAdvancedOptionsFragment :
     private val sentryIdProvider: SentryIdProvider by inject()
     private val appRestrictions: AppRestrictions by inject()
     private val timeProvider: TimeProvider by inject()
+    private val globalEventBuses: GlobalEventBuses by inject()
+    private val watchDebugLogSummaryUseCase: WatchDebugLogSummaryUseCase by inject()
     private val destroyer = createDestroyer()
 
     private var fragmentView: View? = null
@@ -136,6 +143,7 @@ class SettingsAdvancedOptionsFragment :
     private lateinit var debugLogPreference: TwoStatePreference
     private lateinit var sendLogPreference: Preference
     private lateinit var exportLogPreference: Preference
+    private lateinit var contactsDiagnosticsPreference: Preference
     private lateinit var ipv6Preferences: TwoStatePreference
     private lateinit var sentryIdPreference: Preference
 
@@ -206,25 +214,18 @@ class SettingsAdvancedOptionsFragment :
         debugLogPreference = getPref(R.string.preferences__debug_log_switch)
         sendLogPreference = getPref(R.string.preferences__sendlog)
         exportLogPreference = getPref(R.string.preferences__exportlog)
+        contactsDiagnosticsPreference = getPref(R.string.preferences__contacts_diagnostics)
         updateDebugLogPreferences()
         debugLogPreference.onChange<Boolean> { isEnabled ->
             debugLogHelper.setEnabled(isEnabled)
             updateDebugLogPreferences()
         }
-        debugLogPreference.setSummaryProvider(
-            SummaryProvider<TwoStatePreference> {
-                val logEnabledSince = preferenceService.getDebugLogEnabledTimestamp()
-                if (logEnabledSince != null || debugLogHelper.isDebugLogFileLoggingForceEnabled()) {
-                    if (hasDevFeatures() && logEnabledSince != null) {
-                        "Enabled since $logEnabledSince"
-                    } else {
-                        getString(R.string.prefs_title_sum_message_log_on)
-                    }
-                } else {
-                    getString(R.string.prefs_title_sum_message_log_off)
-                }
-            },
-        )
+
+        lifecycleScope.launch {
+            watchDebugLogSummaryUseCase.call().collect { metaData ->
+                debugLogPreference.setSummary(getDebugLogSummary(metaData))
+            }
+        }
 
         if (BuildFlavor.current.isOnPrem) {
             sendLogPreference.isVisible = false
@@ -254,7 +255,26 @@ class SettingsAdvancedOptionsFragment :
                 }
             }
         }
+
+        contactsDiagnosticsPreference.onClick {
+            startActivity(ContactsDiagnosticsActivity.createIntent(requireContext()))
+        }
     }
+
+    private fun getDebugLogSummary(metaData: WatchDebugLogSummaryUseCase.DebugLogMetaData?): String {
+        metaData ?: return getString(R.string.prefs_title_sum_message_log_off)
+        val (enabledSince, size) = metaData
+        val formattedSize = size.format(requireContext())
+        return if (enabledSince != null) {
+            val formattedTime = enabledSince.format()
+            getString(R.string.prefs_title_sum_message_log_on_since, formattedTime, formattedSize)
+        } else {
+            getString(R.string.prefs_title_sum_message_log_forced_on, DebugLogHelper.FORCE_ENABLE_FILE_NAME, formattedSize)
+        }
+    }
+
+    private fun Instant.format() =
+        DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).format(this.atZone(ZoneId.systemDefault()))
 
     private fun updateDebugLogPreferences() {
         val forceEnabled = debugLogHelper.isDebugLogFileLoggingForceEnabled()
@@ -263,6 +283,7 @@ class SettingsAdvancedOptionsFragment :
         debugLogPreference.isEnabled = !forceEnabled
         sendLogPreference.isEnabled = loggingEnabled
         exportLogPreference.isEnabled = loggingEnabled
+        contactsDiagnosticsPreference.isVisible = loggingEnabled
     }
 
     private fun showWarningIfEnabledTooRecently() {
@@ -613,7 +634,7 @@ class SettingsAdvancedOptionsFragment :
                     preferenceService.setAfterWorkDNDEnabled(false)
                 }
                 showToast(R.string.reset_ringtones_confirm)
-                ListenerManager.conversationListeners.handle { obj: ConversationListener -> obj.onModifiedAll() }
+                globalEventBuses.conversations.emit(ConversationEvent.AllConversationsUpdated)
             }
 
             DIALOG_TAG_IPV6_APP_RESTART -> if (data != null) {
@@ -740,8 +761,7 @@ class SettingsAdvancedOptionsFragment :
         }
 
         val sendLogFileTask: SendToSupportBackgroundTask = object : SendToSupportBackgroundTask(
-            myIdentity = userService.getIdentity()!!,
-            apiConnector = apiConnector,
+            validContactsLookupSteps = validContactsLookupSteps,
             contactModelRepository = contactModelRepository,
             appRestrictions = appRestrictions,
         ) {

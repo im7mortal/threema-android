@@ -39,7 +39,7 @@
         android:paddingRight="3dp"
         android:visibility="gone"
         app:tint="@color/bubble_receive_text_colorstatelist"
-        tools:src="@drawable/ic_baseline_hearing_24"
+        tools:src="@drawable/ic_hearing"
         tools:visibility="visible" />
 
     <TextView

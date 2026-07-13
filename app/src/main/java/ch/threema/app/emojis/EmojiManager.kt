@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.annotation.AnyThread
 import androidx.annotation.StringRes
 import ch.threema.app.R
-import ch.threema.app.utils.DispatcherProvider
+import ch.threema.common.DispatcherProvider
 import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch

@@ -27,7 +27,6 @@ import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
 import ch.threema.domain.protocol.api.APIConnector
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -69,37 +68,36 @@ class ContactUpdateWorker(
         }
     }
 
-    companion object {
-        @JvmStatic
-        fun schedulePeriodicSync(context: Context, preferenceService: PreferenceService) {
+    class Scheduler(
+        private val workManager: WorkManager,
+        private val preferenceService: PreferenceService,
+    ) {
+        fun schedulePeriodicSync() {
             // We use the sync interval from the previously named IdentityStatesWorker
-            val schedulePeriodMs =
-                WorkManagerUtil.normalizeSchedulePeriod(preferenceService.getIdentityStateSyncIntervalS())
+            val schedulePeriod = preferenceService.getIdentityStateSyncInterval()
 
             logger.info(
-                "Initializing contact update sync. Requested schedule period: {} ms",
-                schedulePeriodMs,
+                "Initializing contact update sync. Requested schedule period: {}",
+                schedulePeriod,
             )
 
             try {
-                val workManager = WorkManager.getInstance(context)
-
                 if (WorkManagerUtil.shouldScheduleNewWorkManagerInstance(
                         workManager,
                         WorkerNames.WORKER_CONTACT_UPDATE_PERIODIC_NAME,
-                        schedulePeriodMs,
+                        schedulePeriod.inWholeMilliseconds,
                     )
                 ) {
                     logger.debug("Scheduling new job")
 
                     // Schedule the start of the service according to schedule period
                     val workRequest = buildPeriodicWorkRequest<ContactUpdateWorker>(
-                        repeatInterval = schedulePeriodMs.milliseconds,
+                        repeatInterval = schedulePeriod,
                     ) {
                         setConstraints {
                             setRequiredNetworkType(NetworkType.CONNECTED)
                         }
-                        addTag(schedulePeriodMs.toString())
+                        addTag(schedulePeriod.inWholeMilliseconds.toString())
                         setInitialDelay(1.seconds)
                     }
 
@@ -114,16 +112,15 @@ class ContactUpdateWorker(
             }
         }
 
-        @JvmStatic
-        fun performOneTimeSync(context: Context) {
-            val workRequest = buildOneTimeWorkRequest<ContactUpdateWorker>()
-            WorkManager.getInstance(context).enqueue(workRequest)
+        fun performOneTimeSync() {
+            workManager.enqueue(buildOneTimeWorkRequest<ContactUpdateWorker>())
         }
 
-        fun cancelPeriodicSync(context: Context): Operation {
-            return WorkManagerUtil.cancelUniqueWork(context, WorkerNames.WORKER_CONTACT_UPDATE_PERIODIC_NAME)
-        }
+        fun cancelPeriodicSync(): Operation =
+            workManager.cancelUniqueWork(WorkerNames.WORKER_CONTACT_UPDATE_PERIODIC_NAME)
+    }
 
+    companion object {
         @WorkerThread
         fun sendFeatureMaskAndUpdateContacts(serviceManager: ServiceManager) =
             sendFeatureMaskAndUpdateContacts(
@@ -223,7 +220,7 @@ class ContactUpdateWorker(
                     }
 
                     val newIdentityType = when (result.types[i]) {
-                        0 -> IdentityType.NORMAL
+                        0 -> IdentityType.REGULAR
                         1 -> IdentityType.WORK
                         else -> {
                             logger.warn(
@@ -231,7 +228,7 @@ class ContactUpdateWorker(
                                 result.types[i],
                                 identity,
                             )
-                            IdentityType.NORMAL
+                            IdentityType.REGULAR
                         }
                     }
 
@@ -246,7 +243,7 @@ class ContactUpdateWorker(
 
                     if (result.checkInterval > 0) {
                         // Save new interval duration
-                        preferenceService.setIdentityStateSyncInterval(result.checkInterval)
+                        preferenceService.setIdentityStateSyncInterval(result.checkInterval.seconds)
                     }
                 }
 

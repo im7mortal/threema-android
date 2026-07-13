@@ -15,11 +15,13 @@ import androidx.core.graphics.drawable.DrawableCompat;
 import ch.threema.app.R;
 import ch.threema.app.location.NearbyPoi;
 
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
+
 public class LocationUtil {
     @DrawableRes
     public static int getPlaceDrawableRes(@NonNull Context context, @NonNull NearbyPoi poi, boolean returnDefault) {
         String type = poi.getType();
-        if (!TestUtil.isEmptyOrNull(type)) {
+        if (!isNullOrEmpty(type)) {
             String defPackage = context.getPackageName();
             int id = context.getResources().getIdentifier("ic_places_" + type, "drawable", defPackage);
             if (id != 0) {
@@ -28,7 +30,7 @@ public class LocationUtil {
         }
 
         if (returnDefault) {
-            return R.drawable.ic_location_on_filled;
+            return R.drawable.ic_location_pin_filled;
         } else {
             return R.drawable.ic_stop_filled;
         }

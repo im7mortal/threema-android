@@ -7,10 +7,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.net.Uri;
 import android.os.BaseBundle;
 import android.os.PersistableBundle;
-import android.os.SystemClock;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -32,9 +30,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 
 import ch.threema.app.AppConstants;
+import ch.threema.app.BuildConfig;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.activities.ComposeMessageActivity;
@@ -42,6 +40,8 @@ import ch.threema.app.activities.MainActivity;
 import ch.threema.app.activities.RecipientListActivity;
 import ch.threema.app.backuprestore.csv.BackupService;
 import ch.threema.app.backuprestore.csv.RestoreService;
+import ch.threema.app.conversation.ConversationActivity;
+import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.messagereceiver.ContactMessageReceiver;
 import ch.threema.app.messagereceiver.DistributionListMessageReceiver;
 import ch.threema.app.messagereceiver.GroupMessageReceiver;
@@ -53,8 +53,14 @@ import ch.threema.app.voip.activities.CallActivity;
 import ch.threema.app.voip.services.VoipCallService;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
+import ch.threema.data.datatypes.ContactConversationId;
 import ch.threema.data.datatypes.ContactNameFormat;
+import ch.threema.data.datatypes.ConversationId;
+import ch.threema.data.datatypes.ConversationIdObfuscated;
+import ch.threema.data.datatypes.DistributionListConversationId;
+import ch.threema.data.datatypes.GroupConversationId;
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.ConversationModel;
@@ -83,10 +89,8 @@ public final class ShortcutUtil {
         Bitmap bitmap;
         String longLabel;
         String shortLabel;
-        String uniqueId;
+        ConversationIdObfuscated conversationIdObfuscated;
     }
-
-    /*****************************************************************************************************************/
 
     @WorkerThread
     public static void createPinnedShortcut(
@@ -120,22 +124,17 @@ public final class ShortcutUtil {
         @NonNull MessageReceiver<? extends AbstractMessageModel> messageReceiver,
         @NonNull ContactNameFormat contactNameFormat
     ) {
-        String uniqueId = messageReceiver.getUniqueIdString();
-
-        if (!TestUtil.isEmptyOrNull(uniqueId)) {
-            List<ShortcutInfoCompat> matchingShortcuts = new ArrayList<>();
-
-            for (ShortcutInfoCompat shortcutInfo : ShortcutManagerCompat.getShortcuts(getContext(), FLAG_MATCH_PINNED)) {
-                if (shortcutInfo.getId().equals(TYPE_CHAT + uniqueId)) {
-                    matchingShortcuts.add(getPinnedShortcutInfo(messageReceiver, TYPE_CHAT, contactNameFormat));
-                } else if (shortcutInfo.getId().equals(TYPE_CALL + uniqueId)) {
-                    matchingShortcuts.add(getPinnedShortcutInfo(messageReceiver, TYPE_CALL, contactNameFormat));
-                }
+        final @NonNull ConversationIdObfuscated conversationIdObfuscated = messageReceiver.getConversationId().getObfuscated();
+        List<ShortcutInfoCompat> matchingShortcuts = new ArrayList<>();
+        for (ShortcutInfoCompat shortcutInfo : ShortcutManagerCompat.getShortcuts(getContext(), FLAG_MATCH_PINNED)) {
+            if (shortcutInfo.getId().equals(TYPE_CHAT + conversationIdObfuscated.value)) {
+                matchingShortcuts.add(getPinnedShortcutInfo(messageReceiver, TYPE_CHAT, contactNameFormat));
+            } else if (shortcutInfo.getId().equals(TYPE_CALL + conversationIdObfuscated.value)) {
+                matchingShortcuts.add(getPinnedShortcutInfo(messageReceiver, TYPE_CALL, contactNameFormat));
             }
-
-            if (!matchingShortcuts.isEmpty()) {
-                ShortcutManagerCompat.updateShortcuts(getContext(), matchingShortcuts);
-            }
+        }
+        if (!matchingShortcuts.isEmpty()) {
+            ShortcutManagerCompat.updateShortcuts(getContext(), matchingShortcuts);
         }
     }
 
@@ -153,39 +152,34 @@ public final class ShortcutUtil {
         int type,
         @NonNull ContactNameFormat contactNameFormat
     ) {
-        String uniqueId = messageReceiver.getUniqueIdString();
-
-        if (!TestUtil.isEmptyOrNull(uniqueId)) {
-            List<ShortcutInfoCompat> matchingShortcuts = new ArrayList<>();
-
-            for (ShortcutInfoCompat shortcutInfo : ShortcutManagerCompat.getShortcuts(getContext(), FLAG_MATCH_PINNED)) {
-                if (shortcutInfo.getId().equals(type + uniqueId)) {
-                    matchingShortcuts.add(getPinnedShortcutInfo(messageReceiver, TYPE_CHAT, contactNameFormat));
-                }
-            }
-
-            if (!matchingShortcuts.isEmpty()) {
-                ShortcutManagerCompat.updateShortcuts(getContext(), matchingShortcuts);
-                return true;
+        final @NonNull ConversationIdObfuscated conversationIdObfuscated = messageReceiver.getConversationId().getObfuscated();
+        List<ShortcutInfoCompat> matchingShortcuts = new ArrayList<>();
+        for (ShortcutInfoCompat shortcutInfo : ShortcutManagerCompat.getShortcuts(getContext(), FLAG_MATCH_PINNED)) {
+            if (shortcutInfo.getId().equals(type + conversationIdObfuscated.value)) {
+                matchingShortcuts.add(getPinnedShortcutInfo(messageReceiver, TYPE_CHAT, contactNameFormat));
             }
         }
-        return false;
+        if (!matchingShortcuts.isEmpty()) {
+            ShortcutManagerCompat.updateShortcuts(getContext(), matchingShortcuts);
+        }
+        return !matchingShortcuts.isEmpty();
     }
 
     @WorkerThread
-    public static void deletePinnedShortcut(String uniqueIdString) {
-        if (!TestUtil.isEmptyOrNull(uniqueIdString)) {
-            List<ShortcutInfoCompat> shortcutInfos = ShortcutManagerCompat.getShortcuts(getContext(), FLAG_MATCH_PINNED);
-
-            if (!shortcutInfos.isEmpty()) {
-                for (ShortcutInfoCompat shortcutInfo : shortcutInfos) {
-                    String shortcutId = shortcutInfo.getId();
-                    if (!TestUtil.isEmptyOrNull(shortcutId)) {
-                        // ignore first character which represents the type indicator
-                        if (shortcutId.substring(1).equals(uniqueIdString)) {
-                            ShortcutManagerCompat.removeLongLivedShortcuts(getContext(), Collections.singletonList(shortcutInfo.getId()));
-                            break;
-                        }
+    public static void deletePinnedShortcut(@NonNull ConversationId conversationId) {
+        List<ShortcutInfoCompat> shortcutInfos = ShortcutManagerCompat.getShortcuts(getContext(), FLAG_MATCH_PINNED);
+        if (!shortcutInfos.isEmpty()) {
+            final @NonNull ConversationIdObfuscated conversationIdObfuscated = conversationId.getObfuscated();
+            for (ShortcutInfoCompat shortcutInfo : shortcutInfos) {
+                String shortcutId = shortcutInfo.getId();
+                if (!isNullOrEmpty(shortcutId)) {
+                    // ignore first character which represents the type indicator
+                    if (shortcutId.substring(1).equals(conversationIdObfuscated.value)) {
+                        ShortcutManagerCompat.removeLongLivedShortcuts(
+                            getContext(),
+                            Collections.singletonList(shortcutInfo.getId())
+                        );
+                        break;
                     }
                 }
             }
@@ -242,8 +236,27 @@ public final class ShortcutUtil {
                 commonShortcutInfo.bitmap = BitmapUtil.addOverlay(bitmap, phoneBitmap, offset);
             }
         } else {
-            commonShortcutInfo.intent = getChatShortcutIntent();
-            IntentDataUtil.addMessageReceiverToIntent(commonShortcutInfo.intent, messageReceiver);
+
+            final Intent intent = new Intent(
+                getContext(),
+                BuildConfig.NEW_CONVERSATION_SCREEN_ENABLED
+                    ? ConversationActivity.class
+                    : ComposeMessageActivity.class
+            );
+            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            intent.setAction(Intent.ACTION_MAIN);
+            intent.putExtra(EXTRA_CALLED_FROM_SHORTCUT, true);
+
+            // We can not use ConversationId in the extras, because Parcelables are not supported by PersistableBundle
+            final ConversationId conversationId = messageReceiver.getConversationId();
+            if (conversationId instanceof ContactConversationId) {
+                intent.putExtra(AppConstants.INTENT_DATA_CONTACT, ((ContactConversationId) conversationId).identity);
+            } else if (conversationId instanceof GroupConversationId) {
+                intent.putExtra(AppConstants.INTENT_DATA_GROUP_DATABASE_ID, ((GroupConversationId) conversationId).groupDatabaseId);
+            } else if (conversationId instanceof DistributionListConversationId) {
+                intent.putExtra(AppConstants.INTENT_DATA_DISTRIBUTION_LIST_ID, ((DistributionListConversationId) conversationId).distributionListId);
+            }
+            commonShortcutInfo.intent = intent;
             commonShortcutInfo.longLabel = String.format(
                 getContext().getString(R.string.chat_with),
                 messageReceiver.getDisplayName(contactNameFormat)
@@ -251,7 +264,7 @@ public final class ShortcutUtil {
             commonShortcutInfo.bitmap = bitmap;
         }
         commonShortcutInfo.shortLabel = messageReceiver.getShortName(contactNameFormat);
-        commonShortcutInfo.uniqueId = messageReceiver.getUniqueIdString();
+        commonShortcutInfo.conversationIdObfuscated = messageReceiver.getConversationId().getObfuscated();
 
         return commonShortcutInfo;
     }
@@ -274,7 +287,10 @@ public final class ShortcutUtil {
                 );
             }
 
-            ShortcutInfoCompat.Builder shortcutInfoCompatBuilder = new ShortcutInfoCompat.Builder(getContext(), type + commonShortcutInfo.uniqueId)
+            ShortcutInfoCompat.Builder shortcutInfoCompatBuilder = new ShortcutInfoCompat.Builder(
+                getContext(),
+                type + commonShortcutInfo.conversationIdObfuscated.value
+            )
                 .setShortLabel(commonShortcutInfo.shortLabel)
                 .setLongLabel(commonShortcutInfo.longLabel)
                 .setIntent(commonShortcutInfo.intent)
@@ -296,37 +312,23 @@ public final class ShortcutUtil {
         return null;
     }
 
-    private static Intent getChatShortcutIntent() {
-        Intent intent = new Intent(getContext(), ComposeMessageActivity.class);
-        intent.setData((Uri.parse("foobar://" + SystemClock.elapsedRealtime())));
-        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        intent.setAction(Intent.ACTION_MAIN);
-        intent.putExtra(EXTRA_CALLED_FROM_SHORTCUT, true);
-
-        return intent;
-    }
-
+    @NonNull
     private static Intent getCallShortcutIntent() {
         Intent intent = new Intent(getContext(), CallActivity.class);
-        intent.setData((Uri.parse("foobar://" + SystemClock.elapsedRealtime())));
         intent.setAction(Intent.ACTION_MAIN);
         intent.putExtra(EXTRA_CALLED_FROM_SHORTCUT, true);
         intent.putExtra(VoipCallService.EXTRA_IS_INITIATOR, true);
         intent.putExtra(VoipCallService.EXTRA_CALL_ID, -1L);
-
         return intent;
     }
 
+    @NonNull
     private static Intent getShareTargetShortcutIntent(MessageReceiver<? extends AbstractMessageModel> messageReceiver) {
         Intent intent = new Intent(getContext(), RecipientListActivity.class);
-        intent.setData((Uri.parse("foobar://" + SystemClock.elapsedRealtime())));
         intent.setAction(Intent.ACTION_DEFAULT);
         IntentDataUtil.addMessageReceiverToIntent(intent, messageReceiver);
-
         return intent;
     }
-
-    /*****************************************************************************************************************/
 
     /**
      * Try publishing the most recent chats as dynamic shortcuts to be shown as share targets or in a launcher popup
@@ -353,7 +355,7 @@ public final class ShortcutUtil {
 
         final ConversationService.Filter filter = new ConversationService.Filter() {
             @Override
-            public boolean noHiddenChats() {
+            public boolean noHiddenConversations() {
                 return true;
             }
 
@@ -371,16 +373,25 @@ public final class ShortcutUtil {
         final List<ConversationModel> conversations = conversationService.getAll(false, filter);
 
         synchronized (dynamicShortcutLock) {
-            final int numPublishableConversations = Math.min(conversations.size(), Math.min(ShortcutManagerCompat.getMaxShortcutCountPerActivity(getContext()), MAX_SHARE_TARGETS));
+            final int numPublishableConversations = Math.min(
+                conversations.size(),
+                Math.min(
+                    ShortcutManagerCompat.getMaxShortcutCountPerActivity(getContext()),
+                    MAX_SHARE_TARGETS
+                )
+            );
 
-            final List<String> publishedRecentChatsUids = new ArrayList<>();
+            final List<ConversationIdObfuscated> publishedRecentConversations = new ArrayList<>();
             for (int i = 0; i < numPublishableConversations; i++) {
-                var conversation = conversations.get(i);
-                publishedRecentChatsUids.add(conversation.messageReceiver.getUniqueIdString());
+                final @NonNull ConversationIdObfuscated conversationIdObfuscated = conversations
+                    .get(i)
+                    .messageReceiver
+                    .getConversationId()
+                    .getObfuscated();
+                publishedRecentConversations.add(conversationIdObfuscated);
             }
-
-            if (publishedRecentChatsUids.isEmpty()) {
-                logger.info("No recent chats to publish sharing targets for");
+            if (publishedRecentConversations.isEmpty()) {
+                logger.info("No recent conversations to publish sharing targets for");
                 return;
             }
 
@@ -389,13 +400,27 @@ public final class ShortcutUtil {
             Instant cutoffDate = (lastShortcutUpdateDate != null ? lastShortcutUpdateDate.plus(1, ChronoUnit.DAYS) : Instant.MIN);
             Instant now = Instant.now();
 
-            if (Arrays.equals(preferenceService.getEncryptedList(KEY_RECENT_UIDS), publishedRecentChatsUids.toArray(new String[0])) &&
-                !now.isAfter(cutoffDate)) {
-                logger.info("Recent chats unchanged. Not updating sharing targets");
+            final ConversationIdObfuscated[] persistedPublishedRecentConversations =
+                Arrays
+                    .stream(
+                        preferenceService.getEncryptedList(KEY_RECENT_UIDS)
+                    )
+                    .map(ConversationIdObfuscated::new)
+                    .toArray(ConversationIdObfuscated[]::new);
+            final ConversationIdObfuscated[] publishedRecentConversationsArray = publishedRecentConversations
+                .toArray(new ConversationIdObfuscated[0]);
+            if (Arrays.equals(persistedPublishedRecentConversations, publishedRecentConversationsArray) && !now.isAfter(cutoffDate)) {
+                logger.info("Recent conversations unchanged. Not updating sharing targets");
                 return;
             }
 
-            preferenceService.setEncryptedListQuietly(KEY_RECENT_UIDS, publishedRecentChatsUids.toArray(new String[0]));
+            preferenceService.setEncryptedList(
+                KEY_RECENT_UIDS,
+                publishedRecentConversations
+                    .stream()
+                    .map(conversationIdObfuscated -> conversationIdObfuscated.value)
+                    .toArray(String[]::new)
+            );
             preferenceService.setLastShortcutUpdateTimestamp(now);
 
             final List<ShortcutInfoCompat> shareTargetShortcuts = new ArrayList<>();
@@ -447,12 +472,15 @@ public final class ShortcutUtil {
     }
 
     /**
-     * Delete dynamic shortcut associated with provided message receiver
+     * Delete dynamic shortcut associated with the conversation
      */
     @WorkerThread
-    public static void deleteShareTargetShortcut(String uniqueIdString) {
+    public static void deleteShareTargetShortcut(@NonNull ConversationId conversationId) {
         synchronized (dynamicShortcutLock) {
-            ShortcutManagerCompat.removeLongLivedShortcuts(getContext(), Collections.singletonList(uniqueIdString));
+            ShortcutManagerCompat.removeLongLivedShortcuts(
+                getContext(),
+                Collections.singletonList(conversationId.getObfuscated().value)
+            );
         }
     }
 
@@ -472,7 +500,7 @@ public final class ShortcutUtil {
         synchronized (dynamicShortcutLock) {
             List<ShortcutInfoCompat> shortcutInfos = ShortcutManagerCompat.getDynamicShortcuts(getContext());
             for (ShortcutInfoCompat shortcutInfo : shortcutInfos) {
-                if (shortcutInfo.getId().equals(messageReceiver.getUniqueIdString())) {
+                if (shortcutInfo.getId().equals(messageReceiver.getConversationId().getObfuscated().value)) {
                     ShortcutInfoCompat updatedShortcutInfo = getShareTargetShortcutInfo(messageReceiver, shortcutInfo.getRank(), contactNameFormat);
                     ShortcutManagerCompat.updateShortcuts(getContext(), Collections.singletonList(updatedShortcutInfo));
                     return;
@@ -522,7 +550,7 @@ public final class ShortcutUtil {
         List<Person> persons = new ArrayList<>();
         if (messageReceiver instanceof GroupMessageReceiver) {
             try {
-                Collection<ContactModel> contactModels = ThreemaApplication.getServiceManager()
+                Collection<ContactModel> contactModels = ServiceManager.require()
                     .getGroupService()
                     .getMembers(((GroupMessageReceiver) messageReceiver).getGroup());
                 for (ContactModel contactModel : contactModels) {
@@ -544,7 +572,10 @@ public final class ShortcutUtil {
             var adaptiveIcon = AdaptiveIconUtil.create(getContext(), avatarBitmap);
 
             try {
-                ShortcutInfoCompat.Builder shortcutInfoCompatBuilder = new ShortcutInfoCompat.Builder(getContext(), messageReceiver.getUniqueIdString())
+                ShortcutInfoCompat.Builder shortcutInfoCompatBuilder = new ShortcutInfoCompat.Builder(
+                    getContext(),
+                    messageReceiver.getConversationId().getObfuscated().value
+                )
                     .setIcon(adaptiveIcon != null ? adaptiveIcon : IconCompat.createWithBitmap(avatarBitmap))
                     .setIntent(getShareTargetShortcutIntent(messageReceiver))
                     .setShortLabel(messageReceiver.getShortName(contactNameFormat) != null ? messageReceiver.getShortName(contactNameFormat) : displayName)
@@ -554,7 +585,7 @@ public final class ShortcutUtil {
                     .setLongLived(true)
                     .setRank(rank)
                     .setIsConversation()
-                    .setLocusId(new LocusIdCompat(messageReceiver.getUniqueIdString()))
+                    .setLocusId(new LocusIdCompat(messageReceiver.getConversationId().getObfuscated().value))
                     .setCategories(Collections.singleton(DYNAMIC_SHORTCUT_SHARE_TARGET_CATEGORY));
 
                 if (person != null) {
@@ -602,7 +633,7 @@ public final class ShortcutUtil {
     @Nullable
     private static ContactService getContactService() {
         try {
-            return Objects.requireNonNull(ThreemaApplication.getServiceManager()).getContactService();
+            return ServiceManager.require().getContactService();
         } catch (Exception e) {
             logger.error("Exception", e);
         }

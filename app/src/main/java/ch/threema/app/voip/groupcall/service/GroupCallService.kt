@@ -16,15 +16,19 @@ import android.telephony.TelephonyManager
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.app.Person
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
+import ch.threema.android.buildNotification
+import ch.threema.android.buildPerson
 import ch.threema.app.R
-import ch.threema.app.ThreemaApplication
+import ch.threema.app.di.injectNonBinding
+import ch.threema.app.managers.ServiceManager
 import ch.threema.app.notifications.NotificationChannels
 import ch.threema.app.notifications.NotificationGroups
+import ch.threema.app.notifications.NotificationIDs.ONGOING_GROUP_CALL_NOTIFICATION_ID
 import ch.threema.app.preference.service.PreferenceService
+import ch.threema.app.protocolsteps.ValidContactsLookupSteps
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.UserService
@@ -52,6 +56,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import org.koin.core.component.KoinComponent
 
 private val logger = getThreemaLogger("GroupCallService")
 
@@ -65,10 +70,8 @@ private val logger = getThreemaLogger("GroupCallService")
  * If it is required to change to another call, the service must be stopped and restarted with the new
  * call id.
  */
-class GroupCallService : Service() {
+class GroupCallService : Service(), KoinComponent {
     companion object {
-        private const val NOTIFICATION_ID = 5488088
-
         private const val EXTRA_SFU_BASE_URL = "EXTRA_SFU_BASE_URL"
         private const val EXTRA_CALL_ID = "EXTRA_CALL_ID"
         private const val EXTRA_GROUP_ID = "EXTRA_GROUP_ID"
@@ -139,6 +142,7 @@ class GroupCallService : Service() {
     private lateinit var sfuConnection: SfuConnection
     private lateinit var preferenceService: PreferenceService
     private lateinit var voipStateService: VoipStateService
+    private val validContactsLookupSteps: ValidContactsLookupSteps by injectNonBinding()
 
     private var isLeaveCallIntent = false
 
@@ -189,7 +193,7 @@ class GroupCallService : Service() {
     }
 
     private fun initDependencies() {
-        val serviceManager = ThreemaApplication.requireServiceManager()
+        val serviceManager = ServiceManager.require()
         identityStore = serviceManager.identityStore
         contactService = serviceManager.contactService
         sfuConnection = serviceManager.sfuConnection
@@ -228,7 +232,7 @@ class GroupCallService : Service() {
     private fun startForeground() {
         ServiceCompat.startForeground(
             this,
-            NOTIFICATION_ID,
+            ONGOING_GROUP_CALL_NOTIFICATION_ID,
             getForegroundNotification().apply {
                 this.flags = this.flags or
                     NotificationCompat.FLAG_NO_CLEAR or
@@ -242,33 +246,34 @@ class GroupCallService : Service() {
     private fun updateNotification(startedAt: Long) {
         val notification = getForegroundNotification(startedAt)
         if (serviceRunning.get()) {
-            NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, notification)
+            NotificationManagerCompat.from(this).notify(ONGOING_GROUP_CALL_NOTIFICATION_ID, notification)
         }
     }
 
     private fun getForegroundNotification(startedAt: Long = System.currentTimeMillis()): Notification {
         val group = groupService.getById(groupId.id)
-        val callerPerson = Person.Builder()
-            .setName(getNotificationTitle(group))
-            .setImportant(true)
-            .build()
-        val builder = NotificationCompat.Builder(this, NotificationChannels.NOTIFICATION_CHANNEL_IN_CALL)
-            .setContentTitle(getNotificationTitle(group))
-            .setContentText(getString(R.string.group_call))
-            .setSmallIcon(R.drawable.ic_phone_locked_outline)
-            .setLargeIcon(getAvatar(group))
-            .setColor(ResourcesCompat.getColor(resources, R.color.md_theme_light_primary, theme))
-            .setLocalOnly(true)
-            .setOngoing(true)
-            .setUsesChronometer(true)
-            .setShowWhen(true)
-            .setWhen(startedAt)
-            .setGroup(NotificationGroups.CALLS)
-            .setGroupSummary(false)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentIntent(getJoinCallPendingIntent(PendingIntent.FLAG_UPDATE_CURRENT))
-            .apply {
-                getLeaveCallPendingIntent(PendingIntent.FLAG_UPDATE_CURRENT)?.let { leaveCallPendingIntent ->
+        val callerPerson = buildPerson {
+            setName(getNotificationTitle(group))
+            setImportant(true)
+        }
+        return buildNotification(this, NotificationChannels.NOTIFICATION_CHANNEL_IN_CALL) {
+            setContentTitle(getNotificationTitle(group))
+            setContentText(getString(R.string.group_call))
+            setSmallIcon(R.drawable.ic_phone_locked_outline)
+            setLargeIcon(getAvatar(group))
+            setColor(ResourcesCompat.getColor(resources, R.color.md_theme_light_primary, theme))
+            setLocalOnly(true)
+            setOngoing(true)
+            setUsesChronometer(true)
+            setShowWhen(true)
+            setWhen(startedAt)
+            setGroup(NotificationGroups.CALLS)
+            setGroupSummary(false)
+            setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            setContentIntent(getJoinCallPendingIntent(PendingIntent.FLAG_UPDATE_CURRENT))
+
+            getLeaveCallPendingIntent(PendingIntent.FLAG_UPDATE_CURRENT)
+                ?.let { leaveCallPendingIntent ->
                     setStyle(
                         NotificationCompat.CallStyle.forOngoingCall(
                             callerPerson,
@@ -276,9 +281,7 @@ class GroupCallService : Service() {
                         ),
                     )
                 }
-            }
-
-        return builder.build()
+        }
     }
 
     private fun getJoinCallPendingIntent(flags: Int): PendingIntent? {
@@ -333,6 +336,7 @@ class GroupCallService : Service() {
                     apiConnector,
                     contactModelRepository,
                     userService,
+                    validContactsLookupSteps,
                 )
                 CoroutineScope(GroupCallThreadUtil.dispatcher).launch {
                     launch {

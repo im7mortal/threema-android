@@ -2,16 +2,16 @@ package ch.threema.data.models
 
 import ch.threema.app.utils.ContactUtil
 import ch.threema.base.crypto.NaCl
-import ch.threema.base.utils.UnsignedHelper
 import ch.threema.common.isNotNullOrBlank
 import ch.threema.common.plus
-import ch.threema.common.toDate
 import ch.threema.data.datatypes.AndroidContactLookupInfo
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.datatypes.ContactNameFormat
+import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverride
+import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.IdColor
-import ch.threema.data.datatypes.NotificationTriggerPolicyOverride
 import ch.threema.data.models.ContactModelData.Companion.DISPLAY_NAME_INVALID_CONTACT
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.BasicContact
 import ch.threema.domain.models.ContactSyncState
 import ch.threema.domain.models.IdentityState
@@ -21,10 +21,8 @@ import ch.threema.domain.models.TypingIndicatorPolicy
 import ch.threema.domain.models.VerificationLevel
 import ch.threema.domain.models.WorkVerificationLevel
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel
 import java.math.BigInteger
 import java.time.Instant
-import java.util.Date
 import kotlin.time.Duration
 
 /**
@@ -38,7 +36,9 @@ data class ContactModelData(
     /** The 32-byte public key of the contact. */
     @JvmField val publicKey: ByteArray,
     /** Timestamp when this contact was added to the contact list. */
-    @JvmField val createdAt: Date,
+    @JvmField val createdAt: Instant,
+    /** Timestamp when this contact was last updated. Also known as _last update flag_. */
+    @JvmField val lastUpdateAt: Instant?,
     /** First name. */
     @JvmField val firstName: String,
     /** Last name. */
@@ -65,11 +65,8 @@ data class ContactModelData(
     @JvmField val readReceiptPolicy: ReadReceiptPolicy,
     /** Typing indicator policy. */
     @JvmField val typingIndicatorPolicy: TypingIndicatorPolicy,
-    /**
-     * Whether the conversation with the contact is archived or not. Note that this information belongs to the 'conversation visibility' and should
-     * probably be moved to the new conversation model TODO(ANDR-3010).
-     */
-    @JvmField val isArchived: Boolean,
+    /** The conversation visibility of the 1:1 chat with this contact. */
+    @JvmField val conversationVisibility: ConversationVisibility,
     /** Android contact lookup key. */
     @JvmField val androidContactLookupInfo: AndroidContactLookupInfo?,
     /**
@@ -82,7 +79,7 @@ data class ContactModelData(
      *
      * For other contacts, this is always set to null.
      */
-    @JvmField val localAvatarExpires: Date?,
+    @JvmField val localAvatarExpires: Instant?,
     /**
      * Whether this contact has been restored from backup.
      */
@@ -93,11 +90,7 @@ data class ContactModelData(
     @JvmField val profilePictureBlobId: ByteArray?,
     @JvmField val jobTitle: String?,
     @JvmField val department: String?,
-    /**
-     *  Encapsulates all logic of `Contact.NotificationTriggerPolicyOverride.Policy` into a single `Long?` value.
-     *  See [NotificationTriggerPolicyOverride] for possible values and their meanings.
-     */
-    @JvmField val notificationTriggerPolicyOverride: Long?,
+    @JvmField val notificationTriggerPolicyOverride: ContactNotificationTriggerPolicyOverride?,
     /**
      *  In work builds, work contacts can have an optional [AvailabilityStatus].
      *
@@ -120,7 +113,8 @@ data class ContactModelData(
         fun javaCreate(
             identity: IdentityString,
             publicKey: ByteArray,
-            createdAt: Date,
+            createdAt: Instant,
+            lastUpdateAt: Instant?,
             firstName: String,
             lastName: String,
             nickname: String?,
@@ -134,14 +128,14 @@ data class ContactModelData(
             syncState: ContactSyncState,
             readReceiptPolicy: ReadReceiptPolicy,
             typingIndicatorPolicy: TypingIndicatorPolicy,
-            isArchived: Boolean,
+            conversationVisibility: ConversationVisibility,
             androidContactLookupInfo: AndroidContactLookupInfo?,
-            localAvatarExpires: Date?,
+            localAvatarExpires: Instant?,
             isRestored: Boolean,
             profilePictureBlobId: ByteArray?,
             jobTitle: String?,
             department: String?,
-            notificationTriggerPolicyOverride: Long?,
+            notificationTriggerPolicyOverride: ContactNotificationTriggerPolicyOverride?,
             availabilityStatus: AvailabilityStatus,
             workLastFullSyncAt: Instant?,
         ): ContactModelData {
@@ -151,6 +145,7 @@ data class ContactModelData(
                 identity = identity,
                 publicKey = publicKey,
                 createdAt = createdAt,
+                lastUpdateAt = lastUpdateAt,
                 firstName = firstName,
                 lastName = lastName,
                 nickname = nickname,
@@ -164,7 +159,7 @@ data class ContactModelData(
                 featureMask = featureMask.toLong().toULong(),
                 readReceiptPolicy = readReceiptPolicy,
                 typingIndicatorPolicy = typingIndicatorPolicy,
-                isArchived = isArchived,
+                conversationVisibility = conversationVisibility,
                 androidContactLookupInfo = androidContactLookupInfo,
                 localAvatarExpires = localAvatarExpires,
                 isRestored = isRestored,
@@ -179,12 +174,6 @@ data class ContactModelData(
     }
 
     /**
-     * Return the [featureMask] as [BigInteger].
-     */
-    fun featureMaskBigInteger(): BigInteger =
-        UnsignedHelper.unsignedLongToBigInteger(featureMask.toLong())
-
-    /**
      * Return the [featureMask] as positive [Long].
      *
      * Throws [IllegalArgumentException] if value does not fit in a [Long].
@@ -196,6 +185,13 @@ data class ContactModelData(
         }
         return long
     }
+
+    fun showIdentityTypeBadge(isWorkBuild: Boolean): Boolean =
+        if (isWorkBuild) {
+            identityType == IdentityType.REGULAR && !ContactUtil.isEchoEchoOrGatewayContact(identity)
+        } else {
+            identityType == IdentityType.WORK
+        }
 
     /**
      * Return the display name for this contact.
@@ -251,7 +247,7 @@ data class ContactModelData(
      */
     @JvmOverloads
     fun isAvatarExpired(now: Instant = Instant.now(), tolerance: Duration = Duration.ZERO): Boolean =
-        localAvatarExpires?.before((now + tolerance).toDate()) ?: true
+        localAvatarExpires?.isBefore((now + tolerance)) ?: true
 
     /**
      * Check if the contact is a gateway contact.
@@ -275,9 +271,6 @@ data class ContactModelData(
         department = department,
     )
 
-    val currentNotificationTriggerPolicyOverride
-        get() = NotificationTriggerPolicyOverride.fromDbValueContact(notificationTriggerPolicyOverride)
-
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
@@ -287,6 +280,7 @@ data class ContactModelData(
         if (identity != other.identity) return false
         if (!publicKey.contentEquals(other.publicKey)) return false
         if (createdAt != other.createdAt) return false
+        if (lastUpdateAt != other.lastUpdateAt) return false
         if (firstName != other.firstName) return false
         if (lastName != other.lastName) return false
         if (nickname != other.nickname) return false
@@ -300,7 +294,7 @@ data class ContactModelData(
         if (featureMask != other.featureMask) return false
         if (readReceiptPolicy != other.readReceiptPolicy) return false
         if (typingIndicatorPolicy != other.typingIndicatorPolicy) return false
-        if (isArchived != other.isArchived) return false
+        if (conversationVisibility != other.conversationVisibility) return false
         if (androidContactLookupInfo != other.androidContactLookupInfo) return false
         if (localAvatarExpires != other.localAvatarExpires) return false
         if (isRestored != other.isRestored) return false
@@ -323,9 +317,10 @@ data class ContactModelData(
         var result = identity.hashCode()
         result = 31 * result + publicKey.contentHashCode()
         result = 31 * result + createdAt.hashCode()
+        result = 31 * result + lastUpdateAt.hashCode()
         result = 31 * result + firstName.hashCode()
         result = 31 * result + lastName.hashCode()
-        result = 31 * result + (nickname?.hashCode() ?: 0)
+        result = 31 * result + nickname.hashCode()
         result = 31 * result + idColor.hashCode()
         result = 31 * result + verificationLevel.hashCode()
         result = 31 * result + workVerificationLevel.hashCode()
@@ -336,10 +331,11 @@ data class ContactModelData(
         result = 31 * result + featureMask.hashCode()
         result = 31 * result + readReceiptPolicy.hashCode()
         result = 31 * result + typingIndicatorPolicy.hashCode()
-        result = 31 * result + (androidContactLookupInfo?.hashCode() ?: 0)
-        result = 31 * result + (localAvatarExpires?.hashCode() ?: 0)
+        result = 31 * result + conversationVisibility.hashCode()
+        result = 31 * result + androidContactLookupInfo.hashCode()
+        result = 31 * result + localAvatarExpires.hashCode()
         result = 31 * result + isRestored.hashCode()
-        result = 31 * result + (profilePictureBlobId?.contentHashCode() ?: 0)
+        result = 31 * result + profilePictureBlobId.contentHashCode()
         result = 31 * result + notificationTriggerPolicyOverride.hashCode()
         result = 31 * result + availabilityStatus.hashCode()
         result = 31 * result + workLastFullSyncAt.hashCode()

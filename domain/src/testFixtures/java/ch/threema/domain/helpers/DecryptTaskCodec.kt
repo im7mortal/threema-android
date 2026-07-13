@@ -1,6 +1,5 @@
 package ch.threema.domain.helpers
 
-import ch.threema.base.utils.Utils
 import ch.threema.domain.protocol.csp.coders.MessageBox
 import ch.threema.domain.protocol.csp.coders.MessageCoder
 import ch.threema.domain.protocol.csp.fs.ForwardSecurityMessageProcessor
@@ -90,12 +89,8 @@ open class DecryptTaskCodec(
             return null
         } else {
             throw AssertionError(
-                "Expected forward secure message but got a message of type ${
-                    Utils.byteToHex(
-                        message.type.toByte(),
-                        true,
-                        true,
-                    )
+                "Expected forward secure message but got a message of type 0x${
+                    message.type.toByte().toHexString(HexFormat.UpperCase)
                 }",
             )
         }

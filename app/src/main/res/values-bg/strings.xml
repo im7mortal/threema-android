@@ -31,6 +31,8 @@
     <string name="title_job_title">Длъжност</string>
     <string name="title_department">Отдел</string>
     <string name="send">Изпратете</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
     <string name="prefs_privacy">Поверителност</string>
     <string name="prefs_notifications">Звук &amp; известия</string>
     <string name="prefs_chatdisplay">Чат</string>
@@ -82,7 +84,8 @@
     <string name="prefs_sum_threema_push_off">Проверете за нови съобщения чрез системата на push-известия</string>
     <string name="prefs_logging">Вписване</string>
     <string name="prefs_title_message_log_switch">Запишете лога във файл</string>
-    <string name="prefs_title_sum_message_log_on">Събитията и информацията за мрежата ще бъдат логнати във файла debug_log.txt</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
     <string name="prefs_title_sum_message_log_off">Събитията няма да бъдат запазени в лога</string>
     <string name="prefs_reset_push">Рестартирайте push-токен</string>
     <string name="prefs_sum_reset_push">Пререгистрирайте устройството за push-известия с FCM/HMS</string>
@@ -686,7 +689,6 @@
     <string name="new_wizard_anonymous_confirm">Не сте въвели мобилен телефон или имейл, които да се свържат с Вашия ${app_name_short} идентификатор. Вие няма да се виждате в списъка с контакти на Вашите приятели. Наистина ли искате да използвате ${app_name} анонимно?</string>
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_anonymous_confirm_phone_only">Не сте въвели мобилен телефон, който да се свърже с Вашия ${app_name_short} идентификатор. Вие няма да се виждате в списъка с контакти на Вашите приятели. Наистина ли искате да използвате ${app_name} анонимно?</string>
-    <string name="new_wizard_scan_id_backup">Или сканирайте QR кода на Вашия експортиран идентификатор</string>
     <string name="error_saving_file">Някои файлове не могат да бъдат запаметени</string>
     <string name="wait_one_minute">Моля, изчакайте поне 10 минути за СМС-а преди да поискате телефонно обаждане.</string>
     <string name="backup_id">Експортиран идентификатор</string>
@@ -769,7 +771,7 @@
     <string name="prefs_language_override">Език</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
     <string name="threema_channel_intro">${app_name_short} каналът Ви предоставя новини за всичко около ${app_name_short}. Искате ли да се абонирате за канала на ${app_name_short} и да го добавите като контакт? Безплатно е и винаги можете да се отпишете.</string>
-    <string name="quote">Цитирайте</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
     <string name="contacts_deleted">Контактът е изтрит</string>
     <string name="take_photo">Направете снимка</string>
     <string name="select_from_gallery">Изберете от галерията</string>
@@ -1208,6 +1210,7 @@
     <string name="max_selectable_media_exceeded">Не повече от %d файла могат да се изпратят наведнъж.</string>
     <string name="error_unable_loading_media_thumb">Грешка. Миниатюрата не може да бъде заредена</string>
     <string name="filter_list">Филтрирайте списъка</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
     <string name="hint_filter_list">Въведете текст на филтъра</string>
     <string name="add">Добавете</string>
     <string name="only_images_or_videos">Само изображения или видеа могат да се избират</string>
@@ -1556,7 +1559,6 @@
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
     <!-- The %s is a placeholder for an ID. It must be left as-is. -->
     <string name="md_device_currently_active">Активни в момента</string>
@@ -1744,6 +1746,7 @@
         <item quantity="one">%d изтрито съобщение</item>
         <item quantity="other">%d изтрити съобщения</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
     <plurals name="notifications_for_x_hours">
         <item quantity="one">За %d час</item>
         <item quantity="other">За %d часа</item>

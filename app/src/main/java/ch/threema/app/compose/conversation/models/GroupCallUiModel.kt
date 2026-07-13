@@ -2,9 +2,9 @@ package ch.threema.app.compose.conversation.models
 
 import androidx.compose.runtime.Immutable
 import ch.threema.app.voip.groupcall.sfu.CallId
-import ch.threema.common.now
 import ch.threema.data.datatypes.LocalGroupId
 import ch.threema.domain.types.TimestampUTC
+import java.time.Instant
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -26,7 +26,7 @@ data class GroupCallUiModel(
      * @return The [Duration] since the group call has started, or `null` if the timestamp is in the future.
      */
     private fun getDurationSinceStarted(): Duration? {
-        val currentTime: Long = now().time
+        val currentTime: Long = Instant.now().toEpochMilli()
         return if (currentTime >= startedAt) {
             (currentTime - startedAt).milliseconds
         } else {
@@ -38,7 +38,7 @@ data class GroupCallUiModel(
      * @return The [Duration] since the group call has been processed, or [Duration.ZERO] if the timestamp is in the future.
      */
     private fun getDurationSinceProcessed(): Duration {
-        val currentTime: Long = now().time
+        val currentTime: Long = Instant.now().toEpochMilli()
         return if (currentTime >= processedAt) {
             (currentTime - processedAt).milliseconds
         } else {

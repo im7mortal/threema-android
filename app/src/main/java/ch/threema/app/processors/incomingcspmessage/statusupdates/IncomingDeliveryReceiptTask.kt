@@ -52,13 +52,13 @@ class IncomingDeliveryReceiptTask(
                     messageModel,
                     state,
                     message.fromIdentity,
-                    message.date,
+                    message.timestamp,
                 )
             } else {
                 messageService.updateOutgoingMessageState(
                     messageModel,
                     state,
-                    message.date,
+                    message.timestamp,
                 )
             }
         }

@@ -58,7 +58,7 @@ public class PollingHelper implements QueueSendCompleteListener {
     public synchronized boolean poll(final boolean useWakeLock) {
         logger.info("Fetch attempt. Source = {}", lifetimeServiceTag);
 
-        final ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        final ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             return false;
         }
@@ -97,7 +97,7 @@ public class PollingHelper implements QueueSendCompleteListener {
 
             // Determine timeout duration. If we're already connected it can be shorter.
             long timeout = CONNECTION_TIMEOUT;
-            if (serviceManager.getConnection().getConnectionState() == ConnectionState.LOGGEDIN) {
+            if (serviceManager.getConnection().getConnectionState() == ConnectionState.LOGGED_IN) {
                 logger.info("Already connected");
                 timeout = CONNECTION_TIMEOUT_ALREADY_CONNECTED;
             }
@@ -173,7 +173,7 @@ public class PollingHelper implements QueueSendCompleteListener {
         logger.debug("release connection");
 
         if (connectionAcquired) {
-            ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+            ServiceManager serviceManager = ServiceManager.get();
 
             if (serviceManager != null) {
                 serviceManager.getTaskManager().removeQueueSendCompleteListener(this);

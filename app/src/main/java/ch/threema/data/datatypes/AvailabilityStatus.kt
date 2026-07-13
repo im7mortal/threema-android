@@ -1,7 +1,7 @@
 package ch.threema.data.datatypes
 
-import ch.threema.base.utils.Base64
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.Base64
 import ch.threema.common.takeUnlessBlank
 import ch.threema.domain.types.IdentityString
 import ch.threema.protobuf.d2d.sync.WorkAvailabilityStatus
@@ -9,7 +9,6 @@ import ch.threema.protobuf.d2d.sync.WorkAvailabilityStatusCategory
 import ch.threema.protobuf.d2d.sync.workAvailabilityStatus
 import ch.threema.storage.DbAvailabilityStatus
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 private val logger = getThreemaLogger("AvailabilityStatus")
@@ -26,6 +25,8 @@ sealed interface AvailabilityStatus {
     fun toProtocolModel(): WorkAvailabilityStatus
 
     fun toLibthreemaModel(): ch.threema.libthreema.WorkAvailabilityStatus
+
+    fun toTaskDataModel(identity: IdentityString): AvailabilityStatusTaskData
 
     fun toJson(): String = Json.encodeToString(this)
 
@@ -48,6 +49,13 @@ sealed interface AvailabilityStatus {
             ch.threema.libthreema.WorkAvailabilityStatus(
                 category = ch.threema.libthreema.WorkAvailabilityStatusCategory.NONE,
                 description = null,
+            )
+
+        override fun toTaskDataModel(identity: IdentityString): AvailabilityStatusTaskData =
+            AvailabilityStatusTaskData(
+                identity = identity,
+                category = SERIALIZED_CATEGORY_NONE,
+                description = "",
             )
     }
 
@@ -79,6 +87,13 @@ sealed interface AvailabilityStatus {
                 category = ch.threema.libthreema.WorkAvailabilityStatusCategory.UNAVAILABLE,
                 description = description.takeUnlessBlank(),
             )
+
+        override fun toTaskDataModel(identity: IdentityString): AvailabilityStatusTaskData =
+            AvailabilityStatusTaskData(
+                identity = identity,
+                category = SERIALIZED_CATEGORY_UNAVAILABLE,
+                description = description,
+            )
     }
 
     @Serializable
@@ -103,6 +118,13 @@ sealed interface AvailabilityStatus {
             ch.threema.libthreema.WorkAvailabilityStatus(
                 category = ch.threema.libthreema.WorkAvailabilityStatusCategory.BUSY,
                 description = description.takeUnlessBlank(),
+            )
+
+        override fun toTaskDataModel(identity: IdentityString): AvailabilityStatusTaskData =
+            AvailabilityStatusTaskData(
+                identity = identity,
+                category = SERIALIZED_CATEGORY_BUSY,
+                description = description,
             )
     }
 
@@ -158,6 +180,23 @@ sealed interface AvailabilityStatus {
                 SERIALIZED_CATEGORY_BUSY -> Busy(workAvailabilityStatus.description)
                 else -> {
                     logger.error("Unrecognized value of {} for WorkAvailabilityStatus.Category", workAvailabilityStatus.categoryValue)
+                    null
+                }
+            }
+
+        @JvmStatic
+        fun fromTaskDataModel(taskDataModel: AvailabilityStatusTaskData): AvailabilityStatus? =
+            when (taskDataModel.category) {
+                SERIALIZED_CATEGORY_NONE -> {
+                    if (taskDataModel.description.isNotEmpty()) {
+                        logDescriptionForCategoryNoneWarning()
+                    }
+                    None
+                }
+                SERIALIZED_CATEGORY_UNAVAILABLE -> Unavailable(taskDataModel.description)
+                SERIALIZED_CATEGORY_BUSY -> Busy(taskDataModel.description)
+                else -> {
+                    logger.error("Unrecognized value of {} for AvailabilityStatusTaskData.Category", taskDataModel.category)
                     null
                 }
             }

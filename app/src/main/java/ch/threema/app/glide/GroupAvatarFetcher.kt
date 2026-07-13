@@ -81,7 +81,7 @@ class GroupAvatarFetcher(
         returnDefaultAvatarIfNone: Boolean,
         backgroundColor: Int,
     ): Bitmap? {
-        var groupImage: Bitmap? = fileService.getGroupProfilePictureBitmap(groupModel)
+        var groupImage: Bitmap? = fileService.getGroupProfilePictureBitmap(groupModel.getDatabaseId())
         if (groupImage != null && !highRes) {
             // resize image!
             val converted = AvatarConverterUtil.convert(context.resources, groupImage)

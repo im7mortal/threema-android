@@ -2,7 +2,7 @@ package ch.threema.app.voip.groupcall.sfu.webrtc
 
 import ch.threema.app.voip.groupcall.sfu.ParticipantId
 import ch.threema.app.voip.groupcall.sfu.RtpHeaderExtensionIds
-import ch.threema.base.utils.Utils
+import ch.threema.common.toSeparatedHexString
 
 data class SessionParameters(
     val participantId: ParticipantId,
@@ -14,7 +14,8 @@ data class SessionParameters(
 data class IceParameters(val usernameFragment: String, val password: String)
 
 data class DtlsParameters(val fingerprint: ByteArray) {
-    fun fingerprintToString(): String = Utils.byteArrayToSeparatedHexString(fingerprint, ':')
+    fun fingerprintToString(): String =
+        fingerprint.toSeparatedHexString(separator = ':')
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

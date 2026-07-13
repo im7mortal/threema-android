@@ -1,9 +1,11 @@
 package ch.threema.app.processors.reflectedmessageupdate
 
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.managers.ServiceManager
-import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.domain.models.GroupId
 import ch.threema.domain.models.MessageId
 import ch.threema.domain.types.IdentityString
@@ -13,18 +15,19 @@ import ch.threema.protobuf.d2d.IncomingMessageUpdate
 import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.group.GroupMessageModel
-import java.util.Date
+import java.time.Instant
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("ReflectedIncomingMessageUpdateTask")
 
 class ReflectedIncomingMessageUpdateTask(
     private val incomingMessageUpdate: IncomingMessageUpdate,
     serviceManager: ServiceManager,
-) {
+) : KoinComponent {
     private val messageService by lazy { serviceManager.messageService }
-    private val contactService by lazy { serviceManager.contactService }
-    private val groupService by lazy { serviceManager.groupService }
     private val notificationService by lazy { serviceManager.notificationService }
+    private val globalEventBuses: GlobalEventBuses by inject()
 
     fun run() {
         logger.info("Processing reflected incoming message update")
@@ -91,32 +94,35 @@ class ReflectedIncomingMessageUpdateTask(
 
     private fun markMessageModelAsRead(abstractMessageModel: AbstractMessageModel, readAt: Long) {
         abstractMessageModel.isRead = true
-        Date(readAt).let { readAtDate ->
+        Instant.ofEpochMilli(readAt).let { readAtDate ->
             abstractMessageModel.readAt = readAtDate
             abstractMessageModel.modifiedAt = readAtDate
         }
         messageService.save(abstractMessageModel)
-        ListenerManager.messageListeners.handle { l -> l.onModified(listOf(abstractMessageModel)) }
+        globalEventBuses.messages.emit(MessageEvent.MessagesUpdated(abstractMessageModel))
         cancelNotification(abstractMessageModel)
     }
 
     private fun cancelNotification(abstractMessageModel: AbstractMessageModel) {
-        val receiver: MessageReceiver<out AbstractMessageModel>? = when (abstractMessageModel) {
-            is MessageModel -> contactService.createReceiver(abstractMessageModel.identity!!)
-            is GroupMessageModel -> groupService.getById(abstractMessageModel.groupId)
-                ?.let { groupModel ->
-                    groupService.createReceiver(groupModel)
+        val conversationId: ch.threema.data.datatypes.ConversationId? =
+            when (abstractMessageModel) {
+                is MessageModel ->
+                    abstractMessageModel.identity?.let { identity ->
+                        ContactConversationId(identity)
+                    }
+                is GroupMessageModel ->
+                    GroupConversationId(
+                        groupDatabaseId = abstractMessageModel.groupId.toLong(),
+                    )
+                else -> {
+                    // Distribution list messages are not supported here
+                    null
                 }
-
-            else -> null
+            }
+        if (conversationId != null) {
+            notificationService.cancel(conversationId)
+        } else {
+            logger.error("Failed to determine message receiver for message with id {}", abstractMessageModel.apiMessageId)
         }
-        if (receiver == null) {
-            logger.error(
-                "Failed to determine message receiver for message with id {}",
-                abstractMessageModel.apiMessageId,
-            )
-            return
-        }
-        notificationService.cancel(receiver)
     }
 }

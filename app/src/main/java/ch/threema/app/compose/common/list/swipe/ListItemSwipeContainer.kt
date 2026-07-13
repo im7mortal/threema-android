@@ -26,8 +26,8 @@ import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import ch.threema.app.R
-import ch.threema.app.compose.common.SpacerHorizontal
-import ch.threema.app.compose.common.ThemedText
+import ch.threema.app.compose.common.spacer.SpacerHorizontal
+import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.conversation.models.ConversationUiModel
 import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.dimens.GridUnit
@@ -160,7 +160,7 @@ private fun Preview_SwipeableActionContainer_Progress_EndToStart(
                 containerColor = Color.Blue,
                 contentColor = Color.White,
                 state = ListItemSwipeFeatureState(
-                    icon = R.drawable.ic_archive_outline,
+                    icon = R.drawable.ic_archive,
                     text = "Archive",
                 ),
             ),

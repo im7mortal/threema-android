@@ -31,6 +31,14 @@ class AppRestrictionsTest {
     }
 
     @Test
+    fun `isRestricted only returns true when there are restrictions`() {
+        every { appRestrictionProviderMock.hasRestrictions } returns true
+        assertTrue(appRestrictions.isRestricted())
+        every { appRestrictionProviderMock.hasRestrictions } returns false
+        assertFalse(appRestrictions.isRestricted())
+    }
+
+    @Test
     fun `is backup disabled`() {
         mockBooleanRestriction(R.string.restriction__disable_backups, null)
         assertFalse(appRestrictions.isBackupsDisabled())

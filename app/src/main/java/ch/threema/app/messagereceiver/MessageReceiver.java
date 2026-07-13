@@ -1,34 +1,30 @@
 package ch.threema.app.messagereceiver;
 
-import android.content.Intent;
 import android.graphics.Bitmap;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.Collection;
-import java.util.Date;
 import java.util.List;
 
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.data.datatypes.ContactNameFormat;
-import ch.threema.data.datatypes.NotificationTriggerPolicyOverride;
 import ch.threema.app.services.MessageService;
 import ch.threema.base.ThreemaException;
 import ch.threema.base.crypto.SymmetricEncryptionResult;
-import ch.threema.data.models.ContactModel;
-import ch.threema.data.models.ContactModelData;
-import ch.threema.data.models.GroupModel;
-import ch.threema.data.models.GroupModelData;
+import ch.threema.data.datatypes.ConversationId;
+import ch.threema.data.datatypes.NotificationTriggerPolicyOverride;
 import ch.threema.domain.models.MessageId;
-import ch.threema.domain.protocol.csp.messages.ballot.BallotData;
-import ch.threema.domain.protocol.csp.messages.ballot.BallotVote;
+import ch.threema.domain.protocol.csp.messages.poll.PollData;
+import ch.threema.domain.protocol.csp.messages.poll.PollVote;
 import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.MessageType;
-import ch.threema.storage.models.ballot.BallotModel;
+import ch.threema.storage.models.poll.PollModel;
 import ch.threema.storage.models.data.MessageContentsType;
 
 public interface MessageReceiver<M extends AbstractMessageModel> {
@@ -63,7 +59,14 @@ public interface MessageReceiver<M extends AbstractMessageModel> {
     /**
      * create a local (unsaved) db model for the given message type
      */
-    M createLocalModel(MessageType type, @MessageContentsType int contentsType, Date postedAt);
+    M createLocalModel(@Nullable MessageId messageId, MessageType type, @MessageContentsType int contentsType, Instant postedAt);
+
+    /**
+     * create a local (unsaved) db model for the given message type
+     */
+    default M createLocalModel(MessageType type, @MessageContentsType int contentsType, Instant postedAt) {
+        return createLocalModel(null, type, contentsType, postedAt);
+    }
 
     /**
      * create a db model for the given message type and save it
@@ -71,7 +74,7 @@ public interface MessageReceiver<M extends AbstractMessageModel> {
      * @deprecated use createAndSaveStatusDataModel instead.
      */
     @Deprecated
-    AbstractMessageModel createAndSaveStatusModel(String statusBody, Date postedAt);
+    AbstractMessageModel createAndSaveStatusModel(String statusBody, Instant postedAt);
 
     /**
      * save a message model to the database
@@ -100,31 +103,30 @@ public interface MessageReceiver<M extends AbstractMessageModel> {
     ) throws ThreemaException;
 
     /**
-     * Send a ballot (create) message. Note that the message is only sent if the trigger source is
+     * Send a poll (create) message. Note that the message is only sent if the trigger source is
      * local. The message id is added to the message model in any case.
      * TODO(ANDR-3518): The trigger source should not be passed until here. This is only a security
-     *  measure as the ballot service has many side effects. Ideally, this method would only be
+     *  measure as the poll service has many side effects. Ideally, this method would only be
      *  called if a csp message should really be sent out.
      */
-    void createAndSendBallotSetupMessage(
-        @NonNull final BallotData ballotData,
-        @NonNull final BallotModel ballotModel,
+    void createAndSendPollSetupMessage(
+        @NonNull final PollData pollData,
+        @NonNull final PollModel pollModel,
         @NonNull M abstractMessageModel,
-        @NonNull MessageId messageId,
         @Nullable Collection<String> recipientIdentities,
         @NonNull TriggerSource triggerSource
     ) throws ThreemaException;
 
     /**
-     * Send a ballot vote message. Note that the message is only sent if the trigger source is
+     * Send a poll vote message. Note that the message is only sent if the trigger source is
      * local.
      * TODO(ANDR-3518): The trigger source should not be passed until here. This is only a security
-     *  measure as the ballot service has many side effects. Ideally, this method would only be
+     *  measure as the poll service has many side effects. Ideally, this method would only be
      *  called if a csp message should really be sent out.
      */
-    void createAndSendBallotVoteMessage(
-        BallotVote[] votes,
-        BallotModel ballotModel,
+    void createAndSendPollVoteMessage(
+        PollVote[] votes,
+        PollModel pollModel,
         @NonNull TriggerSource triggerSource
     ) throws ThreemaException;
 
@@ -167,8 +169,6 @@ public interface MessageReceiver<M extends AbstractMessageModel> {
      */
     String getShortName(@NonNull ContactNameFormat contactNameFormat);
 
-    void prepareIntent(@NonNull Intent intent);
-
     /**
      * @return the bitmap of the avatar in the notification
      */
@@ -181,15 +181,6 @@ public interface MessageReceiver<M extends AbstractMessageModel> {
 
     @Nullable
     Bitmap getAvatar();
-
-    /**
-     * @return a unique id
-     */
-    @Deprecated
-    int getUniqueId();
-
-    @NonNull
-    String getUniqueIdString();
 
     /**
      * check, if the message model belongs to this receiver
@@ -230,7 +221,7 @@ public interface MessageReceiver<M extends AbstractMessageModel> {
 
     /**
      * Set the `lastUpdate` field of the specified contact to the current date.
-     * This will also save the model and notify listeners.
+     * This *might* also save the model, and will notify the event bus.
      * <p>
      * Not that this method only has an effect if it is supported by the implementing receiver.
      */
@@ -245,27 +236,12 @@ public interface MessageReceiver<M extends AbstractMessageModel> {
     int getEmojiReactionSupport();
 
     /**
-     * @return The current {@code NotificationTriggerPolicyOverride} for contact- and group-receivers. Distribution lists
+     * @return The current notification trigger policy override for contact- and group-receivers. Distribution lists
      * do not have this setting.
      */
     @Nullable
-    default NotificationTriggerPolicyOverride getNotificationTriggerPolicyOverrideOrNull() {
-        if (this instanceof ContactMessageReceiver) {
-            final @Nullable ContactModel contactModel = ((ContactMessageReceiver) this).getContactModel();
-            if (contactModel != null) {
-                ContactModelData contactModelData = contactModel.getData();
-                return contactModelData != null ? contactModelData.getCurrentNotificationTriggerPolicyOverride() : null;
-            }
-            return null;
-        } else if (this instanceof GroupMessageReceiver) {
-            final @Nullable GroupModel groupModel = ((GroupMessageReceiver) this).getGroupModel();
-            if (groupModel != null) {
-                GroupModelData groupModelData = groupModel.getData();
-                return groupModelData != null ? groupModelData.getCurrentNotificationTriggerPolicyOverride() : null;
-            }
-            return null;
-        } else {
-            return null;
-        }
-    }
+    NotificationTriggerPolicyOverride getNotificationTriggerPolicyOverrideOrNull();
+
+    @NonNull
+    ConversationId getConversationId();
 }

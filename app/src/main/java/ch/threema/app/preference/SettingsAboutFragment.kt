@@ -8,12 +8,12 @@ import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
+import ch.threema.android.getInstallerPackageName
 import ch.threema.android.showToast
 import ch.threema.app.BuildConfig
 import ch.threema.app.BuildFlavor
 import ch.threema.app.R
 import ch.threema.app.activities.DownloadApkActivity
-import ch.threema.app.dev.hasDevFeatures
 import ch.threema.app.dialogs.GenericProgressDialog
 import ch.threema.app.dialogs.SimpleStringAlertDialog
 import ch.threema.app.preference.service.PreferenceService
@@ -22,14 +22,15 @@ import ch.threema.app.services.license.LicenseService
 import ch.threema.app.services.license.LicenseServiceSerial
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.DialogUtil
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.app.utils.IntentDataUtil
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.app.webviews.EulaActivity
 import ch.threema.app.webviews.LicenseActivity
 import ch.threema.app.webviews.PrivacyPolicyActivity
 import ch.threema.app.webviews.TermsOfServiceActivity
+import ch.threema.base.HAS_DEV_FEATURES
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.common.takeUnlessEmpty
 import ch.threema.localcrypto.MasterKeyManager
 import kotlinx.coroutines.launch
@@ -60,6 +61,9 @@ class SettingsAboutFragment : ThreemaPreferenceFragment() {
         initVersionSection()
         initSelfUpdatePref()
         initServerConfigSection()
+        if (HAS_DEV_FEATURES) {
+            showInstallerInfo()
+        }
     }
 
     override fun getPreferenceTitleResource(): Int = R.string.menu_about
@@ -126,12 +130,17 @@ class SettingsAboutFragment : ThreemaPreferenceFragment() {
     }
 
     private fun onSecretUnlocked() {
-        if (hasDevFeatures() && !preferenceService.showDeveloperMenu()) {
+        if (HAS_DEV_FEATURES && !preferenceService.showDeveloperMenu()) {
             preferenceService.setShowDeveloperMenu(true)
             showToast("Developer settings unlocked")
+            activity?.recreate()
+        } else {
+            showInstallerInfo()
         }
+    }
 
-        val installerPackage = ConfigUtils.getInstallerPackageName(requireContext())
+    private fun showInstallerInfo() {
+        val installerPackage = getInstallerPackageName(requireContext())
         getPref<Preference>(R.string.preferences__installer_package).summary = installerPackage ?: "none"
         getPref<Preference>(R.string.preferences__hidden_info_section).isVisible = true
     }

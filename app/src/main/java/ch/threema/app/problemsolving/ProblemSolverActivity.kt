@@ -121,7 +121,7 @@ class ProblemSolverActivity : ThreemaToolbarActivity() {
             when (problem.solutionType) {
                 SolutionType.ToSettings -> {
                     setText(R.string.problemsolver_to_settings)
-                    setIconResource(R.drawable.ic_settings_outline_24dp)
+                    setIconResource(R.drawable.ic_settings)
                 }
                 is SolutionType.InstantAction -> {
                     setText(problem.solutionType.label)

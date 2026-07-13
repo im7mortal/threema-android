@@ -6,7 +6,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.media.AudioManager;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -37,6 +36,8 @@ import androidx.work.Data;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.WorkManager;
 import ch.threema.app.ThreemaApplication;
+import ch.threema.app.eventbus.GlobalEventBuses;
+import ch.threema.app.eventbus.events.VoipCallEvent;
 import ch.threema.app.notifications.CallNotificationManager;
 import ch.threema.app.notifications.CallNotificationManager.IncomingCallNotificationResult;
 import ch.threema.app.routines.UpdateFeatureLevelRoutine;
@@ -120,6 +121,8 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
     @NonNull
     private final DoNotDisturbUtil doNotDisturbUtil = KoinJavaComponent.get(DoNotDisturbUtil.class);
+    @NonNull
+    private final GlobalEventBuses globalEventBuses;
 
     // App context
     @NonNull
@@ -171,12 +174,14 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
         @NonNull ContactModelRepository contactModelRepository,
         @NonNull CallNotificationManager callNotificationManager,
         @NonNull LifetimeService lifetimeService,
+        @NonNull GlobalEventBuses globalEventBuses,
         @NonNull final Context appContext
     ) {
         this.contactService = contactService;
         this.contactModelRepository = contactModelRepository;
         this.callNotificationManager = callNotificationManager;
         this.lifetimeService = lifetimeService;
+        this.globalEventBuses = globalEventBuses;
         this.appContext = appContext;
         this.candidatesCache = new HashMap<>();
         this.notificationManagerCompat = NotificationManagerCompat.from(appContext);
@@ -735,7 +740,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
                 listener.onOffer(callerIdentity, voipCallOfferMessage.getData());
             }
         });
-        VoipListenerManager.callEventListener.handle(listener -> listener.onRinging(callerIdentity));
+        globalEventBuses.getVoipCalls().emit(VoipCallEvent.Ringing.javaCreate(callerIdentity));
 
         return true;
     }
@@ -782,8 +787,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
                 // Call was rejected
                 case VoipCallAnswerData.Action.REJECT:
-                    // TODO(ANDR-XXXX): only for tests!
-                    VoipListenerManager.callEventListener.handle(listener -> listener.onRejected(callId, msg.getFromIdentity(), false, callAnswerData.getRejectReason()));
+                    globalEventBuses.getVoipCalls().emit(VoipCallEvent.Rejected.javaCreate(callId, msg.getFromIdentity(), true, callAnswerData.getRejectReason()));
                     logCallInfo(callId, "Call answer received from {}: reject/{}",
                         msg.getFromIdentity(), callAnswerData.getRejectReasonName());
                     break;
@@ -973,7 +977,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
             final boolean accepted = prevState.isInitializing();
             handleMissedCall(voipCallHangupMessage, callId, accepted);
         } else if (prevState.isCalling() && duration != null) {
-            VoipListenerManager.callEventListener.handle(listener -> listener.onFinished(callId, voipCallHangupMessage.getFromIdentity(), !incoming, duration));
+            globalEventBuses.getVoipCalls().emit(VoipCallEvent.Finished.javaCreate(callId, voipCallHangupMessage.getFromIdentity(), !incoming, duration));
         }
 
         return true;
@@ -992,9 +996,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
         boolean accepted
     ) {
         logger.info("Missed call received from {} with call id {}", msg.getFromIdentity(), callId);
-        VoipListenerManager.callEventListener.handle(
-            listener -> listener.onMissed(callId, msg.getFromIdentity(), accepted, msg.getDate())
-        );
+        globalEventBuses.getVoipCalls().emit(VoipCallEvent.Missed.javaCreate(callId, msg.getFromIdentity(), accepted, msg.getTimestamp()));
 
         // Update conversation timestamp
         contactService.bumpLastUpdate(msg.getFromIdentity());
@@ -1139,26 +1141,23 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
         final @NonNull ContactModel receiver,
         final long callId,
         byte reason,
-        boolean notifyListeners
+        boolean notifyEventBus
     ) throws ThreemaException, IllegalArgumentException {
         logCallInfo(callId, "Sending reject call answer message (reason={})", reason);
         this.sendCallAnswerMessage(receiver, callId, null, VoipCallAnswerData.Action.REJECT, reason, null);
 
-        // Notify listeners
-        if (notifyListeners) {
-            logCallInfo(callId, "Notifying listeners about call rejection");
-            VoipListenerManager.callEventListener.handle(listener -> {
-                switch (reason) {
-                    case VoipCallAnswerData.RejectReason.BUSY:
-                    case VoipCallAnswerData.RejectReason.TIMEOUT:
-                    case VoipCallAnswerData.RejectReason.OFF_HOURS:
-                        listener.onMissed(callId, receiver.getIdentity(), false, null);
-                        break;
-                    default:
-                        listener.onRejected(callId, receiver.getIdentity(), true, reason);
-                        break;
-                }
-            });
+        if (notifyEventBus) {
+            logCallInfo(callId, "Notifying event bus about call rejection");
+            switch (reason) {
+                case VoipCallAnswerData.RejectReason.BUSY:
+                case VoipCallAnswerData.RejectReason.TIMEOUT:
+                case VoipCallAnswerData.RejectReason.OFF_HOURS:
+                    globalEventBuses.getVoipCalls().emit(VoipCallEvent.Missed.javaCreate(callId, receiver.getIdentity(), false, null));
+                    break;
+                default:
+                    globalEventBuses.getVoipCalls().emit(VoipCallEvent.Rejected.javaCreate(callId, receiver.getIdentity(), false, reason));
+                    break;
+            }
         }
     }
 
@@ -1294,15 +1293,11 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
         // Notify the VoIP call event listener
         if (duration == null && (callStateSnapshot.isInitializing() || callStateSnapshot.isCalling() || callStateSnapshot.isDisconnecting())) {
             // Connection was never established
-            VoipListenerManager.callEventListener.handle(
-                listener -> {
-                    if (isInitiator == Boolean.TRUE) {
-                        listener.onAborted(callId, peerIdentity);
-                    } else {
-                        listener.onMissed(callId, peerIdentity, true, null);
-                    }
-                }
-            );
+            if (isInitiator == Boolean.TRUE) {
+                globalEventBuses.getVoipCalls().emit(VoipCallEvent.Aborted.javaCreate(callId, peerIdentity));
+            } else {
+                globalEventBuses.getVoipCalls().emit(VoipCallEvent.Missed.javaCreate(callId, peerIdentity, true, null));
+            }
         }
         // Note: We don't call listener.onFinished here, that's already being done
         // in VoipCallService#disconnect.
@@ -1442,7 +1437,6 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
         final Intent intent = new Intent(Intent.ACTION_MAIN, null);
         intent.setClass(appContext, CallActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        intent.setData((Uri.parse("foobar://" + SystemClock.elapsedRealtime())));
         intent.putExtra(EXTRA_ACTIVITY_MODE, CallActivity.MODE_INCOMING_CALL);
         intent.putExtra(EXTRA_CONTACT_IDENTITY, identity);
         intent.putExtra(EXTRA_IS_INITIATOR, false);

@@ -1,8 +1,8 @@
 package ch.threema.app.routines
 
-import ch.threema.app.ThreemaApplication
-import ch.threema.app.listeners.MessageListener
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.MessageEvent
+import ch.threema.app.managers.ServiceManager
 import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.services.ConversationService
 import ch.threema.app.services.MessageService
@@ -11,15 +11,18 @@ import ch.threema.app.utils.MessageUtil
 import ch.threema.base.ThreemaException
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.storage.models.AbstractMessageModel
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("MarkAsReadRoutine")
 
 class MarkAsReadRoutine @JvmOverloads constructor(
-    private val conversationService: ConversationService? = ThreemaApplication.getServiceManager()?.getConversationService(),
+    private val conversationService: ConversationService? = ServiceManager.get()?.conversationService,
     private val messageService: MessageService,
     private val notificationService: NotificationService,
-    private val messageListeners: ListenerManager.TypedListenerManager<MessageListener> = ListenerManager.messageListeners,
-) {
+) : KoinComponent {
+    private val globalEventBuses: GlobalEventBuses by inject()
+
     /**
      * Marks all the [messages] as read, as well as the corresponding conversation, by resetting its unread counter
      * and removing the 'unread' tag. If there are notifications for these messages, they are dismissed.
@@ -62,13 +65,10 @@ class MarkAsReadRoutine @JvmOverloads constructor(
         }
 
         if (modifiedMessageModels.isNotEmpty()) {
-            messageListeners.handle { listener ->
-                listener.onModified(modifiedMessageModels)
-            }
+            globalEventBuses.messages.emit(MessageEvent.MessagesUpdated(modifiedMessageModels))
 
-            val notificationUids = modifiedMessageModels
-                .map(AbstractMessageModel::uid)
-            notificationService.cancelConversationNotification(*notificationUids.toTypedArray())
+            val messageUids = modifiedMessageModels.mapNotNull(AbstractMessageModel::uid)
+            notificationService.cancelConversationNotification(*messageUids.toTypedArray())
         }
 
         return success

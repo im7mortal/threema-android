@@ -3,7 +3,6 @@ package ch.threema.app.utils;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
-import android.os.AsyncTask;
 import android.widget.ImageView;
 
 import org.slf4j.Logger;
@@ -14,13 +13,14 @@ import java.io.InputStream;
 import java.lang.ref.WeakReference;
 
 import androidx.appcompat.content.res.AppCompatResources;
+import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.utils.BitmapUtil.FLIP_NONE;
 
-public class BitmapWorkerTask extends AsyncTask<BitmapWorkerTaskParams, Void, Bitmap> {
+public class BitmapWorkerTask extends LifecycleAwareAsyncTask<BitmapWorkerTaskParams, Bitmap> {
     private static final Logger logger = getThreemaLogger("BitmapWorkerTask");
 
     private final WeakReference<ImageView> imageViewReference;
@@ -31,8 +31,7 @@ public class BitmapWorkerTask extends AsyncTask<BitmapWorkerTaskParams, Void, Bi
 
     // Decode image in background.
     @Override
-    protected Bitmap doInBackground(BitmapWorkerTaskParams... params) {
-        BitmapWorkerTaskParams bitmapParams = params[0];
+    protected Bitmap doInBackground(BitmapWorkerTaskParams bitmapParams) {
         Bitmap bitmap = null;
 
         try {

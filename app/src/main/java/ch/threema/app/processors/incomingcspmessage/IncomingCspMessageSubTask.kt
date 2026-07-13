@@ -1,5 +1,6 @@
 package ch.threema.app.processors.incomingcspmessage
 
+import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.processors.incomingcspmessage.calls.IncomingCallAnswerTask
 import ch.threema.app.processors.incomingcspmessage.calls.IncomingCallHangupTask
@@ -13,7 +14,6 @@ import ch.threema.app.processors.incomingcspmessage.conversation.IncomingContact
 import ch.threema.app.processors.incomingcspmessage.conversation.IncomingContactDeleteMessageTask
 import ch.threema.app.processors.incomingcspmessage.conversation.IncomingContactEditMessageTask
 import ch.threema.app.processors.incomingcspmessage.conversation.IncomingContactFileMessageTask
-import ch.threema.app.processors.incomingcspmessage.conversation.IncomingContactImageMessageTask
 import ch.threema.app.processors.incomingcspmessage.conversation.IncomingContactLocationMessageTask
 import ch.threema.app.processors.incomingcspmessage.conversation.IncomingContactPollSetupTask
 import ch.threema.app.processors.incomingcspmessage.conversation.IncomingContactPollVoteTask
@@ -38,6 +38,7 @@ import ch.threema.app.processors.incomingcspmessage.statusupdates.IncomingDelive
 import ch.threema.app.processors.incomingcspmessage.statusupdates.IncomingGroupDeliveryReceiptTask
 import ch.threema.app.processors.incomingcspmessage.statusupdates.IncomingTypingIndicatorTask
 import ch.threema.app.tasks.ActiveComposableTask
+import ch.threema.app.typingindicator.TypingIndicatorManager
 import ch.threema.domain.protocol.csp.messages.AbstractGroupMessage
 import ch.threema.domain.protocol.csp.messages.AbstractMessage
 import ch.threema.domain.protocol.csp.messages.ContactRequestProfilePictureMessage
@@ -56,19 +57,18 @@ import ch.threema.domain.protocol.csp.messages.GroupReactionMessage
 import ch.threema.domain.protocol.csp.messages.GroupSetProfilePictureMessage
 import ch.threema.domain.protocol.csp.messages.GroupSetupMessage
 import ch.threema.domain.protocol.csp.messages.GroupSyncRequestMessage
-import ch.threema.domain.protocol.csp.messages.ImageMessage
 import ch.threema.domain.protocol.csp.messages.ReactionMessage
 import ch.threema.domain.protocol.csp.messages.SetProfilePictureMessage
 import ch.threema.domain.protocol.csp.messages.TypingIndicatorMessage
-import ch.threema.domain.protocol.csp.messages.ballot.GroupPollSetupMessage
-import ch.threema.domain.protocol.csp.messages.ballot.GroupPollVoteMessage
-import ch.threema.domain.protocol.csp.messages.ballot.PollSetupMessage
-import ch.threema.domain.protocol.csp.messages.ballot.PollVoteMessage
 import ch.threema.domain.protocol.csp.messages.file.FileMessage
 import ch.threema.domain.protocol.csp.messages.file.GroupFileMessage
 import ch.threema.domain.protocol.csp.messages.groupcall.GroupCallControlMessage
 import ch.threema.domain.protocol.csp.messages.location.GroupLocationMessage
 import ch.threema.domain.protocol.csp.messages.location.LocationMessage
+import ch.threema.domain.protocol.csp.messages.poll.GroupPollSetupMessage
+import ch.threema.domain.protocol.csp.messages.poll.GroupPollVoteMessage
+import ch.threema.domain.protocol.csp.messages.poll.PollSetupMessage
+import ch.threema.domain.protocol.csp.messages.poll.PollVoteMessage
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallAnswerMessage
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallHangupMessage
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallOfferMessage
@@ -129,17 +129,21 @@ fun getSubTaskFromMessage(
     message: AbstractMessage,
     triggerSource: TriggerSource,
     serviceManager: ServiceManager,
+    globalEventBuses: GlobalEventBuses,
+    typingIndicatorManager: TypingIndicatorManager,
 ): IncomingCspMessageSubTask<*> = when (message) {
     // Determine the message type and get its corresponding receive steps. Note that the order
     // of checking the types is important. For instance, an abstract group message must first be
     // checked for a group control message to prevent processing it as a group conversation
     // message.
 
-    // Check if deprecated message
-    is ImageMessage -> IncomingContactImageMessageTask(message, triggerSource, serviceManager)
-
     // Check if message is a status update
-    is TypingIndicatorMessage -> IncomingTypingIndicatorTask(message, triggerSource, serviceManager)
+    is TypingIndicatorMessage -> IncomingTypingIndicatorTask(
+        message = message,
+        triggerSource = triggerSource,
+        serviceManager = serviceManager,
+        typingIndicatorManager = typingIndicatorManager,
+    )
     is DeliveryReceiptMessage -> IncomingDeliveryReceiptTask(message, triggerSource, serviceManager)
     is GroupDeliveryReceiptMessage -> IncomingGroupDeliveryReceiptTask(
         message,
@@ -162,12 +166,14 @@ fun getSubTaskFromMessage(
         message,
         triggerSource,
         serviceManager,
+        globalEventBuses,
     )
 
     is GroupDeleteProfilePictureMessage -> IncomingGroupDeleteProfilePictureTask(
         message,
         triggerSource,
         serviceManager,
+        globalEventBuses,
     )
 
     is GroupLeaveMessage -> IncomingGroupLeaveTask(message, triggerSource, serviceManager)
@@ -188,12 +194,14 @@ fun getSubTaskFromMessage(
         message,
         triggerSource,
         serviceManager,
+        globalEventBuses,
     )
 
     is DeleteProfilePictureMessage -> IncomingDeleteProfilePictureTask(
         message,
         triggerSource,
         serviceManager,
+        globalEventBuses,
     )
 
     is ContactRequestProfilePictureMessage -> IncomingContactRequestProfilePictureTask(
@@ -202,7 +210,7 @@ fun getSubTaskFromMessage(
         serviceManager,
     )
 
-    // Check if message is a ballot message
+    // Check if message is a poll message
     is PollSetupMessage -> IncomingContactPollSetupTask(message, triggerSource, serviceManager)
     is PollVoteMessage -> IncomingContactPollVoteTask(message, triggerSource, serviceManager)
     is GroupPollSetupMessage -> IncomingGroupPollSetupTask(message, triggerSource, serviceManager)

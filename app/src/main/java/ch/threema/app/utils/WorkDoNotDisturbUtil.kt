@@ -3,46 +3,43 @@ package ch.threema.app.utils
 import android.content.Context
 import android.content.SharedPreferences
 import ch.threema.app.R
-import ch.threema.app.stores.IdentityProvider
 import ch.threema.common.TimeProvider
+import ch.threema.data.IdentityProvider
 import java.time.DayOfWeek
 import java.time.LocalTime
 import java.time.format.DateTimeParseException
 import java.time.temporal.ChronoField
 
 class WorkDoNotDisturbUtil(
-    private val context: Context,
+    private val appContext: Context,
     private val sharedPreferences: SharedPreferences,
-    override val identityProvider: IdentityProvider,
+    identityProvider: IdentityProvider,
     private val timeProvider: TimeProvider,
-) : DoNotDisturbUtil() {
+) : DoNotDisturbUtil(identityProvider, timeProvider) {
 
     override fun isDoNotDisturbActive(): Boolean {
-        val enabled = sharedPreferences.getBoolean(context.getString(R.string.preferences__working_days_enable), false)
+        val enabled = sharedPreferences.getBoolean(appContext.getString(R.string.preferences__working_days_enable), false)
         if (!enabled) {
             return false
         }
         val now = timeProvider.getLocal()
 
         val dayOfWeek = DayOfWeek.of(now.get(ChronoField.DAY_OF_WEEK))
-        val workingDays = parseWeekDays(sharedPreferences.getStringSet(context.getString(R.string.preferences__working_days), null))
+        val workingDays = parseWeekDays(sharedPreferences.getStringSet(appContext.getString(R.string.preferences__working_days), null))
             ?: return false
         if (dayOfWeek !in workingDays) {
             // today is not a work day
             return true
         }
 
-        val startTime = parseTime(sharedPreferences.getString(context.getString(R.string.preferences__work_time_start), null))
+        val startTime = parseTime(sharedPreferences.getString(appContext.getString(R.string.preferences__work_time_start), null))
             ?: LocalTime.MIN
-        val endTime = parseTime(sharedPreferences.getString(context.getString(R.string.preferences__work_time_end), null))
+        val endTime = parseTime(sharedPreferences.getString(appContext.getString(R.string.preferences__work_time_end), null))
             ?: LocalTime.MAX
         val currentTime = now.toLocalTime()
 
-        if (currentTime < startTime || currentTime > endTime) {
-            return true
-        }
-
-        return false
+        // If the current time is outside the working hours (from startTime to endTime), then do-not-disturb is active.
+        return currentTime !in startTime..endTime
     }
 
     private fun parseWeekDays(weekDays: Set<String>?): Set<DayOfWeek>? =

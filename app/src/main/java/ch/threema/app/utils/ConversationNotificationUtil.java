@@ -17,6 +17,7 @@ import androidx.core.app.Person;
 import androidx.core.graphics.drawable.IconCompat;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
+import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.services.ContactService;
 import ch.threema.app.services.ConversationCategoryService;
@@ -26,11 +27,12 @@ import ch.threema.app.services.MessageService;
 import ch.threema.app.services.notification.ConversationNotification;
 import ch.threema.app.services.notification.ConversationNotificationGroup;
 import ch.threema.app.services.notification.NotificationService;
-import ch.threema.base.ThreemaException;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
+import ch.threema.data.datatypes.ContactConversationId;
 import ch.threema.data.datatypes.ContactNameFormat;
+import ch.threema.data.datatypes.GroupConversationId;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.ContactModel;
@@ -40,6 +42,7 @@ import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.MessageType;
 import ch.threema.storage.models.data.MessageContentsType;
 
+// TODO(ANDR-4691): This class needs refactoring
 public class ConversationNotificationUtil {
     private static final Logger logger = getThreemaLogger("ConversationNotificationUtil");
 
@@ -66,44 +69,43 @@ public class ConversationNotificationUtil {
 
     private static MessageService.MessageString getMessage(AbstractMessageModel messageModel) {
         try {
-            return ThreemaApplication.getServiceManager().getMessageService()
+            return ServiceManager.require().getMessageService()
                 .getMessageString(messageModel, -1, false);
-        } catch (ThreemaException e) {
+        } catch (Exception e) {
             logger.error("Exception", e);
             return new MessageService.MessageString(null);
         }
     }
 
     private static @Nullable Person getSenderPerson(@NonNull AbstractMessageModel messageModel) {
-        try {
-            final PreferenceService preferenceService = ThreemaApplication.getServiceManager().getPreferenceService();
-            final ContactService contactService = ThreemaApplication.getServiceManager().getContactService();
-            final ContactModel contactModel = contactService.getByIdentity(messageModel.getIdentity());
-            return getPerson(
+        final PreferenceService preferenceService = ServiceManager.get().getPreferenceService();
+        final ContactService contactService = ServiceManager.get().getContactService();
+        final ContactModel contactModel = contactService.getByIdentity(messageModel.getIdentity());
+        return getPerson(
+            contactService,
+            contactModel,
+            NameUtil.getShortName(
+                ThreemaApplication.getAppContext(),
+                messageModel,
                 contactService,
-                contactModel,
-                NameUtil.getShortName(
-                    ThreemaApplication.getAppContext(),
-                    messageModel,
-                    contactService,
-                    preferenceService.getContactNameFormat()
-                )
-            );
-        } catch (ThreemaException e) {
-            logger.error("ThreemaException", e);
-            return null;
-        }
+                preferenceService.getContactNameFormat()
+            )
+        );
     }
 
     public static @Nullable Person getPerson(@Nullable ContactService contactService, ContactModel contactModel, String name) {
         if (contactService == null) {
             return null;
         }
-
-        String identity = contactModel != null ? contactModel.getIdentity() : null;
-
+        final @Nullable String identity = contactModel != null
+            ? contactModel.getIdentity()
+            : null;
         Person.Builder builder = new Person.Builder()
-            .setKey(ContactUtil.getUniqueIdString(identity))
+            .setKey(
+                identity != null
+                    ? new ContactConversationId(identity).getObfuscated().value
+                    : ""
+            )
             .setName(name);
         Bitmap avatar = contactService.getAvatar(identity, false);
         if (avatar != null) {
@@ -122,8 +124,7 @@ public class ConversationNotificationUtil {
 
     @Nullable
     private static Instant getCreatedAt(AbstractMessageModel messageModel) {
-        var createdAt = messageModel.getCreatedAt();
-        return createdAt != null ? createdAt.toInstant() : null;
+        return messageModel.getCreatedAt();
     }
 
     @NonNull
@@ -134,15 +135,14 @@ public class ConversationNotificationUtil {
         @NonNull final ConversationCategoryService conversationCategoryService,
         @NonNull final ContactNameFormat contactNameFormat
     ) {
-        final ContactModel contactModel = contactService.getByIdentity(messageModel.getIdentity());
-        String groupUid = "i" + messageModel.getIdentity();
+        final @Nullable ContactModel contactModel = contactService.getByIdentity(messageModel.getIdentity());
+        final String groupUid = "i" + messageModel.getIdentity();
         synchronized (notificationGroupHashMap) {
             ConversationNotificationGroup group = notificationGroupHashMap.get(groupUid);
-            boolean isPrivateChat = conversationCategoryService.isPrivateChat(
-                ContactUtil.getUniqueIdString(messageModel.getIdentity())
-            );
+            final ContactConversationId contactConversationId = new ContactConversationId(contactModel.getIdentity());
+            final boolean isPrivateConversation = conversationCategoryService.isMarkedAsPrivate(contactConversationId);
             String longName, shortName;
-            if (isPrivateChat) {
+            if (isPrivateConversation) {
                 longName = shortName = context.getString(R.string.private_chat_subject);
             } else {
                 longName = NameUtil.getContactDisplayNameOrNickname(contactModel, true, contactNameFormat);
@@ -157,7 +157,7 @@ public class ConversationNotificationUtil {
                     contactService.createReceiver(contactModel),
                     () -> {
                         if (contactModel != null) {
-                            String identity = isPrivateChat
+                            String identity = isPrivateConversation
                                 ? null
                                 : contactModel.getIdentity();
                             return contactService.getAvatar(identity, false);
@@ -210,14 +210,15 @@ public class ConversationNotificationUtil {
         @NonNull final ContactNameFormat contactNameFormat
     ) {
         final GroupModelOld groupModel = groupService.getById(messageModel.getGroupId());
-
-        String groupUid = "g" + messageModel.getGroupId();
+        final String groupUid = "g" + messageModel.getGroupId();
         synchronized (notificationGroupHashMap) {
             @Nullable ConversationNotificationGroup group = notificationGroupHashMap.get(groupUid);
-            String name = conversationCategoryService.isPrivateChat(GroupUtil.getUniqueIdString(groupModel))
+            final GroupConversationId groupConversationId = new GroupConversationId(groupModel.getId());
+            final boolean isPrivateConversation = conversationCategoryService.isMarkedAsPrivate(groupConversationId);
+            final String name = isPrivateConversation
                 ? context.getString(R.string.private_chat_subject)
                 : NameUtil.getGroupDisplayName(
-                    groupService.getById(messageModel.getGroupId()),
+                    groupModel,
                     groupService,
                     contactNameFormat
                 );
@@ -228,10 +229,13 @@ public class ConversationNotificationUtil {
                     name,
                     name,
                     groupService.createReceiver(groupModel),
-                    () -> groupService.getAvatar(
-                        conversationCategoryService.isPrivateChat(GroupUtil.getUniqueIdString(groupModel)) ? null : groupModel,
-                        false
-                    )
+                    () ->
+                        groupService.getAvatar(
+                            conversationCategoryService.isMarkedAsPrivate(new GroupConversationId(groupModel.getId()))
+                                ? null
+                                : groupModel,
+                            false
+                        )
                 );
                 notificationGroupHashMap.put(groupUid, group);
             } else {
@@ -280,7 +284,7 @@ public class ConversationNotificationUtil {
                 @WorkerThread
                 public Uri fetch() {
                     final FileService fileService = KoinJavaComponent.get(FileService.class);
-                    return fileService.getThumbnailShareFileUri(messageModel, MAX_NOTIFICATION_THUMBNAIL_SIZE_BYTES);
+                    return fileService.decryptThumbnailToShareableTempFile(messageModel, MAX_NOTIFICATION_THUMBNAIL_SIZE_BYTES);
                 }
             };
         }

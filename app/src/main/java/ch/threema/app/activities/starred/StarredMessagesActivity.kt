@@ -1,6 +1,7 @@
 package ch.threema.app.activities.starred
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import android.view.Menu
@@ -52,32 +53,31 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import ch.threema.android.buildActivityIntent
 import ch.threema.app.R
+import ch.threema.app.activities.ComposeMessageActivity
 import ch.threema.app.activities.ThreemaToolbarActivity
 import ch.threema.app.activities.starred.models.StarredMessageListItemUiModel
 import ch.threema.app.activities.starred.models.StarredMessagesViewState
-import ch.threema.app.compose.common.SpacerVertical
-import ch.threema.app.compose.common.ThemedText
 import ch.threema.app.compose.common.immutables.ImmutableBitmap
 import ch.threema.app.compose.common.immutables.toImmutableBitmap
 import ch.threema.app.compose.common.rememberRefreshingLocalDayOfYear
+import ch.threema.app.compose.common.spacer.SpacerVertical
+import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.theme.ThreemaTheme
 import ch.threema.app.compose.theme.dimens.GridUnit
 import ch.threema.app.compose.theme.dimens.responsive
 import ch.threema.app.dialogs.GenericAlertDialog
 import ch.threema.app.dialogs.SelectorDialog
-import ch.threema.app.fragments.composemessage.ComposeMessageFragment.EXTRA_OVERRIDE_BACK_TO_HOME_BEHAVIOR
 import ch.threema.app.framework.EventHandler
 import ch.threema.app.framework.WithViewState
 import ch.threema.app.preference.service.PreferenceService
-import ch.threema.app.stores.IdentityProvider
 import ch.threema.app.ui.SelectorDialogItem
 import ch.threema.app.ui.ThreemaSearchView
 import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.DispatcherProvider
-import ch.threema.app.utils.IntentDataUtil
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.common.consume
+import ch.threema.data.IdentityProvider
 import ch.threema.data.datatypes.ContactNameFormat
 import ch.threema.domain.types.Identity
 import ch.threema.storage.models.AbstractMessageModel
@@ -443,6 +443,7 @@ class StarredMessagesActivity :
                 SelectorDialogItem(getString(R.string.oldest_first), R.drawable.ic_arrow_upward),
             ),
             getString(R.string.cancel),
+            null,
         )
         try {
             selectorDialog.show(supportFragmentManager, DIALOG_TAG_SORT_BY)
@@ -454,8 +455,12 @@ class StarredMessagesActivity :
     private fun showMessage(messageModel: AbstractMessageModel) {
         logger.info("Navigating to starred message")
         hideKeyboard()
-        val intent = IntentDataUtil.getJumpToMessageIntent(this, messageModel)
-        intent.putExtra(EXTRA_OVERRIDE_BACK_TO_HOME_BEHAVIOR, true)
+        val intent = ComposeMessageActivity.createIntentJumpToMessage(
+            context = this,
+            message = messageModel,
+            overrideBackToHomeBehavior = true,
+        )
+        intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         showMessageLauncher.launch(intent)
     }
 

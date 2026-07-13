@@ -1,7 +1,7 @@
 package ch.threema.app.usecases
 
-import ch.threema.app.test.testDispatcherProvider
 import ch.threema.testhelpers.createTempDirectory
+import ch.threema.testhelpers.testDispatcherProvider
 import io.mockk.every
 import io.mockk.mockk
 import java.io.File
@@ -41,7 +41,7 @@ class ExportDebugLogUseCaseTest {
                 every { getLogFiles() } returns listOf(logFile1, logFile2)
             },
             appDirectoryProvider = mockk {
-                every { cacheDirectory } returns directory
+                every { shareDirectory } returns directory
             },
             dispatcherProvider = testDispatcherProvider(),
         )
@@ -79,7 +79,7 @@ class ExportDebugLogUseCaseTest {
                 every { getFallbackLogFiles() } returns listOf(logFile1, logFile2)
             },
             appDirectoryProvider = mockk {
-                every { cacheDirectory } returns directory
+                every { shareDirectory } returns directory
             },
             dispatcherProvider = testDispatcherProvider(),
         )
@@ -114,7 +114,7 @@ class ExportDebugLogUseCaseTest {
                 every { getLogFiles() } returns listOf(logFile)
             },
             appDirectoryProvider = mockk {
-                every { cacheDirectory } returns directory
+                every { shareDirectory } returns directory
             },
             dispatcherProvider = testDispatcherProvider(),
         )

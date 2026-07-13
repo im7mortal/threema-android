@@ -31,9 +31,9 @@ import ch.threema.app.ui.MentionClickableSpan;
 import ch.threema.app.ui.MentionSpan;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.NameUtil;
-import ch.threema.app.utils.TestUtil;
 import kotlin.Lazy;
 
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 import static ch.threema.common.LazyKt.lazy;
 
 public class EmojiMarkupUtil {
@@ -62,7 +62,7 @@ public class EmojiMarkupUtil {
     // the ContactService may not yet exist when the instance is created (e.g. when masterkey is locked)
     @Nullable
     private ContactService getContactService() {
-        final @Nullable ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        final @Nullable ServiceManager serviceManager = ServiceManager.get();
         try {
             return (serviceManager != null) ? serviceManager.getContactService() : null;
         } catch (Exception e) {
@@ -73,7 +73,7 @@ public class EmojiMarkupUtil {
     // the UserService may not yet exist when the instance is created (e.g. when masterkey is locked)
     @Nullable
     private UserService getUserService() {
-        final @Nullable ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        final @Nullable ServiceManager serviceManager = ServiceManager.get();
         try {
             return (serviceManager != null) ? serviceManager.getUserService() : null;
         } catch (Exception e) {
@@ -286,7 +286,7 @@ public class EmojiMarkupUtil {
                 quoteName = null;
             }
 
-            if (TestUtil.isEmptyOrNull(quoteName)) {
+            if (isNullOrEmpty(quoteName)) {
                 // Note that the quote name is only empty if there went something wrong while
                 // accessing the contact. If the contact is unknown, the quote name consists of its
                 // threema id.

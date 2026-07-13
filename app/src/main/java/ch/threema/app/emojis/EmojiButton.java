@@ -3,6 +3,7 @@ package ch.threema.app.emojis;
 import android.content.Context;
 import android.util.AttributeSet;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.widget.AppCompatImageButton;
 import ch.threema.app.R;
 import ch.threema.app.utils.ConfigUtils;
@@ -26,7 +27,7 @@ public class EmojiButton extends AppCompatImageButton implements EmojiPicker.Emo
     }
 
     public void showEmojiIcon() {
-        setImageResource(R.drawable.ic_tag_faces_outline);
+        setImageResource(R.drawable.ic_emoji);
     }
 
     public void showKeyboardIcon() {
@@ -37,7 +38,7 @@ public class EmojiButton extends AppCompatImageButton implements EmojiPicker.Emo
         }
     }
 
-    public void attach(EmojiPicker emojiPicker) {
+    public void attach(@NonNull EmojiPicker emojiPicker) {
         emojiPicker.addEmojiPickerListener(this);
     }
 

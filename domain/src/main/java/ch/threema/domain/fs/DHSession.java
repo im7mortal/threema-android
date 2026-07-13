@@ -12,7 +12,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.base.ThreemaException;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.base.utils.Utils;
+import static ch.threema.common.ByteArrayExtensionsKt.concatenateByteArrays;
+
 import ch.threema.domain.models.Contact;
 import ch.threema.domain.protocol.csp.messages.BadMessageException;
 import ch.threema.domain.protocol.csp.messages.fs.ForwardSecurityDataMessage;
@@ -22,6 +23,7 @@ import ch.threema.libthreema.LibthreemaKt;
 import ch.threema.protobuf.csp.e2e.fs.Encapsulated;
 import ch.threema.protobuf.csp.e2e.fs.Version;
 import ch.threema.protobuf.csp.e2e.fs.VersionRange;
+import kotlin.jvm.Throws;
 
 /**
  * ECDH key exchange and ratcheting session for forward security
@@ -248,7 +250,7 @@ public class DHSession {
      * Create a new DHSession as an initiator, using a new random session ID and
      * a new random private key.
      */
-    public DHSession(@NonNull Contact contact, @NonNull IdentityStore identityStore) {
+    public DHSession(@NonNull Contact contact, @NonNull IdentityStore identityStore) throws ThreemaException {
         this.id = new DHSessionId();
         this.myIdentity = identityStore.getIdentityString();
         this.peerIdentity = contact.getIdentity();
@@ -257,8 +259,8 @@ public class DHSession {
         this.myEphemeralPrivateKey = new byte[NaCl.SECRET_KEY_BYTES];
         NaCl.generateKeypairInPlace(myEphemeralPublicKey, myEphemeralPrivateKey);
 
-        byte[] dhStaticStatic = identityStore.calcSharedSecret(contact.getPublicKey());
-        byte[] dhStaticEphemeral = new NaCl(myEphemeralPrivateKey, contact.getPublicKey()).sharedSecret;
+        byte[] dhStaticStatic = calculateSharedSecret(identityStore, contact.getPublicKey());
+        byte[] dhStaticEphemeral = calculateSharedSecret(myEphemeralPrivateKey, contact.getPublicKey());
         this.initKDF2DH(dhStaticStatic, dhStaticEphemeral, false);
     }
 
@@ -271,7 +273,7 @@ public class DHSession {
         byte[] peerEphemeralPublicKey,
         Contact contact,
         IdentityStore identityStore
-    ) throws BadMessageException {
+    ) throws BadMessageException, ThreemaException {
         final Version negotiatedVersion = DHSession.negotiateMajorAndMinorVersion(getSupportedVersionRange(), peerSupportedVersionRange);
 
         if (peerEphemeralPublicKey.length != NaCl.SECRET_KEY_BYTES) {
@@ -685,7 +687,7 @@ public class DHSession {
         byte[] peerEphemeralPublicKey,
         @NonNull Contact contact,
         @NonNull IdentityStore identityStore
-    ) throws DHSession.MissingEphemeralPrivateKeyException, BadMessageException {
+    ) throws BadMessageException, ThreemaException {
         // Note: This mitigates accepting twice because we remove the ephemeral private key after the first accept.
         if (myEphemeralPrivateKey == null) {
             throw new DHSession.MissingEphemeralPrivateKeyException("Missing ephemeral private key");
@@ -695,10 +697,10 @@ public class DHSession {
         final Version negotiatedVersion = DHSession.negotiateMajorAndMinorVersion(getSupportedVersionRange(), peerSupportedVersionRange);
 
         // Derive 4DH root key
-        byte[] dhStaticStatic = identityStore.calcSharedSecret(contact.getPublicKey());
-        byte[] dhStaticEphemeral = new NaCl(myEphemeralPrivateKey, contact.getPublicKey()).sharedSecret;
-        byte[] dhEphemeralStatic = identityStore.calcSharedSecret(peerEphemeralPublicKey);
-        byte[] dhEphemeralEphemeral = new NaCl(myEphemeralPrivateKey, peerEphemeralPublicKey).sharedSecret;
+        byte[] dhStaticStatic = calculateSharedSecret(identityStore, contact.getPublicKey());
+        byte[] dhStaticEphemeral = calculateSharedSecret(myEphemeralPrivateKey, contact.getPublicKey());
+        byte[] dhEphemeralStatic = calculateSharedSecret(identityStore, peerEphemeralPublicKey);
+        byte[] dhEphemeralEphemeral = calculateSharedSecret(myEphemeralPrivateKey, peerEphemeralPublicKey);
         this.initKDF4DH(dhStaticStatic, dhStaticEphemeral, dhEphemeralStatic, dhEphemeralEphemeral);
 
         // Validation complete, update state
@@ -727,7 +729,7 @@ public class DHSession {
             // We can feed the combined 64 bytes directly into BLAKE2b
             if (peer) {
                 byte[] peerK0 = LibthreemaKt.blake2bMac256(
-                    Utils.concatByteArrays(dhStaticStatic, dhStaticEphemeral),
+                    concatenateByteArrays(dhStaticStatic, dhStaticEphemeral),
                     KDF_PERSONAL.getBytes(StandardCharsets.UTF_8),
                     (KE_SALT_2DH_PREFIX + peerIdentity).getBytes(StandardCharsets.UTF_8),
                     new byte[0]
@@ -735,7 +737,7 @@ public class DHSession {
                 this.peerRatchet2DH = new KDFRatchet(1, peerK0);
             } else {
                 byte[] myK0 = LibthreemaKt.blake2bMac256(
-                    Utils.concatByteArrays(dhStaticStatic, dhStaticEphemeral),
+                    concatenateByteArrays(dhStaticStatic, dhStaticEphemeral),
                     KDF_PERSONAL.getBytes(StandardCharsets.UTF_8),
                     (KE_SALT_2DH_PREFIX + myIdentity).getBytes(StandardCharsets.UTF_8),
                     new byte[0]
@@ -760,7 +762,7 @@ public class DHSession {
                 null,
                 new byte[0],
                 new byte[0],
-                Utils.concatByteArrays(dhStaticStatic, dhStaticEphemeral, dhEphemeralStatic, dhEphemeralEphemeral)
+                concatenateByteArrays(dhStaticStatic, dhStaticEphemeral, dhEphemeralStatic, dhEphemeralEphemeral)
             );
 
             byte[] myK = LibthreemaKt.blake2bMac256(
@@ -849,25 +851,51 @@ public class DHSession {
         byte[] peerEphemeralPublicKey,
         Contact contact,
         IdentityStore identityStore
-    ) {
+    ) throws ThreemaException {
         byte[] myEphemeralPublicKeyLocal = new byte[NaCl.PUBLIC_KEY_BYTES];
         byte[] myEphemeralPrivateKeyLocal = new byte[NaCl.SECRET_KEY_BYTES];
         NaCl.generateKeypairInPlace(myEphemeralPublicKeyLocal, myEphemeralPrivateKeyLocal);
 
         // Derive 2DH root key
-        byte[] dhStaticStatic = identityStore.calcSharedSecret(contact.getPublicKey());
-        byte[] dhStaticEphemeral = identityStore.calcSharedSecret(peerEphemeralPublicKey);
+        byte[] dhStaticStatic = calculateSharedSecret(identityStore, contact.getPublicKey());
+        byte[] dhStaticEphemeral = calculateSharedSecret(identityStore, peerEphemeralPublicKey);
         this.initKDF2DH(dhStaticStatic, dhStaticEphemeral, true);
 
         // Derive 4DH root key
-        byte[] dhEphemeralStatic = new NaCl(myEphemeralPrivateKeyLocal, contact.getPublicKey()).sharedSecret;
-        byte[] dhEphemeralEphemeral = new NaCl(myEphemeralPrivateKeyLocal, peerEphemeralPublicKey).sharedSecret;
+        byte[] dhEphemeralStatic = calculateSharedSecret(myEphemeralPrivateKeyLocal, contact.getPublicKey());
+        byte[] dhEphemeralEphemeral = calculateSharedSecret(myEphemeralPrivateKeyLocal, peerEphemeralPublicKey);
         this.initKDF4DH(dhStaticStatic, dhStaticEphemeral, dhEphemeralStatic, dhEphemeralEphemeral);
 
         // myPrivateKey is not needed anymore at this point
         Arrays.fill(myEphemeralPrivateKeyLocal, (byte) 0);
 
         return myEphemeralPublicKeyLocal;
+    }
+
+    @NonNull
+    private byte[] calculateSharedSecret(
+        @NonNull IdentityStore identityStore,
+        @NonNull byte[] publicKey
+    ) throws ThreemaException {
+        byte[] sharedSecret = identityStore.calcSharedSecret(publicKey);
+        if (sharedSecret == null) {
+            throw new ThreemaException("Could not calculate shared secret");
+        }
+        return sharedSecret;
+    }
+
+    @NonNull
+    private byte[] calculateSharedSecret(
+        @NonNull byte[] privateKey,
+        @NonNull byte[] publicKey
+    ) throws ThreemaException {
+        NaCl naCl;
+        try {
+            naCl = new NaCl(privateKey, publicKey);
+        } catch (CryptoException cryptoException) {
+            throw new ThreemaException("Could not instantiate NaCl", cryptoException);
+        }
+        return naCl.sharedSecret;
     }
 
     @Override

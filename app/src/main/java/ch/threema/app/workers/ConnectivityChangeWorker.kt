@@ -8,6 +8,7 @@ import ch.threema.app.di.awaitAppFullyReadyWithTimeout
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.DeviceService
 import ch.threema.app.services.LifetimeService
+import ch.threema.app.services.releaseConnectionLinger
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.taskmanager.TaskManager
 import kotlin.time.Duration.Companion.seconds
@@ -58,7 +59,7 @@ class ConnectivityChangeWorker(
     }
 
     companion object {
-        private const val MESSAGE_SEND_TIME = 30L * 1000L
+        private val MESSAGE_SEND_TIME = 30.seconds
         private const val EXTRA_NETWORK_STATE = "NETWORK_STATE"
         private const val SOURCE_TAG = "connectivityChange"
 

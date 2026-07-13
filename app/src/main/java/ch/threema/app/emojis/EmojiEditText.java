@@ -1,5 +1,7 @@
 package ch.threema.app.emojis;
 
+import static ch.threema.common.StringExtensionsKt.truncateUTF8String;
+
 import android.content.Context;
 import android.graphics.drawable.Drawable;
 import android.text.Editable;
@@ -9,11 +11,9 @@ import android.util.AttributeSet;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import ch.threema.app.ui.SimpleTextWatcher;
+import ch.threema.android.textwatchers.SimpleTextWatcher;
 import ch.threema.app.ui.ThreemaEditText;
 import ch.threema.app.utils.ConfigUtils;
-import ch.threema.app.utils.TestUtil;
-import ch.threema.base.utils.Utils;
 
 public class EmojiEditText extends ThreemaEditText {
 
@@ -113,9 +113,9 @@ public class EmojiEditText extends ThreemaEditText {
         @Override
         public void afterTextChanged(@NonNull Editable editable) {
             String text = editable.toString();
-            String cropped = Utils.truncateUTF8String(text, maxByteSize);
+            String cropped = truncateUTF8String(text, maxByteSize);
 
-            if (!TestUtil.compare(text, cropped)) {
+            if (!text.equals(cropped)) {
                 setText(currentText);
                 setSelection(currentText.length());
             } else {

@@ -14,12 +14,12 @@ import android.view.ViewParent;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Random;
 
 import androidx.core.content.ContextCompat;
 import ch.threema.app.R;
+import ch.threema.app.utils.ConfigUtils;
 
 public class NewWizardFingerPrintView extends SquareImageView implements View.OnTouchListener {
     public interface OnSwipeResult {
@@ -64,12 +64,12 @@ public class NewWizardFingerPrintView extends SquareImageView implements View.On
         this.setFocusable(true);
         this.setFocusableInTouchMode(true);
         this.setOnTouchListener(this);
-        this.backgroundCharPaint.setColor(Color.WHITE);
+        this.backgroundCharPaint.setColor(ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorOnSurface));
         this.backgroundCharPaint.setAntiAlias(true);
         this.backgroundCharPaint.setTextAlign(Paint.Align.CENTER);
         this.backgroundCharPaint.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
 
-        this.backgroundCharPaintFixed.setColor(ContextCompat.getColor(getContext(), R.color.md_theme_dark_primary));
+        this.backgroundCharPaintFixed.setColor(ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorPrimary));
         this.backgroundCharPaintFixed.setAntiAlias(true);
         this.backgroundCharPaintFixed.setTextAlign(Paint.Align.CENTER);
         this.backgroundCharPaintFixed.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
@@ -144,7 +144,7 @@ public class NewWizardFingerPrintView extends SquareImageView implements View.On
                     messageDigest.update(lastDigest);
 
                 // add position and timestamp of this touch
-                String positionTimestamp = currentPoint.x + "-" + currentPoint.y + "-" + new Date().getTime();
+                String positionTimestamp = currentPoint.x + "-" + currentPoint.y + "-" + System.currentTimeMillis();
                 messageDigest.update(positionTimestamp.getBytes());
 
                 lastDigest = messageDigest.digest();

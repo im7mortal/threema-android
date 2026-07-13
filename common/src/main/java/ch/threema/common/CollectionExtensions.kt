@@ -25,3 +25,19 @@ fun <T> List<T>.toEnumeration(): Enumeration<T> =
             return get(count++)
         }
     }
+
+fun <Key, Value : Any> MutableMap<Key, Value>.putIfNotNull(key: Key, value: Value?) {
+    if (value != null) {
+        put(key, value)
+    }
+}
+
+fun <T, U> Collection<T>.hasDuplicatesBy(getValue: (T) -> U): Boolean {
+    val items = mutableSetOf<U>()
+    forEach { item ->
+        if (!items.add(getValue(item))) {
+            return true
+        }
+    }
+    return false
+}

@@ -11,7 +11,7 @@ import ch.threema.app.services.BlockedIdentitiesService
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.utils.ContactUtil
-import ch.threema.app.utils.DispatcherProvider
+import ch.threema.common.DispatcherProvider
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.protocol.ThreemaFeature
 import ch.threema.domain.types.IdentityString

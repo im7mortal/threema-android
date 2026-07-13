@@ -3,7 +3,6 @@ package ch.threema.app.adapters.decorators
 import android.content.Context
 import ch.threema.app.R
 import ch.threema.app.ui.listitemholder.ComposeMessageHolder
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.LinkifyUtil
 import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.data.status.ForwardSecurityStatusDataModel.ForwardSecurityStatusType
@@ -16,7 +15,7 @@ class ForwardSecurityStatusChatAdapterDecorator(
 ) : ChatAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, helper) {
     override fun configureChatMessage(holder: ComposeMessageHolder, context: Context, position: Int) {
         val statusDataModel = messageModel.forwardSecurityStatusData ?: return
-        val body: String? = when (statusDataModel.status) {
+        val body: String? = when (statusDataModel.statusType) {
             ForwardSecurityStatusType.STATIC_TEXT -> statusDataModel.staticText
             ForwardSecurityStatusType.MESSAGE_WITHOUT_FORWARD_SECURITY ->
                 context.getString(R.string.message_without_forward_security)
@@ -34,8 +33,7 @@ class ForwardSecurityStatusChatAdapterDecorator(
                 context.getString(R.string.forward_security_message_out_of_order)
 
             ForwardSecurityStatusType.FORWARD_SECURITY_MESSAGES_SKIPPED ->
-                ConfigUtils.getSafeQuantityString(
-                    context,
+                context.resources.getQuantityString(
                     R.plurals.forward_security_messages_skipped,
                     statusDataModel.quantity,
                     statusDataModel.quantity,

@@ -23,7 +23,7 @@ import ch.threema.domain.protocol.csp.messages.groupcall.GroupCallStartMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.storage.DatabaseService
 import ch.threema.storage.models.IncomingGroupSyncRequestLogModel
-import java.util.Date
+import java.time.Instant
 
 private val logger = getThreemaLogger("ActiveGroupStateResyncSteps")
 
@@ -64,7 +64,7 @@ suspend fun runActiveGroupStateResyncSteps(
         return
     }
 
-    val currentTimestamp = Date()
+    val currentTimestamp = Instant.now()
 
     val messages = listOfNotNull(
         createSetupMessageHandle(
@@ -104,7 +104,7 @@ suspend fun runActiveGroupStateResyncSteps(
         IncomingGroupSyncRequestLogModel(
             groupModel.getDatabaseId(),
             it.identity,
-            currentTimestamp.time,
+            currentTimestamp.toEpochMilli(),
         )
     }.forEach {
         incomingGroupSyncRequestLogModelFactory.createOrUpdate(it)
@@ -120,7 +120,7 @@ data class PreGeneratedMessageIds(
 
 private fun createSetupMessageHandle(
     messageId: MessageId,
-    currentTimestamp: Date,
+    currentTimestamp: Instant,
     receivers: Set<BasicContact>,
     groupModelData: GroupModelData,
 ) = OutgoingCspMessageHandle(
@@ -138,7 +138,7 @@ private fun createSetupMessageHandle(
 
 private fun createNameMessageHandle(
     messageId: MessageId,
-    currentTimestamp: Date,
+    currentTimestamp: Instant,
     receivers: Set<BasicContact>,
     groupModelData: GroupModelData,
 ) = OutgoingCspMessageHandle(
@@ -156,13 +156,13 @@ private fun createNameMessageHandle(
 
 private fun createProfilePictureMessageHandle(
     messageId: MessageId,
-    currentTimestamp: Date,
+    currentTimestamp: Instant,
     receivers: Set<BasicContact>,
     groupModel: GroupModel,
     groupProfilePictureUploader: GroupProfilePictureUploader,
     fileService: FileService,
 ): OutgoingCspMessageHandle? {
-    val uploadResult = fileService.getGroupProfilePictureBytes(groupModel)?.let { bytes ->
+    val uploadResult = fileService.getGroupProfilePictureBytes(groupModel.getDatabaseId())?.let { bytes ->
         groupProfilePictureUploader.tryUploadingGroupProfilePicture(RawProfilePicture(bytes))
     }
 
@@ -203,7 +203,7 @@ private fun createProfilePictureMessageHandle(
 
 private suspend fun createGroupCallStartMessageHandle(
     messageId: MessageId,
-    currentTimestamp: Date,
+    currentTimestamp: Instant,
     receivers: Set<BasicContact>,
     groupModel: GroupModel,
     groupCallManager: GroupCallManager,

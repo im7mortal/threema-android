@@ -1,12 +1,12 @@
 package ch.threema.app.utils
 
-import ch.threema.app.managers.CoreServiceManager
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.UserService
 import ch.threema.data.datatypes.ContactNameFormat
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.domain.models.IdentityState
+import ch.threema.test.TestIdentityProvider
 import io.mockk.every
 import io.mockk.mockk
 import kotlin.test.Test
@@ -35,11 +35,7 @@ class DisplayableGroupParticipantsTest {
             nickname = "Nickname2",
         )
     }
-    private val coreServiceManagerMock: CoreServiceManager = mockk(relaxed = true) {
-        every { identityStore } returns mockk {
-            every { getIdentityString() } returns userServiceMock.identity!!
-        }
-    }
+    private val identityProvider = TestIdentityProvider(TestData.Identities.ME)
 
     @Test
     fun `displayable participants can be created from empty group`() {
@@ -53,7 +49,7 @@ class DisplayableGroupParticipantsTest {
                 groupId = 42,
             ),
             otherMembers = emptySet(),
-            coreServiceManager = coreServiceManagerMock,
+            identityProvider = identityProvider,
         )
 
         val displayableGroupParticipants = DisplayableGroupParticipants.getDisplayableGroupParticipantsOfGroup(
@@ -64,7 +60,7 @@ class DisplayableGroupParticipantsTest {
         )
 
         assertNotNull(displayableGroupParticipants)
-        assertTrue { displayableGroupParticipants.membersWithoutCreator.isEmpty() }
+        assertTrue(displayableGroupParticipants.membersWithoutCreator.isEmpty())
         val displayableGroupCreator = displayableGroupParticipants.creator.displayableContactOrUser
         assertIs<DisplayableContactOrUser.User>(displayableGroupCreator)
         with(displayableGroupCreator) {
@@ -86,7 +82,7 @@ class DisplayableGroupParticipantsTest {
                 groupId = 42,
             ),
             otherMembers = setOf(TestData.Identities.OTHER_2.value),
-            coreServiceManager = coreServiceManagerMock,
+            identityProvider = identityProvider,
         )
 
         val displayableGroupParticipants = DisplayableGroupParticipants.getDisplayableGroupParticipantsOfGroup(
@@ -140,7 +136,7 @@ class DisplayableGroupParticipantsTest {
                 groupId = 42,
             ),
             otherMembers = setOf(TestData.Identities.OTHER_2.value),
-            coreServiceManager = coreServiceManagerMock,
+            identityProvider = identityProvider,
         )
 
         val displayableGroupParticipants = DisplayableGroupParticipants.getDisplayableGroupParticipantsOfGroup(

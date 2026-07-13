@@ -199,12 +199,10 @@ class BackupRestoreProgressActivity : AppCompatActivity() {
     }
 
     private fun cancelCompleteNotification() {
-        notificationService.cancel(
-            when (progressType) {
-                ProgressType.BACKUP -> BackupService.BACKUP_COMPLETION_NOTIFICATION_ID
-                ProgressType.RESTORE -> RestoreService.RESTORE_COMPLETION_NOTIFICATION_ID
-            },
-        )
+        when (progressType) {
+            ProgressType.BACKUP -> notificationService.cancelBackupCompletionNotification()
+            ProgressType.RESTORE -> notificationService.cancelRestoreCompletionNotification()
+        }
     }
 
     companion object {

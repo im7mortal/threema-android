@@ -1,29 +1,51 @@
 package ch.threema.app.services;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.widget.ImageView;
 
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-import ch.threema.app.messagereceiver.MessageReceiver;
+import ch.threema.data.datatypes.ConversationId;
 import kotlin.jvm.functions.Function0;
 
 public interface WallpaperService {
 
-    ActivityResultLauncher<Intent> getWallpaperActivityResultLauncher(@NonNull Fragment fragment, @Nullable Runnable onResultAction, @Nullable Function0<MessageReceiver> getMessageReceiver);
+    ActivityResultLauncher<Intent> getWallpaperActivityResultLauncher(
+        @NonNull Fragment fragment,
+        @Nullable Runnable onResultAction,
+        @Nullable Function0<ConversationId> getConversationId
+    );
 
-    void removeWallpaper(String uniqueIdString);
+    CompletableFuture<Bitmap> getWallpaper(
+        @NonNull ConversationId conversationId,
+        boolean landscape,
+        boolean isTheDarkside
+    );
 
-    boolean setupWallpaperBitmap(MessageReceiver messageReceiver, ImageView wallpaperView, boolean landscape, boolean isTheDarkside);
+    void removeWallpaper(@NonNull ConversationId conversationId);
 
-    boolean hasGalleryWallpaper(MessageReceiver messageReceiver);
+    void setupWallpaperBitmap(
+        @NonNull ConversationId conversationId,
+        ImageView wallpaperView,
+        boolean landscape,
+        boolean isTheDarkside
+    );
 
-    void selectWallpaper(@NonNull Fragment fragment, @NonNull ActivityResultLauncher<Intent> fileSelectionLauncher, @Nullable MessageReceiver messageReceiver, @Nullable Runnable onSuccess);
+    boolean hasGalleryWallpaper(@Nullable ConversationId conversationId);
+
+    void selectWallpaper(
+        @NonNull Fragment fragment,
+        @NonNull ActivityResultLauncher<Intent> fileSelectionLauncher,
+        @Nullable ConversationId conversationId,
+        @Nullable Runnable onSuccess
+    );
 
     void deleteAll() throws IOException;
 

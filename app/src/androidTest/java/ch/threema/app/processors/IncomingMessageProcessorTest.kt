@@ -12,16 +12,16 @@ import ch.threema.domain.protocol.csp.messages.AbstractMessage
 import ch.threema.domain.protocol.csp.messages.DeliveryReceiptMessage
 import ch.threema.domain.protocol.csp.messages.TextMessage
 import ch.threema.domain.protocol.csp.messages.TypingIndicatorMessage
-import ch.threema.domain.protocol.csp.messages.ballot.BallotData
-import ch.threema.domain.protocol.csp.messages.ballot.BallotDataChoice
-import ch.threema.domain.protocol.csp.messages.ballot.BallotDataChoiceBuilder
-import ch.threema.domain.protocol.csp.messages.ballot.BallotId
-import ch.threema.domain.protocol.csp.messages.ballot.BallotVote
-import ch.threema.domain.protocol.csp.messages.ballot.PollSetupMessage
-import ch.threema.domain.protocol.csp.messages.ballot.PollVoteMessage
 import ch.threema.domain.protocol.csp.messages.location.LocationMessage
 import ch.threema.domain.protocol.csp.messages.location.LocationMessageData
-import java.util.Date
+import ch.threema.domain.protocol.csp.messages.poll.PollData
+import ch.threema.domain.protocol.csp.messages.poll.PollDataChoice
+import ch.threema.domain.protocol.csp.messages.poll.PollDataChoiceBuilder
+import ch.threema.domain.protocol.csp.messages.poll.PollId
+import ch.threema.domain.protocol.csp.messages.poll.PollSetupMessage
+import ch.threema.domain.protocol.csp.messages.poll.PollVote
+import ch.threema.domain.protocol.csp.messages.poll.PollVoteMessage
+import java.time.Instant
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
 import kotlin.test.Test
@@ -55,39 +55,39 @@ class IncomingMessageProcessorTest : MessageProcessorProvider() {
 
     @Test
     fun testIncomingPoll() = runTest {
-        val ballotId = BallotId()
-        val ballotCreator = contactA.identity
+        val pollId = PollId()
+        val pollCreator = contactA.identity
 
-        val ballotData = BallotData().also { data ->
-            data.description = "This describes the ballot!"
-            data.assessmentType = BallotData.AssessmentType.SINGLE
-            data.type = BallotData.Type.INTERMEDIATE
-            List<BallotDataChoice>(10) { index ->
-                BallotDataChoiceBuilder()
+        val pollData = PollData().also { data ->
+            data.description = "This describes the poll!"
+            data.assessmentType = PollData.AssessmentType.SINGLE
+            data.type = PollData.Type.INTERMEDIATE
+            List<PollDataChoice>(10) { index ->
+                PollDataChoiceBuilder()
                     .setId(index)
                     .setDescription("This is choice $index!")
                     .setSortKey(index)
                     .build()
             }.forEach { data.addChoice(it) }
-            data.displayType = BallotData.DisplayType.LIST_MODE
-            data.state = BallotData.State.OPEN
+            data.displayType = PollData.DisplayType.LIST_MODE
+            data.state = PollData.State.OPEN
         }
 
         val pollSetupMessage = PollSetupMessage().also {
-            it.ballotCreatorIdentity = ballotCreator
-            it.ballotId = ballotId
-            it.ballotData = ballotData
+            it.pollCreatorIdentity = pollCreator
+            it.pollId = pollId
+            it.pollData = pollData
         }.enrich()
 
-        // Test a valid ballot setup message that opens a poll
+        // Test a valid poll setup message that opens a poll
         assertSuccessfulMessageProcessing(pollSetupMessage, contactA)
 
         val pollVoteMessage = PollVoteMessage().also { voteMessage ->
-            voteMessage.ballotId = ballotId
-            voteMessage.ballotCreatorIdentity = ballotCreator
+            voteMessage.pollId = pollId
+            voteMessage.pollCreatorIdentity = pollCreator
             voteMessage.votes.addAll(
                 List(5) { index ->
-                    BallotVote(index, 0)
+                    PollVote(index, 0)
                 },
             )
         }.enrich()
@@ -175,7 +175,7 @@ class IncomingMessageProcessorTest : MessageProcessorProvider() {
             it.fromIdentity = contactA.identity
             it.toIdentity = myContact.identity
             it.messageId = MessageId.random()
-            it.date = Date()
+            it.timestamp = Instant.now()
             it.text = "" // Bad message; cannot be decoded due to invalid length
         }
 
@@ -194,7 +194,7 @@ class IncomingMessageProcessorTest : MessageProcessorProvider() {
             it.fromIdentity = contactA.identity
             it.toIdentity = contactB.identity
             it.messageId = MessageId.random()
-            it.date = Date()
+            it.timestamp = Instant.now()
             it.text = "This message is for contact B!"
         }
 
@@ -245,7 +245,7 @@ class IncomingMessageProcessorTest : MessageProcessorProvider() {
 
     private fun AbstractMessage.enrich(): AbstractMessage {
         toIdentity = myContact.identity
-        date = Date()
+        timestamp = Instant.now()
         messageId = MessageId.random()
         return this
     }

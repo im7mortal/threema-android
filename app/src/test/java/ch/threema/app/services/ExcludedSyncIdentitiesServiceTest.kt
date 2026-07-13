@@ -19,7 +19,7 @@ class ExcludedSyncIdentitiesServiceTest {
 
     private var storedExcludedSyncIdentities: Array<IdentityString> = emptyArray()
     private val preferenceServiceMock: PreferenceService = mockk {
-        every { setList("identity_list_sync_excluded", any()) } answers {
+        every { setEncryptedList("identity_list_sync_excluded", any()) } answers {
             storedExcludedSyncIdentities = secondArg()
         }
 
@@ -53,7 +53,7 @@ class ExcludedSyncIdentitiesServiceTest {
 
         // Assert
         identitiesToExclude.forEach { identity ->
-            assertTrue { excludedSyncIdentitiesService.isExcluded(identity) }
+            assertTrue(excludedSyncIdentitiesService.isExcluded(identity))
             assertContains(excludedSyncIdentitiesService.getExcludedIdentities(), identity)
         }
         verify(exactly = 0) { taskCreatorMock.scheduleReflectExcludeFromSyncIdentitiesTask() }
@@ -77,7 +77,7 @@ class ExcludedSyncIdentitiesServiceTest {
 
         // Assert
         identitiesToExclude.forEach { identity ->
-            assertTrue { excludedSyncIdentitiesService.isExcluded(identity) }
+            assertTrue(excludedSyncIdentitiesService.isExcluded(identity))
             assertContains(excludedSyncIdentitiesService.getExcludedIdentities(), identity)
         }
         verify(exactly = identitiesToExclude.size) { taskCreatorMock.scheduleReflectExcludeFromSyncIdentitiesTask() }
@@ -101,8 +101,8 @@ class ExcludedSyncIdentitiesServiceTest {
         excludedSyncIdentitiesService.removeExcludedIdentity(identityToRemoveFromExcludedIdentities, TriggerSource.LOCAL)
 
         // Assert
-        assertFalse { excludedSyncIdentitiesService.isExcluded(identityToRemoveFromExcludedIdentities) }
-        assertFalse { excludedSyncIdentitiesService.getExcludedIdentities().contains(identityToRemoveFromExcludedIdentities) }
+        assertFalse(excludedSyncIdentitiesService.isExcluded(identityToRemoveFromExcludedIdentities))
+        assertFalse(excludedSyncIdentitiesService.getExcludedIdentities().contains(identityToRemoveFromExcludedIdentities))
         assertEquals(1, excludedSyncIdentitiesService.getExcludedIdentities().size)
         assertContains(excludedSyncIdentitiesService.getExcludedIdentities(), initiallyExcludedIdentities.last())
         verify(exactly = 0) { taskCreatorMock.scheduleReflectExcludeFromSyncIdentitiesTask() }
@@ -126,8 +126,8 @@ class ExcludedSyncIdentitiesServiceTest {
         excludedSyncIdentitiesService.removeExcludedIdentity(identityToRemoveFromExcludedIdentities, TriggerSource.LOCAL)
 
         // Assert
-        assertFalse { excludedSyncIdentitiesService.isExcluded(identityToRemoveFromExcludedIdentities) }
-        assertFalse { excludedSyncIdentitiesService.getExcludedIdentities().contains(identityToRemoveFromExcludedIdentities) }
+        assertFalse(excludedSyncIdentitiesService.isExcluded(identityToRemoveFromExcludedIdentities))
+        assertFalse(excludedSyncIdentitiesService.getExcludedIdentities().contains(identityToRemoveFromExcludedIdentities))
         assertEquals(1, excludedSyncIdentitiesService.getExcludedIdentities().size)
         assertContains(excludedSyncIdentitiesService.getExcludedIdentities(), initiallyExcludedIdentities.last())
         verify(exactly = 1) { taskCreatorMock.scheduleReflectExcludeFromSyncIdentitiesTask() }
@@ -149,7 +149,7 @@ class ExcludedSyncIdentitiesServiceTest {
 
         // Assert
         identitiesToAdd.forEach { identity ->
-            assertTrue { excludedSyncIdentitiesService.isExcluded(identity) }
+            assertTrue(excludedSyncIdentitiesService.isExcluded(identity))
         }
         assertEquals(identitiesToAdd.size, excludedSyncIdentitiesService.getExcludedIdentities().size)
         verify(exactly = 0) { taskCreatorMock.scheduleReflectExcludeFromSyncIdentitiesTask() }
@@ -171,7 +171,7 @@ class ExcludedSyncIdentitiesServiceTest {
 
         // Assert
         identitiesToAdd.forEach { identity ->
-            assertTrue { excludedSyncIdentitiesService.isExcluded(identity) }
+            assertTrue(excludedSyncIdentitiesService.isExcluded(identity))
         }
         assertEquals(identitiesToAdd.size, excludedSyncIdentitiesService.getExcludedIdentities().size)
         verify(exactly = 1) { taskCreatorMock.scheduleReflectExcludeFromSyncIdentitiesTask() }

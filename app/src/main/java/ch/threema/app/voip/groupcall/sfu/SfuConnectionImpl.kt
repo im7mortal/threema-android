@@ -22,6 +22,7 @@ import com.google.protobuf.kotlin.toByteString
 import java.lang.Exception
 import java.net.MalformedURLException
 import java.net.URL
+import java.time.Instant
 import java.util.*
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -202,7 +203,7 @@ constructor(
     }
 
     private fun isTokenExpired(token: SfuToken): Boolean {
-        return token.expirationDate.before(Date())
+        return token.expirationDate.isBefore(Instant.now())
     }
 }
 

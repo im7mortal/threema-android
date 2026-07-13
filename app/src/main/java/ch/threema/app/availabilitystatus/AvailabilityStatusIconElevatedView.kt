@@ -3,6 +3,7 @@ package ch.threema.app.availabilitystatus
 import android.content.Context
 import android.util.AttributeSet
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
@@ -62,7 +63,7 @@ fun AvailabilityStatusIconElevated(
                 shape = CircleShape,
             )
             .background(
-                color = Color.White,
+                color = if (isSystemInDarkTheme()) Color.Black else Color.White,
             ),
         contentAlignment = Alignment.Center,
     ) {

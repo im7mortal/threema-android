@@ -22,13 +22,13 @@ import ch.threema.app.ui.listitemholder.ComposeMessageHolder;
 import ch.threema.app.utils.FileUtil;
 import ch.threema.app.utils.LinkifyUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.data.media.FileDataModel;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 /**
  * A decorator for animated image formats natively supported by AnimatedImageDrawable and/or by Glide
@@ -112,8 +112,7 @@ public class AnimatedImageDrawableDecorator extends ChatAdapterDecorator {
          */
         Bitmap thumbnail;
         try {
-            thumbnail = getFileService().getMessageThumbnailBitmap(getMessageModel(),
-                getThumbnailCache());
+            thumbnail = getFileService().getMessageThumbnailBitmap(getMessageModel(), getThumbnailCache());
         } catch (Exception e) {
             logger.error("Exception", e);
             thumbnail = null;
@@ -192,7 +191,7 @@ public class AnimatedImageDrawableDecorator extends ChatAdapterDecorator {
                             }
                         } else {
                             holder.controller.setVisibility(View.GONE);
-                            if (!TestUtil.isEmptyOrNull(message)) {
+                            if (!isNullOrEmpty(message)) {
                                 Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show();
                             }
                         }
@@ -225,7 +224,7 @@ public class AnimatedImageDrawableDecorator extends ChatAdapterDecorator {
                             holder.controller.setPlay();
                         } else {
                             holder.controller.setReadyToDownload();
-                            if (!TestUtil.isEmptyOrNull(message)) {
+                            if (!isNullOrEmpty(message)) {
                                 Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show();
                             }
                         }

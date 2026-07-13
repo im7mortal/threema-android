@@ -1,31 +1,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@android:color/black">
-
-    <HorizontalScrollView
-        android:id="@+id/layer0"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:scrollbars="none"
-        app:layout_constraintBottom_toTopOf="@id/navigation_footer"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
-
-        <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:adjustViewBounds="true"
-            android:gravity="center_vertical"
-            android:importantForAccessibility="no"
-            android:scaleType="fitXY"
-            android:src="@drawable/background_pic" />
-
-    </HorizontalScrollView>
-
-    <!-- Second layer -->
+    android:layout_height="match_parent">
 
     <HorizontalScrollView
         android:id="@+id/layer1"
@@ -74,7 +50,6 @@
         android:id="@+id/navigation_footer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:background="@color/wizard_alpha_background"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
@@ -102,7 +77,7 @@
             app:layout_constraintTop_toTopOf="parent"
             app:nextColor="#FF919191"
             app:previousColor="#FF919191"
-            app:selectedColor="@android:color/white" />
+            app:selectedColor="?attr/colorOnSurface" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/next_page_button"

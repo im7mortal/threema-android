@@ -40,7 +40,7 @@ class MasterKeyStorageStateHolder(
     fun getStorageState(): MasterKeyState =
         storageStateFlow.value ?: error("master key data not yet loaded or generated")
 
-    fun observeStorageState(): StateFlow<MasterKeyState?> =
+    fun watchStorageState(): StateFlow<MasterKeyState?> =
         storageStateFlow
 
     @Throws(CryptoException::class)

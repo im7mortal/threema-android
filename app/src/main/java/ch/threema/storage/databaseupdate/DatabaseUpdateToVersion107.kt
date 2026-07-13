@@ -5,8 +5,8 @@ import android.content.SharedPreferences
 import android.database.Cursor
 import androidx.core.content.edit
 import androidx.preference.PreferenceManager
-import ch.threema.base.utils.Base32
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.Base32
 import ch.threema.domain.types.IdentityString
 import ch.threema.storage.databaseupdate.DatabaseUpdateToVersion107.Companion.DEADLINE_INDEFINITE
 import ch.threema.storage.databaseupdate.DatabaseUpdateToVersion107.Companion.DEADLINE_INDEFINITE_EXCEPT_MENTIONS

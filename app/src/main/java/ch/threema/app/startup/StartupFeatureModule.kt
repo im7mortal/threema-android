@@ -15,11 +15,12 @@ val startupFeatureModule = module {
 
     factory<AppProcessLifecycleObserver> {
         AppProcessLifecycleObserver(
+            globalAppState = get(),
             dispatcherProvider = get(),
             reloadAppRestrictions = {
                 if (ConfigUtils.isWorkBuild()) {
                     RuntimeUtil.runOnWorkerThread {
-                        AppRestrictionService.getInstance().reload()
+                        get<AppRestrictionService>().reload()
                     }
                 }
             },
@@ -28,14 +29,14 @@ val startupFeatureModule = module {
 
     factoryOf(RemoteSecretMonitorService::Scheduler)
 
-    factory<RemoteSecretProtectionStateMonitor> {
+    factory<RemoteSecretProtectionStateMonitor?> {
         if (ConfigUtils.isOnPremBuild()) {
-            RemoteSecretProtectionStateMonitorImpl(
+            RemoteSecretProtectionStateMonitor(
                 remoteSecretMonitorServiceScheduler = get(),
                 masterKeyManager = get(),
             )
         } else {
-            NoOpRemoteSecretProtectionStateMonitorImpl()
+            null
         }
     }
 

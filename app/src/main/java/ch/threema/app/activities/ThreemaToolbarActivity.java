@@ -12,6 +12,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import androidx.appcompat.widget.Toolbar;
+import androidx.lifecycle.Lifecycle;
 import androidx.preference.PreferenceManager;
 
 import com.google.android.material.appbar.AppBarLayout;
@@ -23,6 +24,7 @@ import org.slf4j.Logger;
 import java.util.HashSet;
 import java.util.Set;
 
+import ch.threema.android.FlowJavaCompat;
 import ch.threema.app.R;
 import ch.threema.app.activities.wizard.WizardIntroActivity;
 import ch.threema.app.di.DependencyContainer;
@@ -32,17 +34,14 @@ import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.ConnectionIndicatorUtil;
 import ch.threema.app.utils.EditTextUtil;
-import ch.threema.app.utils.RuntimeUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.domain.protocol.connection.ConnectionState;
-import ch.threema.domain.protocol.connection.ConnectionStateListener;
 
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 
 /**
  * Helper class for activities that use the new toolbar
  */
-public abstract class ThreemaToolbarActivity extends ThreemaActivity implements ConnectionStateListener {
+public abstract class ThreemaToolbarActivity extends ThreemaActivity {
     private static final Logger logger = getThreemaLogger("ThreemaToolbarActivity");
 
     private AppBarLayout appBarLayout;
@@ -51,24 +50,6 @@ public abstract class ThreemaToolbarActivity extends ThreemaActivity implements 
 
     @NonNull
     private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
-
-    @Override
-    protected void onResume() {
-        if (isSessionScopeReady()) {
-            dependencies.getServerConnection().addConnectionStateListener(this);
-            ConnectionState connectionState = dependencies.getServerConnection().getConnectionState();
-            ConnectionIndicatorUtil.getInstance().updateConnectionIndicator(connectionIndicator, connectionState);
-        }
-        super.onResume();
-    }
-
-    @Override
-    protected void onPause() {
-        if (isSessionScopeReady()) {
-            dependencies.getServerConnection().removeConnectionStateListener(this);
-        }
-        super.onPause();
-    }
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -104,7 +85,7 @@ public abstract class ThreemaToolbarActivity extends ThreemaActivity implements 
     }
 
     /**
-     * This method sets up the layout, the connection indicator, language override and screenshot blocker.
+     * This method sets up the layout, the connection indicator and screenshot blocker.
      * It is called from onCreate() after all the basic initialization has been done.
      * Override this to do your own initialization.
      *
@@ -124,7 +105,8 @@ public abstract class ThreemaToolbarActivity extends ThreemaActivity implements 
             return false;
         }
 
-        ConfigUtils.applyScreenshotPolicy(this,
+        ConfigUtils.applyScreenshotPolicy(
+            this,
             dependencies.getSynchronizedSettingsService(),
             dependencies.getLockAppService()
         );
@@ -147,10 +129,19 @@ public abstract class ThreemaToolbarActivity extends ThreemaActivity implements 
                 }
             }
 
-            connectionIndicator = findViewById(R.id.connection_indicator);
+            setUpConnectionIndicator();
         }
 
         return true;
+    }
+
+    private void setUpConnectionIndicator() {
+        connectionIndicator = findViewById(R.id.connection_indicator);
+        FlowJavaCompat.collect(this, Lifecycle.State.STARTED, dependencies.getServerConnection().watchConnectionState(), (connectionState) -> {
+            if (connectionIndicator != null) {
+                ConnectionIndicatorUtil.getInstance().updateConnectionIndicator(connectionIndicator, connectionState);
+            }
+        });
     }
 
     public abstract @LayoutRes int getLayoutResource();
@@ -170,11 +161,6 @@ public abstract class ThreemaToolbarActivity extends ThreemaActivity implements 
 
     protected View getConnectionIndicator() {
         return connectionIndicator;
-    }
-
-    @Override
-    public void updateConnectionState(final ConnectionState connectionState) {
-        RuntimeUtil.runOnUiThread(() -> ConnectionIndicatorUtil.getInstance().updateConnectionIndicator(connectionIndicator, connectionState));
     }
 
     /* Soft keyboard tracking */

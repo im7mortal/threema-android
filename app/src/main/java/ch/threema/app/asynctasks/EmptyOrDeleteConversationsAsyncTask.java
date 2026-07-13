@@ -15,7 +15,6 @@ import androidx.annotation.StringRes;
 import androidx.annotation.WorkerThread;
 import androidx.fragment.app.FragmentManager;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.dialogs.GenericProgressDialog;
 import ch.threema.app.groupflows.GroupDisbandIntent;
 import ch.threema.app.groupflows.GroupFlowResult;
@@ -27,7 +26,7 @@ import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.app.services.ConversationService;
 import ch.threema.app.services.DistributionListService;
 import ch.threema.app.services.GroupFlowDispatcher;
-import ch.threema.app.utils.ConfigUtils;
+import ch.threema.app.usecases.conversations.EmptyOrDeleteConversationsUseCase.Mode;
 import ch.threema.app.utils.DialogUtil;
 import ch.threema.base.utils.CoroutinesExtensionKt;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
@@ -73,11 +72,6 @@ public class EmptyOrDeleteConversationsAsyncTask extends AsyncTask<Void, Void, V
     private final @Nullable FragmentManager fragmentManager;
     private final @Nullable View snackbarFeedbackView;
     private final @Nullable Runnable runOnCompletion;
-
-    public enum Mode {
-        EMPTY,
-        DELETE,
-    }
 
     /**
      * @param mode                    Either EMPTY or DELETE
@@ -142,12 +136,12 @@ public class EmptyOrDeleteConversationsAsyncTask extends AsyncTask<Void, Void, V
             case EMPTY:
                 for (MessageReceiver receiver : this.messageReceivers) {
                     int countRemoved = this.conversationService.empty(receiver);
-                    logger.info("Removed {} messages for receiver {} (type={}).", countRemoved, receiver.getUniqueIdString(), receiver.getType());
+                    logger.info("Removed {} messages for receiver {} (type={}).", countRemoved, receiver.getConversationId(), receiver.getType());
                 }
                 break;
             case DELETE:
                 for (MessageReceiver receiver : this.messageReceivers) {
-                    logger.info("Delete chat with receiver {} (type={}).", receiver.getUniqueIdString(), receiver.getType());
+                    logger.info("Delete chat with receiver {} (type={}).", receiver.getConversationId(), receiver.getType());
                     if (receiver instanceof ContactMessageReceiver) {
                         final ContactModel contactModel = ((ContactMessageReceiver) receiver).getContact();
                         this.deleteContactConversation(contactModel);
@@ -258,7 +252,7 @@ public class EmptyOrDeleteConversationsAsyncTask extends AsyncTask<Void, Void, V
             final int count = this.messageReceivers.length;
             Snackbar.make(
                 snackbarFeedbackView,
-                ConfigUtils.getSafeQuantityString(ThreemaApplication.getAppContext(), R.plurals.chat_deleted, count, count),
+                snackbarFeedbackView.getContext().getResources().getQuantityString(R.plurals.chat_deleted, count, count),
                 Snackbar.LENGTH_SHORT
             ).show();
         }

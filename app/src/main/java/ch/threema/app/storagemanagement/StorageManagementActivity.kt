@@ -3,7 +3,6 @@ package ch.threema.app.storagemanagement
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Bundle
-import android.text.format.Formatter
 import android.view.Gravity
 import android.view.MenuItem
 import android.view.View
@@ -23,6 +22,7 @@ import ch.threema.android.ToastDuration
 import ch.threema.android.awaitLayout
 import ch.threema.android.buildActivityIntent
 import ch.threema.android.context
+import ch.threema.android.format
 import ch.threema.android.showToast
 import ch.threema.app.R
 import ch.threema.app.activities.ThreemaToolbarActivity
@@ -32,7 +32,8 @@ import ch.threema.app.dialogs.GenericAlertDialog
 import ch.threema.app.dialogs.GenericAlertDialog.DialogClickListener
 import ch.threema.app.dialogs.GenericProgressDialog
 import ch.threema.app.dialogs.SimpleStringAlertDialog
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.ConversationEvent
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.reset.ResetAppTask
 import ch.threema.app.restrictions.AppRestrictions
@@ -46,16 +47,17 @@ import ch.threema.app.ui.InsetSides.Companion.lbr
 import ch.threema.app.ui.applyDeviceInsetsAsPadding
 import ch.threema.app.utils.AutoDeleteUtil.getDifferenceDays
 import ch.threema.app.utils.DialogUtil
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.app.workers.AutoDeleteWorker
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
+import ch.threema.common.bytes
 import ch.threema.common.consume
 import ch.threema.storage.models.MessageType
 import com.google.android.material.progressindicator.CircularProgressIndicator
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
-import java.util.Date
+import java.time.Instant
 import kotlin.system.exitProcess
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
@@ -80,6 +82,7 @@ class StorageManagementActivity : ThreemaToolbarActivity(), DialogClickListener,
     private val appRestrictions: AppRestrictions by inject()
     private val autoDeleteWorkerScheduler: AutoDeleteWorker.Scheduler by inject()
     private val dispatcherProvider: DispatcherProvider by inject()
+    private val globalEventBuses: GlobalEventBuses by inject()
 
     private lateinit var totalView: TextView
     private lateinit var usageView: TextView
@@ -281,28 +284,33 @@ class StorageManagementActivity : ThreemaToolbarActivity(), DialogClickListener,
             val storageSizes = getStorageSizeUseCase.call()
 
             messageView.text = storageSizes.messageCount.toString()
-            totalView.text = Formatter.formatFileSize(context, storageSizes.totalBytes)
-            usageView.text = Formatter.formatFileSize(context, storageSizes.usedBytes)
-            freeView.text = Formatter.formatFileSize(context, storageSizes.freeBytes)
+            totalView.text = storageSizes.totalSpace.format(context)
+            usageView.text = storageSizes.usedSpace.format(context)
+            freeView.text = storageSizes.freeSpace.format(context)
 
-            if (storageSizes.totalBytes > 0) {
-                inUseView.text = Formatter.formatFileSize(context, storageSizes.totalBytes - storageSizes.freeBytes)
+            if (storageSizes.totalSpace > 0.bytes) {
+                inUseView.text = (storageSizes.totalSpace - storageSizes.freeSpace).format(context)
                 storageFull.awaitLayout()
+
+                // The fractions are coerced to a minimum value so that they are always visible at least a little
+                val usedSpaceFraction = (storageSizes.usedSpace / storageSizes.totalSpace).coerceAtLeast(0.01)
+                val freeSpaceFraction = (storageSizes.freeSpace / storageSizes.totalSpace).coerceAtLeast(0.01)
+
                 val fullWidth = storageFull.width
                 storageThreema.setLayoutParams(
                     FrameLayout.LayoutParams(
-                        (fullWidth * storageSizes.usedBytes / storageSizes.totalBytes).toInt(),
+                        (fullWidth * usedSpaceFraction).toInt(),
                         FrameLayout.LayoutParams.MATCH_PARENT,
                     ),
                 )
                 val params = FrameLayout.LayoutParams(
-                    (fullWidth * storageSizes.freeBytes / storageSizes.totalBytes).toInt(),
+                    (fullWidth * freeSpaceFraction).toInt(),
                     FrameLayout.LayoutParams.MATCH_PARENT,
                 )
                 params.gravity = Gravity.RIGHT
                 storageEmpty.setLayoutParams(params)
             } else {
-                inUseView.text = Formatter.formatFileSize(context, 0)
+                inUseView.text = 0.bytes.format(context)
                 storageFull.isVisible = false
                 storageThreema.isVisible = false
                 storageEmpty.isVisible = false
@@ -319,7 +327,7 @@ class StorageManagementActivity : ThreemaToolbarActivity(), DialogClickListener,
                 showMessageDeletionProgressDialog()
 
                 val deletionCount = withContext(dispatcherProvider.worker) {
-                    val today = Date()
+                    val today = Instant.now()
                     var deletionCount = 0
                     val conversationModels = conversationService.getAll(true).toList()
                     val conversationsCount = conversationModels.size
@@ -355,7 +363,7 @@ class StorageManagementActivity : ThreemaToolbarActivity(), DialogClickListener,
                 dismissMessageDeletionProgressDialog()
                 updateStorageDisplay()
                 conversationService.reset()
-                ListenerManager.conversationListeners.handle { listener -> listener.onModifiedAll() }
+                globalEventBuses.conversations.emit(ConversationEvent.AllConversationsUpdated)
             }
         }
     }
@@ -380,7 +388,7 @@ class StorageManagementActivity : ThreemaToolbarActivity(), DialogClickListener,
 
             try {
                 val deletionCount = withContext(dispatcherProvider.worker) {
-                    val today = Date()
+                    val today = Instant.now()
                     var deletionCount = 0
                     val conversationModels = conversationService.getAll(true).toList()
                     val conversationCount = conversationModels.size
@@ -403,9 +411,14 @@ class StorageManagementActivity : ThreemaToolbarActivity(), DialogClickListener,
                             }
                             .forEach { messageModel ->
                                 ensureActive()
-                                val fileRemoved = fileService.removeMessageFiles(messageModel, false)
-                                if (fileRemoved) {
-                                    deletionCount++
+                                messageModel.uid?.let { messageUid ->
+                                    val fileRemoved = fileService.deleteMessageFiles(
+                                        messageUid = messageUid,
+                                        keepThumbnails = true,
+                                    )
+                                    if (fileRemoved) {
+                                        deletionCount++
+                                    }
                                 }
                             }
                     }
@@ -421,7 +434,7 @@ class StorageManagementActivity : ThreemaToolbarActivity(), DialogClickListener,
                 dismissMediaDeletionProgressDialog()
                 updateStorageDisplay()
                 conversationService.reset()
-                ListenerManager.conversationListeners.handle { listener -> listener.onModifiedAll() }
+                globalEventBuses.conversations.emit(ConversationEvent.AllConversationsUpdated)
             }
         }
     }
@@ -571,7 +584,7 @@ class StorageManagementActivity : ThreemaToolbarActivity(), DialogClickListener,
 
             override fun onlyDownloaded() = true
 
-            override fun types() = arrayOf(MessageType.IMAGE, MessageType.VIDEO, MessageType.VOICEMESSAGE, MessageType.FILE)
+            override fun types() = arrayOf(MessageType.FILE)
 
             override fun contentTypes() = null
 

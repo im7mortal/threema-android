@@ -1,7 +1,7 @@
 package ch.threema.app.tasks
 
-import ch.threema.app.listeners.MessageListener
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.messagereceiver.MessageReceiver.MessageReceiverType
 import ch.threema.app.preference.service.PreferenceService
@@ -21,8 +21,8 @@ import ch.threema.app.utils.OutgoingCspMessageServices
 import ch.threema.app.utils.runBundledMessagesSendSteps
 import ch.threema.app.voip.services.VoipStateService
 import ch.threema.base.crypto.NonceFactory
-import ch.threema.base.utils.Utils
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.data.repositories.GroupModelRepository
 import ch.threema.domain.models.MessageId
@@ -46,7 +46,7 @@ import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageState
 import ch.threema.storage.models.group.GroupMessageModel
 import ch.threema.storage.models.group.GroupModelOld
-import java.util.Date
+import java.time.Instant
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -74,6 +74,7 @@ sealed class OutgoingCspMessageTask :
     protected val groupProfilePictureUploader: GroupProfilePictureUploader by inject()
     protected val voipStateService: VoipStateService by inject()
     protected val identityBlockedSteps: IdentityBlockedSteps by inject()
+    private val globalEventBuses: GlobalEventBuses by inject()
 
     final override suspend fun invoke(handle: ActiveTaskCodec) {
         suspend {
@@ -116,7 +117,7 @@ sealed class OutgoingCspMessageTask :
      * If there is a message model to this message, it should also be passed to this method, so that
      * it gets updated.
      *
-     * Note that there must exists a contact model of the receiver. Otherwise, the message cannot be
+     * Note that there must exist a contact model of the receiver. Otherwise, the message cannot be
      * sent. In this case the message model state is set to [MessageState.SENDFAILED] (if provided)
      * and an [IllegalStateException] is thrown.
      */
@@ -125,7 +126,7 @@ sealed class OutgoingCspMessageTask :
         messageModel: MessageModel?,
         toIdentity: IdentityString,
         messageId: MessageId,
-        createdAt: Date,
+        createdAt: Instant,
         handle: ActiveTaskCodec,
     ) {
         val contactModelData = contactModelRepository.getByIdentity(toIdentity)?.data
@@ -138,7 +139,7 @@ sealed class OutgoingCspMessageTask :
                 messageService.updateOutgoingMessageState(
                     it,
                     MessageState.SENDFAILED,
-                    Date(),
+                    Instant.now(),
                 )
             }
             throw IllegalStateException("Could not send message as the receiver model is unknown")
@@ -156,7 +157,7 @@ sealed class OutgoingCspMessageTask :
                 messageService.updateOutgoingMessageState(
                     messageModel,
                     MessageState.SENT,
-                    Date(sentAt.toLong()),
+                    Instant.ofEpochMilli(sentAt.toLong()),
                 )
             }
         }
@@ -189,7 +190,7 @@ sealed class OutgoingCspMessageTask :
                 messageService.updateOutgoingMessageState(
                     messageModel,
                     MessageState.SENDFAILED,
-                    Date(),
+                    Instant.now(),
                 )
             }
             throw e
@@ -221,7 +222,7 @@ sealed class OutgoingCspMessageTask :
         group: GroupModelOld,
         recipients: Collection<String>,
         messageModel: GroupMessageModel?,
-        createdAt: Date,
+        createdAt: Instant,
         messageId: MessageId,
         createAbstractMessage: () -> AbstractGroupMessage,
         handle: ActiveTaskCodec,
@@ -254,7 +255,7 @@ sealed class OutgoingCspMessageTask :
         val markAsSent = { sentAt: ULong ->
             if (messageModel != null) {
                 // Update sent timestamp
-                val sentDate = Date(sentAt.toLong())
+                val sentDate = Instant.ofEpochMilli(sentAt.toLong())
 
                 // Note that we set the postedAt directly because the new state could be
                 // FS_KEY_MISMATCH and then MessageService#updateOutgoingMessageState wouldn't set
@@ -314,10 +315,8 @@ sealed class OutgoingCspMessageTask :
 
                 messageService.save(messageModel)
 
-                // Trigger listener
-                ListenerManager.messageListeners.handle { listener: MessageListener ->
-                    listener.onModified(listOf(messageModel))
-                }
+                // Notify event bus
+                globalEventBuses.messages.emit(MessageEvent.MessagesUpdated(messageModel))
             }
         }
 
@@ -337,13 +336,16 @@ sealed class OutgoingCspMessageTask :
                 messageService.updateOutgoingMessageState(
                     messageModel,
                     MessageState.SENDFAILED,
-                    Date(),
+                    Instant.now(),
                 )
             }
             throw e
         }
-
-        groupModel.setIsArchivedFromLocalOrRemote(false)
+        groupModel.data?.let { groupModelData ->
+            if (groupModelData.conversationVisibility == ConversationVisibility.ARCHIVED) {
+                groupModel.setConversationVisibilityFromLocalOrRemote(ConversationVisibility.NORMAL)
+            }
+        }
     }
 
     /**
@@ -352,11 +354,11 @@ sealed class OutgoingCspMessageTask :
      * @throws IllegalArgumentException if the message id of the message model is null
      */
     protected fun ensureMessageId(messageModel: AbstractMessageModel): MessageId {
-        messageModel.apiMessageId?.let {
-            return MessageId(Utils.hexStringToByteArray(it))
+        val apiMessageId = messageModel.apiMessageId
+        requireNotNull(apiMessageId) {
+            "Message id of message model is null"
         }
-
-        throw IllegalArgumentException("Message id of message model is null")
+        return MessageId(apiMessageId.hexToByteArray())
     }
 
     /**

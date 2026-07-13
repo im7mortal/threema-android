@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+    TODO(ANDR-4877): These colors will need to be moved or adjusted, in particular as they
+      do not account for dynamic color settings.
+    -->
+
+    <!-- These colors correspond to `Colors/Status Foreground/...` in "Styles and Variables" in Figma -->
+    <color name="status_foreground_destructive">#FECACA</color>
+    <color name="status_foreground_warning">#FED7AA</color>
+    <color name="status_foreground_info">#BAE6FD</color>
+    <color name="status_foreground_success">#BBF7D0</color>
+
+    <color name="on_status_foreground">#000000</color>
+
+    <!-- These colors correspond to `Colors/Status Background/...` in "Styles and Variables" in Figma -->
+    <color name="status_background_destructive">#C0392B</color>
+    <color name="status_background_warning">#D68910</color>
+    <color name="status_background_info">#1A6FA8</color>
+    <color name="status_background_success">#1E8449</color>
+
+    <color name="on_status_background">#FFFFFF</color>
+</resources>

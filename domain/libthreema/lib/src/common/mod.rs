@@ -10,7 +10,7 @@ use std::env;
 
 #[cfg(test)]
 use anyhow;
-use data_encoding::HEXLOWER;
+use data_encoding::HEXLOWER_PERMISSIVE;
 use libthreema_macros::Name;
 use rand::{self, Rng as _};
 use serde::{Deserialize, Serialize};
@@ -425,7 +425,7 @@ impl DeviceCookie {
 
     #[cfg(any(test, feature = "cli"))]
     pub(crate) fn from_hex(string: &str) -> anyhow::Result<Self> {
-        let bytes = HEXLOWER.decode(string.as_bytes())?;
+        let bytes = HEXLOWER_PERMISSIVE.decode(string.as_bytes())?;
         let bytes: [u8; Self::LENGTH] = bytes.as_slice().try_into()?;
         Ok(Self(bytes))
     }
@@ -440,7 +440,7 @@ impl FromStr for DeviceCookie {
 }
 impl fmt::Display for DeviceCookie {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&HEXLOWER.encode(&self.0))
+        formatter.write_str(&HEXLOWER_PERMISSIVE.encode(&self.0))
     }
 }
 impl fmt::Debug for DeviceCookie {
@@ -639,7 +639,7 @@ impl Nonce {
 
     #[cfg(test)]
     pub(crate) fn from_hex(string: &str) -> anyhow::Result<Self> {
-        let bytes = HEXLOWER.decode(string.as_bytes())?;
+        let bytes = HEXLOWER_PERMISSIVE.decode(string.as_bytes())?;
         let bytes: [u8; Self::LENGTH] = bytes.as_slice().try_into()?;
         Ok(Self(bytes))
     }
@@ -668,7 +668,7 @@ impl TryFrom<&[u8]> for Nonce {
 }
 impl fmt::Display for Nonce {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&HEXLOWER.encode(&self.0))
+        formatter.write_str(&HEXLOWER_PERMISSIVE.encode(&self.0))
     }
 }
 impl fmt::Debug for Nonce {

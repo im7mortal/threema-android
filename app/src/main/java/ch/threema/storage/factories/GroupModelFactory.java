@@ -6,8 +6,8 @@ import android.database.SQLException;
 
 import org.slf4j.Logger;
 
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 import androidx.annotation.NonNull;
@@ -16,7 +16,10 @@ import ch.threema.app.services.GroupService;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
-import ch.threema.data.models.GroupIdentity;
+import ch.threema.data.datatypes.ConversationVisibility;
+import ch.threema.data.datatypes.GroupIdentity;
+import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverride;
+import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverridePolicy;
 import ch.threema.domain.models.GroupId;
 import ch.threema.domain.models.UserState;
 import ch.threema.storage.CursorHelper;
@@ -98,20 +101,50 @@ public class GroupModelFactory extends ModelFactory {
         //convert default
         new CursorHelper(cursor, getColumnIndexCache()).current(
             (CursorHelper.Callback) cursorHelper -> {
+                Integer notificationTriggerPolicyOverridePolicy = cursorHelper.getInt(GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_POLICY);
+                GroupNotificationTriggerPolicyOverride notificationTriggerPolicyOverride;
+                if (notificationTriggerPolicyOverridePolicy == null) {
+                    notificationTriggerPolicyOverride = null;
+                } else {
+                    GroupNotificationTriggerPolicyOverridePolicy policy = GroupNotificationTriggerPolicyOverridePolicy
+                        .deserialize(notificationTriggerPolicyOverridePolicy);
+                    if (policy == null) {
+                        notificationTriggerPolicyOverride = null;
+                    } else {
+                        Long expiresAtLong = cursorHelper.getLong(GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_EXPIRES_AT);
+                        Instant expiresAt = expiresAtLong != null ? Instant.ofEpochMilli(expiresAtLong) : null;
+
+                        notificationTriggerPolicyOverride = new GroupNotificationTriggerPolicyOverride(
+                            policy,
+                            expiresAt
+                        );
+                    }
+                }
+
+                Integer conversationVisibilityValue = cursorHelper.getInt(GroupModelOld.COLUMN_CONVERSATION_VISIBILITY);
+                if (conversationVisibilityValue == null) {
+                    throw new IllegalStateException("Conversation visibility value is null");
+                }
+                ConversationVisibility conversationVisibility = ConversationVisibility.deserialize(conversationVisibilityValue);
+                if (conversationVisibility == null) {
+                    logger.error("Could not read conversation visibility with value {}", conversationVisibilityValue);
+                    conversationVisibility = ConversationVisibility.NORMAL;
+                }
+
                 groupModel
                     .setId(cursorHelper.getInt(GroupModelOld.COLUMN_ID))
                     .setApiGroupId(new GroupId(cursorHelper.getString(GroupModelOld.COLUMN_API_GROUP_ID)))
                     .setName(cursorHelper.getString(GroupModelOld.COLUMN_NAME))
                     .setCreatorIdentity(cursorHelper.getString(GroupModelOld.COLUMN_CREATOR_IDENTITY))
-                    .setSynchronizedAt(cursorHelper.getDate(GroupModelOld.COLUMN_SYNCHRONIZED_AT))
-                    .setCreatedAt(cursorHelper.getDate(GroupModelOld.COLUMN_CREATED_AT))
-                    .setLastUpdate(cursorHelper.getDate(GroupModelOld.COLUMN_LAST_UPDATE))
-                    .setArchived(cursorHelper.getBoolean(GroupModelOld.COLUMN_IS_ARCHIVED))
+                    .setSynchronizedAt(cursorHelper.getInstant(GroupModelOld.COLUMN_SYNCHRONIZED_AT))
+                    .setCreatedAt(cursorHelper.getInstant(GroupModelOld.COLUMN_CREATED_AT))
+                    .setLastUpdate(cursorHelper.getInstant(GroupModelOld.COLUMN_LAST_UPDATE))
+                    .setConversationVisibility(conversationVisibility)
                     .setGroupDesc(cursorHelper.getString(GroupModelOld.COLUMN_GROUP_DESC))
-                    .setGroupDescTimestamp(cursorHelper.getDate(GroupModelOld.COLUMN_GROUP_DESC_CHANGED_TIMESTAMP))
+                    .setGroupDescTimestamp(cursorHelper.getInstant(GroupModelOld.COLUMN_GROUP_DESC_CHANGED_TIMESTAMP))
                     .setColorIndex(cursorHelper.getInt(GroupModelOld.COLUMN_COLOR_INDEX))
                     .setUserState(UserState.getByValue(cursorHelper.getInt(GroupModelOld.COLUMN_USER_STATE)))
-                    .setNotificationTriggerPolicyOverride(cursorHelper.getLong(GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE));
+                    .setNotificationTriggerPolicyOverride(notificationTriggerPolicyOverride);
 
                 return false;
             }
@@ -154,16 +187,23 @@ public class GroupModelFactory extends ModelFactory {
         contentValues.put(GroupModelOld.COLUMN_API_GROUP_ID, groupModel.getApiGroupId().toString());
         contentValues.put(GroupModelOld.COLUMN_CREATOR_IDENTITY, groupModel.getCreatorIdentity());
         contentValues.put(GroupModelOld.COLUMN_NAME, groupModel.getName());
-        contentValues.put(GroupModelOld.COLUMN_CREATED_AT, groupModel.getCreatedAt() != null ? groupModel.getCreatedAt().getTime() : null);
-        contentValues.put(GroupModelOld.COLUMN_LAST_UPDATE, groupModel.getLastUpdate() != null ? groupModel.getLastUpdate().getTime() : null);
-        contentValues.put(GroupModelOld.COLUMN_SYNCHRONIZED_AT, groupModel.getSynchronizedAt() != null ? groupModel.getSynchronizedAt().getTime() : null);
-        contentValues.put(GroupModelOld.COLUMN_IS_ARCHIVED, groupModel.isArchived());
+        contentValues.put(GroupModelOld.COLUMN_CREATED_AT, groupModel.getCreatedAt() != null ? groupModel.getCreatedAt().toEpochMilli() : null);
+        contentValues.put(GroupModelOld.COLUMN_LAST_UPDATE, groupModel.getLastUpdate() != null ? groupModel.getLastUpdate().toEpochMilli() : null);
+        contentValues.put(GroupModelOld.COLUMN_SYNCHRONIZED_AT, groupModel.getSynchronizedAt() != null ? groupModel.getSynchronizedAt().toEpochMilli() : null);
+        contentValues.put(GroupModelOld.COLUMN_CONVERSATION_VISIBILITY, groupModel.getConversationVisibility().getSerializedValue());
         contentValues.put(GroupModelOld.COLUMN_GROUP_DESC, groupModel.getGroupDesc());
-        contentValues.put(GroupModelOld.COLUMN_GROUP_DESC_CHANGED_TIMESTAMP, groupModel.getGroupDescTimestamp() != null ? groupModel.getGroupDescTimestamp().getTime() : null);
+        contentValues.put(GroupModelOld.COLUMN_GROUP_DESC_CHANGED_TIMESTAMP, groupModel.getGroupDescTimestamp() != null ? groupModel.getGroupDescTimestamp().toEpochMilli() : null);
         contentValues.put(GroupModelOld.COLUMN_COLOR_INDEX, groupModel.getIdColor().getColorIndex());
         // In case the user state is not set, we fall back to 'member'.
         contentValues.put(GroupModelOld.COLUMN_USER_STATE, groupModel.getUserState() != null ? groupModel.getUserState().getValue() : UserState.MEMBER.getValue());
-        contentValues.put(GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE, groupModel.getNotificationTriggerPolicyOverride());
+        GroupNotificationTriggerPolicyOverride notificationTriggerPolicyOverride = groupModel.getNotificationTriggerPolicyOverride();
+        Integer notificationTriggerPolicyOverridePolicy = notificationTriggerPolicyOverride != null
+            ? notificationTriggerPolicyOverride.getPolicy().getSerializedValue()
+            : null;
+        Instant expiresAt = notificationTriggerPolicyOverride != null ? notificationTriggerPolicyOverride.getExpiresAt() : null;
+        Long expiresAtLong = expiresAt != null ? expiresAt.toEpochMilli() : null;
+        contentValues.put(GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_POLICY, notificationTriggerPolicyOverridePolicy);
+        contentValues.put(GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_EXPIRES_AT, expiresAtLong);
 
         return contentValues;
     }
@@ -198,8 +238,8 @@ public class GroupModelFactory extends ModelFactory {
         return true;
     }
 
-    public void setLastUpdate(@NonNull GroupIdentity groupIdentity, @Nullable Date lastUpdate) {
-        final @Nullable Long lastUpdateTime = lastUpdate != null ? lastUpdate.getTime() : null;
+    public void setLastUpdate(@NonNull GroupIdentity groupIdentity, @Nullable Instant lastUpdate) {
+        final @Nullable Long lastUpdateTime = lastUpdate != null ? lastUpdate.toEpochMilli() : null;
         ContentValues contentValues = new ContentValues();
         contentValues.put(GroupModelOld.COLUMN_LAST_UPDATE, lastUpdateTime);
 
@@ -284,12 +324,13 @@ public class GroupModelFactory extends ModelFactory {
                     "`" + GroupModelOld.COLUMN_CREATED_AT + "` BIGINT , " +
                     "`" + GroupModelOld.COLUMN_LAST_UPDATE + "` INTEGER, " +
                     "`" + GroupModelOld.COLUMN_SYNCHRONIZED_AT + "` BIGINT , " +
-                    "`" + GroupModelOld.COLUMN_IS_ARCHIVED + "` TINYINT DEFAULT 0, " +
+                    "`" + GroupModelOld.COLUMN_CONVERSATION_VISIBILITY + "` INTEGER DEFAULT 0 NOT NULL, " +
                     "`" + GroupModelOld.COLUMN_GROUP_DESC + "` VARCHAR DEFAULT NULL, " +
                     "`" + GroupModelOld.COLUMN_GROUP_DESC_CHANGED_TIMESTAMP + "` BIGINT DEFAULT NULL, " +
                     "`" + GroupModelOld.COLUMN_COLOR_INDEX + "` INTEGER DEFAULT 0 NOT NULL, " +
                     "`" + GroupModelOld.COLUMN_USER_STATE + "` INTEGER DEFAULT 0 NOT NULL, " +
-                    "`" + GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE + "` BIGINT DEFAULT NULL " +
+                    "`" + GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_POLICY + "` INTEGER DEFAULT NULL, " +
+                    "`" + GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_EXPIRES_AT + "` BIGINT DEFAULT NULL " +
                     ");",
                 "CREATE UNIQUE INDEX `apiGroupIdAndCreator` ON `" + GroupModelOld.TABLE + "` ( " +
                     "`" + GroupModelOld.COLUMN_API_GROUP_ID + "`, `" + GroupModelOld.COLUMN_CREATOR_IDENTITY + "` " +

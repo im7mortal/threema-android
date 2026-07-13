@@ -27,7 +27,6 @@ import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.activities.MediaViewerActivity;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.ActivityService;
@@ -36,7 +35,6 @@ import ch.threema.app.services.MessageService;
 import ch.threema.app.services.NotificationPreferenceService;
 import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.base.ThreemaException;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
@@ -116,18 +114,13 @@ abstract public class MediaViewFragment extends Fragment {
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             return null;
         }
 
-        try {
-            this.fileService = serviceManager.getFileService();
-            this.messageService = serviceManager.getMessageService();
-        } catch (ThreemaException e) {
-            logger.error("Exception", e);
-            return null;
-        }
+        this.fileService = serviceManager.getFileService();
+        this.messageService = serviceManager.getMessageService();
 
         final @Nullable ViewGroup rootView = (ViewGroup) inflater.inflate(this.getFragmentResourceId(), container, false);
         if (rootView == null) {
@@ -195,14 +188,10 @@ abstract public class MediaViewFragment extends Fragment {
                 // no thumbnail file
             }
 
-            if (thumbnail == null) {
-                if (messageModel.getMessageContentsType() == VOICE_MESSAGE) {
-                    thumbnail = AppCompatResources.getDrawable(requireContext(), R.drawable.ic_keyboard_voice_outline);
-                    if (thumbnail != null) {
-                        thumbnail.setTint(ContextCompat.getColor(requireContext(), R.color.material_dark_grey));
-                    }
-                } else if (messageModel.getType() == MessageType.FILE) {
-                    thumbnail = new BitmapDrawable(getResources(), fileService.getDefaultMessageThumbnailBitmap(getContext(), messageModel, null, messageModel.getFileData().getMimeType(), true, ContextCompat.getColor(requireContext(), R.color.material_dark_grey)));
+            if (thumbnail == null && messageModel.getMessageContentsType() == VOICE_MESSAGE) {
+                thumbnail = AppCompatResources.getDrawable(requireContext(), R.drawable.ic_microphone_outline);
+                if (thumbnail != null) {
+                    thumbnail.setTint(ContextCompat.getColor(requireContext(), R.color.material_dark_grey));
                 }
             }
 
@@ -260,7 +249,7 @@ abstract public class MediaViewFragment extends Fragment {
             this.threadFullDecrypt = threadPoolExecutor.submit(() -> {
                 try {
                     logger.debug("show decrypted of {}", position);
-                    final File decrypted = fileService.getDecryptedMessageFile(messageModel);
+                    final File decrypted = fileService.decryptMessageFileToTempFile(messageModel);
                     if (decrypted == null || !decrypted.exists()) {
                         throw new Exception("Decrypted file not found");
                     }

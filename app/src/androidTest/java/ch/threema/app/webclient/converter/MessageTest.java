@@ -8,8 +8,13 @@ import org.msgpack.value.Value;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Date;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import androidx.annotation.NonNull;
@@ -42,7 +47,7 @@ public class MessageTest {
 
     private static String testMaybePutFileImpl(
         @NonNull String inputMimeType,
-        @Nullable Date createdAt,
+        @Nullable Instant createdAt,
         @Nullable String messageId
     ) throws IOException {
         // The Threema protocol does not require a file name in a file message,
@@ -83,7 +88,21 @@ public class MessageTest {
 
     @Test
     public void testMaybePutFile() throws IOException {
-        assertEquals("threema-20201212-000000-null.png", testMaybePutFileImpl("image/png", new Date(2020 - 1900, 12 - 1, 12), null));
-        assertEquals("threema-20100130-131400-msgidasdf.txt", testMaybePutFileImpl("text/plain", new Date(2010 - 1900, 1 - 1, 30, 13, 14), "msgidasdf"));
+        assertEquals(
+            "threema-20201212-000000-null.png",
+            testMaybePutFileImpl(
+                "image/png",
+                LocalDateTime.of(2020, 12, 12, 0, 0).atZone(ZoneId.systemDefault()).toInstant(),
+                null
+            )
+        );
+        assertEquals(
+            "threema-20100130-131400-msgidasdf.txt",
+            testMaybePutFileImpl(
+                "text/plain",
+                LocalDateTime.of(2010, 1, 30, 13, 14).atZone(ZoneId.systemDefault()).toInstant(),
+                "msgidasdf"
+            )
+        );
     }
 }

@@ -1,19 +1,21 @@
 package ch.threema.storage.models.data.status
 
-import android.util.JsonWriter
 import ch.threema.domain.types.IdentityString
 import ch.threema.storage.models.data.status.StatusDataModel.StatusType
 
-class GroupStatusDataModel : StatusDataModel.StatusDataModelInterface {
-    private val statusKey = "status"
-    private val identityKey = "identity"
-    private val ballotNameKey = "ballotName"
-    private val newGroupNameKey = "newGroupName"
+@ConsistentCopyVisibility
+data class GroupStatusDataModel
+private constructor(
+    val statusType: GroupStatusType,
+    val identity: IdentityString? = null,
+    val pollName: String? = null,
+    val newGroupName: String? = null,
+) : StatusDataModel {
 
     enum class GroupStatusType(
         val type: Int,
         val requiresIdentity: Boolean = false,
-        val requiresBallotName: Boolean = false,
+        val requiresPollName: Boolean = false,
         val requiresNewGroupName: Boolean = false,
     ) {
         /** Group has been created */
@@ -41,16 +43,16 @@ class GroupStatusDataModel : StatusDataModel.StatusDataModelInterface {
         IS_PEOPLE_GROUP(7),
 
         /** A member has cast a vote */
-        FIRST_VOTE(8, requiresBallotName = true, requiresIdentity = true),
+        FIRST_VOTE(8, requiresPollName = true, requiresIdentity = true),
 
         /** A member has changed a vote */
-        MODIFIED_VOTE(9, requiresBallotName = true, requiresIdentity = true),
+        MODIFIED_VOTE(9, requiresPollName = true, requiresIdentity = true),
 
         /** A member has cast a vote anonymously */
-        RECEIVED_VOTE(10, requiresBallotName = true),
+        RECEIVED_VOTE(10, requiresPollName = true),
 
         /** Votes are complete */
-        VOTES_COMPLETE(11, requiresBallotName = true),
+        VOTES_COMPLETE(11, requiresPollName = true),
 
         /** Group description changed */
         GROUP_DESCRIPTION_CHANGED(12),
@@ -60,82 +62,55 @@ class GroupStatusDataModel : StatusDataModel.StatusDataModelInterface {
         ;
 
         companion object {
-            fun fromInt(value: Int) = GroupStatusType.values().first { it.type == value }
+            fun fromInt(value: Int) =
+                entries.first { it.type == value }
         }
     }
-
-    var statusType: GroupStatusType = GroupStatusType.CREATED
-        private set
-    var identity: IdentityString? = null
-        private set
-    var ballotName: String? = null
-        private set
-    var newGroupName: String? = null
-        private set
 
     @StatusType
-    override fun getType(): Int = TYPE
+    override val type
+        get() = TYPE
 
-    override fun readData(key: String, value: String) {
-        when (key) {
-            identityKey -> identity = value
-            ballotNameKey -> ballotName = value
-            newGroupNameKey -> newGroupName = value
-        }
-    }
-
-    override fun readData(key: String?, value: Long) {
-        if (statusKey == key) {
-            statusType = GroupStatusType.fromInt(value.toInt())
-        }
-    }
-
-    override fun readData(key: String?, value: Boolean) {
-        // Group status messages do not contain boolean values
-    }
-
-    override fun readDataNull(key: String?) {
-        // Group status messages do not contain null values
-    }
-
-    override fun writeData(j: JsonWriter) {
-        j.name(statusKey).value(statusType.type.toLong())
+    override fun getParams() = buildMap<String, Any?> {
+        put(PARAM_STATUS, statusType.type)
         if (statusType.requiresIdentity && identity != null) {
-            j.name(identityKey).value(identity)
+            put(PARAM_IDENTITY, identity)
         }
-        if (statusType.requiresBallotName && ballotName != null) {
-            j.name(ballotNameKey).value(ballotName)
+        if (statusType.requiresPollName && pollName != null) {
+            put(PARAM_POLL_NAME, pollName)
         }
         if (statusType.requiresNewGroupName && newGroupName != null) {
-            j.name(newGroupNameKey).value(newGroupName)
+            put(PARAM_NEW_GROUP_NAME, newGroupName)
         }
     }
 
     companion object {
         const val TYPE = 4
 
-        /**
-         * Create a group status model of the given type.
-         */
+        private const val PARAM_STATUS = "status"
+        private const val PARAM_IDENTITY = "identity"
+        private const val PARAM_POLL_NAME = "ballotName"
+        private const val PARAM_NEW_GROUP_NAME = "newGroupName"
+
+        // TODO(ANDR-4885) Convert GroupStatusDataModel into sealed class for improved type safety
         @JvmStatic
         fun create(
             type: GroupStatusType,
-            identity: IdentityString?,
-            ballotName: String?,
-            newGroupName: String?,
-        ): GroupStatusDataModel {
-            return GroupStatusDataModel().apply {
-                this.statusType = type
-                if (type.requiresIdentity) {
-                    this.identity = identity
-                }
-                if (type.requiresBallotName) {
-                    this.ballotName = ballotName
-                }
-                if (type.requiresNewGroupName) {
-                    this.newGroupName = newGroupName
-                }
-            }
-        }
+            identity: IdentityString? = null,
+            pollName: String? = null,
+            newGroupName: String? = null,
+        ) = GroupStatusDataModel(
+            statusType = type,
+            identity = if (type.requiresIdentity) identity!! else null,
+            pollName = if (type.requiresPollName) pollName!! else null,
+            newGroupName = if (type.requiresNewGroupName) newGroupName!! else null,
+        )
+
+        fun createFromParams(params: Map<String, Any?>) = create(
+            type = (params[PARAM_STATUS] as Number).toInt().let(GroupStatusType::fromInt),
+            identity = params[PARAM_IDENTITY] as? String,
+            pollName = params[PARAM_POLL_NAME] as? String,
+            newGroupName = params[PARAM_NEW_GROUP_NAME] as? String,
+        )
     }
 }

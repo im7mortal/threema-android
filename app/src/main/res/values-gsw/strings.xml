@@ -32,6 +32,12 @@
     <string name="title_job_title">Bruefsbezeichnig</string>
     <string name="title_department">Abteilig</string>
     <string name="send">Abschicke</string>
+    <string name="prefs_linked_devices">Verchnüpfti Grät</string>
+    <string name="prefs_community_and_sharing">Community &amp; teile</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <string name="prefs_advanced">Erwiitered</string>
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
+    <string name="prefs_about">Über</string>
     <string name="prefs_privacy">Privatsphäre</string>
     <string name="prefs_notifications">Tön und Benachrichtigunge</string>
     <string name="prefs_chatdisplay">Chat</string>
@@ -83,8 +89,11 @@
     <string name="prefs_sum_threema_push_off">Über de System-Push-Dienst uf neui Nachrichte prüefe</string>
     <string name="prefs_logging">Logging</string>
     <string name="prefs_title_message_log_switch">Ide Datei logge</string>
-    <string name="prefs_title_sum_message_log_on">Ereignis und Netzwerchinformatione werded id Datei debug_log.txt gloggt</string>
-    <string name="prefs_title_sum_message_log_off">Ereignis werded nöd gloggt</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_on_since">Systemaktivität wird sit %1$s (%2$s) gloggt</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_forced_on">Systemaktivität wird gloggt. Lösched Sie d’Datei «%1$s», zum s’Logging deaktiviere. (%2$s)</string>
+    <string name="prefs_title_sum_message_log_off">Systemaktivitäte werded nöd gloggt</string>
     <string name="prefs_reset_push">Push-Token zruggsetze</string>
     <string name="prefs_sum_reset_push">Grät neu bi FCM/HMS registriere</string>
     <string name="prefs_notification_preview">Vorschau aazeige</string>
@@ -190,9 +199,10 @@
     <string name="masterkey_passphrase_hint">Passphrase</string>
     <string name="master_key_locked_want_exit">De Hauptschlüssel isch immerno gsperrt. Wänd Sie’s nomal versueche?</string>
     <string name="click_here_to_change_passphrase">Da klicke, zum d’Passphrase z’ändere</string>
-    <string name="attach_camera">System-Kamera</string>
+    <string name="attach_camera">Kamera</string>
     <string name="menu_restore">Backup wiederherstelle</string>
-    <string name="restore_id_hint">Gebed Sie da d’Zeichefolg vo Ihrem ID-Export ii</string>
+    <string name="restore_id_hint">Gebed Sie d’Zeichefolg vo Ihrem ID-Export ii oder scanned Sie de QR-Code vo Ihrem ID-Export.</string>
+    <string name="restore_id_string_label">ID-Export-Zeichefolg</string>
     <string name="location_placeholder">Ort</string>
     <string name="video_placeholder">Video</string>
     <string name="audio_placeholder">Audio</string>
@@ -345,8 +355,11 @@
     <string name="status_rename_group">Gruppe umbenännt zu «%1$s»</string>
     <string name="status_group_new_photo">Gruppebild aktualisiert.</string>
     <string name="status_group_new_member">«%1$s» isch zude Gruppe dezue taa worde.</string>
+    <string name="status_group_you_were_added">Sie sind id Gruppe ufgnoh worde.</string>
     <string name="status_group_member_left">«%1$s» hät d’Gruppe verlaa.</string>
+    <string name="status_group_you_left">Sie händ d’Gruppe verlaa.</string>
     <string name="status_group_member_kicked">«%1$s» isch usde Gruppe entfernt worde.</string>
+    <string name="status_group_you_were_removed">Sie sind usde Gruppe entfernt worde.</string>
     <string name="can_not_send_no_group_members">Es chönd kei Nachrichte ine leeri Gruppe gschickt werde.</string>
     <string name="you_are_not_a_member_of_this_group">Sie sind keis Mitglied vo dere Gruppe.</string>
     <string name="title_public_nickname">Nickname</string>
@@ -478,6 +491,7 @@
     <string name="ballot_result_final">Endresultat</string>
     <string name="invalid_cannot_send">Sie chönd kei Nachrichte anen ungültige Kontakt schicke</string>
     <string name="ballot_answer_count_error">Bitte mindestens zwei Antworte festlegge.</string>
+    <string name="ballot_removed">Umfrag entfernt</string>
     <string name="contact_state_inactive">Inaktiv</string>
     <string name="contact_state_invalid">Ungültig</string>
     <string name="back">Zrugg</string>
@@ -669,7 +683,7 @@
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_info_nickname">De Nickname wird uf es paar Grät in Benachrichtigunge aazeigt und dient ide Kontaktliste als zuesätzlichi Identifikationsmöglichkeit für Chatpartner, wo Sie nöd i ihrere Kontaktliste händ. Mir empfehled, nur en Vorname oder es Pseudonym z’bruuche. Wenn Sie kein Nickname festlegged, wird Ihri ${app_name_short}-ID bruucht.</string>
     <string name="not_linked">nöd verchnüpft</string>
-    <string name="linked">verchnüpft</string>
+    <string name="linked">Verchnüpft</string>
     <string name="pending_sms_verification_notice">Ihri Handynummere isch nonig überprüeft.</string>
     <string name="no_sms_received">Keis SMS übercho?</string>
     <string name="really_cancel_verify">Wänd Sie d’Überprüefig vo Ihrere Handynummere würklich abbräche? Wenn Sie d’Überprüefig abbräched, wird d’Handynummere nöd verchnüpft.</string>
@@ -683,7 +697,6 @@
     <string name="new_wizard_anonymous_confirm">Sie händ weder e Handynummere no e E-Mail-Adrässe zur Verchnüpfig mit Ihrere ${app_name_short}-ID ageh. Sie werded drum nöd automatisch in Kontaktliste ufgfüehrt. Wänd Sie ${app_name} würklich komplett anonym nutze?</string>
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_anonymous_confirm_phone_only">Sie händ kei Handynummere zur Verchnüpfig mit Ihrere ${app_name_short}-ID ageh. Sie werded drum nöd automatisch in Kontaktliste azeigt. Wänd Sie ${app_name} würklich komplett anonym nutze?</string>
-    <string name="new_wizard_scan_id_backup">Oder scanned Sie de QR-Code vo Ihrem ID-Export</string>
     <string name="error_saving_file">Es paar Dateie händ nöd chöne gsicheret werde</string>
     <string name="wait_one_minute">Bitte warted Sie mindestens 10 Minute uf das SMS, bevor Sie en Aruef aaforderet.</string>
     <string name="backup_id">ID-Export</string>
@@ -766,7 +779,8 @@
     <string name="prefs_language_override">Sprach</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
     <string name="threema_channel_intro">De ${app_name_short} Channel versorgt Sie mit Neuigkeite zu ${app_name_short}. Wänd Sie de ${app_name_short} Channel abonniere und zu Ihrne Kontäkt dezue tue? Das choschtet nüüt, und Sie chönd sich jederziit abmälde.</string>
-    <string name="quote">Zitiere</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
+    <string name="reply_to_message">Antworte</string>
     <string name="contacts_deleted">Kontäkt sind glöscht worde</string>
     <string name="take_photo">Foti mache</string>
     <string name="select_from_gallery">Usde Galerie uswähle</string>
@@ -1207,7 +1221,10 @@
     <string name="max_selectable_media_exceeded">Es chönd maximal %d Objekt ufs Mal verschickt werde.</string>
     <string name="error_unable_loading_media_thumb">Vorschau cha nöd glade werde</string>
     <string name="filter_list">Liste filtere</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
+    <string name="search_list">Liste dursueche</string>
     <string name="hint_filter_list">Filtertext iigeh</string>
+    <string name="hint_search_list">Suechtext iigeh</string>
     <string name="add">Dezue tue</string>
     <string name="only_images_or_videos">Nur Bilder und Videos chönd usgwählt werde</string>
     <string name="media_gallery_gifs">GIFs</string>
@@ -1536,7 +1553,7 @@
     <string name="problemsolver_to_settings">Zude Iistellige</string>
     <!-- Label on button to dismiss/hide a warning -->
     <string name="problemsolver_dismiss">Usblände</string>
-    <string name="prefs_advanced_options">Erwiitereti Optione</string>
+    <string name="prefs_advanced_options">Erwiitereti Istellige</string>
     <string name="push_service">Push-Dienst</string>
     <string name="edit_and_send">Bearb. &amp; schicke</string>
     <string name="media_gallery_animated_webps">Animierti WebPs</string>
@@ -1567,10 +1584,11 @@
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="error_reporting_summary_always_ask">Jedes Mal fröge, öb en Fehlerbricht a ${company_name} gschickt werde söll</string>
     <string name="error_detected_dialog_title">Anonyme Bricht schicke</string>
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
-    <string name="crash_detected_dialog_text">${app_name_short} schiint erscht gad abgstürzt z’sii. Wennd Sie en anonyme Fehlerbricht schicke?</string>
+    <string name="crash_detected_dialog_text">Es Problem schiint erst gad ufträtte z’sii. Möchted Sie en anonyme Fehlerbricht iischicke?</string>
     <string name="crash_detected_dialog_remember_choice">Mini Uswahl speichere</string>
     <string name="crash_detected_dialog_send_button">Schicke</string>
+    <string name="error_reporting_learn_more_button">Meh erfahre</string>
+    <string name="error_reporting_details_button">Technischi Details</string>
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
     <string name="prefs_error_reporting_id">Anonymi Gräte-ID</string>
     <!-- The %s is a placeholder for an ID. It must be left as-is. -->
@@ -1599,6 +1617,7 @@
     <!-- Button label on dialog when configuring a backup, shown on dialog that lets the user choose how they want to select the backup folder. This option lets them bypass the file picker and use the default Documents folder instead -->
     <string name="backup_path_selection_documents">De «Dokumente»-Ordner wähle</string>
     <!-- accessibility -->
+    <string name="cd_menu_more">Wiiteri Optione</string>
     <string name="cd_edited">d’Nachricht isch bearbeitet worde</string>
     <string name="cd_created_at">erstellt am %s</string>
     <string name="cd_edited_at">bearbeitet am %s</string>
@@ -1745,7 +1764,6 @@
     <string name="edit_availability_status_modal_optional_message_placeholder">Imene Meeting</string>
     <string name="edit_availability_status_modal_optional_message_description">Wenn «Beschäftigt» oder «Abwesend» usgwählt isch, chönd Sie en eigene Status definiere.</string>
     <string name="edit_availability_status_modal_optional_message_too_long">Text isch z’lang, bitte chürzed Sie ihn.</string>
-    <string name="edit_availability_status_did_change">Verfüegbarkeitsstatus gänderet</string>
     <string name="tooltip_title_availability_status">Verfüegbarkeitsstatus</string>
     <string name="tooltip_text_availability_status_in_chat">Erfahred Sie vorem Schicke vonere Nachricht, öb öpper beschäftigt oder abwesend isch. Ihre eiget Status chönd Sie im Profil festlegge.</string>
     <string name="tooltip_text_availability_status_in_profile">Legged Sie Ihre Status fest, damit anderi gsehnd, wenn Sie beschäftigt oder abwesend sind.</string>
@@ -1805,6 +1823,8 @@
         <item quantity="one">%d Nachricht glöscht</item>
         <item quantity="other">%d Nachrichte glöscht</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
+    <string name="notifications_for_one_week">Für 1 Wuche</string>
     <plurals name="notifications_for_x_hours">
         <item quantity="one">Für %d Stund</item>
         <item quantity="other">Für %d Stunde</item>

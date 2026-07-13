@@ -15,7 +15,6 @@ import com.google.android.material.snackbar.Snackbar;
 import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
-import java.io.IOException;
 import java.time.Instant;
 
 import androidx.annotation.NonNull;
@@ -46,13 +45,14 @@ import ch.threema.app.utils.IntentDataUtil;
 import ch.threema.app.utils.executor.BackgroundExecutor;
 import ch.threema.app.qrcodes.ContactUrlResult;
 import ch.threema.app.qrcodes.ContactUrlUtil;
+import ch.threema.app.webclient.activities.SessionsActivity;
 import ch.threema.app.webclient.services.WebSessionQRCodeParser;
 import ch.threema.app.webclient.services.WebSessionQRCodeParserImpl;
-import ch.threema.base.utils.Base64;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
-import ch.threema.storage.models.ContactModel;
+import ch.threema.common.Base64;
+import ch.threema.domain.models.AcquaintanceLevel;
 
 import static ch.threema.app.startup.AppStartupUtilKt.finishAndRestartLaterIfNotReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
@@ -188,7 +188,7 @@ public class AddContactActivity extends ThreemaActivity implements GenericAlertD
     private void startWebClientByQRResult(final byte[] payload) {
         if (payload != null) {
             // start web client session screen with payload data and finish my screen
-            Intent webClientIntent = new Intent(this, ch.threema.app.webclient.activities.SessionsActivity.class);
+            Intent webClientIntent = SessionsActivity.createIntent(this);
             IntentDataUtil.append(payload, webClientIntent);
             this.finish();
             startActivity(webClientIntent);
@@ -215,9 +215,8 @@ public class AddContactActivity extends ThreemaActivity implements GenericAlertD
         backgroundExecutor.execute(
             new BasicAddOrUpdateContactBackgroundTask(
                 identity,
-                ContactModel.AcquaintanceLevel.DIRECT,
-                dependencies.getUserService().getIdentity(),
-                dependencies.getApiConnector(),
+                AcquaintanceLevel.DIRECT,
+                dependencies.getValidContactsLookupSteps(),
                 dependencies.getContactModelRepository(),
                 AddContactRestrictionPolicy.CHECK,
                 dependencies.getAppRestrictions(),
@@ -338,14 +337,12 @@ public class AddContactActivity extends ThreemaActivity implements GenericAlertD
                 // third: try to parse as web client qr
                 try {
                     byte[] base64Payload = Base64.decode(payload);
-                    if (base64Payload != null) {
-                        final WebSessionQRCodeParser webClientQRCodeParser = new WebSessionQRCodeParserImpl();
-                        webClientQRCodeParser.parse(base64Payload); // throws if QR is not valid
-                        // it was a valid web client qr code, exit method
-                        startWebClientByQRResult(base64Payload);
-                        return;
-                    }
-                } catch (IOException | WebSessionQRCodeParser.InvalidQrCodeException x) {
+                    final WebSessionQRCodeParser webClientQRCodeParser = new WebSessionQRCodeParserImpl();
+                    webClientQRCodeParser.parse(base64Payload); // throws if QR is not valid
+                    // it was a valid web client qr code, exit method
+                    startWebClientByQRResult(base64Payload);
+                    return;
+                } catch (IllegalArgumentException | WebSessionQRCodeParser.InvalidQrCodeException x) {
                     // not a valid base64 or web client payload
                     // ignore and continue
                 }

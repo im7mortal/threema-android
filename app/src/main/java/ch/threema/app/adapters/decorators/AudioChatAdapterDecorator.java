@@ -23,16 +23,14 @@ import ch.threema.app.utils.ElapsedTimeFormatter;
 import ch.threema.app.utils.LinkifyUtil;
 import ch.threema.app.utils.MessageUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.logging.ThreemaLogger;
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.MessageState;
-import ch.threema.storage.models.MessageType;
-import ch.threema.storage.models.data.media.AudioDataModel;
 import ch.threema.storage.models.data.media.FileDataModel;
 
 import static ch.threema.app.utils.MessageUtilKt.getUiContentColor;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class AudioChatAdapterDecorator extends ChatAdapterDecorator {
     private static final Logger logger = getThreemaLogger("AudioChatAdapterDecorator");
@@ -78,25 +76,12 @@ public class AudioChatAdapterDecorator extends ChatAdapterDecorator {
 
     @Override
     protected void configureChatMessage(final ComposeMessageHolder holder, Context context, final int position) {
-
         logger.info("configureChatMessage for {}", getMessageModel().getId());
 
-        AudioDataModel audioDataModel;
-        FileDataModel fileDataModel;
-        final long duration;
-        final boolean isDownloaded;
-        String caption = null;
-
-        if (getMessageModel().getType() == MessageType.VOICEMESSAGE) {
-            audioDataModel = getMessageModel().getAudioData();
-            duration = audioDataModel.getDuration();
-            isDownloaded = audioDataModel.isDownloaded();
-        } else {
-            fileDataModel = getMessageModel().getFileData();
-            duration = fileDataModel.getDurationSeconds();
-            isDownloaded = fileDataModel.isDownloaded();
-            caption = fileDataModel.getCaption();
-        }
+        FileDataModel fileDataModel = getMessageModel().getFileData();
+        final long duration = fileDataModel.getDurationSeconds();
+        final boolean isDownloaded = fileDataModel.isDownloaded();
+        String caption = fileDataModel.getCaption();
 
         MessagePlayer audioMessagePlayer = messagePlayerFactory.create(getMessageModel(), helper.getMediaControllerFuture());
 
@@ -237,7 +222,7 @@ public class AudioChatAdapterDecorator extends ChatAdapterDecorator {
                             if (!success) {
                                 RuntimeUtil.runOnUiThread(() -> {
                                     holder.controller.setPlay();
-                                    if (!TestUtil.isEmptyOrNull(message)) {
+                                    if (!isNullOrEmpty(message)) {
                                         Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show();
                                     }
                                 });
@@ -261,7 +246,7 @@ public class AudioChatAdapterDecorator extends ChatAdapterDecorator {
                             if (!success) {
                                 RuntimeUtil.runOnUiThread(() -> {
                                     holder.controller.setReadyToDownload();
-                                    if (!TestUtil.isEmptyOrNull(message)) {
+                                    if (!isNullOrEmpty(message)) {
                                         Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show();
                                     }
                                 });

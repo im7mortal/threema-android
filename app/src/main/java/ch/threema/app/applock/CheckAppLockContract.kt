@@ -14,30 +14,30 @@ class CheckAppLockContract : ActivityResultContract<Unit, Boolean>(), KoinCompon
     private val preferenceService: PreferenceService by inject()
 
     /**
-     * If no locking mechanism is configured, this will return a [SynchronousResult] of `true`,
+     * If no lock mechanism is configured, this will return a [SynchronousResult] of `true`,
      * indicating that the app is already unlocked and that no activity should be started for unlocking.
-     * Otherwise, [createIntent] gets called afterwards.
+     * Otherwise, [createIntent] gets called afterward.
      */
     override fun getSynchronousResult(context: Context, input: Unit): SynchronousResult<Boolean>? =
         when (preferenceService.getLockMechanism()) {
-            PreferenceService.LOCKING_MECH_SYSTEM,
-            PreferenceService.LOCKING_MECH_BIOMETRIC,
-            PreferenceService.LOCKING_MECH_PIN,
+            PreferenceService.LockMechanism.SYSTEM,
+            PreferenceService.LockMechanism.BIOMETRIC,
+            PreferenceService.LockMechanism.PIN,
             -> null
-            else -> SynchronousResult(true)
+            PreferenceService.LockMechanism.NONE -> SynchronousResult(true)
         }
 
     override fun createIntent(context: Context, input: Unit): Intent =
-        when (val lockingMechanism = preferenceService.getLockMechanism()) {
-            PreferenceService.LOCKING_MECH_SYSTEM,
-            PreferenceService.LOCKING_MECH_BIOMETRIC,
+        when (val lockMechanism = preferenceService.getLockMechanism()) {
+            PreferenceService.LockMechanism.SYSTEM,
+            PreferenceService.LockMechanism.BIOMETRIC,
             -> {
                 AppLockActivity.createIntent(context, checkOnly = true)
             }
-            PreferenceService.LOCKING_MECH_PIN -> {
+            PreferenceService.LockMechanism.PIN -> {
                 PinLockActivity.createIntent(context, checkOnly = true)
             }
-            else -> error("Unexpected locking mechanism: $lockingMechanism")
+            PreferenceService.LockMechanism.NONE -> error("Unexpected lock mechanism: $lockMechanism")
         }
 
     override fun parseResult(resultCode: Int, intent: Intent?): Boolean =

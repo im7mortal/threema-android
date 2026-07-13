@@ -30,28 +30,32 @@ public class InMemoryIdentityStore implements IdentityStore {
 
     @Override
     public byte[] encryptData(@NonNull byte[] plaintext, @NonNull byte[] nonce, @NonNull byte[] receiverPublicKey) {
-        NaCl nacl = new NaCl(privateKey, receiverPublicKey);
         try {
+            NaCl nacl = new NaCl(privateKey, receiverPublicKey);
             return nacl.encrypt(plaintext, nonce);
         } catch (CryptoException e) {
-            throw new RuntimeException(e);
+            return null;
         }
     }
 
     @Override
     public byte[] decryptData(@NonNull byte[] ciphertext, @NonNull byte[] nonce, @NonNull byte[] senderPublicKey) {
-        NaCl nacl = new NaCl(privateKey, senderPublicKey);
         try {
+            NaCl nacl = new NaCl(privateKey, senderPublicKey);
             return nacl.decrypt(ciphertext, nonce);
         } catch (CryptoException e) {
-            throw new RuntimeException(e);
+            return null;
         }
     }
 
     @Override
     public byte[] calcSharedSecret(@NonNull byte[] publicKey) {
-        NaCl nacl = new NaCl(privateKey, publicKey);
-        return nacl.sharedSecret;
+        try {
+            NaCl nacl = new NaCl(privateKey, publicKey);
+            return nacl.sharedSecret;
+        } catch (CryptoException e) {
+            return null;
+        }
     }
 
     @Override

@@ -24,7 +24,7 @@ class GroupDeleteMessageTest {
     private val bytesApiGroupId: ByteArray = GroupId().groupId
     private val messageId = MessageId.random()
     private val protobufMessageId: ByteArray =
-        DeleteMessageData(messageId.messageIdLong).toProtobufBytes()
+        DeleteMessageData(messageId).toProtobufBytes()
 
     private val bytesMessageData: ByteArray =
         bytesCreatorIdentity + bytesApiGroupId + protobufMessageId
@@ -192,7 +192,7 @@ class GroupDeleteMessageTest {
 
         // assert
         assertEquals(incomingMessageId, groupDeleteMessage.messageId.messageIdLong)
-        assertEquals(incomingMessageCreatedAt, groupDeleteMessage.date.time)
+        assertEquals(incomingMessageCreatedAt, groupDeleteMessage.timestamp.toEpochMilli())
         assertEquals(incomingMessageSenderIdentity, groupDeleteMessage.fromIdentity)
         assertEquals(
             bytesCreatorIdentity.toString(Charset.defaultCharset()),
@@ -218,7 +218,7 @@ class GroupDeleteMessageTest {
 
         // assert
         assertEquals(outgoingMessageId, groupDeleteMessage.messageId.messageIdLong)
-        assertEquals(outgoingMessageCreatedAt, groupDeleteMessage.date.time)
+        assertEquals(outgoingMessageCreatedAt, groupDeleteMessage.timestamp.toEpochMilli())
         assertEquals(
             bytesCreatorIdentity.toString(Charset.defaultCharset()),
             groupDeleteMessage.groupCreator,

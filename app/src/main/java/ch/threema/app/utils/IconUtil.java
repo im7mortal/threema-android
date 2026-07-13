@@ -28,6 +28,7 @@ import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC;
 import static ch.threema.app.services.MessageServiceImpl.THUMBNAIL_SIZE_PX;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class IconUtil {
     private static final Logger logger = getThreemaLogger("IconUtil");
@@ -112,12 +113,12 @@ public class IconUtil {
                 docId = uri.getLastPathSegment();
             }
 
-            if (!TestUtil.isEmptyOrNull(docId)) {
+            if (!isNullOrEmpty(docId)) {
                 final String[] split = docId.split(":");
                 if (split.length >= 2) {
                     final String idString = split[1];
 
-                    if (!TestUtil.isEmptyOrNull(idString)) {
+                    if (!isNullOrEmpty(idString)) {
                         try {
                             imageId = Long.parseLong(idString);
                         } catch (NumberFormatException x) {

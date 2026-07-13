@@ -13,7 +13,7 @@ import java.util.Objects;
 import ch.threema.app.R;
 import ch.threema.app.activities.wizard.WizardBaseActivity;
 
-import static ch.threema.app.dev.UtilsKt.hasDevFeatures;
+import static ch.threema.base.HasDevFeaturesKt.HAS_DEV_FEATURES;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
@@ -49,7 +49,7 @@ public class WizardFragment0 extends WizardFragment {
             rootView.findViewById(R.id.wizard_id_explain).setVisibility(View.GONE);
         }
 
-        if (hasDevFeatures()) {
+        if (HAS_DEV_FEATURES) {
             // We use a tag instead of an id to find the button, as the id won't be available in non-dev builds
             rootView.findViewWithTag("wizard_dev_skip").setOnClickListener((v) -> ((WizardBaseActivity) getActivity()).skipWizard());
         }

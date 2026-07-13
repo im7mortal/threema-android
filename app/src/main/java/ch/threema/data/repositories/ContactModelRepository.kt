@@ -1,26 +1,44 @@
 package ch.threema.data.repositories
 
 import android.database.sqlite.SQLiteException
-import ch.threema.app.listeners.ContactListener
-import ch.threema.app.managers.CoreServiceManager
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.BuildConfig
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.GlobalEventFlows
+import ch.threema.app.eventbus.events.ContactEvent
+import ch.threema.app.multidevice.MultiDeviceManager
+import ch.threema.app.services.ContactService
 import ch.threema.app.tasks.ReflectContactSyncCreateTask
 import ch.threema.base.SessionScoped
 import ch.threema.base.ThreemaException
 import ch.threema.base.crypto.NaCl
+import ch.threema.base.crypto.NonceFactory
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
+import ch.threema.data.IdentityProvider
 import ch.threema.data.ModelTypeCache
+import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.PredefinedContact
 import ch.threema.data.models.ContactModel
 import ch.threema.data.models.ContactModelData
 import ch.threema.data.models.ContactModelDataFactory
 import ch.threema.data.storage.DatabaseBackend
+import ch.threema.data.storage.DatabaseException
 import ch.threema.data.storage.DbContact
+import ch.threema.domain.models.AcquaintanceLevel
+import ch.threema.domain.models.VerificationLevel
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.taskmanager.ActiveTaskCodec
+import ch.threema.domain.taskmanager.TaskManager
 import ch.threema.domain.taskmanager.TransactionScope
 import ch.threema.domain.types.Identity
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel
+import java.time.Instant
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.launch
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("data.ContactModelRepository")
 
@@ -29,21 +47,36 @@ class ContactModelRepository(
     // Note: Synchronize access
     private val cache: ModelTypeCache<String, ContactModel>,
     private val databaseBackend: DatabaseBackend,
-    private val coreServiceManager: CoreServiceManager,
-) {
+    private val identityProvider: IdentityProvider,
+    private val multiDeviceManager: MultiDeviceManager,
+    private val taskManager: TaskManager,
+    private val nonceFactory: NonceFactory,
+    private val globalEventBuses: GlobalEventBuses,
+    private val globalEventFlows: GlobalEventFlows,
+    dispatcherProvider: DispatcherProvider,
+) : KoinComponent {
+    private val coroutineScope = CoroutineScope(dispatcherProvider.worker)
+
+    /**
+     *  We have to make the bridge over to the old ContactService in order
+     *  to keep the new and old caches both correct.
+     *
+     *  TODO(ANDR-4361): Remove this
+     */
+    private val deprecatedContactService: ContactService by inject()
+
     private object ContactModelRepositoryToken : RepositoryToken
 
     init {
-        // Register an "old" contact listener that updates the "new" models
-        ListenerManager.contactListeners.add(
-            object : ContactListener {
-                override fun onModified(identity: IdentityString) {
+        coroutineScope.launch {
+            globalEventFlows.contacts
+                .filterIsInstance<ContactEvent.ContactUpdated>()
+                .collect { event ->
                     synchronized(this@ContactModelRepository) {
-                        cache.get(identity)?.refreshFromDb(ContactModelRepositoryToken)
+                        cache.get(event.identity.value)?.refreshFromDb(ContactModelRepositoryToken)
                     }
                 }
-            },
-        )
+        }
     }
 
     /**
@@ -59,13 +92,13 @@ class ContactModelRepository(
             createContactLocally(contactModelData)
         }
 
-        return if (coreServiceManager.multiDeviceManager.isMultiDeviceActive) {
+        return if (multiDeviceManager.isMultiDeviceActive) {
             try {
-                coreServiceManager.taskManager.schedule(
+                taskManager.schedule(
                     task = ReflectContactSyncCreateTask(
                         contactModelData = contactModelData,
                         contactModelRepository = this,
-                        nonceFactory = coreServiceManager.nonceFactory,
+                        nonceFactory = nonceFactory,
                         createLocally = createContactLocally,
                     ),
                 ).await()
@@ -94,12 +127,12 @@ class ContactModelRepository(
             createContactLocally(contactModelData)
         }
 
-        return if (coreServiceManager.multiDeviceManager.isMultiDeviceActive) {
+        return if (multiDeviceManager.isMultiDeviceActive) {
             try {
                 ReflectContactSyncCreateTask(
                     contactModelData = contactModelData,
                     contactModelRepository = this,
-                    nonceFactory = coreServiceManager.nonceFactory,
+                    nonceFactory = nonceFactory,
                     createLocally = createContactLocally,
                 ).invoke(handle)
             } catch (e: TransactionScope.TransactionException) {
@@ -114,8 +147,9 @@ class ContactModelRepository(
     /**
      * Create a new group contact. Note that this does *not* reflect the changes.
      *
-     * @throws ContactStoreException if inserting the contact in the database failed
+     * @throws InvalidContactException if the provided contact data is invalid
      * @throws UnexpectedContactException if the provided contact has [AcquaintanceLevel.DIRECT]
+     * @throws ContactStoreException if inserting the contact into the database failed
      */
     fun persistGroupContactFromRemote(contactModelData: ContactModelData) {
         if (contactModelData.acquaintanceLevel == AcquaintanceLevel.DIRECT) {
@@ -133,13 +167,15 @@ class ContactModelRepository(
     fun createFromSync(contactModelData: ContactModelData): ContactModel {
         try {
             databaseBackend.createContact(ContactModelDataFactory.toDbType(contactModelData))
-        } catch (exception: SQLiteException) {
-            throw ContactStoreException(exception)
-        } catch (exception: IllegalArgumentException) {
-            throw InvalidContactException(exception = exception)
+        } catch (e: SQLiteException) {
+            throw ContactStoreException(e)
+        } catch (e: DatabaseException) {
+            throw ContactStoreException(e)
+        } catch (e: IllegalArgumentException) {
+            throw InvalidContactException(e = e)
         }
 
-        notifyDeprecatedListenersOnNew(contactModelData.identity)
+        globalEventBuses.contacts.emit(ContactEvent.NewContact(Identity(contactModelData.identity)))
 
         return getByIdentity(contactModelData.identity)
             ?: throw IllegalStateException("Contact must exist at this point")
@@ -149,7 +185,8 @@ class ContactModelRepository(
      * Creates the contact with the given data locally. After adding the contact, the listeners are
      * fired.
      *
-     * @throws ContactStoreException if inserting the contact in the database fails
+     * @throws InvalidContactException if the provided contact data is invalid
+     * @throws ContactStoreException if inserting the contact into the database failed
      */
     private fun createContactLocally(contactModelData: ContactModelData): ContactModel {
         val contactModel = synchronized(this) {
@@ -159,16 +196,18 @@ class ContactModelRepository(
                 // Note that in case the insertion fails, this is most likely because the identity
                 // already exists.
                 throw ContactStoreException(exception)
+            } catch (e: DatabaseException) {
+                throw ContactStoreException(e)
             } catch (exception: IllegalArgumentException) {
                 // In this case the identity or public key of the contact is invalid.
-                throw InvalidContactException(exception = exception)
+                throw InvalidContactException(e = exception)
             }
 
             getByIdentity(contactModelData.identity)
                 ?: throw IllegalStateException("Contact must exist at this point")
         }
 
-        notifyDeprecatedListenersOnNew(contactModelData.identity)
+        globalEventBuses.contacts.emit(ContactEvent.NewContact(Identity(contactModelData.identity)))
 
         return contactModel
     }
@@ -180,6 +219,16 @@ class ContactModelRepository(
         }
         if (contactModelData.publicKey.size != NaCl.PUBLIC_KEY_BYTES) {
             throw InvalidContactException("Invalid public key size (${contactModelData.publicKey.size}) for identity ${contactModelData.identity}")
+        }
+        PredefinedContact.getPredefinedContact(contactModelData.identity)?.let { predefinedContact ->
+            if (!predefinedContact.publicKey.contentEquals(contactModelData.publicKey)) {
+                throw InvalidContactException("Invalid public key for predefined contact with identity ${contactModelData.identity}")
+            }
+            if (contactModelData.verificationLevel != VerificationLevel.FULLY_VERIFIED) {
+                throw InvalidContactException(
+                    "Invalid verification level for predefined contact with identity ${contactModelData.identity}: ${contactModelData.verificationLevel}",
+                )
+            }
         }
     }
 
@@ -231,7 +280,7 @@ class ContactModelRepository(
     }
 
     /**
-     * Returns all contact models either from database or cached.
+     * Returns all contact models by loading them from the database.
      */
     @Synchronized
     fun getAll(): List<ContactModel> = databaseBackend.getAllContacts().mapNotNull { dbContact ->
@@ -244,16 +293,68 @@ class ContactModelRepository(
     fun existsByIdentity(identity: IdentityString): Boolean =
         (cache.get(identity) ?: databaseBackend.getContactByIdentity(identity)) != null
 
-    private fun notifyDeprecatedListenersOnNew(identity: IdentityString) {
-        ListenerManager.contactListeners.handle { it.onNew(identity) }
+    /**
+     *  Note that this function does **not emit** any [ContactEvent.ContactUpdated] events.
+     */
+    @Synchronized
+    fun persistWorkLastFullSyncAtTimestampUpdates(
+        workLastFullSyncAtTimestamps: Map<IdentityString, Instant>,
+    ) {
+        databaseBackend.updateContactWorkLastFullSyncAtTimestamps(workLastFullSyncAtTimestamps)
+        // Remove now outdated models from cache
+        cache.remove(workLastFullSyncAtTimestamps.keys)
+    }
+
+    fun persistAvailabilityStatuses(availabilityStatuses: Map<IdentityString, AvailabilityStatus>) {
+        if (!BuildConfig.AVAILABILITY_STATUS_ENABLED) {
+            logger.error("Cannot persist availability statuses because this build does not support this feature")
+            return
+        }
+        if (availabilityStatuses.isEmpty()) {
+            return
+        }
+        val effectivelyChangedContacts = synchronized(this) {
+            // Capture original contacts before change
+            val originalContacts = getByIdentities(availabilityStatuses.keys)
+
+            // Determine contacts that will change effectively
+            val effectivelyChangedContacts = originalContacts
+                .filter { originalContact ->
+                    val originalAvailabilityStatus = originalContact.data?.availabilityStatus ?: return@filter false
+                    val newAvailabilityStatus = availabilityStatuses[originalContact.identity] ?: return@filter false
+                    newAvailabilityStatus != originalAvailabilityStatus
+                }
+                .map(ContactModel::identity)
+                .toSet()
+
+            // Change contacts in database
+            databaseBackend.persistAvailabilityStatuses(availabilityStatuses)
+
+            // Invalidate cache for changed contacts
+            cache.remove(effectivelyChangedContacts)
+            effectivelyChangedContacts.forEach(deprecatedContactService::invalidateCache)
+
+            return@synchronized effectivelyChangedContacts
+        }
+        // Emit contacts updated events
+        effectivelyChangedContacts.forEach { identityString ->
+            globalEventBuses.contacts.emit(ContactEvent.ContactUpdated(Identity(identityString)))
+        }
     }
 
     private fun DbContact.toModel(): ContactModel = ContactModel(
         identity = this.identity,
         data = ContactModelDataFactory.toDataType(this),
         databaseBackend = databaseBackend,
-        coreServiceManager = coreServiceManager,
+        multiDeviceManager = multiDeviceManager,
+        taskManager = taskManager,
+        identityProvider = identityProvider,
+        globalEventBuses = globalEventBuses,
     )
+
+    fun destroy() {
+        coroutineScope.cancel()
+    }
 }
 
 /**
@@ -273,13 +374,13 @@ class ContactReflectException(e: TransactionScope.TransactionException) :
  * This exception is thrown if the contact could not be added. A corrupt database or a contact with
  * the same identity already exists.
  */
-class ContactStoreException(e: SQLiteException) :
+class ContactStoreException(e: Exception) :
     ContactCreateException("Failed to store the contact", e)
 
 /**
  * This exception is thrown if the contact could not be added due to an invalid identity or public key.
  */
-class InvalidContactException(message: String = "Invalid contact", exception: Exception? = null) : ContactCreateException(message, exception)
+class InvalidContactException(message: String = "Invalid contact", e: Exception? = null) : ContactCreateException(message, e)
 
 /**
  * This exception is thrown if an unexpected contact should have been added.

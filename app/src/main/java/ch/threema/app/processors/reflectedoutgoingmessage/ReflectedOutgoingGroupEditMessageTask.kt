@@ -29,7 +29,7 @@ internal class ReflectedOutgoingGroupEditMessageTask(
             myIdentity = myIdentity,
             // Note that we are processing only outgoing messages here
             editMessageSenderIdentity = myIdentity,
-            editMessageCreatedAt = message.date,
+            editMessageCreatedAt = message.timestamp,
             messageId = message.data.messageId,
             receiver = messageReceiver,
             messageService = messageService,
@@ -37,7 +37,7 @@ internal class ReflectedOutgoingGroupEditMessageTask(
             messageService.saveEditedMessageText(
                 validEditMessageModel,
                 message.data.text,
-                message.date,
+                message.timestamp,
             )
         }
     }

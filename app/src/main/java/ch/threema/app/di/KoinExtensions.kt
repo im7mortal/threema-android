@@ -1,10 +1,8 @@
 package ch.threema.app.di
 
 import android.content.ComponentCallbacks
-import ch.threema.app.managers.ServiceManager
 import ch.threema.app.startup.AppStartupMonitor
 import ch.threema.app.startup.models.AppSystem
-import ch.threema.data.repositories.ModelRepositories
 import kotlin.reflect.KProperty
 import kotlin.time.Duration
 import kotlinx.coroutines.withTimeoutOrNull
@@ -14,7 +12,6 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.KoinScopeComponent
 import org.koin.core.component.get
 import org.koin.core.component.inject
-import org.koin.core.module.Module
 import org.koin.core.parameter.ParametersDefinition
 import org.koin.core.qualifier.Qualifier
 
@@ -40,7 +37,7 @@ fun ComponentCallbacks.isSessionScopeReady(): Boolean =
  * See [KoinComponent.isSessionScopeReady]
  */
 fun Koin.isSessionScopeReady(): Boolean =
-    get<AppStartupMonitor>().isReady(AppSystem.UNLOCKED_MASTER_KEY)
+    get<SessionScopeContainerHolder>().sessionScopeContainer != null
 
 /**
  * Waits until the session scope is ready.
@@ -74,14 +71,6 @@ suspend inline fun KoinComponent.awaitAppFullyReadyWithTimeout(timeout: Duration
     withTimeoutOrNull(timeout) {
         awaitAppFullyReady()
     }
-
-inline fun <reified T : Any> Module.service(noinline bind: ServiceManager.() -> T) {
-    factory<T?> { getOrNull<ServiceManager>()?.bind() }
-}
-
-inline fun <reified T : Any> Module.repository(noinline bind: ModelRepositories.() -> T) {
-    factory<T?> { getOrNull<ServiceManager>()?.modelRepositories?.bind() }
-}
 
 inline fun <reified T : Any> KoinComponent.getOrNull(
     qualifier: Qualifier? = null,

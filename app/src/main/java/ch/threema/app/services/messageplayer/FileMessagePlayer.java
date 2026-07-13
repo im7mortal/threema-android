@@ -11,6 +11,7 @@ import ch.threema.app.activities.ThreemaActivity;
 import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.app.services.FileService;
 import ch.threema.app.services.MessageService;
+import ch.threema.app.utils.FileProviderUtil;
 import ch.threema.app.utils.FileUtil;
 import ch.threema.app.utils.IntentDataUtil;
 import ch.threema.app.utils.RuntimeUtil;
@@ -19,12 +20,10 @@ import ch.threema.storage.models.data.media.FileDataModel;
 import ch.threema.storage.models.data.media.MediaMessageDataInterface;
 
 public class FileMessagePlayer extends MessagePlayer {
-    protected FileService fileService;
-    protected MessageService messageService;
+    private final MessageService messageService;
 
     protected FileMessagePlayer(Context context, MessageService messageService, FileService fileService, MessageReceiver messageReceiver, AbstractMessageModel messageModel) {
         super(context, messageService, fileService, messageReceiver, messageModel);
-        this.fileService = fileService;
         this.messageService = messageService;
     }
 
@@ -70,7 +69,7 @@ public class FileMessagePlayer extends MessagePlayer {
                         messageService.viewMediaMessage(
                             getContext(),
                             getMessageModel(),
-                            fileService.getShareFileUri(decryptedFile, fileData.getFileName())
+                            FileProviderUtil.getUriForFile(getContext(), decryptedFile, fileData.getFileName())
                         );
                     }
                 }

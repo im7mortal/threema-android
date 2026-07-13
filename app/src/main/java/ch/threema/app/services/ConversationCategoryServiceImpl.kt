@@ -1,20 +1,17 @@
 package ch.threema.app.services
 
-import ch.threema.app.messagereceiver.ContactMessageReceiver
-import ch.threema.app.messagereceiver.GroupMessageReceiver
-import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.stores.PreferenceStore
 import ch.threema.app.tasks.TaskCreator
-import ch.threema.app.utils.ContactUtil
-import ch.threema.app.utils.GroupUtil
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.data.models.ContactModel
-import ch.threema.domain.types.ConversationUID
+import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationId
+import ch.threema.data.datatypes.ConversationIdObfuscated
+import ch.threema.data.datatypes.DistributionListConversationId
+import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.domain.types.GroupDatabaseId
 import ch.threema.domain.types.IdentityString
-import ch.threema.protobuf.d2d.sync.ConversationCategory
 import java.lang.ref.WeakReference
 
 private val logger = getThreemaLogger("ConversationCategoryServiceImpl")
@@ -25,264 +22,187 @@ class ConversationCategoryServiceImpl(
     private val multiDeviceManager: MultiDeviceManager,
     private val taskCreator: TaskCreator,
 ) : ConversationCategoryService {
-    private val privateChatsCache = PrivateChatsCache(preferenceService, preferenceStore)
 
-    /* Contact related methods */
+    private val privateConversationsCache = PrivateConversationsCache(preferenceService, preferenceStore)
 
     @Synchronized
-    override fun markContactChatAsPrivate(contactModel: ContactModel) {
-        val identity = contactModel.identity
-        val uniqueIdentifier = UniqueIdentifier.fromContactIdentity(identity)
-        if (privateChatsCache.isPrivateChat(uniqueIdentifier)) {
-            logger.warn("Chat with {} is already marked as private", identity)
-            return
-        }
-
-        privateChatsCache.addPrivateChat(uniqueIdentifier)
-        reflectContact(
-            identity = identity,
-            isPrivateChat = true,
+    override fun isMarkedAsPrivate(conversationId: ConversationId): Boolean =
+        privateConversationsCache.isPrivateConversation(
+            conversationIdObfuscated = conversationId.obfuscated,
         )
-    }
 
     @Synchronized
-    override fun removePrivateMarkFromContactChat(contactModel: ContactModel) {
-        removePrivateMarkFromContactChat(contactModel.identity)
-    }
-
-    @Synchronized
-    override fun removePrivateMarkFromContactChat(contactModel: ch.threema.storage.models.ContactModel) {
-        removePrivateMarkFromContactChat(contactModel.identity)
-    }
-
-    @Synchronized
-    private fun removePrivateMarkFromContactChat(identity: IdentityString) {
-        val uniqueIdentifier = UniqueIdentifier.fromContactIdentity(identity)
-        if (!privateChatsCache.isPrivateChat(uniqueIdentifier)) {
-            logger.warn("Chat with {} hasn't been marked as private", identity)
-            return
-        }
-
-        privateChatsCache.removePrivateChat(uniqueIdentifier)
-        reflectContact(
-            identity = identity,
-            isPrivateChat = false,
-        )
-    }
-
-    /* Group related methods */
-
-    @Synchronized
-    override fun markGroupChatAsPrivate(groupDatabaseId: GroupDatabaseId) {
-        val uniqueIdentifier = UniqueIdentifier.fromGroupDatabaseId(groupDatabaseId)
-        if (privateChatsCache.isPrivateChat(uniqueIdentifier)) {
-            logger.warn("Group chat with db id {} is already marked as private", groupDatabaseId)
-            return
-        }
-
-        privateChatsCache.addPrivateChat(uniqueIdentifier)
-        reflectGroup(
-            groupDatabaseId = groupDatabaseId,
-            isPrivateChat = true,
-        )
-    }
-
-    @Synchronized
-    override fun removePrivateMarkFromGroupChat(groupDatabaseId: GroupDatabaseId) {
-        val uniqueIdentifier = UniqueIdentifier.fromGroupDatabaseId(groupDatabaseId)
-        if (!privateChatsCache.isPrivateChat(uniqueIdentifier)) {
-            logger.warn("Group chat with db id {} hasn't been marked as private", groupDatabaseId)
-            return
-        }
-
-        privateChatsCache.removePrivateChat(uniqueIdentifier)
-        reflectGroup(
-            groupDatabaseId = groupDatabaseId,
-            isPrivateChat = false,
-        )
-    }
-
-    @Synchronized
-    override fun isPrivateGroupChat(groupDatabaseId: GroupDatabaseId): Boolean {
-        return privateChatsCache.isPrivateChat(UniqueIdentifier.fromGroupDatabaseId(groupDatabaseId))
-    }
-
-    /* General methods */
-
-    @Synchronized
-    override fun isPrivateChat(uniqueIdString: ConversationUID): Boolean {
-        return privateChatsCache.isPrivateChat(UniqueIdentifier(uniqueIdString))
-    }
-
-    @Synchronized
-    override fun getConversationCategory(uniqueIdString: ConversationUID): ConversationCategory {
-        return if (privateChatsCache.isPrivateChat(UniqueIdentifier(uniqueIdString))) {
-            ConversationCategory.PROTECTED
-        } else {
-            ConversationCategory.DEFAULT
-        }
-    }
-
-    @Synchronized
-    override fun markAsPrivate(messageReceiver: MessageReceiver<*>): Boolean {
-        if (isPrivateChat(messageReceiver.uniqueIdString)) {
-            // Nothing to do as the chat is already private
+    override fun setPrivateMark(conversationId: ConversationId): Boolean {
+        if (isMarkedAsPrivate(conversationId)) {
+            // Nothing to do as the conversation is already marked as private
             return false
         }
-
-        if (messageReceiver is ContactMessageReceiver) {
-            val contactModel = messageReceiver.contactModel
-            if (contactModel != null) {
-                markContactChatAsPrivate(contactModel)
-            } else {
-                logger.error("Cannot mark contact conversation as private because contact model is null")
+        persistAddPrivateMark(conversationId)
+        when (conversationId) {
+            is ContactConversationId -> {
+                reflectContactConversationPrivateMark(
+                    identity = conversationId.identity,
+                    isMarkedAsPrivate = true,
+                )
             }
-        } else if (messageReceiver is GroupMessageReceiver) {
-            markGroupChatAsPrivate(messageReceiver.group.id.toLong())
-        } else {
-            // TODO(ANDR-2718) or TODO(ANDR-3010): This change needs to be reflected when
-            //  distribution lists are supported in MD.
-            persistPrivateChat(messageReceiver.getUniqueIdString())
+            is GroupConversationId -> {
+                reflectGroupConversationPrivateMark(
+                    groupDatabaseId = conversationId.groupDatabaseId,
+                    isMarkedAsPrivate = true,
+                )
+            }
+            is DistributionListConversationId -> {
+                // TODO(ANDR-2718) or TODO(ANDR-3010): This change needs to be reflected when distribution lists are supported in MD.
+            }
         }
         return true
     }
 
     @Synchronized
-    override fun removePrivateMark(messageReceiver: MessageReceiver<*>): Boolean {
-        if (!isPrivateChat(messageReceiver.uniqueIdString)) {
-            // Nothing to do as the chat isn't private
+    override fun persistAddPrivateMark(conversationId: ConversationId) {
+        val conversationIdObfuscated = conversationId.obfuscated
+        if (!privateConversationsCache.isPrivateConversation(conversationIdObfuscated)) {
+            privateConversationsCache.addPrivateConversation(conversationIdObfuscated)
+        }
+    }
+
+    @Synchronized
+    override fun removePrivateMark(conversationId: ConversationId): Boolean {
+        if (!isMarkedAsPrivate(conversationId)) {
+            // Nothing to do as the conversation isn't private
             return false
         }
-
-        if (messageReceiver is ContactMessageReceiver) {
-            val contactModel = messageReceiver.contactModel
-            if (contactModel != null) {
-                removePrivateMarkFromContactChat(contactModel)
-            } else {
-                logger.error("Cannot mark contact conversation as non-private because contact model is null")
+        persistRemovePrivateMark(conversationId)
+        when (conversationId) {
+            is ContactConversationId -> {
+                reflectContactConversationPrivateMark(
+                    identity = conversationId.identity,
+                    isMarkedAsPrivate = false,
+                )
             }
-        } else if (messageReceiver is GroupMessageReceiver) {
-            removePrivateMarkFromGroupChat(messageReceiver.group.id.toLong())
-        } else {
-            // TODO(ANDR-2718) or TODO(ANDR-3010): This change needs to be reflected when
-            //  distribution lists are supported in MD.
-            persistDefaultChat(messageReceiver.getUniqueIdString())
+            is GroupConversationId -> {
+                reflectGroupConversationPrivateMark(
+                    groupDatabaseId = conversationId.groupDatabaseId,
+                    isMarkedAsPrivate = false,
+                )
+            }
+            is DistributionListConversationId -> {
+                // TODO(ANDR-2718) or TODO(ANDR-3010): This change needs to be reflected when distribution lists are supported in MD.
+            }
         }
         return true
     }
 
     @Synchronized
-    override fun persistPrivateChat(uniqueIdString: ConversationUID) {
-        val uniqueIdentifier = UniqueIdentifier(uniqueIdString)
-        if (!privateChatsCache.isPrivateChat(uniqueIdentifier)) {
-            privateChatsCache.addPrivateChat(uniqueIdentifier)
+    override fun persistRemovePrivateMark(conversationId: ConversationId) {
+        val conversationIdObfuscated = conversationId.obfuscated
+        if (privateConversationsCache.isPrivateConversation(conversationIdObfuscated)) {
+            privateConversationsCache.removePrivateConversation(conversationIdObfuscated)
         }
     }
 
     @Synchronized
-    override fun persistDefaultChat(uniqueIdString: ConversationUID) {
-        val uniqueIdentifier = UniqueIdentifier(uniqueIdString)
-        if (privateChatsCache.isPrivateChat(uniqueIdentifier)) {
-            privateChatsCache.removePrivateChat(uniqueIdentifier)
-        }
-    }
-
-    @Synchronized
-    override fun hasPrivateChats(): Boolean {
-        return privateChatsCache.hasPrivateChats()
-    }
+    override fun hasAnyPrivateMarks(): Boolean =
+        privateConversationsCache.hasPrivateConversations()
 
     override fun invalidateCache() {
-        privateChatsCache.invalidate()
+        privateConversationsCache.invalidate()
     }
 
-    private fun reflectContact(identity: IdentityString, isPrivateChat: Boolean) {
+    private fun reflectContactConversationPrivateMark(identity: IdentityString, isMarkedAsPrivate: Boolean) {
         if (multiDeviceManager.isMultiDeviceActive) {
-            taskCreator.scheduleReflectContactConversationCategory(identity, isPrivateChat)
-        }
-    }
-
-    private fun reflectGroup(groupDatabaseId: Long, isPrivateChat: Boolean) {
-        if (multiDeviceManager.isMultiDeviceActive) {
-            taskCreator.scheduleReflectGroupConversationCategory(
-                groupDatabaseId = groupDatabaseId,
-                isPrivateChat = isPrivateChat,
+            taskCreator.scheduleReflectContactConversationCategory(
+                contactIdentity = identity,
+                isPrivateChat = isMarkedAsPrivate,
             )
         }
     }
 
-    private class PrivateChatsCache(
-        private val preferenceService: PreferenceService,
-        private val preferenceStore: PreferenceStore,
-    ) {
-        private var privateChatsCache: WeakReference<MutableSet<ConversationUID>> = WeakReference(null)
-
-        @Synchronized
-        fun isPrivateChat(uniqueIdentifier: UniqueIdentifier): Boolean {
-            return getPrivateChatUniqueIds().contains(uniqueIdentifier.uniqueId)
-        }
-
-        @Synchronized
-        fun addPrivateChat(uniqueIdentifier: UniqueIdentifier) {
-            val privateChatUniqueIds = getPrivateChatUniqueIds()
-            privateChatUniqueIds.add(uniqueIdentifier.uniqueId)
-            privateChatsCache = WeakReference(privateChatUniqueIds)
-            preferenceService.setListQuietly(PREF_LIST_NAME, privateChatUniqueIds.toTypedArray())
-        }
-
-        @Synchronized
-        fun removePrivateChat(uniqueIdentifier: UniqueIdentifier) {
-            val privateChatUniqueIds = getPrivateChatUniqueIds()
-            privateChatUniqueIds.remove(uniqueIdentifier.uniqueId)
-            privateChatsCache = WeakReference(privateChatUniqueIds)
-            preferenceService.setListQuietly(PREF_LIST_NAME, privateChatUniqueIds.toTypedArray())
-        }
-
-        @Synchronized
-        fun hasPrivateChats(): Boolean {
-            return getPrivateChatUniqueIds().isNotEmpty()
-        }
-
-        @Synchronized
-        fun invalidate() {
-            privateChatsCache = WeakReference(null)
-        }
-
-        private fun getPrivateChatUniqueIds(): MutableSet<ConversationUID> {
-            return privateChatsCache.get() ?: run {
-                val privateChatsUniqueIds = getFromPreferences()
-                privateChatsCache = WeakReference(privateChatsUniqueIds)
-                privateChatsUniqueIds
-            }
-        }
-
-        @Synchronized
-        private fun getFromPreferences(): MutableSet<String> {
-            if (preferenceStore.containsKey(LEGACY_PREF_LIST_NAME)) {
-                logger.info("Migrating private chats preference from '{}' to '{}'", LEGACY_PREF_LIST_NAME, PREF_LIST_NAME)
-                // Previously, the conversation category (private chats) were saved with a deadline list service that used a map for storing the
-                // property. The map used the unique id string as key and always had -1 as value, as it was never possible to mark a chat as private
-                // for a limited time.
-                val privateChatUniqueIdentifiers = preferenceService.getStringMap(LEGACY_PREF_LIST_NAME).keys.toMutableSet()
-                preferenceService.setListQuietly(PREF_LIST_NAME, privateChatUniqueIdentifiers.toTypedArray())
-                preferenceStore.remove(LEGACY_PREF_LIST_NAME)
-                return privateChatUniqueIdentifiers
-            }
-
-            return preferenceService.getList(PREF_LIST_NAME).toMutableSet()
+    private fun reflectGroupConversationPrivateMark(groupDatabaseId: GroupDatabaseId, isMarkedAsPrivate: Boolean) {
+        if (multiDeviceManager.isMultiDeviceActive) {
+            taskCreator.scheduleReflectGroupConversationCategory(
+                groupDatabaseId = groupDatabaseId,
+                isPrivateChat = isMarkedAsPrivate,
+            )
         }
     }
 
-    @JvmInline
-    private value class UniqueIdentifier(val uniqueId: ConversationUID) {
-        companion object {
-            fun fromContactIdentity(identity: IdentityString): UniqueIdentifier {
-                return UniqueIdentifier(ContactUtil.getUniqueIdString(identity))
-            }
+    private class PrivateConversationsCache(
+        private val preferenceService: PreferenceService,
+        private val preferenceStore: PreferenceStore,
+    ) {
+        private var privateConversationsCache: WeakReference<MutableSet<ConversationIdObfuscated>> = WeakReference(null)
 
-            fun fromGroupDatabaseId(groupDatabaseId: GroupDatabaseId): UniqueIdentifier {
-                return UniqueIdentifier(GroupUtil.getUniqueIdString(groupDatabaseId))
+        @Synchronized
+        fun isPrivateConversation(conversationIdObfuscated: ConversationIdObfuscated): Boolean =
+            getPrivateConversationsCache().contains(conversationIdObfuscated)
+
+        @Synchronized
+        fun addPrivateConversation(conversationIdObfuscated: ConversationIdObfuscated) {
+            val privateConversationsCacheSnapshot = getPrivateConversationsCache()
+            privateConversationsCacheSnapshot.add(conversationIdObfuscated)
+            privateConversationsCache = WeakReference(privateConversationsCacheSnapshot)
+            preferenceService.setList(
+                listName = PREF_LIST_NAME,
+                elements = privateConversationsCacheSnapshot
+                    .map(ConversationIdObfuscated::value)
+                    .toTypedArray(),
+            )
+        }
+
+        @Synchronized
+        fun removePrivateConversation(conversationIdObfuscated: ConversationIdObfuscated) {
+            val privateConversationsCacheSnapshot = getPrivateConversationsCache()
+            privateConversationsCacheSnapshot.remove(conversationIdObfuscated)
+            privateConversationsCache = WeakReference(privateConversationsCacheSnapshot)
+            preferenceService.setList(
+                listName = PREF_LIST_NAME,
+                elements = privateConversationsCacheSnapshot
+                    .map(ConversationIdObfuscated::value)
+                    .toTypedArray(),
+            )
+        }
+
+        @Synchronized
+        fun hasPrivateConversations(): Boolean = getPrivateConversationsCache().isNotEmpty()
+
+        @Synchronized
+        fun invalidate() {
+            privateConversationsCache = WeakReference(null)
+        }
+
+        private fun getPrivateConversationsCache(): MutableSet<ConversationIdObfuscated> =
+            privateConversationsCache.get()
+                ?: run {
+                    val privateChatsUniqueIds = getFromPreferences()
+                    privateConversationsCache = WeakReference(privateChatsUniqueIds)
+                    privateChatsUniqueIds
+                }
+
+        @Synchronized
+        private fun getFromPreferences(): MutableSet<ConversationIdObfuscated> {
+            if (preferenceStore.containsKey(LEGACY_PREF_LIST_NAME)) {
+                logger.info("Migrating private chats preference from '{}' to '{}'", LEGACY_PREF_LIST_NAME, PREF_LIST_NAME)
+                // Previously, the conversation category (private conversations) were saved with a deadline list service that used a map for storing
+                // the property. The map used the obfuscated conversation id as key and always had -1 as value, as it was never possible to mark a
+                // conversation as private for a limited time.
+                val privateConversationIdsObfuscated: MutableSet<String> = preferenceService
+                    .getStringMap(LEGACY_PREF_LIST_NAME)
+                    .keys
+                    .toMutableSet()
+                preferenceService.setList(
+                    listName = PREF_LIST_NAME,
+                    elements = privateConversationIdsObfuscated.toTypedArray(),
+                )
+                preferenceStore.remove(LEGACY_PREF_LIST_NAME)
+                return privateConversationIdsObfuscated
+                    .map(::ConversationIdObfuscated)
+                    .toMutableSet()
             }
+            return preferenceService
+                .getList(PREF_LIST_NAME)
+                .map(::ConversationIdObfuscated)
+                .toMutableSet()
         }
     }
 

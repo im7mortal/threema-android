@@ -2,9 +2,9 @@ package ch.threema.app.stores
 
 import android.content.SharedPreferences
 import androidx.core.content.edit
-import ch.threema.base.utils.Utils
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.common.emptyByteArray
+import ch.threema.common.decodeFromStringOrNull
+import ch.threema.common.hexStringToByteArrayOrNull
 import ch.threema.common.takeUnlessEmpty
 import ch.threema.common.toHexString
 import java.time.Instant
@@ -14,14 +14,13 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 
 private val logger = getThreemaLogger("PreferenceStoreImpl")
 
 class PreferenceStoreImpl(
     private val sharedPreferences: SharedPreferences,
-    private val onChanged: (key: String, value: Any?) -> Unit,
     private val commit: Boolean = false,
 ) : BasePreferenceStore(), PreferenceStore {
 
@@ -43,20 +42,14 @@ class PreferenceStoreImpl(
         sharedPreferences.edit(commit = commit) {
             putString(key, value)
         }
-        onChanged(key, value)
     }
 
     override fun save(key: String, value: Map<String, String?>) {
-        val json = value.encodeToJSONArray()
-        save(key, json)
+        val json = value.encodeToJsonArray()
+        save(key, json.toString())
     }
 
     override fun save(key: String, value: Array<String>) {
-        saveQuietly(key, value)
-        onChanged(key, value)
-    }
-
-    override fun saveQuietly(key: String, value: Array<String>) {
         sharedPreferences.edit(commit = commit) {
             putString(key, value.encodeToString())
         }
@@ -66,49 +59,30 @@ class PreferenceStoreImpl(
         sharedPreferences.edit(commit = commit) {
             putLong(key, value)
         }
-        onChanged(key, value)
     }
 
     override fun save(key: String, value: Int) {
         sharedPreferences.edit(commit = commit) {
             putInt(key, value)
         }
-        onChanged(key, value)
     }
 
     override fun save(key: String, value: Boolean) {
         sharedPreferences.edit(commit = commit) {
             putBoolean(key, value)
         }
-        onChanged(key, value)
     }
 
     override fun save(key: String, value: ByteArray) {
         sharedPreferences.edit(commit = commit) {
             putString(key, value.toHexString())
         }
-        onChanged(key, value)
-    }
-
-    override fun save(key: String, value: JSONArray) {
-        sharedPreferences.edit(commit = commit) {
-            putString(key, value.toString())
-        }
-        onChanged(key, value)
     }
 
     override fun save(key: String, value: Float) {
         sharedPreferences.edit(commit = commit) {
             putFloat(key, value)
         }
-        onChanged(key, value)
-    }
-
-    override fun save(key: String, value: JSONObject) {
-        sharedPreferences.edit(commit = commit) {
-            putString(key, value.toString())
-        }
-        onChanged(key, value)
     }
 
     override fun save(key: String, value: Instant?) {
@@ -127,20 +101,6 @@ class PreferenceStoreImpl(
             null
         }
 
-    /**
-     *  Watch the String value of [key].
-     *
-     *  See [watchLatest] for details about this flows behavior and the backpressure handling.
-     */
-    override fun watchString(key: String): Flow<String?> =
-        watchLatest(
-            sharedPreferences = sharedPreferences,
-            key = key,
-            read = {
-                this.getString(key, null)
-            },
-        )
-
     override fun getStringArray(key: String): Array<String>? =
         sharedPreferences.getString(key, null)
             ?.takeUnlessEmpty()
@@ -148,20 +108,14 @@ class PreferenceStoreImpl(
 
     override fun getMap(key: String): Map<String, String?> =
         try {
-            val jsonArray = JSONArray(sharedPreferences.getString(key, "[]"))
-            jsonArray.decodeToStringMap()
+            sharedPreferences.getString(key, "[]")
+                ?.let { jsonString ->
+                    Json.decodeFromStringOrNull<JsonArray>(jsonString)
+                }
+                ?.decodeToStringMap()
+                ?: emptyMap()
         } catch (e: Exception) {
             logger.error("Failed to decode string map", e)
-            emptyMap()
-        }
-
-    @Deprecated("only kept for system update, use getMap instead")
-    override fun getIntMap(key: String): Map<Int, String> =
-        try {
-            val jsonArray = JSONArray(sharedPreferences.getString(key, "[]"))
-            jsonArray.decodeToIntMap()
-        } catch (e: Exception) {
-            logger.error("Failed to decode stored int map", e)
             emptyMap()
         }
 
@@ -182,47 +136,9 @@ class PreferenceStoreImpl(
             .takeUnless { it == 0L }
             ?.let(Instant::ofEpochMilli)
 
-    /**
-     *  Watch the boolean value of [key].
-     *
-     *  See [watchLatest] for details about this flows behavior and the backpressure handling.
-     */
-    override fun watchBoolean(key: String, defaultValue: Boolean): Flow<Boolean> =
-        watchLatest(
-            sharedPreferences = sharedPreferences,
-            key = key,
-            read = {
-                getBoolean(key, defaultValue)
-            },
-        )
-
-    override fun getBytes(key: String): ByteArray =
+    override fun getBytes(key: String): ByteArray? =
         sharedPreferences.getString(key, null)
-            ?.let(Utils::hexStringToByteArray)
-            ?: emptyByteArray()
-
-    override fun getJSONArray(key: String): JSONArray =
-        try {
-            JSONArray(sharedPreferences.getString(key, "[]"))
-        } catch (e: Exception) {
-            logger.error("Failed to decode JSON array", e)
-            JSONArray()
-        }
-
-    override fun getJSONObject(key: String): JSONObject? =
-        try {
-            sharedPreferences.getString(key, "[]")
-                ?.let(::JSONObject)
-        } catch (e: Exception) {
-            logger.error("Failed to decode JSON Object", e)
-            null
-        }
-
-    override fun clear() {
-        sharedPreferences.edit(commit = commit) {
-            clear()
-        }
-    }
+            ?.hexStringToByteArrayOrNull()
 
     override fun getStringSet(key: String): Set<String>? =
         if (sharedPreferences.contains(key)) {
@@ -231,8 +147,59 @@ class PreferenceStoreImpl(
             null
         }
 
+    /**
+     *  Watch the String value of [key].
+     *
+     *  See [watchLatest] for details about this flows behavior and the backpressure handling.
+     */
+    override fun watchString(key: String): Flow<String?> =
+        watchLatest(key) {
+            getString(key, null)
+        }
+
+    /**
+     *  Watch the boolean value of [key].
+     *
+     *  See [watchLatest] for details about this flow's behavior and the backpressure handling.
+     */
+    override fun watchBoolean(key: String, defaultValue: Boolean): Flow<Boolean> =
+        watchLatest(key) {
+            getBoolean(key, defaultValue)
+        }
+
+    /**
+     *  Watch the long value of [key].
+     *
+     *  See [watchLatest] for details about this flow's behavior and the backpressure handling.
+     */
+    override fun watchLong(key: String, defaultValue: Long): Flow<Long> =
+        watchLatest(key) {
+            getLong(key, defaultValue)
+        }
+
+    /**
+     *  Watch the int value of [key].
+     *
+     *  See [watchLatest] for details about this flow's behavior and the backpressure handling.
+     */
+    override fun watchInt(key: String, defaultValue: Int): Flow<Int> =
+        watchLatest(key) {
+            getInt(key, defaultValue)
+        }
+
+    override fun watchInstant(key: String): Flow<Instant?> =
+        watchLatest(key) {
+            getInstant(key)
+        }
+
     override fun containsKey(key: String): Boolean =
         sharedPreferences.contains(key)
+
+    override fun clear() {
+        sharedPreferences.edit(commit = commit) {
+            clear()
+        }
+    }
 
     /**
      *  Creates a **cold** [Flow] that emits the values produced by [read]. The [read] function will be called right at the start of this flow and on
@@ -250,7 +217,6 @@ class PreferenceStoreImpl(
      *  If a consumer consumes the values slower than they get produced, the old unconsumed value gets **dropped** in favor of the most recent value.
      */
     private fun <T> watchLatest(
-        sharedPreferences: SharedPreferences,
         key: String,
         read: SharedPreferences.() -> T,
     ): Flow<T> =

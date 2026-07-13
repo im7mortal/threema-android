@@ -1,7 +1,6 @@
 package ch.threema.app.compose.message
 
 import android.content.Context
-import android.text.format.Formatter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -21,7 +20,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import ch.threema.app.R
 import ch.threema.app.compose.common.colorReferenceResource
+import ch.threema.app.compose.common.extensions.format
 import ch.threema.app.messagedetails.MessageDetailsUiModel
+import ch.threema.common.kiloBytes
 import ch.threema.domain.protocol.csp.messages.fs.ForwardSecurityMode
 
 @Composable
@@ -75,10 +76,10 @@ fun MessageDetailsList(
                 value = mimeType,
             )
         }
-        model.fileSizeInBytes?.let { fileSizeInBytes ->
+        model.fileSize?.let { fileSize ->
             MessageDetailsRow(
                 label = stringResource(R.string.file_size),
-                value = Formatter.formatShortFileSize(LocalContext.current, fileSizeInBytes),
+                value = fileSize.format(),
             )
         }
         model.pfsState?.let { forwardSecurityMode ->
@@ -107,7 +108,7 @@ private fun MessageDetailsListBoxPreview_Outbox() {
         messageDetailsUiModel = MessageDetailsUiModel(
             messageId = "1234567890123456",
             mimeType = "image/png",
-            fileSizeInBytes = 1024L,
+            fileSize = 2.kiloBytes,
             pfsState = ForwardSecurityMode.ALL,
         ),
         isOutbox = true,
@@ -122,7 +123,7 @@ private fun MessageDetailsListBoxPreview_Inbox() {
         messageDetailsUiModel = MessageDetailsUiModel(
             messageId = "1234567890123456",
             mimeType = "image/png",
-            fileSizeInBytes = 1024L,
+            fileSize = 2.kiloBytes,
             pfsState = ForwardSecurityMode.ALL,
         ),
         isOutbox = false,
@@ -139,7 +140,7 @@ private fun MessageDetailsList_Preview() {
         model = MessageDetailsUiModel(
             messageId = "1234567890123456",
             mimeType = "image/png",
-            fileSizeInBytes = 1024L,
+            fileSize = 2.kiloBytes,
             pfsState = ForwardSecurityMode.ALL,
         ),
     )

@@ -1,9 +1,11 @@
 package ch.threema.domain.models
 
-import ch.threema.base.utils.Utils
 import ch.threema.common.toHexString
+import ch.threema.common.truncateUTF8String
 import ch.threema.domain.types.IdentityString
 import java.util.Objects
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 const val CONTACT_NAME_MAX_LENGTH_BYTES = 256
 
@@ -17,11 +19,11 @@ open class Contact(
 ) {
     var firstName: String? = null
         set(value) {
-            field = Utils.truncateUTF8String(value, CONTACT_NAME_MAX_LENGTH_BYTES)
+            field = value?.truncateUTF8String(CONTACT_NAME_MAX_LENGTH_BYTES)
         }
     var lastName: String? = null
         set(value) {
-            field = Utils.truncateUTF8String(value, CONTACT_NAME_MAX_LENGTH_BYTES)
+            field = value?.truncateUTF8String(CONTACT_NAME_MAX_LENGTH_BYTES)
         }
 
     val hasFirstOrLastName: Boolean
@@ -106,15 +108,20 @@ class BasicContact(
     }
 }
 
+@Serializable
 enum class IdentityType {
     /**
-     * A normal Threema identity.
+     * A regular Threema identity.
+     *
+     * Note that it should be serialized with 'NORMAL' as some tasks persist it like this.
      */
-    NORMAL,
+    @SerialName("NORMAL")
+    REGULAR,
 
     /**
      * An identity using Threema Work.
      */
+    @SerialName("WORK")
     WORK,
 }
 
@@ -200,4 +207,25 @@ enum class TypingIndicatorPolicy {
      * Don't send typing indicators.
      */
     DONT_SEND,
+}
+
+@Serializable
+enum class AcquaintanceLevel {
+    /**
+     * The contact was explicitly added by the user or a 1:1 conversation with the contact
+     * has been initiated.
+     */
+    @SerialName("DIRECT")
+    DIRECT,
+
+    /**
+     * This level covers the following cases:
+     * - The contact is part of a group the user is also part of. The contact was not explicitly added and no 1:1 conversation has been initiated.
+     * - The contact was part of a group the user was/is also part of before but either of them has since been removed from all common groups.
+     * - The contact has been explicitly removed by the user.
+     *
+     * Note that it should be serialized with 'GROUP' as some tasks persist it like this.
+     */
+    @SerialName("GROUP")
+    GROUP_OR_DELETED,
 }

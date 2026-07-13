@@ -1,9 +1,6 @@
 package ch.threema.storage
 
 import ch.threema.storage.factories.AppTaskPersistenceFactory
-import ch.threema.storage.factories.BallotChoiceModelFactory
-import ch.threema.storage.factories.BallotModelFactory
-import ch.threema.storage.factories.BallotVoteModelFactory
 import ch.threema.storage.factories.ContactAvailabilityStatusModelFactory
 import ch.threema.storage.factories.ContactEditHistoryEntryModelFactory
 import ch.threema.storage.factories.ContactEmojiReactionModelFactory
@@ -12,17 +9,20 @@ import ch.threema.storage.factories.ConversationTagFactory
 import ch.threema.storage.factories.DistributionListMemberModelFactory
 import ch.threema.storage.factories.DistributionListMessageModelFactory
 import ch.threema.storage.factories.DistributionListModelFactory
-import ch.threema.storage.factories.GroupBallotModelFactory
 import ch.threema.storage.factories.GroupCallModelFactory
 import ch.threema.storage.factories.GroupEditHistoryEntryModelFactory
 import ch.threema.storage.factories.GroupEmojiReactionModelFactory
 import ch.threema.storage.factories.GroupMemberModelFactory
 import ch.threema.storage.factories.GroupMessageModelFactory
 import ch.threema.storage.factories.GroupModelFactory
-import ch.threema.storage.factories.IdentityBallotModelFactory
+import ch.threema.storage.factories.GroupPollModelFactory
+import ch.threema.storage.factories.IdentityPollModelFactory
 import ch.threema.storage.factories.IncomingGroupSyncRequestLogModelFactory
 import ch.threema.storage.factories.MessageModelFactory
 import ch.threema.storage.factories.OutgoingGroupSyncRequestLogModelFactory
+import ch.threema.storage.factories.PollChoiceModelFactory
+import ch.threema.storage.factories.PollModelFactory
+import ch.threema.storage.factories.PollVoteModelFactory
 import ch.threema.storage.factories.RejectedGroupMessageFactory
 import ch.threema.storage.factories.ServerMessageModelFactory
 import ch.threema.storage.factories.TaskArchiveFactory
@@ -50,11 +50,11 @@ object DatabaseSchemaCreator {
             DistributionListMessageModelFactory.Creator(),
             OutgoingGroupSyncRequestLogModelFactory.Creator(),
             IncomingGroupSyncRequestLogModelFactory.Creator,
-            BallotModelFactory.Creator(),
-            BallotChoiceModelFactory.Creator(),
-            BallotVoteModelFactory.Creator(),
-            IdentityBallotModelFactory.Creator(),
-            GroupBallotModelFactory.Creator(),
+            PollModelFactory.Creator(),
+            PollChoiceModelFactory.Creator(),
+            PollVoteModelFactory.Creator(),
+            IdentityPollModelFactory.Creator(),
+            GroupPollModelFactory.Creator(),
             WebClientSessionModelFactory.Creator(),
             ConversationTagFactory.Creator(),
             GroupCallModelFactory.Creator(),

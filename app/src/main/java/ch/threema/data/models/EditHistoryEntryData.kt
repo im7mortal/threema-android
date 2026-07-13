@@ -1,7 +1,7 @@
 package ch.threema.data.models
 
 import ch.threema.data.storage.DbEditHistoryEntry
-import java.util.Date
+import java.time.Instant
 
 data class EditHistoryEntryData(
     /** unique id. */
@@ -11,7 +11,7 @@ data class EditHistoryEntryData(
     /** The former text of the edited message. */
     @JvmField val text: String?,
     /** Timestamp when the message was edited and hence the entry created. */
-    @JvmField val editedAt: Date,
+    @JvmField val editedAt: Instant,
 ) {
     fun uid() = uid
 

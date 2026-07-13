@@ -1,6 +1,8 @@
 package ch.threema.data.storage
 
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationVisibility
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.ContactSyncState
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
@@ -10,9 +12,7 @@ import ch.threema.domain.models.UserState
 import ch.threema.domain.models.VerificationLevel
 import ch.threema.domain.models.WorkVerificationLevel
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.ContactModel
 import java.time.Instant
-import java.util.Date
 
 // This file contains the types used in the database abstraction layer.
 
@@ -23,7 +23,9 @@ data class DbContact(
     /** The 32-byte public key of the contact. */
     val publicKey: ByteArray,
     /** Timestamp when this contact was added to the contact list. */
-    val createdAt: Date,
+    val createdAt: Instant,
+    /** Timestamp when this contact was last updated. Also known as _last update flag_. */
+    val lastUpdateAt: Instant?,
     /** First name. */
     val firstName: String,
     /** Last name. */
@@ -38,8 +40,8 @@ data class DbContact(
     val workVerificationLevel: WorkVerificationLevel,
     /** Identity type (regular / work). */
     val identityType: IdentityType,
-    /** Acquaintance level (direct / group). */
-    val acquaintanceLevel: ContactModel.AcquaintanceLevel,
+    /** Acquaintance level (direct / group_or_deleted). */
+    val acquaintanceLevel: AcquaintanceLevel,
     /** Activity state (active / inactive / invalid). */
     val activityState: IdentityState,
     /** Contact sync state. */
@@ -50,19 +52,20 @@ data class DbContact(
     val readReceiptPolicy: ReadReceiptPolicy,
     /** Typing indicator policy. */
     val typingIndicatorPolicy: TypingIndicatorPolicy,
-    /** Whether the contact is archived or not */
-    val isArchived: Boolean,
+    /** The conversation visibility of the 1:1 chat with this contact. */
+    val conversationVisibility: ConversationVisibility,
     /** Android contact lookup key. */
     val androidContactLookupKey: String?,
     /** Local avatar expiration date. */
-    val localAvatarExpires: Date?,
+    val localAvatarExpires: Instant?,
     /** Whether this contact has been restored from backup. */
     val isRestored: Boolean,
     /** BlobId of the latest profile picture that was sent to this contact. */
     val profilePictureBlobId: ByteArray?,
     val jobTitle: String?,
     val department: String?,
-    val notificationTriggerPolicyOverride: Long?,
+    val notificationTriggerPolicyOverridePolicy: Int?,
+    val notificationTriggerPolicyOverrideExpiresAt: Instant?,
     /**
      *  In work builds, work contacts can have an optional [AvailabilityStatus.Set].
      *  On database an explicit value of [AvailabilityStatus.None] is never stored.
@@ -84,24 +87,25 @@ data class DbGroup(
     /** The group name. */
     val name: String?,
     /** The creation date. */
-    val createdAt: Date,
+    val createdAt: Instant,
     /** Currently not used. Might be used for periodic group sync. TODO(SE-146) */
-    val synchronizedAt: Date?,
+    val synchronizedAt: Instant?,
     /** Last update flag. */
-    val lastUpdate: Date?,
-    /** Is archived flag. */
-    val isArchived: Boolean,
+    val lastUpdate: Instant?,
+    /** The conversation visibility of this group chat. */
+    val conversationVisibility: ConversationVisibility,
     /** The color index. */
     val colorIndex: Int,
     /** The group description. */
     val groupDescription: String?,
     /** The group description changed timestamp. */
-    val groupDescriptionChangedAt: Date?,
+    val groupDescriptionChangedAt: Instant?,
     /** The group members' identities. */
     val members: Set<String>,
     /** The group user state. */
     val userState: UserState,
-    val notificationTriggerPolicyOverride: Long?,
+    val notificationTriggerPolicyOverridePolicy: Int?,
+    val notificationTriggerPolicyOverrideExpiresAt: Instant?,
 )
 
 data class DbEditHistoryEntry(
@@ -117,7 +121,7 @@ data class DbEditHistoryEntry(
     /** The former text of the edited message. */
     val text: String?,
     /** Timestamp when the message was edited and hence the entry created. */
-    val editedAt: Date,
+    val editedAt: Instant,
 ) {
     companion object {
         const val COLUMN_UID = "uid"
@@ -136,7 +140,7 @@ data class DbEmojiReaction(
     /** The emoji codepoint sequence of the reaction. This can never be empty */
     val emojiSequence: String,
     /** Timestamp when the reaction was locally created. */
-    val reactedAt: Date,
+    val reactedAt: Instant,
 ) {
     companion object {
         const val COLUMN_MESSAGE_ID = "messageId"

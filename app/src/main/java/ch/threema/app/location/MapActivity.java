@@ -1,5 +1,7 @@
 package ch.threema.app.location;
 
+import static org.koin.java.KoinJavaComponent.inject;
+
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.ActivityNotFoundException;
@@ -10,7 +12,6 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.location.Location;
 import android.location.LocationManager;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.View;
@@ -49,11 +50,12 @@ import java.util.List;
 import java.util.Locale;
 
 import androidx.core.view.WindowInsetsCompat;
+import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.activities.RecipientListBaseActivity;
 import ch.threema.app.activities.ThreemaActivity;
 import ch.threema.app.dialogs.GenericAlertDialog;
+import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.ui.SingleToast;
 import ch.threema.app.ui.VerticalTextView;
 import ch.threema.app.ui.ViewExtensionsKt;
@@ -67,6 +69,7 @@ import ch.threema.base.ThreemaException;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.domain.protocol.ServerAddressProvider;
 import ch.threema.storage.models.data.LocationDataModel;
+import kotlin.Lazy;
 
 import static ch.threema.app.startup.AppStartupUtilKt.finishAndRestartLaterIfNotReady;
 import static ch.threema.app.location.LocationExtensionsKt.toLatLng;
@@ -86,6 +89,7 @@ public class MapActivity extends ThreemaActivity implements GenericAlertDialog.D
 
     private static final int MAX_POI_COUNT = 50;
 
+    private final Lazy<MapLibreInitializer> mapLibreInitializerLazy = inject(MapLibreInitializer.class);
     private final Destroyer destroyer = Destroyer.createDestroyer(this);
 
     private ServerAddressProvider serverAddressProvider;
@@ -111,7 +115,7 @@ public class MapActivity extends ThreemaActivity implements GenericAlertDialog.D
             return;
         }
 
-        ConfigUtils.getMapLibreInstance();
+        mapLibreInitializerLazy.getValue().initialize();
 
         setContentView(R.layout.activity_map);
         var window = getWindow();
@@ -132,7 +136,7 @@ public class MapActivity extends ThreemaActivity implements GenericAlertDialog.D
             finish();
             return;
         }
-        var serviceManager = ThreemaApplication.requireServiceManager();
+        var serviceManager = ServiceManager.require();
         serverAddressProvider = serviceManager.getServerAddressProviderService().getServerAddressProvider();
 
         mapView.onCreate(savedInstanceState);
@@ -297,10 +301,9 @@ public class MapActivity extends ThreemaActivity implements GenericAlertDialog.D
 
     @SuppressLint("StaticFieldLeak")
     private void showNearbyPOIs(LatLng markerPosition) {
-        new AsyncTask<LatLng, Void, List<MarkerOptions>>() {
+        new LifecycleAwareAsyncTask<LatLng, List<MarkerOptions>>() {
             @Override
-            protected List<MarkerOptions> doInBackground(LatLng... latLngs) {
-                LatLng latLng = latLngs[0];
+            protected List<MarkerOptions> doInBackground(LatLng latLng) {
                 List<NearbyPoi> pois = NearbyPoiUtil.getPOIs(latLng, MAX_POI_COUNT, serverAddressProvider);
 
                 List<MarkerOptions> markerOptions = new ArrayList<>();
@@ -324,7 +327,7 @@ public class MapActivity extends ThreemaActivity implements GenericAlertDialog.D
                     maplibreMap.addMarkers(markerOptions);
                 }
             }
-        }.execute(markerPosition);
+        }.execute(this, markerPosition);
     }
 
     @SuppressLint("MissingPermission")

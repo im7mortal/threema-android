@@ -57,7 +57,7 @@
                 android:id="@+id/solve_button"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                app:icon="@drawable/ic_settings_outline_24dp"
+                app:icon="@drawable/ic_settings"
                 app:iconPadding="4dp"
                 android:text="@string/problemsolver_to_settings" />
 

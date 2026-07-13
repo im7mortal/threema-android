@@ -35,7 +35,7 @@
         <DropDownPreference
             android:key="@string/preferences__emoji_style"
             android:title="@string/prefs_emoji_style"
-            android:icon="@drawable/ic_tag_faces_outline"
+            android:icon="@drawable/ic_emoji"
             android:entries="@array/list_emoji_style"
             android:entryValues="@array/list_emoji_style_values"
             android:defaultValue="0" />

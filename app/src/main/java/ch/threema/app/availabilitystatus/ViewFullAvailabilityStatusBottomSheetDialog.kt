@@ -26,9 +26,9 @@ import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.core.os.bundleOf
 import ch.threema.app.BuildConfig
 import ch.threema.app.R
-import ch.threema.app.compose.common.SpacerVertical
-import ch.threema.app.compose.common.ThemedText
 import ch.threema.app.compose.common.extensions.get
+import ch.threema.app.compose.common.spacer.SpacerVertical
+import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.theme.ThreemaTheme
 import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.dimens.GridUnit

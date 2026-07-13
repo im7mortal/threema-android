@@ -9,7 +9,6 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.location.Location;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.BadParcelableException;
 import android.os.BaseBundle;
 import android.os.Build;
@@ -17,7 +16,6 @@ import android.os.Bundle;
 import android.os.Parcelable;
 import android.provider.DocumentsContract;
 import android.text.TextUtils;
-import android.text.format.DateUtils;
 import android.util.Pair;
 import android.util.SparseArray;
 import android.view.Menu;
@@ -31,11 +29,15 @@ import com.google.android.material.search.SearchBar;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.tabs.TabLayout;
 
+import org.jetbrains.annotations.NotNull;
 import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -58,6 +60,8 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentPagerAdapter;
 import androidx.viewpager.widget.ViewPager;
+import ch.threema.android.LifecycleAwareAsyncTask;
+import ch.threema.android.ToastDuration;
 import ch.threema.app.AppConstants;
 import ch.threema.app.BuildConfig;
 import ch.threema.app.R;
@@ -68,6 +72,7 @@ import ch.threema.app.adapters.FilterableListAdapter;
 import ch.threema.app.asynctasks.AddContactRestrictionPolicy;
 import ch.threema.app.asynctasks.BasicAddOrUpdateContactBackgroundTask;
 import ch.threema.app.asynctasks.ContactResult;
+import ch.threema.app.asynctasks.LoadDecryptedMessageFileAsyncTask;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.dialogs.CancelableHorizontalProgressDialog;
 import ch.threema.app.dialogs.ExpandableTextEntryDialog;
@@ -83,10 +88,8 @@ import ch.threema.app.fragments.WorkUserListFragment;
 import ch.threema.app.home.HomeActivity;
 import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.app.messagereceiver.SendingPermissionValidationResult;
-import ch.threema.app.services.FileService;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.startup.AppStartupAware;
-import ch.threema.app.ui.LongToast;
 import ch.threema.app.ui.MediaItem;
 import ch.threema.app.ui.SingleToast;
 import ch.threema.app.ui.ThreemaSearchView;
@@ -102,11 +105,13 @@ import ch.threema.app.utils.NameUtil;
 import ch.threema.app.utils.NavigationUtil;
 import ch.threema.app.utils.RuntimeUtil;
 import ch.threema.app.utils.ShortcutUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.utils.executor.BackgroundExecutor;
 
+import static ch.threema.android.ToastKt.showToast;
 import static ch.threema.app.startup.AppStartupUtilKt.waitUntilReady;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
+import ch.threema.domain.models.AcquaintanceLevel;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
 import ch.threema.domain.protocol.csp.messages.location.Poi;
 import ch.threema.storage.models.AbstractMessageModel;
@@ -116,7 +121,9 @@ import ch.threema.storage.models.group.GroupModelOld;
 import ch.threema.storage.models.MessageType;
 import ch.threema.storage.models.data.LocationDataModel;
 import ch.threema.storage.models.data.MessageContentsType;
+
 import java.util.concurrent.CompletableFuture;
+
 import kotlin.Lazy;
 import kotlin.Unit;
 
@@ -126,6 +133,9 @@ import static ch.threema.app.ui.MediaItem.TYPE_IMAGE;
 import static ch.threema.app.ui.MediaItem.TYPE_LOCATION;
 import static ch.threema.app.ui.MediaItem.TYPE_TEXT;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.copyStream;
+import static ch.threema.common.JavaCompat.isNullOrBlank;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 import static ch.threema.common.LazyKt.lazy;
 
 public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
@@ -180,14 +190,14 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
             for (int i = 0; i < mediaItems.size(); i++) {
                 MediaItem mediaItem = mediaItems.get(i);
 
-                if (TestUtil.isEmptyOrNull(mediaItem.getFilename())) {
+                if (isNullOrEmpty(mediaItem.getFilename())) {
                     mediaItem.setFilename(FileUtil.getFilenameFromUri(getContentResolver(), mediaItem));
                 }
 
                 if (ContentResolver.SCHEME_CONTENT.equalsIgnoreCase(mediaItem.getUri().getScheme())) {
                     try {
                         File file = dependencies.getFileService().createTempFile("rcpt", null);
-                        FileUtil.copyFile(mediaItem.getUri(), file, getContentResolver());
+                        copyFile(mediaItem.getUri(), file, getContentResolver());
                         mediaItem.setUri(Uri.fromFile(file));
                         mediaItem.setDeleteAfterUse(true);
                     } catch (IOException e) {
@@ -197,6 +207,18 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
             }
         }
     };
+
+    @WorkerThread
+    private static void copyFile(@NonNull Uri source, @NonNull File dest, @NonNull ContentResolver contentResolver) {
+        try (InputStream inputStream = contentResolver.openInputStream(source);
+             OutputStream outputStream = new FileOutputStream(dest)) {
+            if (inputStream != null) {
+                copyStream(inputStream, outputStream);
+            }
+        } catch (Exception e) {
+            logger.error("Failed to copy file", e);
+        }
+    }
 
     @Override
     public boolean onQueryTextSubmit(String query) {
@@ -321,7 +343,7 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
                 .setIcon(R.drawable.ic_group_outline)
                 .setContentDescription(R.string.title_tab_groups));
             tabLayout.addTab(tabLayout.newTab()
-                .setIcon(R.drawable.ic_bullhorn_outline)
+                .setIcon(R.drawable.ic_distribution_list)
                 .setContentDescription(R.string.title_tab_distribution_list));
 
             tabs.add(FRAGMENT_USERS);
@@ -349,7 +371,7 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
                     if (searchView != null) {
                         if (searchMenuItem != null) {
                             CharSequence query = searchView.getQuery();
-                            if (TestUtil.isBlankOrNull(query)) {
+                            if (isNullOrBlank(query)) {
                                 invalidateOptionsMenu();
                                 if (searchMenuItem.isActionViewExpanded()) {
                                     searchMenuItem.collapseActionView();
@@ -425,281 +447,291 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
     }
 
     @Override
-    protected void onNewIntent(Intent intent) {
+    protected void onNewIntent(@NonNull Intent intent) {
         logger.debug("onNewIntent");
-
         super.onNewIntent(intent);
 
         resetValues();
+        setIntent(intent);
 
-        if (intent != null) {
-            setIntent(intent);
+        try {
+            this.hideRecents = intent.getBooleanExtra(AppConstants.INTENT_DATA_HIDE_RECENTS, false);
+            this.multiSelect = intent.getBooleanExtra(INTENT_DATA_MULTISELECT, true);
+            this.multiSelectIdentities = intent.getBooleanExtra(INTENT_DATA_MULTISELECT_FOR_COMPOSE, false);
+        } catch (BadParcelableException e) {
+            logger.error("Exception", e);
+        }
 
-            try {
-                this.hideRecents = intent.getBooleanExtra(AppConstants.INTENT_DATA_HIDE_RECENTS, false);
-                this.multiSelect = intent.getBooleanExtra(INTENT_DATA_MULTISELECT, true);
-                this.multiSelectIdentities = intent.getBooleanExtra(INTENT_DATA_MULTISELECT_FOR_COMPOSE, false);
-            } catch (BadParcelableException e) {
-                logger.error("Exception", e);
-            }
+        String identity = IntentDataUtil.getIdentity(intent);
+        long groupId = IntentDataUtil.getGroupDatabaseId(intent);
+        long distributionListID = IntentDataUtil.getDistributionListId(intent);
 
-            String identity = IntentDataUtil.getIdentity(intent);
-            long groupId = IntentDataUtil.getGroupId(intent);
-            long distributionListID = IntentDataUtil.getDistributionListId(intent);
-
-            if (TestUtil.isEmptyOrNull(identity) && groupId == -1 && distributionListID == -1) {
-                // maybe a shortcut?
-                String id = intent.getStringExtra(ShortcutManagerCompat.EXTRA_SHORTCUT_ID);
-                if (!TestUtil.isEmptyOrNull(id)) {
-                    BaseBundle bundle = ShortcutUtil.getShareTargetExtrasFromShortcutId(id);
-                    if (bundle != null) {
-                        if (bundle.containsKey(AppConstants.INTENT_DATA_CONTACT)) {
-                            identity = bundle.getString(AppConstants.INTENT_DATA_CONTACT);
-                        } else if (bundle.containsKey(AppConstants.INTENT_DATA_GROUP_DATABASE_ID)) {
-                            groupId = bundle.getLong(AppConstants.INTENT_DATA_GROUP_DATABASE_ID);
-                        } else if (bundle.containsKey(AppConstants.INTENT_DATA_DISTRIBUTION_LIST_ID)) {
-                            distributionListID = bundle.getLong(AppConstants.INTENT_DATA_DISTRIBUTION_LIST_ID);
-                        }
+        if (isNullOrEmpty(identity) && groupId == -1 && distributionListID == -1) {
+            // maybe a shortcut?
+            String id = intent.getStringExtra(ShortcutManagerCompat.EXTRA_SHORTCUT_ID);
+            if (!isNullOrEmpty(id)) {
+                BaseBundle bundle = ShortcutUtil.getShareTargetExtrasFromShortcutId(id);
+                if (bundle != null) {
+                    if (bundle.containsKey(AppConstants.INTENT_DATA_CONTACT)) {
+                        identity = bundle.getString(AppConstants.INTENT_DATA_CONTACT);
+                    } else if (bundle.containsKey(AppConstants.INTENT_DATA_GROUP_DATABASE_ID)) {
+                        groupId = bundle.getLong(AppConstants.INTENT_DATA_GROUP_DATABASE_ID);
+                    } else if (bundle.containsKey(AppConstants.INTENT_DATA_DISTRIBUTION_LIST_ID)) {
+                        distributionListID = bundle.getLong(AppConstants.INTENT_DATA_DISTRIBUTION_LIST_ID);
                     }
                 }
             }
+        }
 
-            if (groupId > 0 || distributionListID > 0 || !TestUtil.isEmptyOrNull(identity)) {
-                hideUi = true;
-            }
+        if (groupId > 0 || distributionListID > 0 || !isNullOrEmpty(identity)) {
+            hideUi = true;
+        }
 
-            String action = intent.getAction();
-            if (action != null) {
-                // called from other app via regular send intent
-                if (action.equals(Intent.ACTION_SEND)) {
-                    String type = intent.getType();
-                    Uri uri = null;
-                    Parcelable parcelable = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+        String action = intent.getAction();
+        if (action != null) {
+            // called from other app via regular send intent
+            if (action.equals(Intent.ACTION_SEND)) {
+                String type = intent.getType();
+                Uri uri = null;
+                Parcelable parcelable = intent.getParcelableExtra(Intent.EXTRA_STREAM);
 
-                    if (parcelable != null) {
-                        if (!(parcelable instanceof Uri)) {
-                            parcelable = Uri.parse(parcelable.toString());
-                        }
-                        uri = (Uri) parcelable;
+                if (parcelable != null) {
+                    if (!(parcelable instanceof Uri)) {
+                        parcelable = Uri.parse(parcelable.toString());
                     }
+                    uri = (Uri) parcelable;
+                }
 
-                    if (type != null && (uri != null || MimeUtil.isText(type))) {
-                        if (type.equals(MimeUtil.MIME_TYPE_EMAIL)) {
-                            // email attachments
-                            //  extract file type from uri path
-                            String mimeType = FileUtil.getMimeTypeFromUri(this, uri);
-                            if (!TestUtil.isEmptyOrNull(mimeType)) {
-                                type = mimeType;
-                            }
+                if (type != null && (uri != null || MimeUtil.isText(type))) {
+                    if (type.equals(MimeUtil.MIME_TYPE_EMAIL)) {
+                        // email attachments
+                        //  extract file type from uri path
+                        String mimeType = FileUtil.getMimeTypeFromUri(this, uri);
+                        if (!isNullOrEmpty(mimeType)) {
+                            type = mimeType;
+                        }
 
-                            // email body text - can be null
-                            CharSequence charSequence = intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
-                            if (charSequence != null) {
-                                String textIntent = charSequence.toString();
-                                if (!(textIntent.contains("---") && textIntent.contains("WhatsApp"))) {
-                                    // whatsapp forwards media as rfc822 with a footer
-                                    // strip this footer
-                                    mediaItems.add(new MediaItem(uri, TYPE_TEXT, MimeUtil.MIME_TYPE_TEXT, textIntent));
-                                }
+                        // email body text - can be null
+                        CharSequence charSequence = intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
+                        if (charSequence != null) {
+                            String textIntent = charSequence.toString();
+                            if (!(textIntent.contains("---") && textIntent.contains("WhatsApp"))) {
+                                // whatsapp forwards media as rfc822 with a footer
+                                // strip this footer
+                                mediaItems.add(new MediaItem(uri, TYPE_TEXT, MimeUtil.MIME_TYPE_TEXT, textIntent));
                             }
                         }
-                        if (type.equals(MimeUtil.MIME_TYPE_TEXT)) {
-                            String textIntent = getTextFromIntent(intent);
-                            if (GeoLocationUtil.isValidGeoUri(uri)) {
-                                mediaItems.add(new MediaItem(uri, MediaItem.TYPE_LOCATION, MimeUtil.MIME_TYPE_ANY, textIntent));
-                            } else if (uri != null) {
-                                // default to sending text as file
-                                type = "x-text/plain";
+                    }
+                    if (type.equals(MimeUtil.MIME_TYPE_TEXT)) {
+                        String textIntent = getTextFromIntent(intent);
+                        if (GeoLocationUtil.isValidGeoUri(uri)) {
+                            mediaItems.add(new MediaItem(uri, MediaItem.TYPE_LOCATION, MimeUtil.MIME_TYPE_ANY, textIntent));
+                        } else if (uri != null) {
+                            // default to sending text as file
+                            type = "x-text/plain";
 
-                                String guessedType = getMimeTypeFromContentUri(uri);
-                                if (guessedType != null) {
+                            String guessedType = getMimeTypeFromContentUri(uri);
+                            if (guessedType != null) {
+                                type = guessedType;
+                            }
+
+                            addMediaItemSharedFromOtherApp(type, uri, textIntent);
+                            if (textIntent != null) {
+                                captionText = textIntent;
+                            }
+                        } else if (textIntent != null) {
+                            mediaItems.add(new MediaItem(null, TYPE_TEXT, MimeUtil.MIME_TYPE_TEXT, textIntent));
+                        }
+                    } else {
+                        if (uri != null) {
+                            // guess the correct mime type as ACTION_SEND may have been called with a generic mime type such as "image/*" which should be overridden
+                            String guessedType = getMimeTypeFromContentUri(uri);
+                            if (guessedType != null) {
+                                if (!guessedType.equals(MimeUtil.MIME_TYPE_DEFAULT) || type.equals("*")) {
                                     type = guessedType;
                                 }
+                            }
 
+                            String textIntent = getTextFromIntent(intent);
+                            // don't add fixed caption to media item because we want it to be editable when sending a zip file (share chat)
+                            if (type.equals(MimeUtil.MIME_TYPE_ZIP) && textIntent != null) {
+                                captionText = textIntent;
+                                mediaItems.add(new MediaItem(uri, MediaItem.TYPE_FILE, MimeUtil.MIME_TYPE_ZIP, textIntent));
+                            } else { // if text was shared along with the media item, add that too
                                 addMediaItemSharedFromOtherApp(type, uri, textIntent);
-                                if (textIntent != null) {
-                                    captionText = textIntent;
-                                }
-                            } else if (textIntent != null) {
-                                mediaItems.add(new MediaItem(null, TYPE_TEXT, MimeUtil.MIME_TYPE_TEXT, textIntent));
-                            }
-                        } else {
-                            if (uri != null) {
-                                // guess the correct mime type as ACTION_SEND may have been called with a generic mime type such as "image/*" which should be overridden
-                                String guessedType = getMimeTypeFromContentUri(uri);
-                                if (guessedType != null) {
-                                    if (!guessedType.equals(MimeUtil.MIME_TYPE_DEFAULT) || type.equals("*")) {
-                                        type = guessedType;
-                                    }
-                                }
-
-                                String textIntent = getTextFromIntent(intent);
-                                // don't add fixed caption to media item because we want it to be editable when sending a zip file (share chat)
-                                if (type.equals(MimeUtil.MIME_TYPE_ZIP) && textIntent != null) {
-                                    captionText = textIntent;
-                                    mediaItems.add(new MediaItem(uri, MediaItem.TYPE_FILE, MimeUtil.MIME_TYPE_ZIP, textIntent));
-                                } else { // if text was shared along with the media item, add that too
-                                    addMediaItemSharedFromOtherApp(type, uri, textIntent);
-                                }
                             }
                         }
-                    } else {
-                        // try ClipData
-                        ClipData clipData = intent.getClipData();
-                        if (clipData != null && clipData.getItemCount() > 0) {
-                            for (int i = 0; i < clipData.getItemCount(); i++) {
-                                Uri uri1 = clipData.getItemAt(i).getUri();
-                                CharSequence text = clipData.getItemAt(i).getText();
+                    }
+                } else {
+                    // try ClipData
+                    ClipData clipData = intent.getClipData();
+                    if (clipData != null && clipData.getItemCount() > 0) {
+                        for (int i = 0; i < clipData.getItemCount(); i++) {
+                            Uri uri1 = clipData.getItemAt(i).getUri();
+                            CharSequence text = clipData.getItemAt(i).getText();
 
-                                if (uri1 != null) {
-                                    addMediaItemSharedFromOtherApp(type, uri1, null);
-                                } else if (!TestUtil.isBlankOrNull(text)) {
-                                    mediaItems.add(new MediaItem(uri, TYPE_TEXT, MimeUtil.MIME_TYPE_TEXT, text.toString()));
-                                }
+                            if (uri1 != null) {
+                                addMediaItemSharedFromOtherApp(type, uri1, null);
+                            } else if (!isNullOrBlank(text)) {
+                                mediaItems.add(new MediaItem(uri, TYPE_TEXT, MimeUtil.MIME_TYPE_TEXT, text.toString()));
                             }
-                        }
-
-                        if (mediaItems.isEmpty()) {
-                            Toast.makeText(this, getString(R.string.invalid_data), Toast.LENGTH_LONG).show();
-                            finish();
                         }
                     }
 
-                    if (!TestUtil.isEmptyOrNull(identity)) {
-                        prepareForwardingOrSharing(new ArrayList<>(Collections.singletonList(dependencies.getContactService().getByIdentity(identity))));
-                    } else if (groupId > 0) {
-                        prepareForwardingOrSharing(new ArrayList<>(Collections.singletonList(dependencies.getGroupService().getById(groupId))));
-                    } else if (distributionListID > 0) {
-                        prepareForwardingOrSharing(new ArrayList<>(Collections.singletonList(dependencies.getDistributionListService().getById(distributionListID))));
-                    }
-                } else if (action.equals(Intent.ACTION_SENDTO)) {
-                    // called from contact app or quickcontactbadge
-                    if (dependencies.getLockAppService().isLocked()) {
+                    if (mediaItems.isEmpty()) {
+                        Toast.makeText(this, getString(R.string.invalid_data), Toast.LENGTH_LONG).show();
                         finish();
-                        return;
                     }
+                }
 
-                    // try to extract identity from intent data
-                    Uri uri = intent.getData();
+                if (!isNullOrEmpty(identity)) {
+                    prepareForwardingOrSharing(new ArrayList<>(Collections.singletonList(dependencies.getContactService().getByIdentity(identity))));
+                } else if (groupId > 0) {
+                    prepareForwardingOrSharing(new ArrayList<>(Collections.singletonList(dependencies.getGroupService().getById(groupId))));
+                } else if (distributionListID > 0) {
+                    prepareForwardingOrSharing(new ArrayList<>(Collections.singletonList(dependencies.getDistributionListService().getById(distributionListID))));
+                }
+            } else if (action.equals(Intent.ACTION_SENDTO)) {
+                // called from contact app or quickcontactbadge
+                if (dependencies.getLockAppService().isLocked()) {
+                    finish();
+                    return;
+                }
 
-                    // skip user selection if recipient is already known
-                    if (uri != null && "smsto".equals(uri.getScheme())) {
-                        mediaItems.add(new MediaItem(uri, TYPE_TEXT, MimeUtil.MIME_TYPE_TEXT, intent.getStringExtra("sms_body")));
+                // try to extract identity from intent data
+                Uri uri = intent.getData();
 
-                        final ContactModel contactModel = ContactLookupUtil.phoneNumberToContact(this, dependencies.getContactService(), uri.getSchemeSpecificPart());
+                // skip user selection if recipient is already known
+                if (uri != null && "smsto".equals(uri.getScheme())) {
+                    mediaItems.add(new MediaItem(uri, TYPE_TEXT, MimeUtil.MIME_TYPE_TEXT, intent.getStringExtra("sms_body")));
 
-                        if (contactModel != null) {
-                            prepareComposeIntent(new ArrayList<>(Collections.singletonList(contactModel)), false);
-                        } else {
-                            finish();
-                        }
-                        return;
+                    final ContactModel contactModel = ContactLookupUtil.phoneNumberToContact(this, dependencies.getContactService(), uri.getSchemeSpecificPart());
+
+                    if (contactModel != null) {
+                        prepareComposeIntent(new ArrayList<>(Collections.singletonList(contactModel)), false);
+                    } else {
+                        finish();
                     }
-                } else if (action.equals(Intent.ACTION_VIEW)) {
-                    // called from action URL
-                    Uri dataUri = intent.getData();
+                    return;
+                }
+            } else if (action.equals(Intent.ACTION_VIEW)) {
+                // called from action URL
+                Uri dataUri = intent.getData();
 
-                    if (dataUri != null) {
-                        String scheme = dataUri.getScheme();
-                        String host = dataUri.getHost();
+                boolean handled = false;
+                if (dataUri != null) {
+                    String scheme = dataUri.getScheme();
+                    String host = dataUri.getHost();
 
-                        if (scheme != null && host != null) {
-                            if (
-                                (BuildConfig.uriScheme.equals(scheme) && "compose".equals(host))
-                                    ||
-                                    ("https".equals(scheme) && (BuildConfig.actionUrl.equals(host) || BuildConfig.contactActionUrl.equals(host)) && "/compose".equals(dataUri.getPath()))
-                            ) {
-                                if (dependencies.getLockAppService().isLocked()) {
-                                    finish();
-                                    return;
-                                }
-
-                                String text = dataUri.getQueryParameter("text");
-                                if (!TestUtil.isEmptyOrNull(text)) {
-                                    mediaItems.add(new MediaItem(dataUri, TYPE_TEXT, MimeUtil.MIME_TYPE_TEXT, text));
-                                }
-
-                                String targetIdentity;
-                                String queryParameter = dataUri.getQueryParameter("id");
-                                if (queryParameter != null) {
-                                    targetIdentity = queryParameter.toUpperCase();
-                                    ContactModel contactModel = dependencies.getContactService().getByIdentity(targetIdentity);
-
-                                    if (contactModel == null) {
-                                        addNewContact(targetIdentity);
-                                    } else {
-                                        prepareComposeIntent(new ArrayList<>(Collections.singletonList(contactModel)), false);
-                                    }
-                                }
-                            } else {
-                                // redirect to chat
-                                MessageReceiver messageReceiver = IntentDataUtil.getMessageReceiverFromExtras(intent.getExtras(), dependencies.getContactService(), dependencies.getGroupService(), dependencies.getDistributionListService());
-                                if (messageReceiver != null) {
-                                    Intent composeIntent = IntentDataUtil.getComposeIntentForReceivers(this, new ArrayList<>(Collections.singletonList(messageReceiver)));
-                                    startComposeActivity(composeIntent);
-                                }
+                    if (scheme != null && host != null) {
+                        if (
+                            (BuildConfig.uriScheme.equals(scheme) && "compose".equals(host))
+                                ||
+                                ("https".equals(scheme) && (BuildConfig.actionUrl.equals(host) || BuildConfig.contactActionUrl.equals(host)) && "/compose".equals(dataUri.getPath()))
+                        ) {
+                            if (dependencies.getLockAppService().isLocked()) {
+                                finish();
                                 return;
                             }
-                        }
-                    }
-                } else if (action.equals(Intent.ACTION_SEND_MULTIPLE) && intent.hasExtra(Intent.EXTRA_STREAM)) {
-                    // called from other app with multiple media payload
-                    String type = intent.getType();
 
-                    ArrayList<Uri> uris = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
-                    if (uris != null) {
-                        for (int i = 0; i < uris.size(); i++) {
-                            if (i < MAX_FORWARDABLE_ITEMS) {
-                                Uri uri = uris.get(i);
-                                if (uri != null) {
-                                    String mimeType = FileUtil.getMimeTypeFromUri(this, uri);
-                                    if (mimeType == null) {
-                                        mimeType = type;
-                                    }
-                                    addMediaItemSharedFromOtherApp(mimeType, uri, null);
+                            String text = dataUri.getQueryParameter("text");
+                            if (!isNullOrEmpty(text)) {
+                                mediaItems.add(new MediaItem(dataUri, TYPE_TEXT, MimeUtil.MIME_TYPE_TEXT, text));
+                            }
+
+                            String targetIdentity;
+                            String queryParameter = dataUri.getQueryParameter("id");
+                            if (queryParameter != null) {
+                                targetIdentity = queryParameter.toUpperCase();
+                                ContactModel contactModel = dependencies.getContactService().getByIdentity(targetIdentity);
+
+                                if (contactModel == null) {
+                                    addNewContact(targetIdentity);
+                                } else {
+                                    prepareComposeIntent(new ArrayList<>(Collections.singletonList(contactModel)), false);
                                 }
-                            } else {
-                                Toast.makeText(getApplicationContext(), getString(R.string.max_selectable_media_exceeded, MAX_FORWARDABLE_ITEMS), Toast.LENGTH_LONG).show();
-                                break;
                             }
-                        }
-
-                        if (!TestUtil.isEmptyOrNull(identity)) {
-                            prepareForwardingOrSharing(new ArrayList<>(Collections.singletonList(dependencies.getContactService().getByIdentity(identity))));
-                        }
-
-                        if (groupId > 0) {
-                            prepareForwardingOrSharing(new ArrayList<>(Collections.singletonList(dependencies.getGroupService().getById(groupId))));
-                        }
-                    } else {
-                        finish();
-                        return;
-                    }
-                } else if (action.equals(AppConstants.INTENT_ACTION_FORWARD)) {
-                    // internal forward using message id instead of media URI
-                    ArrayList<Integer> messageIds = IntentDataUtil.getAbstractMessageIds(intent);
-                    String originalMessageType = IntentDataUtil.getAbstractMessageType(intent);
-
-                    if (messageIds != null && !messageIds.isEmpty()) {
-                        for (int messageId : messageIds) {
-                            AbstractMessageModel model = dependencies.getMessageService().getMessageModelFromId(messageId, originalMessageType);
-                            if (model != null && model.getType() != MessageType.BALLOT) {
-                                originalMessageModels.add(model);
-                            }
+                            handled = true;
                         }
                     }
-
-                    isInternallyForwardingMediaFiles = originalMessageModels.stream().allMatch(
-                        messageModel ->
-                            messageModel.getMessageContentsType() == MessageContentsType.FILE ||
-                                messageModel.getMessageContentsType() == MessageContentsType.IMAGE ||
-                                messageModel.getMessageContentsType() == MessageContentsType.VIDEO ||
-                                messageModel.getMessageContentsType() == MessageContentsType.GIF ||
-                                messageModel.getMessageContentsType() == MessageContentsType.AUDIO ||
-                                messageModel.getMessageContentsType() == MessageContentsType.VOICE_MESSAGE ||
-                                messageModel.getMessageContentsType() == MessageContentsType.CONTACT
-                    );
                 }
+                if (!handled) {
+                    // redirect to chat
+                    final @Nullable MessageReceiver messageReceiver = IntentDataUtil.getMessageReceiverFromExtras(
+                        intent.getExtras(),
+                        dependencies.getContactService(),
+                        dependencies.getGroupService(),
+                        dependencies.getDistributionListService()
+                    );
+                    if (messageReceiver != null) {
+                        Intent composeIntent = ComposeMessageActivity.createIntent(
+                            this,
+                            messageReceiver.getConversationId(),
+                            null,
+                            true
+                        );
+                        composeIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                        startComposeActivity(composeIntent);
+                    }
+                    return;
+                }
+            } else if (action.equals(Intent.ACTION_SEND_MULTIPLE) && intent.hasExtra(Intent.EXTRA_STREAM)) {
+                // called from other app with multiple media payload
+                String type = intent.getType();
+
+                ArrayList<Uri> uris = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+                if (uris != null) {
+                    for (int i = 0; i < uris.size(); i++) {
+                        if (i < MAX_FORWARDABLE_ITEMS) {
+                            Uri uri = uris.get(i);
+                            if (uri != null) {
+                                String mimeType = FileUtil.getMimeTypeFromUri(this, uri);
+                                if (mimeType == null) {
+                                    mimeType = type;
+                                }
+                                addMediaItemSharedFromOtherApp(mimeType, uri, null);
+                            }
+                        } else {
+                            Toast.makeText(getApplicationContext(), getString(R.string.max_selectable_media_exceeded, MAX_FORWARDABLE_ITEMS), Toast.LENGTH_LONG).show();
+                            break;
+                        }
+                    }
+
+                    if (!isNullOrEmpty(identity)) {
+                        prepareForwardingOrSharing(new ArrayList<>(Collections.singletonList(dependencies.getContactService().getByIdentity(identity))));
+                    }
+
+                    if (groupId > 0) {
+                        prepareForwardingOrSharing(new ArrayList<>(Collections.singletonList(dependencies.getGroupService().getById(groupId))));
+                    }
+                } else {
+                    finish();
+                    return;
+                }
+            } else if (action.equals(AppConstants.INTENT_ACTION_FORWARD)) {
+                // internal forward using message id instead of media URI
+                ArrayList<Integer> messageIds = IntentDataUtil.getAbstractMessageIds(intent);
+                String originalMessageType = IntentDataUtil.getAbstractMessageType(intent);
+
+                if (messageIds != null && !messageIds.isEmpty()) {
+                    for (int messageId : messageIds) {
+                        AbstractMessageModel model = dependencies.getMessageService().getMessageModelFromId(messageId, originalMessageType);
+                        if (model != null && model.getType() != MessageType.POLL) {
+                            originalMessageModels.add(model);
+                        }
+                    }
+                }
+
+                isInternallyForwardingMediaFiles = originalMessageModels.stream().allMatch(
+                    messageModel ->
+                        messageModel.getMessageContentsType() == MessageContentsType.FILE ||
+                            messageModel.getMessageContentsType() == MessageContentsType.IMAGE ||
+                            messageModel.getMessageContentsType() == MessageContentsType.VIDEO ||
+                            messageModel.getMessageContentsType() == MessageContentsType.GIF ||
+                            messageModel.getMessageContentsType() == MessageContentsType.AUDIO ||
+                            messageModel.getMessageContentsType() == MessageContentsType.VOICE_MESSAGE ||
+                            messageModel.getMessageContentsType() == MessageContentsType.CONTACT
+                );
             }
         }
 
@@ -717,7 +749,7 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
             try (Cursor cursor = getContentResolver().query(uri, proj, null, null, null)) {
                 if (cursor != null && cursor.moveToFirst()) {
                     String mimeType = cursor.getString(cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE));
-                    if (!TestUtil.isEmptyOrNull(mimeType)) {
+                    if (!isNullOrEmpty(mimeType)) {
                         return mimeType;
                     }
                 }
@@ -725,9 +757,9 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
             }
 
             String filemame = FileUtil.getFilenameFromUri(getContentResolver(), uri);
-            if (!TestUtil.isEmptyOrNull(filemame)) {
+            if (!isNullOrEmpty(filemame)) {
                 String mimeType = FileUtil.getMimeTypeFromPath(filemame);
-                if (!TestUtil.isEmptyOrNull(mimeType)) {
+                if (!isNullOrEmpty(mimeType)) {
                     return mimeType;
                 }
             }
@@ -739,11 +771,11 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
         String subject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
         String text = intent.getStringExtra(Intent.EXTRA_TEXT);
 
-        if (TestUtil.isEmptyOrNull(text)) {
+        if (isNullOrEmpty(text)) {
             return subject;
         }
 
-        if (TestUtil.isEmptyOrNull(subject) || text.startsWith(subject)) {
+        if (isNullOrEmpty(subject) || text.startsWith(subject)) {
             return text;
         }
 
@@ -789,9 +821,8 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
             backgroundExecutor.getValue().execute(
                 new BasicAddOrUpdateContactBackgroundTask(
                     identity,
-                    ContactModel.AcquaintanceLevel.DIRECT,
-                    dependencies.getUserService().getIdentity(),
-                    dependencies.getApiConnector(),
+                    AcquaintanceLevel.DIRECT,
+                    dependencies.getValidContactsLookupSteps(),
                     dependencies.getContactModelRepository(),
                     AddContactRestrictionPolicy.CHECK,
                     dependencies.getAppRestrictions(),
@@ -846,7 +877,7 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
                 }
                 return false;
             });
-            if (!TestUtil.isEmptyOrNull(queryText)) {
+            if (!isNullOrEmpty(queryText)) {
                 this.searchMenuItem.expandActionView();
                 this.searchView.setIconified(false);
                 this.searchView.setQuery(queryText, true);
@@ -884,7 +915,19 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
             .map(this::getMessageReceiver)
             .collect(Collectors.toCollection(ArrayList<MessageReceiver>::new));
 
-        Intent intent = IntentDataUtil.getComposeIntentForReceivers(this, messageReceivers);
+        final @NonNull Intent intent;
+        if (!messageReceivers.isEmpty()) {
+            intent = ComposeMessageActivity.createIntent(
+                this,
+                messageReceivers.get(0).getConversationId(),
+                null,
+                true
+            );
+        } else {
+            intent = HomeActivity.createIntent(this);
+
+        }
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
         if (!originalMessageModels.isEmpty()) {
             this.forwardMessages(messageReceivers.toArray(new MessageReceiver[0]), intent, keepOriginalCaptions);
@@ -907,9 +950,9 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
 
     void forwardSingleMessage(final MessageReceiver[] messageReceivers, final int i, final Intent intent, final boolean keepOriginalCaptions) {
         final AbstractMessageModel messageModel = originalMessageModels.get(i);
-        dependencies.getFileService().loadDecryptedMessageFile(messageModel, new FileService.OnDecryptedFileComplete() {
+        new LoadDecryptedMessageFileAsyncTask(dependencies.getFileService()) {
             @Override
-            public void complete(File decryptedFile) {
+            public void onSuccess(@Nullable File decryptedFile) {
                 RuntimeUtil.runOnUiThread(() -> DialogUtil.updateProgress(getSupportFragmentManager(), DIALOG_TAG_MULTISEND, i));
 
                 if (messageModel.isAvailable()) {
@@ -921,15 +964,6 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
                     String caption = keepOriginalCaptions ? messageModel.getCaption() : captionText;
 
                     switch (messageModel.getType()) {
-                        case IMAGE:
-                            sendForwardedMedia(messageReceivers, uri, caption, TYPE_IMAGE, null, FileData.RENDERING_MEDIA, null, 0L);
-                            break;
-                        case VIDEO:
-                            sendForwardedMedia(messageReceivers, uri, caption, MediaItem.TYPE_VIDEO, null, FileData.RENDERING_MEDIA, null, messageModel.getVideoData().getDuration() * DateUtils.SECOND_IN_MILLIS);
-                            break;
-                        case VOICEMESSAGE:
-                            sendForwardedMedia(messageReceivers, uri, caption, MediaItem.TYPE_VOICEMESSAGE, MimeUtil.MIME_TYPE_AUDIO_AAC, FileData.RENDERING_MEDIA, null, messageModel.getAudioData().getDuration() * DateUtils.SECOND_IN_MILLIS);
-                            break;
                         case FILE:
                             int mediaType = MediaItem.TYPE_FILE;
                             String mimeType = messageModel.getFileData().getMimeType();
@@ -954,21 +988,24 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
                 if (i < originalMessageModels.size() - 1) {
                     forwardSingleMessage(messageReceivers, i + 1, intent, keepOriginalCaptions);
                 } else {
-                    RuntimeUtil.runOnUiThread(() -> DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_MULTISEND, true));
-                    startComposeActivity(intent);
+                    RuntimeUtil.runOnUiThread(() -> {
+                        DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_MULTISEND, true);
+                        startComposeActivity(intent);
+                    });
                 }
             }
 
             @Override
-            public void error(String message) {
-                logger.error("Could not load message file: {}", message);
+            public void onError(@NotNull Exception e) {
+                logger.error("Could not load message file", e);
                 RuntimeUtil.runOnUiThread(() -> {
                     SingleToast.getInstance().showLongText(getString(R.string.an_error_occurred_during_send));
                     DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_MULTISEND, true);
                 });
                 finish();
             }
-        });
+        }
+            .execute(this, messageModel);
     }
 
     @UiThread
@@ -1058,8 +1095,7 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
             return;
         }
 
-        //noinspection deprecation
-        new AsyncTask<Void, Void, Void>() {
+        new LifecycleAwareAsyncTask<Void, Void>() {
 
             @Override
             protected void onPreExecute() {
@@ -1070,75 +1106,68 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
             }
 
             @Override
-            protected Void doInBackground(Void... voids) {
-                dependencies.getFileService().loadDecryptedMessageFiles(
-                    originalMessageModels,
-                    new FileService.OnDecryptedFilesComplete() {
-                        @Override
-                        public void complete(ArrayList<Uri> uris) {
-                            ArrayList<MediaItem> mappedMediaItems = new ArrayList<>();
+            protected Void doInBackground(Void params) {
+                try {
+                    var files = dependencies.getFileService().decryptMessageFiles(originalMessageModels);
 
-                            for (int i = 0; i < uris.size(); i++) {
-                                final AbstractMessageModel originalMessageModel = originalMessageModels.get(i);
-                                final Uri fileUri = uris.get(i);
+                    ArrayList<MediaItem> mappedMediaItems = new ArrayList<>();
 
-                                if (fileUri == null || originalMessageModel == null || !originalMessageModel.isAvailable()) {
-                                    continue;
-                                }
+                    for (int i = 0; i < files.size(); i++) {
+                        final AbstractMessageModel originalMessageModel = originalMessageModels.get(i);
+                        final Uri fileUri = Uri.fromFile(files.get(i));
 
-                                final String mimeType = MimeUtil.getMimeTypeFromMessageModel(originalMessageModel);
-                                final int mediaType = determineMediaType(mimeType, fileUri, originalMessageModel);
-
-                                final MediaItem mediaItem = new MediaItem(
-                                    fileUri,
-                                    mediaType,
-                                    mimeType,
-                                    originalMessageModel.getCaption()
-                                );
-
-                                final @Nullable String existingFilename = originalMessageModel.getFileData().getFileName();
-                                if (!TestUtil.isBlankOrNull(existingFilename)) {
-                                    mediaItem.setFilename(existingFilename);
-                                }
-
-                                if (originalMessageModel.getMessageContentsType() == MessageContentsType.IMAGE) {
-                                    if (originalMessageModel.getFileData().getRenderingType() == FileData.RENDERING_DEFAULT) {
-                                        mediaItem.setImageScale(PreferenceService.IMAGE_SCALE_SEND_AS_FILE);
-                                    }
-                                } else if (originalMessageModel.getMessageContentsType() == MessageContentsType.VIDEO) {
-                                    if (originalMessageModel.getFileData().getRenderingType() == FileData.RENDERING_DEFAULT) {
-                                        mediaItem.setVideoSize(PreferenceService.VIDEO_SIZE_SEND_AS_FILE);
-                                    }
-                                } else if (originalMessageModel.getMessageContentsType() == MessageContentsType.VOICE_MESSAGE) {
-                                    mediaItem.setDurationMs(
-                                        originalMessageModel.getFileData().getDurationMs()
-                                    );
-                                }
-
-                                mappedMediaItems.add(mediaItem);
-                            }
-
-                            if (mappedMediaItems.isEmpty()) {
-                                return;
-                            }
-
-                            Intent intent = IntentDataUtil.addMessageReceiversToIntent(
-                                new Intent(RecipientListBaseActivity.this, SendMediaActivity.class),
-                                recipientMessageReceivers.toArray(new MessageReceiver[0])
-                            );
-                            intent.putExtra(SendMediaActivity.EXTRA_MEDIA_ITEMS, mappedMediaItems);
-                            intent.putExtra(AppConstants.INTENT_DATA_TEXT, combinedRecipientName);
-                            startActivityForResult(intent, ThreemaActivity.ACTIVITY_ID_SEND_MEDIA);
+                        if (originalMessageModel == null || !originalMessageModel.isAvailable()) {
+                            continue;
                         }
 
-                        @Override
-                        public void error(String message) {
-                            RuntimeUtil.runOnUiThread(
-                                () -> LongToast.makeText(getApplicationContext(), message, Toast.LENGTH_LONG).show()
+                        final String mimeType = MimeUtil.getMimeTypeFromMessageModel(originalMessageModel);
+                        final int mediaType = determineMediaType(mimeType, fileUri, originalMessageModel);
+
+                        final MediaItem mediaItem = new MediaItem(
+                            fileUri,
+                            mediaType,
+                            mimeType,
+                            originalMessageModel.getCaption()
+                        );
+
+                        final @Nullable String existingFilename = originalMessageModel.getFileData().getFileName();
+                        if (!isNullOrBlank(existingFilename)) {
+                            mediaItem.setFilename(existingFilename);
+                        }
+
+                        if (originalMessageModel.getMessageContentsType() == MessageContentsType.IMAGE) {
+                            if (originalMessageModel.getFileData().getRenderingType() == FileData.RENDERING_DEFAULT) {
+                                mediaItem.setImageScale(PreferenceService.IMAGE_SCALE_SEND_AS_FILE);
+                            }
+                        } else if (originalMessageModel.getMessageContentsType() == MessageContentsType.VIDEO) {
+                            if (originalMessageModel.getFileData().getRenderingType() == FileData.RENDERING_DEFAULT) {
+                                mediaItem.setVideoSize(PreferenceService.VIDEO_SIZE_SEND_AS_FILE);
+                            }
+                        } else if (originalMessageModel.getMessageContentsType() == MessageContentsType.VOICE_MESSAGE) {
+                            mediaItem.setDurationMs(
+                                originalMessageModel.getFileData().getDurationMs()
                             );
                         }
+
+                        mappedMediaItems.add(mediaItem);
                     }
-                );
+
+                    if (mappedMediaItems.isEmpty()) {
+                        return null;
+                    }
+
+                    Intent intent = IntentDataUtil.addMessageReceiversToIntent(
+                        new Intent(RecipientListBaseActivity.this, SendMediaActivity.class),
+                        recipientMessageReceivers.toArray(new MessageReceiver[0])
+                    );
+                    intent.putExtra(SendMediaActivity.EXTRA_MEDIA_ITEMS, mappedMediaItems);
+                    intent.putExtra(AppConstants.INTENT_DATA_TEXT, combinedRecipientName);
+                    startActivityForResult(intent, ThreemaActivity.ACTIVITY_ID_SEND_MEDIA);
+
+                } catch (Exception e) {
+                    logger.error("Failed to forward media", e);
+                    showToast(getApplicationContext(), R.string.media_file_not_found, ToastDuration.LONG);
+                }
 
                 return null;
             }
@@ -1160,7 +1189,7 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
                 );
             }
 
-        }.execute();
+        }.execute(this, null);
     }
 
     @NonNull
@@ -1243,10 +1272,7 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
 
                     if (originalMessageModels.size() == 1) {
                         presetCaption = originalMessageModels.get(0).getCaption();
-                        if (originalMessageModels.get(0).getType() == MessageType.VIDEO ||
-                            originalMessageModels.get(0).getType() == MessageType.IMAGE ||
-                            originalMessageModels.get(0).getType() == MessageType.VOICEMESSAGE ||
-                            originalMessageModels.get(0).getType() == MessageType.FILE) {
+                        if (originalMessageModels.get(0).getType() == MessageType.FILE) {
                             expandable = true;
                         }
                     } else {
@@ -1393,7 +1419,19 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == ACTIVITY_ID_SEND_MEDIA) {
             if (resultCode == RESULT_OK) {
-                startComposeActivityAsync(IntentDataUtil.getComposeIntentForReceivers(this, (ArrayList<MessageReceiver>) recipientMessageReceivers));
+                final @NonNull Intent intent;
+                if (!recipientMessageReceivers.isEmpty()) {
+                    intent = ComposeMessageActivity.createIntent(
+                        this,
+                        recipientMessageReceivers.get(0).getConversationId(),
+                        null,
+                        true
+                    );
+                } else {
+                    intent = HomeActivity.createIntent(this);
+                }
+                intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                startComposeActivityAsync(intent);
             } else if (hideUi) {
                 finish();
             }
@@ -1523,7 +1561,7 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
             mediaItem.setRenderingType(renderingType);
         }
         mediaItem.setCaption(caption);
-        if (!TestUtil.isEmptyOrNull(filename)) {
+        if (!isNullOrEmpty(filename)) {
             mediaItem.setFilename(filename);
         }
         if (renderingType == FileData.RENDERING_MEDIA) {
@@ -1576,7 +1614,7 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
             .sendTextMessage(messageReceivers, text, new SendAction.ActionHandler() {
                 @Override
                 public void onError(final String errorMessage) {
-                    if (!TestUtil.isEmptyOrNull(errorMessage)) {
+                    if (!isNullOrEmpty(errorMessage)) {
                         RuntimeUtil.runOnUiThread(() -> Toast.makeText(RecipientListBaseActivity.this, errorMessage, Toast.LENGTH_SHORT).show());
                     }
                     if (hideUi) {
@@ -1603,7 +1641,7 @@ public class RecipientListBaseActivity extends ThreemaToolbarActivity implements
         this.captionText = text;
 
         if (data instanceof ArrayList) {
-            if (!TestUtil.isEmptyOrNull(text)) {
+            if (!isNullOrEmpty(text)) {
                 for (MediaItem mediaItem : mediaItems) {
                     mediaItem.setCaption(text);
                 }

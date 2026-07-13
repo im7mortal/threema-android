@@ -1,8 +1,6 @@
 package ch.threema.app.services;
 
-import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.Bitmap;
 import android.text.TextUtils;
 import android.widget.ImageView;
@@ -11,10 +9,10 @@ import com.bumptech.glide.RequestManager;
 
 import org.slf4j.Logger;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -29,32 +27,30 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.collection.SparseArrayCompat;
-import ch.threema.app.AppConstants;
 import ch.threema.app.BuildConfig;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
-import ch.threema.app.activities.GroupDetailActivity;
+import ch.threema.app.eventbus.GlobalEventBuses;
+import ch.threema.app.eventbus.events.GroupEvent;
+import ch.threema.app.eventbus.events.MessageEvent;
 import ch.threema.app.glide.AvatarOptions;
-import ch.threema.app.managers.ListenerManager;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.messagereceiver.GroupMessageReceiver;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.services.avatarcache.AvatarCacheService;
-import ch.threema.app.services.ballot.BallotService;
+import ch.threema.app.services.poll.PollService;
 import ch.threema.app.tasks.OutgoingGroupSyncRequestTask;
-import ch.threema.app.utils.ConversationUtil;
 import ch.threema.app.utils.GroupFeatureSupport;
 import ch.threema.app.utils.GroupUtil;
 import ch.threema.data.datatypes.ContactNameFormat;
+import ch.threema.data.datatypes.ConversationVisibility;
+import ch.threema.data.datatypes.GroupConversationId;
 import ch.threema.data.datatypes.IdColor;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.app.utils.ShortcutUtil;
-import ch.threema.app.utils.TestUtil;
-import ch.threema.base.ThreemaException;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
-import ch.threema.data.models.GroupIdentity;
+import ch.threema.data.datatypes.GroupIdentity;
 import ch.threema.data.models.GroupModel;
 import ch.threema.data.models.GroupModelData;
 import ch.threema.data.models.ModelDeletedException;
@@ -79,7 +75,8 @@ import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.access.Access;
 import ch.threema.storage.models.access.GroupAccessModel;
 
-import static ch.threema.app.utils.GroupUtil.getUniqueIdString;
+import static ch.threema.common.JavaCompat.areEqual;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class GroupServiceImpl implements GroupService {
     private static final Logger logger = getThreemaLogger("GroupServiceImpl");
@@ -98,6 +95,7 @@ public class GroupServiceImpl implements GroupService {
     private final @NonNull RingtoneService ringtoneService;
     private final @NonNull ConversationTagService conversationTagService;
     private final @NonNull PreferenceService preferenceService;
+    private final @NonNull GlobalEventBuses globalEventBuses;
 
     // Model repositories
     @NonNull
@@ -126,7 +124,8 @@ public class GroupServiceImpl implements GroupService {
         @NonNull PreferenceService preferenceService,
         @NonNull ContactModelRepository contactModelRepository,
         @NonNull GroupModelRepository groupModelRepository,
-        @NonNull ServiceManager serviceManager
+        @NonNull ServiceManager serviceManager,
+        @NonNull GlobalEventBuses globalEventBuses
     ) {
         this.context = context;
 
@@ -141,6 +140,7 @@ public class GroupServiceImpl implements GroupService {
         this.preferenceService = preferenceService;
         this.conversationTagService = conversationTagService;
         this.serviceManager = serviceManager;
+        this.globalEventBuses = globalEventBuses;
 
         this.contactModelRepository = contactModelRepository;
         this.groupModelRepository = groupModelRepository;
@@ -205,46 +205,42 @@ public class GroupServiceImpl implements GroupService {
         //
         // Note: We cannot put these services in the constructor due to circular dependencies.
         // TODO(ANDR-2463): Dissolve circular dependencies
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             logger.error("Missing serviceManager, cannot remove group");
             return;
         }
-        final ConversationService conversationService;
-        final BallotService ballotService;
-        try {
-            conversationService = serviceManager.getConversationService();
-            ballotService = serviceManager.getBallotService();
-        } catch (ThreemaException e) {
-            logger.error("Could not obtain services when removing group", e);
-            return;
-        }
+        final ConversationService conversationService = serviceManager.getConversationService();
+        final PollService pollService = serviceManager.getPollService();
 
         GroupMessageReceiver messageReceiver = createReceiver(groupModel);
 
         // Delete polls
-        ballotService.remove(messageReceiver);
+        pollService.remove(messageReceiver);
 
         // Remove all files that belong to messages of this group
         try (ChunkedSequence<GroupMessageModel> messageModels =
                  databaseService.getGroupMessageModelFactory().getByGroupId(groupModel.getDatabaseId())) {
             for (GroupMessageModel messageModel : messageModels) {
-                this.fileService.removeMessageFiles(messageModel, true);
+                var messageUid = messageModel.getUid();
+                if (messageUid != null) {
+                    fileService.deleteMessageFiles(messageUid, false);
+                }
             }
         }
 
         // Remove avatar
         this.fileService.removeGroupProfilePicture(groupModel);
 
-        // Remove chat settings (e.g. wallpaper or custom ringtones)
-        String uniqueIdString = getUniqueIdString(groupModel);
-        this.wallpaperService.removeWallpaper(uniqueIdString);
-        this.ringtoneService.removeCustomRingtone(uniqueIdString);
-        this.conversationCategoryService.persistDefaultChat(uniqueIdString);
-        ShortcutUtil.deleteShareTargetShortcut(uniqueIdString);
-        ShortcutUtil.deletePinnedShortcut(uniqueIdString);
-        this.conversationTagService.removeAll(ConversationUtil.getGroupConversationUid(groupModel.getDatabaseId()), triggerSource);
-        serviceManager.getNotificationService().cancel(messageReceiver);
+        // Remove conversation settings (e.g. wallpaper or custom ringtones)
+        final @NonNull GroupConversationId groupConversationId = new GroupConversationId(groupModel.getDatabaseId());
+        this.wallpaperService.removeWallpaper(groupConversationId);
+        this.ringtoneService.removeCustomRingtone(groupConversationId);
+        this.conversationCategoryService.persistRemovePrivateMark(groupConversationId);
+        ShortcutUtil.deleteShareTargetShortcut(groupConversationId);
+        ShortcutUtil.deletePinnedShortcut(groupConversationId);
+        this.conversationTagService.removeAll(groupConversationId, triggerSource);
+        serviceManager.getNotificationService().cancel(groupConversationId);
 
         // Remove conversation
         GroupModelOld oldGroupModel = getById((int) groupModel.getDatabaseId());
@@ -267,29 +263,25 @@ public class GroupServiceImpl implements GroupService {
         // Obtain some services through service manager
         //
         // Note: We cannot put these services in the constructor due to circular dependencies.
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             logger.error("Missing serviceManager, cannot remove group");
             return;
         }
-        final ConversationService conversationService;
-        final BallotService ballotService;
-        try {
-            conversationService = serviceManager.getConversationService();
-            ballotService = serviceManager.getBallotService();
-        } catch (ThreemaException e) {
-            logger.error("Could not obtain services when removing group", e);
-            return;
-        }
+        final ConversationService conversationService = serviceManager.getConversationService();
+        final PollService pollService = serviceManager.getPollService();
 
         // Delete polls
-        ballotService.remove(createReceiver(groupModel));
+        pollService.remove(createReceiver(groupModel));
 
         // Remove all messages
         final GroupMessageModelFactory groupMessageModelFactory = databaseService.getGroupMessageModelFactory();
         try (ChunkedSequence<GroupMessageModel> messageModels = groupMessageModelFactory.getByGroupId(groupModel.getId())) {
             for (GroupMessageModel messageModel : messageModels) {
-                this.fileService.removeMessageFiles(messageModel, true);
+                var messageUid = messageModel.getUid();
+                if (messageUid != null) {
+                    fileService.deleteMessageFiles(messageUid, false);
+                }
             }
         }
         groupMessageModelFactory.deleteByGroupId(groupModel.getId());
@@ -297,14 +289,14 @@ public class GroupServiceImpl implements GroupService {
         // Remove avatar
         fileService.removeGroupProfilePicture(groupModel.getGroupIdentity(), groupModel.getId());
 
-        // Remove chat settings (e.g. wallpaper or custom ringtones)
-        String uniqueIdString = getUniqueIdString(groupModel);
-        this.wallpaperService.removeWallpaper(uniqueIdString);
-        this.ringtoneService.removeCustomRingtone(uniqueIdString);
-        this.conversationCategoryService.persistDefaultChat(uniqueIdString);
-        ShortcutUtil.deleteShareTargetShortcut(uniqueIdString);
-        ShortcutUtil.deletePinnedShortcut(uniqueIdString);
-        this.conversationTagService.removeAll(ConversationUtil.getGroupConversationUid(groupModel.getId()), TriggerSource.LOCAL);
+        // Remove conversation settings (e.g. wallpaper or custom ringtones)
+        final @NonNull GroupConversationId groupConversationId = new GroupConversationId(groupModel.getId());
+        this.wallpaperService.removeWallpaper(groupConversationId);
+        this.ringtoneService.removeCustomRingtone(groupConversationId);
+        this.conversationCategoryService.persistRemovePrivateMark(groupConversationId);
+        ShortcutUtil.deleteShareTargetShortcut(groupConversationId);
+        ShortcutUtil.deletePinnedShortcut(groupConversationId);
+        this.conversationTagService.removeAll(groupConversationId, TriggerSource.LOCAL);
 
         // Remove conversation
         conversationService.removeFromCache(groupModel);
@@ -391,30 +383,6 @@ public class GroupServiceImpl implements GroupService {
             new GroupId(groupIdentity.getGroupId()),
             groupIdentity.getCreatorIdentity()
         );
-    }
-
-    @NonNull
-    @Override
-    public Intent getGroupDetailIntent(long groupDatabaseId, @NonNull Activity activity) {
-        Intent intent = new Intent(activity, GroupDetailActivity.class);
-        intent.putExtra(AppConstants.INTENT_DATA_GROUP_DATABASE_ID, groupDatabaseId);
-        return intent;
-    }
-
-    @NonNull
-    @Override
-    public Intent getGroupDetailIntent(@NonNull GroupModelOld groupModel, @NonNull Activity activity) {
-        Intent intent = new Intent(activity, GroupDetailActivity.class);
-        intent.putExtra(AppConstants.INTENT_DATA_GROUP_DATABASE_ID, (long) groupModel.getId());
-        return intent;
-    }
-
-    @NonNull
-    @Override
-    public Intent getGroupDetailIntent(@NonNull GroupModel groupModel, @NonNull Activity activity) {
-        Intent intent = new Intent(activity, GroupDetailActivity.class);
-        intent.putExtra(AppConstants.INTENT_DATA_GROUP_DATABASE_ID, groupModel.getDatabaseId());
-        return intent;
     }
 
     @Override
@@ -521,9 +489,7 @@ public class GroupServiceImpl implements GroupService {
             groupMessageModelFactory.update(message);
         }
 
-        ListenerManager.messageListeners.handle(
-            listener -> listener.onModified(new ArrayList<>(updatedMessages))
-        );
+        globalEventBuses.getMessages().emit(new MessageEvent.MessagesUpdated(updatedMessages));
     }
 
     @Override
@@ -596,13 +562,13 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     public boolean isGroupMember(@NonNull GroupModelOld groupModel, @Nullable String identity) {
-        if (!TestUtil.isEmptyOrNull(identity)) {
+        if (!isNullOrEmpty(identity)) {
             if (identity.equals(userService.getIdentity())) {
                 return isGroupMember(groupModel);
             }
 
             for (String existingIdentity : this.getGroupMemberIdentities(groupModel)) {
-                if (TestUtil.compare(existingIdentity, identity)) {
+                if (areEqual(existingIdentity, identity)) {
                     return true;
                 }
             }
@@ -951,16 +917,19 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public void setIsArchived(
-        @NonNull String groupCreatorIdentity,
-        @NonNull GroupId groupId,
-        boolean isArchived,
-        @NonNull TriggerSource triggerSource
-    ) {
-        GroupModel groupModel = groupModelRepository
-            .getByCreatorIdentityAndId(groupCreatorIdentity, groupId);
+    public void unarchive(@NonNull Long groupDatabaseId, @NonNull TriggerSource triggerSource) {
+        final @Nullable GroupModel groupModel = groupModelRepository.getByGroupDatabaseId(groupDatabaseId);
         if (groupModel == null) {
-            logger.warn("Cannot set isArchived={} for group because its model is null", isArchived);
+            logger.warn("Cannot unarchive group because its model is null");
+            return;
+        }
+        GroupModelData groupModelData = groupModel.getData();
+        if (groupModelData == null) {
+            logger.warn("Cannot unarchive group because its data is null");
+            return;
+        }
+        if (groupModelData.conversationVisibility != ConversationVisibility.ARCHIVED) {
+            logger.info("Group isn't archived; nothing to do");
             return;
         }
 
@@ -968,14 +937,14 @@ public class GroupServiceImpl implements GroupService {
             switch (triggerSource) {
                 case LOCAL:
                 case REMOTE:
-                    groupModel.setIsArchivedFromLocalOrRemote(isArchived);
+                    groupModel.setConversationVisibilityFromLocalOrRemote(ConversationVisibility.NORMAL);
                     break;
                 case SYNC:
-                    groupModel.setIsArchivedFromSync(isArchived);
+                    groupModel.setConversationVisibilityFromSync(ConversationVisibility.NORMAL);
                     break;
             }
         } catch (ModelDeletedException e) {
-            logger.warn("Could not set isArchived={} because model has been deleted", isArchived, e);
+            logger.warn("Could not unarchive group because model has been deleted", e);
         }
     }
 
@@ -985,8 +954,8 @@ public class GroupServiceImpl implements GroupService {
             groupModel.getCreatorIdentity(),
             groupModel.getApiGroupId().toLong()
         );
-        this.databaseService.getGroupModelFactory().setLastUpdate(groupIdentity, new Date());
-        ListenerManager.groupListeners.handle(listener -> listener.onUpdate(groupIdentity));
+        this.databaseService.getGroupModelFactory().setLastUpdate(groupIdentity, Instant.now());
+        globalEventBuses.getGroups().emit(new GroupEvent.GroupUpdated(groupIdentity));
     }
 
     @Override
@@ -999,7 +968,7 @@ public class GroupServiceImpl implements GroupService {
         GroupModelOld groupModel = getById(messageModel.getGroupId());
         if (groupModel != null) {
             if (isGroupMember(groupModel, identityToRemove)) {
-                Map<String, Object> groupMessageStates = messageModel.getGroupMessageStates();
+                Map<String, String> groupMessageStates = messageModel.getGroupMessageStates();
                 if (groupMessageStates != null) {
                     groupMessageStates.remove(identityToRemove);
                     messageModel.setGroupMessageStates(groupMessageStates);

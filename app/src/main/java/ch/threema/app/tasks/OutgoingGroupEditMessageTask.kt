@@ -8,14 +8,14 @@ import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.types.IdentityString
-import java.util.Date
+import java.time.Instant
 import kotlinx.serialization.Serializable
 
 class OutgoingGroupEditMessageTask(
     private val messageModelId: Int,
     private val messageId: MessageId,
     private val editedText: String,
-    private val editedAt: Date,
+    private val editedAt: Instant,
     private val recipientIdentities: Set<IdentityString>,
 ) : OutgoingCspMessageTask() {
     override val type: String = "OutgoingGroupEditMessageTask"
@@ -27,7 +27,7 @@ class OutgoingGroupEditMessageTask(
         val group = groupService.getById(message.groupId)
             ?: throw ThreemaException("No group model found for groupId=${message.groupId}")
 
-        val editedMessageIdLong = message.messageId!!.messageIdLong
+        val editedMessageId = message.messageId!!
 
         sendGroupMessage(
             group,
@@ -35,12 +35,12 @@ class OutgoingGroupEditMessageTask(
             null,
             editedAt,
             messageId,
-            createAbstractMessage = { createEditMessage(editedMessageIdLong) },
+            createAbstractMessage = { createEditMessage(editedMessageId) },
             handle,
         )
     }
 
-    private fun createEditMessage(messageId: Long) = GroupEditMessage(
+    private fun createEditMessage(messageId: MessageId) = GroupEditMessage(
         EditMessageData(
             messageId = messageId,
             text = editedText,
@@ -51,7 +51,7 @@ class OutgoingGroupEditMessageTask(
         messageModelId,
         messageId.messageId,
         editedText,
-        editedAt.time,
+        editedAt.toEpochMilli(),
         recipientIdentities,
     )
 
@@ -68,7 +68,7 @@ class OutgoingGroupEditMessageTask(
                 messageModelId = messageModelId,
                 messageId = MessageId(messageId),
                 editedText = editedText,
-                editedAt = Date(editedAt),
+                editedAt = Instant.ofEpochMilli(editedAt),
                 recipientIdentities = recipientIdentities,
             )
     }

@@ -11,13 +11,12 @@ import ch.threema.app.services.GroupService
 import ch.threema.app.services.notification.NotificationService
 import ch.threema.app.utils.AudioDevice
 import ch.threema.app.utils.BitmapUtil
-import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.app.utils.GroupCallUtil
 import ch.threema.app.voip.CallAudioManager
 import ch.threema.app.voip.groupcall.*
 import ch.threema.app.voip.groupcall.sfu.*
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.data.datatypes.LocalGroupId
 import ch.threema.data.datatypes.localGroupId
 import ch.threema.storage.models.group.GroupModelOld
@@ -169,7 +168,7 @@ class GroupCallViewModel(
     @UiThread
     fun cancelNotification() {
         groupId.value?.let {
-            notificationService.cancelGroupCallNotification(it.id)
+            notificationService.cancelGroupCallNotification(it)
         }
     }
 
@@ -202,7 +201,7 @@ class GroupCallViewModel(
                         } else {
                             completeJoining(controller)
                         }
-                    } catch (e: CancellationException) {
+                    } catch (_: CancellationException) {
                         logger.warn("Join call has been cancelled")
                         // Join aborted, stop group call service
                         groupCallManager.abortCurrentCall()
@@ -408,13 +407,13 @@ class GroupCallViewModel(
     @UiThread
     private fun observeAudioDevices() {
         viewModelScope.launch {
-            audioManager.observeAvailableAudioDevices()
+            audioManager.watchAvailableAudioDevices()
                 .collect {
                     audioDevices.value = it
                 }
         }
         viewModelScope.launch {
-            audioManager.observeSelectedDevice()
+            audioManager.watchSelectedDevice()
                 .collect {
                     selectedAudioDevice.value = it
                 }
@@ -440,8 +439,7 @@ class GroupCallViewModel(
     @UiThread
     private fun mapSubTitle() = participantsCount.map { count ->
         when {
-            count > 0 -> ConfigUtils.getSafeQuantityString(
-                appContext,
+            count > 0 -> appContext.resources.getQuantityString(
                 R.plurals.n_participants_in_call,
                 count,
                 count,

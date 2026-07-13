@@ -2,6 +2,7 @@ package ch.threema.app.listeners
 
 import androidx.annotation.AnyThread
 import ch.threema.data.datatypes.ContactNameFormat
+import ch.threema.data.datatypes.ConversationId
 
 interface ContactSettingsListener {
     @AnyThread
@@ -25,6 +26,6 @@ interface ContactSettingsListener {
     }
 
     @AnyThread
-    fun onNotificationSettingChanged(uid: String?) {
+    fun onNotificationSettingChanged(conversationId: ConversationId) {
     }
 }

@@ -8,7 +8,6 @@ import ch.threema.domain.protocol.connection.csp.DeviceCookieManager
 import ch.threema.domain.protocol.connection.data.CspMessage
 import ch.threema.domain.protocol.connection.data.InboundD2mMessage
 import ch.threema.domain.protocol.connection.data.InboundMessage
-import ch.threema.domain.protocol.connection.data.toHex
 import ch.threema.domain.protocol.connection.layer.Layer5Codec
 import ch.threema.domain.protocol.connection.socket.ServerSocketCloseReason
 import ch.threema.domain.protocol.csp.ProtocolDefines
@@ -166,7 +165,7 @@ internal class TaskManagerImpl(
     private fun processInboundD2mMessage(message: InboundD2mMessage, lock: ConnectionLock) {
         logger.debug(
             "Processing inbound d2m message with payload type `{}`",
-            message.payloadType.toHex(),
+            message.payloadType.toHexString(),
         )
         schedule(message, lock)
     }
@@ -174,7 +173,7 @@ internal class TaskManagerImpl(
     private fun processInboundCspMessage(message: CspMessage, lock: ConnectionLock) {
         logger.debug(
             "Processing inbound csp message with payload type `{}`",
-            message.payloadType.toHex(),
+            message.payloadType.toHexString(),
         )
 
         // IMPORTANT: Make sure to release the `lock` in all match arms (directly or indirectly)
@@ -217,7 +216,7 @@ internal class TaskManagerImpl(
     private fun schedule(inboundMessage: InboundMessage, lock: ConnectionLock) {
         logger.info(
             "Scheduling inbound message with payload type {}",
-            inboundMessage.payloadType.toHex(),
+            inboundMessage.payloadType.toHexString(),
         )
 
         CoroutineScope(dispatchers.scheduleDispatcher.coroutineContext).launch {
@@ -227,7 +226,7 @@ internal class TaskManagerImpl(
     }
 
     private fun processDeviceCookieChangeIndication() {
-        deviceCookieManager.changeIndicationReceived()
+        deviceCookieManager.onChangeIndicationReceived()
         sendClearDeviceCookieChangeIndication()
     }
 

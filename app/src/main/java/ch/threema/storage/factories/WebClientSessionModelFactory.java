@@ -4,21 +4,20 @@ import android.content.ContentValues;
 
 import android.database.Cursor;
 
-import org.jetbrains.annotations.NotNull;
-
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import ch.threema.app.utils.TestUtil;
-import ch.threema.base.utils.Utils;
 import ch.threema.storage.CursorHelper;
 import ch.threema.storage.DatabaseCreationProvider;
 import ch.threema.storage.DatabaseProvider;
 import ch.threema.storage.QueryBuilder;
 import ch.threema.storage.models.WebClientSessionModel;
+
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
+import static ch.threema.common.JavaCompat.toHexString;
 
 public class WebClientSessionModelFactory extends ModelFactory {
     public WebClientSessionModelFactory(DatabaseProvider databaseProvider) {
@@ -47,7 +46,7 @@ public class WebClientSessionModelFactory extends ModelFactory {
     @Nullable
     public WebClientSessionModel getByKey(byte[] key) {
         return getFirst(
-            "" + WebClientSessionModel.COLUMN_KEY + " =x'" + Utils.byteArrayToHexString(key) + "'",
+            "" + WebClientSessionModel.COLUMN_KEY + " =x'" + toHexString(key) + "'",
             null);
     }
 
@@ -99,8 +98,8 @@ public class WebClientSessionModelFactory extends ModelFactory {
                         .setId(cursorFactory.getInt(WebClientSessionModel.COLUMN_ID))
                         .setKey(cursorFactory.getBlob(WebClientSessionModel.COLUMN_KEY))
                         .setPrivateKey(cursorFactory.getBlob(WebClientSessionModel.COLUMN_PRIVATE_KEY))
-                        .setCreated(cursorFactory.getDate(WebClientSessionModel.COLUMN_CREATED))
-                        .setLastConnection(cursorFactory.getDate(WebClientSessionModel.COLUMN_LAST_CONNECTION))
+                        .setCreated(cursorFactory.getInstant(WebClientSessionModel.COLUMN_CREATED))
+                        .setLastConnection(cursorFactory.getInstant(WebClientSessionModel.COLUMN_LAST_CONNECTION))
                         .setClientDescription(cursorFactory.getString(WebClientSessionModel.COLUMN_CLIENT_DESCRIPTION))
                         .setPersistent(cursorFactory.getBoolean(WebClientSessionModel.COLUMN_IS_PERSISTENT))
                         .setLabel(cursorFactory.getString(WebClientSessionModel.COLUMN_LABEL))
@@ -112,7 +111,7 @@ public class WebClientSessionModelFactory extends ModelFactory {
                         .setPushToken(cursorFactory.getString(WebClientSessionModel.COLUMN_PUSH_TOKEN));
 
                     String stateString = cursorFactory.getString(WebClientSessionModel.COLUMN_STATE);
-                    if (!TestUtil.isEmptyOrNull(stateString)) {
+                    if (!isNullOrEmpty(stateString)) {
                         model.setState(WebClientSessionModel.State.valueOf(stateString));
                     }
                     return false;
@@ -132,11 +131,11 @@ public class WebClientSessionModelFactory extends ModelFactory {
 
         // When creating a new session model, set the "created" date
         if (insert && model.getCreated() == null) {
-            model.setCreated(new Date());
+            model.setCreated(Instant.now());
         }
 
-        contentValues.put(WebClientSessionModel.COLUMN_CREATED, model.getCreated() != null ? model.getCreated().getTime() : null);
-        contentValues.put(WebClientSessionModel.COLUMN_LAST_CONNECTION, model.getLastConnection() != null ? model.getLastConnection().getTime() : null);
+        contentValues.put(WebClientSessionModel.COLUMN_CREATED, model.getCreated() != null ? model.getCreated().toEpochMilli() : null);
+        contentValues.put(WebClientSessionModel.COLUMN_LAST_CONNECTION, model.getLastConnection() != null ? model.getLastConnection().toEpochMilli() : null);
         contentValues.put(WebClientSessionModel.COLUMN_CLIENT_DESCRIPTION, model.getClientDescription());
         contentValues.put(WebClientSessionModel.COLUMN_KEY, model.getKey());
         contentValues.put(WebClientSessionModel.COLUMN_PRIVATE_KEY, model.getPrivateKey());

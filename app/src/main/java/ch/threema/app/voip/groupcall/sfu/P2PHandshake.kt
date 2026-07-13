@@ -20,10 +20,10 @@ import ch.threema.base.crypto.NaCl
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.generateRandomBytes
 import ch.threema.common.secureRandom
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.types.Identity
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import org.koin.mp.KoinPlatform
@@ -53,16 +53,26 @@ class P2PHandshake private constructor(
         LocalP2PContext(sender, pckPrivate, pcck)
     }
 
-    private val gcnhak: ByteArray by lazy {
+    private val gcnhak: ByteArray? by lazy {
         val sharedKey = call.dependencies.identityStore.calcSharedSecret(receiverContactOrUser.publicKey)
-        CryptoCallUtils.gcBlake2b256(
-            key = sharedKey,
-            salt = "nha",
-            data = call.description.gckh,
-        )
+        if (sharedKey != null) {
+            CryptoCallUtils.gcBlake2b256(
+                key = sharedKey,
+                salt = "nha",
+                data = call.description.gckh,
+            )
+        } else {
+            logger.error("Could not calculate shared secret")
+            null
+        }
     }
-    private val pck: NaCl by lazy {
-        NaCl(senderP2PContext.pckPrivate, receiverP2PContext.pckPublic)
+    private val pck: NaCl? by lazy {
+        runCatching {
+            NaCl(senderP2PContext.pckPrivate, receiverP2PContext.pckPublic)
+        }.getOrElse { throwable ->
+            logger.error("Could not instantiate NaCl", throwable)
+            null
+        }
     }
 
     private lateinit var receiverP2PContext: RemoteP2PContext
@@ -176,8 +186,18 @@ class P2PHandshake private constructor(
     }
 
     @WorkerThread
-    private fun createAuth(): P2POuterEnvelope {
+    private fun createAuth(): P2POuterEnvelope? {
         GroupCallThreadUtil.assertDispatcherThread()
+        val gcnhak = gcnhak
+            ?: run {
+                logger.error("Cannot create auth because of missing gcnhak")
+                return null
+            }
+        val pck = pck
+            ?: run {
+                logger.error("Cannot create auth because of missing pck")
+                return null
+            }
 
         logger.info("Create Auth from {} to {}", sender.id, receiverId)
         val innerNonce = secureRandom().generateRandomBytes(NaCl.NONCE_BYTES)
@@ -256,8 +276,10 @@ class P2PHandshake private constructor(
 
         withValidHello(message) {
             initReceiver(it)
-            sendMessage { createAuth() }
-            handshakeState = HandshakeState.AWAIT_AUTH
+            handshakeState = createAuth()?.let { auth ->
+                sendMessage { auth }
+                HandshakeState.AWAIT_AUTH
+            } ?: HandshakeState.CANCELLED
         }
     }
 
@@ -268,8 +290,10 @@ class P2PHandshake private constructor(
         withValidHello(message) {
             initReceiver(it)
             sendMessage { createHello() }
-            sendMessage { createAuth() }
-            handshakeState = HandshakeState.AWAIT_AUTH
+            handshakeState = createAuth()?.let { auth ->
+                sendMessage { auth }
+                HandshakeState.AWAIT_AUTH
+            } ?: HandshakeState.CANCELLED
         }
     }
 
@@ -357,9 +381,8 @@ class P2PHandshake private constructor(
 
         val result = BasicAddOrUpdateContactBackgroundTask(
             identity = identity,
-            acquaintanceLevel = AcquaintanceLevel.GROUP,
-            myIdentity = sender.identity.value,
-            apiConnector = call.dependencies.apiConnector,
+            acquaintanceLevel = AcquaintanceLevel.GROUP_OR_DELETED,
+            validContactsLookupSteps = call.dependencies.validContactsLookupSteps,
             contactModelRepository = call.dependencies.contactModelRepository,
             addContactRestrictionPolicy = AddContactRestrictionPolicy.CHECK,
             appRestrictions = KoinPlatform.getKoin().get(),
@@ -411,6 +434,11 @@ class P2PHandshake private constructor(
     @WorkerThread
     private fun decryptAuthMessage(encryptedData: ByteArray): ByteArray? {
         GroupCallThreadUtil.assertDispatcherThread()
+        val pck = pck
+            ?: run {
+                logger.error("Cannot decrypt auth message because of missing pck")
+                return null
+            }
 
         return try {
             val decryptedOuterData = pck.decrypt(
@@ -427,6 +455,11 @@ class P2PHandshake private constructor(
     @WorkerThread
     private fun decryptAuthMessageInnerData(decryptedOuterData: ByteArray): ByteArray? {
         GroupCallThreadUtil.assertDispatcherThread()
+        val gcnhak = gcnhak ?: run {
+            logger.error("Cannot decrypt auth message inner data because of missing gcnhak")
+            return null
+        }
+
         val nonce = decryptedOuterData.copyOfRange(0, NaCl.NONCE_BYTES)
         val encryptedInnerData = decryptedOuterData.copyOfRange(NaCl.NONCE_BYTES, decryptedOuterData.size)
         return runCatching {

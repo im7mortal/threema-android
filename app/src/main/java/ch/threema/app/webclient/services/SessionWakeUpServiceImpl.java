@@ -1,7 +1,6 @@
 package ch.threema.app.webclient.services;
 
 import android.content.Context;
-import android.widget.Toast;
 
 import org.koin.java.KoinJavaComponent;
 import org.saltyrtc.client.crypto.CryptoException;
@@ -18,23 +17,19 @@ import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.annotation.WorkerThread;
 
+import ch.threema.android.ToastDuration;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
-import ch.threema.app.managers.ListenerManager;
+import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.restrictions.AppRestrictions;
 import ch.threema.app.services.notification.NotificationService;
 import ch.threema.app.utils.ConfigUtils;
-import ch.threema.app.utils.RuntimeUtil;
 import ch.threema.app.webclient.Protocol;
-import ch.threema.app.webclient.listeners.WebClientWakeUpListener;
-import ch.threema.app.webclient.manager.WebClientListenerManager;
 import ch.threema.app.webclient.manager.WebClientServiceManager;
 import ch.threema.app.webclient.services.instance.DisconnectContext;
 import ch.threema.app.webclient.services.instance.SessionInstanceService;
 import ch.threema.base.ThreemaException;
 
-import static ch.threema.app.ThreemaApplication.getServiceManager;
-import static ch.threema.app.ThreemaApplication.requireServiceManager;
+import static ch.threema.android.ToastKt.showToast;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.di.DIJavaCompat.getMasterKeyManager;
@@ -60,37 +55,25 @@ public class SessionWakeUpServiceImpl implements SessionWakeUpService {
     @NonNull
     private static final Logger logger = getThreemaLogger("SessionWakeUpServiceImpl");
 
-    // Singleton
-    @Nullable
-    private static SessionWakeUpService instance = null;
-
     // Queue of pending wakeups. Do not access this directly, use getPendingWakeUps instead.
     private final Queue<PendingWakeup> pendingWakeUps = new ArrayDeque<>();
 
-    @AnyThread
     @NonNull
-    public synchronized static SessionWakeUpService getInstance() {
-        if (instance == null) {
-            instance = new SessionWakeUpServiceImpl();
-        }
-        return instance;
-    }
+    private final Context appContext;
 
     @AnyThread
-    private SessionWakeUpServiceImpl() {}
+    public SessionWakeUpServiceImpl(@NonNull Context appContext) {
+        this.appContext = appContext;
+    }
 
     @NonNull
     private Queue<PendingWakeup> getPendingWakeUps() {
         return this.pendingWakeUps;
     }
 
-    private Context getContext() {
-        return ThreemaApplication.getAppContext();
-    }
-
     @AnyThread
     private synchronized boolean isAvailable() {
-        return getServiceManager() != null;
+        return ServiceManager.get() != null;
     }
 
     /**
@@ -107,7 +90,7 @@ public class SessionWakeUpServiceImpl implements SessionWakeUpService {
         if (!isAvailable()) {
             throw new ThreemaException("Service manager unavailable");
         }
-        return requireServiceManager().getWebClientServiceManager().getSessionService();
+        return ServiceManager.require().getWebClientServiceManager().getSessionService();
     }
 
     @Override
@@ -127,27 +110,17 @@ public class SessionWakeUpServiceImpl implements SessionWakeUpService {
         // Validate protocol version
         if (Protocol.PROTOCOL_VERSION != version) {
             logger.error("Unexpected protocol version: {}", version);
-            WebClientListenerManager.wakeUpListener.handle(new ListenerManager.HandleListener<WebClientWakeUpListener>() {
-                @Override
-                @AnyThread
-                public void handle(WebClientWakeUpListener listener) {
-                    listener.onProtocolError();
-                }
-            });
+            showToast(appContext, R.string.webclient_protocol_version_to_old, ToastDuration.LONG);
         }
 
-        // Ensure the web client service manager is available
-        final WebClientServiceManager manager;
-        try {
-            manager = requireServiceManager().getWebClientServiceManager();
-        } catch (ThreemaException error) {
-            logger.error("Cannot access web client service manager", error);
-            return;
-        }
-        if (getServiceManager() == null) {
+        var serviceManager = ServiceManager.get();
+        if (serviceManager == null) {
             logger.error("Cannot resume or schedule wakeup, web client service manager unavailable");
             return;
         }
+
+        // Ensure the web client service manager is available
+        final WebClientServiceManager manager = serviceManager.getWebClientServiceManager();
 
         // Handle locked master key
         if (getMasterKeyManager().isLocked()) {
@@ -171,14 +144,9 @@ public class SessionWakeUpServiceImpl implements SessionWakeUpService {
                 switch (SessionWakeUpServiceImpl.this.start(publicKeySha256String, affiliationId)) {
                     case SERVICE_DISABLED:
                         logger.warn("Threema Web service is disabled, store pending wakeup");
-                        RuntimeUtil.runOnUiThread(() -> {
-                            // Show a toast
-                            final Context context = SessionWakeUpServiceImpl.this.getContext();
-                            final String text = context.getString(R.string.webclient_cannot_restore) + ": "
-                                + context.getString(R.string.webclient_disabled);
-                            final Toast toast = Toast.makeText(context, text, Toast.LENGTH_LONG);
-                            toast.show();
-                        });
+                        final String text = appContext.getString(R.string.webclient_cannot_restore) + ": "
+                            + appContext.getString(R.string.webclient_disabled);
+                        showToast(appContext, text, ToastDuration.LONG);
                         SessionWakeUpServiceImpl.this.schedule(publicKeySha256String, affiliationId, DEFAULT_WAKEUP_SECONDS * 1000);
                         break;
                     case SERVICE_NOT_AVAILABLE:
@@ -310,13 +278,12 @@ public class SessionWakeUpServiceImpl implements SessionWakeUpService {
         }
 
         // Ensure the web client service manager is available
-        final WebClientServiceManager manager;
-        try {
-            manager = requireServiceManager().getWebClientServiceManager();
-        } catch (ThreemaException error) {
-            logger.error("Cannot access web client service manager", error);
+        var serviceManager = ServiceManager.get();
+        if (serviceManager == null) {
+            logger.error("Cannot access service manager");
             return;
         }
+        final WebClientServiceManager manager = serviceManager.getWebClientServiceManager();
 
         // Process pending wakeups on worker thread
         manager.getHandler().post(new Runnable() {
@@ -411,9 +378,8 @@ public class SessionWakeUpServiceImpl implements SessionWakeUpService {
     }
 
     private void showWarningNotification(@StringRes int message) {
-        NotificationService notificationService = requireServiceManager().getNotificationService();
-        final String msg = this.getContext().getString(R.string.webclient_cannot_restore) + ": "
-            + this.getContext().getString(message);
+        NotificationService notificationService = ServiceManager.require().getNotificationService();
+        final String msg = appContext.getString(R.string.webclient_cannot_restore) + ": " + appContext.getString(message);
         notificationService.showWebclientResumeFailed(msg);
     }
 }

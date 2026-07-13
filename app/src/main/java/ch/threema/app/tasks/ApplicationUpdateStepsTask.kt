@@ -1,6 +1,5 @@
 package ch.threema.app.tasks
 
-import ch.threema.app.ThreemaApplication
 import ch.threema.app.services.ContactService
 import ch.threema.app.workers.ContactUpdateWorker
 import ch.threema.domain.protocol.csp.fs.ForwardSecurityMessageProcessor
@@ -13,17 +12,18 @@ import org.koin.core.component.inject
 /**
  * This task runs the _Application Update Steps_ as defined in the protocol.
  */
-class ApplicationUpdateStepsTask() :
+class ApplicationUpdateStepsTask :
     ActiveTask<Unit>,
     PersistableTask,
     KoinComponent {
     private val contactService: ContactService by inject()
     private val forwardSecurityMessageProcessor: ForwardSecurityMessageProcessor by inject()
+    private val contactUpdateWorkerScheduler: ContactUpdateWorker.Scheduler by inject()
 
     override val type = "ApplicationUpdateStepsTask"
 
     override suspend fun invoke(handle: ActiveTaskCodec) {
-        ContactUpdateWorker.performOneTimeSync(ThreemaApplication.getAppContext())
+        contactUpdateWorkerScheduler.performOneTimeSync()
 
         // Remove all sessions with contacts where the version is not known
         contactService.all.forEach {

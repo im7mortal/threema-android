@@ -1,5 +1,6 @@
 import com.android.build.gradle.internal.api.ApkVariantOutputImpl
 import com.android.build.gradle.internal.tasks.factory.dependsOn
+import config.BuildFeatureFlags
 import config.PublicKeys
 import config.SentryConfig
 import config.setProductNames
@@ -15,6 +16,7 @@ plugins {
     alias(libs.plugins.rust.android)
     id("com.android.application")
     id("kotlin-android")
+    id("kotlin-parcelize")
     alias(libs.plugins.ksp)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.stem)
@@ -31,7 +33,7 @@ if (gradle.startParameter.taskRequests.toString().contains("Hms")) {
 /**
  * Only use the scheme "<major>.<minor>.<patch>" for the appVersion
  */
-val appVersion = "6.4.3"
+val appVersion = "6.5.0"
 
 /**
  * betaSuffix with leading dash (e.g. `-beta1`).
@@ -40,7 +42,7 @@ val appVersion = "6.4.3"
  */
 val betaSuffix = ""
 
-val defaultVersionCode = 1148
+val defaultVersionCode = 1208
 
 /**
  * Map with keystore paths (if found).
@@ -54,9 +56,9 @@ val keystores: Map<String, KeystoreConfig?> = mapOf(
 )
 
 android {
-    // NOTE: When adjusting compileSdkVersion, buildToolsVersion or ndkVersion,
-    //       make sure to adjust them in `scripts/Dockerfile` as well!
-    compileSdk = 35
+    // NOTE: When adjusting compileSdk, buildToolsVersion or ndkVersion, make sure to also adjust
+    //   `scripts/Dockerfile`, `commonAndroid/build.gradle.kts`, and the image in `.gitlab-ci.yml`
+    compileSdk = 36
     buildToolsVersion = "35.0.0"
     ndkVersion = "28.2.13676358"
 
@@ -67,7 +69,7 @@ android {
             put("disableAnalytics", "true")
         }
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         vectorDrawables.useSupportLibrary = true
         applicationId = "ch.threema.app"
         testApplicationId = "$applicationId.test"
@@ -130,7 +132,8 @@ android {
         stringArrayBuildConfigField("ONPREM_CONFIG_TRUSTED_PUBLIC_KEYS", emptyArray())
         booleanBuildConfigField("MD_SYNC_DISTRIBUTION_LISTS", false)
         booleanBuildConfigField("AVAILABILITY_STATUS_ENABLED", false)
-        booleanBuildConfigField("ERROR_REPORTING_SUPPORTED", false)
+        booleanBuildConfigField("CROSS_PLATFORM_BACKUPS_ENABLED", BuildFeatureFlags["cross_platform_backups"] ?: false)
+        booleanBuildConfigField("NEW_CONVERSATION_SCREEN_ENABLED", BuildFeatureFlags["new_conversation_screen"] ?: false)
 
         // config fields for action URLs / deep links
         stringBuildConfigField("uriScheme", "threema")
@@ -139,11 +142,6 @@ android {
 
         // The OPPF url must be null in the default config. Do not change this.
         stringBuildConfigField("PRESET_OPPF_URL", null)
-
-        setSentryConfig(
-            projectId = 0,
-            publicApikey = "",
-        )
 
         with(manifestPlaceholders) {
             put("uriScheme", "threema")
@@ -216,10 +214,16 @@ android {
     namespace = "ch.threema.app"
     flavorDimensions.add("default")
     productFlavors {
-        create("none")
-        create("store_google")
+        create("none") {
+            setSentryConfig(null)
+        }
+        create("store_google") {
+            setSentryConfig(SentryConfig.PRODUCTION)
+        }
         create("store_threema") {
+            versionName = "${appVersion}s$betaSuffix"
             stringResValue("shop_download_filename", "Threema-update.apk")
+            setSentryConfig(SentryConfig.PRODUCTION)
         }
         create("store_google_work") {
             versionName = "${appVersion}k$betaSuffix"
@@ -252,15 +256,13 @@ android {
                 put("actionUrl", "work.threema.ch")
                 put("callMimeType", "vnd.android.cursor.item/vnd.$applicationId.call")
             }
+
+            setSentryConfig(SentryConfig.PRODUCTION)
         }
         create("green") {
             applicationId = "ch.threema.app.green"
             testApplicationId = "$applicationId.test"
             setProductNames(appName = "Threema Green")
-            setSentryConfig(
-                projectId = SentryConfig.SANDBOX_PROJECT_ID,
-                publicApikey = SentryConfig.SANDBOX_PUBLIC_API_KEY,
-            )
             stringResValue("package_name", applicationId!!)
             stringResValue("contacts_mime_type", "vnd.android.cursor.item/vnd.$applicationId.profile")
             stringResValue("call_mime_type", "vnd.android.cursor.item/vnd.$applicationId.call")
@@ -282,7 +284,8 @@ android {
             stringBuildConfigField("MAP_POI_AROUND_URL", "https://poi.test.threema.ch/around/{latitude}/{longitude}/{radius}/")
             stringBuildConfigField("MAP_POI_NAMES_URL", "https://poi.test.threema.ch/names/{latitude}/{longitude}/{query}/")
             stringBuildConfigField("BLOB_MIRROR_SERVER_URL", "https://blob-mirror-{deviceGroupIdPrefix4}.test.threema.ch/{deviceGroupIdPrefix8}")
-            booleanBuildConfigField("ERROR_REPORTING_SUPPORTED", true)
+
+            setSentryConfig(SentryConfig.SANDBOX)
         }
         create("sandbox_work") {
             versionName = "${appVersion}k$betaSuffix"
@@ -291,10 +294,6 @@ android {
             setProductNames(
                 appName = "Threema Sandbox Work",
                 appNameDesktop = "Threema Blue",
-            )
-            setSentryConfig(
-                projectId = SentryConfig.SANDBOX_PROJECT_ID,
-                publicApikey = SentryConfig.SANDBOX_PUBLIC_API_KEY,
             )
             stringResValue("package_name", applicationId!!)
             stringResValue("contacts_mime_type", "vnd.android.cursor.item/vnd.$applicationId.profile")
@@ -330,7 +329,6 @@ android {
             stringBuildConfigField("actionUrl", "work.test.threema.ch")
 
             booleanBuildConfigField("AVAILABILITY_STATUS_ENABLED", true)
-            booleanBuildConfigField("ERROR_REPORTING_SUPPORTED", true)
 
             stringBuildConfigField("MD_CLIENT_DOWNLOAD_URL", "https://three.ma/mdw")
 
@@ -338,6 +336,8 @@ android {
                 put("uriScheme", "threemawork")
                 put("actionUrl", "work.test.threema.ch")
             }
+
+            setSentryConfig(SentryConfig.SANDBOX)
         }
         create("onprem") {
             versionName = "${appVersion}o$betaSuffix"
@@ -388,6 +388,8 @@ android {
                 put("actionUrl", actionUrl)
                 put("callMimeType", "vnd.android.cursor.item/vnd.$applicationId.call")
             }
+
+            setSentryConfig(null)
         }
         create("blue") {
             // Essentially like sandbox work, but with a different icon and application id, used for internal testing
@@ -396,10 +398,6 @@ android {
             applicationId = "ch.threema.app.red"
             testApplicationId = "ch.threema.app.blue.test"
             setProductNames(appName = "Threema Blue")
-            setSentryConfig(
-                projectId = SentryConfig.SANDBOX_PROJECT_ID,
-                publicApikey = SentryConfig.SANDBOX_PUBLIC_API_KEY,
-            )
             stringResValue("package_name", applicationId!!)
             stringResValue("contacts_mime_type", "vnd.android.cursor.item/vnd.ch.threema.app.blue.profile")
             stringResValue("call_mime_type", "vnd.android.cursor.item/vnd.ch.threema.app.blue.call")
@@ -430,7 +428,6 @@ android {
             stringBuildConfigField("BLOB_MIRROR_SERVER_URL", "https://blob-mirror-{deviceGroupIdPrefix4}.test.threema.ch/{deviceGroupIdPrefix8}")
 
             booleanBuildConfigField("AVAILABILITY_STATUS_ENABLED", true)
-            booleanBuildConfigField("ERROR_REPORTING_SUPPORTED", true)
 
             // config fields for action URLs / deep links
             stringBuildConfigField("uriScheme", "threemablue")
@@ -441,9 +438,12 @@ android {
                 put("actionUrl", "blue.threema.ch")
                 put("callMimeType", "vnd.android.cursor.item/vnd.ch.threema.app.blue.call")
             }
+
+            setSentryConfig(SentryConfig.SANDBOX)
         }
         create("hms") {
             applicationId = "ch.threema.app.hms"
+            setSentryConfig(SentryConfig.PRODUCTION)
         }
         create("hms_work") {
             versionName = "${appVersion}k$betaSuffix"
@@ -473,6 +473,8 @@ android {
                 put("actionUrl", "work.threema.ch")
                 put("callMimeType", "vnd.android.cursor.item/vnd.ch.threema.app.work.call")
             }
+
+            setSentryConfig(SentryConfig.PRODUCTION)
         }
         create("libre") {
             versionName = "${appVersion}l$betaSuffix"
@@ -484,6 +486,8 @@ android {
                 appNameDesktop = "Threema",
             )
             stringBuildConfigField("MEDIA_PATH", "ThreemaLibre")
+
+            setSentryConfig(null)
         }
     }
 
@@ -827,17 +831,8 @@ dependencies {
     testImplementation(libs.koin.test)
     testImplementation(libs.koin.test.junit4)
 
+    // Database
     implementation(libs.sqlcipher.android)
-
-    implementation(libs.subsamplingScaleImageView)
-    implementation(libs.opencsv)
-    implementation(libs.zip4j)
-    implementation(libs.taptargetview)
-    implementation(libs.slf4j.api)
-    implementation(libs.androidImageCropper)
-    implementation(libs.fastscroll)
-    implementation(libs.ezVcard)
-    implementation(libs.gestureViews)
 
     // AndroidX / Jetpack support libraries
     implementation(libs.androidx.preference)
@@ -881,16 +876,30 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.fragment.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
     androidTestImplementation(platform(libs.compose.bom))
 
+    // UI / Views
+    implementation(libs.subsamplingScaleImageView)
+    implementation(libs.taptargetview)
+    implementation(libs.fastscroll)
+    implementation(libs.gestureViews)
+    implementation(libs.material)
+    implementation(libs.androidImageCropper)
+    implementation(libs.zxing)
+
+    // Cryptography
     implementation(libs.bcprov.jdk15to18)
 
-    implementation(libs.material)
-    implementation(libs.zxing)
+    // Files / data processing
+    implementation(libs.opencsv)
+    implementation(libs.zip4j)
+    implementation(libs.slf4j.api)
+    implementation(libs.ezVcard)
     implementation(libs.libphonenumber)
 
     // webclient dependencies

@@ -8,15 +8,16 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
-import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import ch.threema.android.buildNotification
 import ch.threema.app.R
 import ch.threema.app.notifications.NotificationChannels
+import ch.threema.app.notifications.NotificationIDs
 import ch.threema.app.startup.AppStartupError
 import ch.threema.app.startup.AppStartupMonitorImpl
 import ch.threema.app.startup.RemoteSecretMonitorRetryController
@@ -76,7 +77,7 @@ class RemoteSecretMonitorService : LifecycleService(), KoinComponent {
         super.onStartCommand(intent, flags, startId)
         ServiceCompat.startForeground(
             this,
-            REMOTE_SECRET_ACTIVE_NOTIFICATION_ID,
+            NotificationIDs.REMOTE_SECRET_ACTIVE_NOTIFICATION_ID,
             createNotification(),
             FG_SERVICE_TYPE,
         )
@@ -87,11 +88,8 @@ class RemoteSecretMonitorService : LifecycleService(), KoinComponent {
         return START_STICKY
     }
 
-    private fun createNotification(): Notification {
-        return NotificationCompat.Builder(
-            this,
-            NotificationChannels.NOTIFICATION_CHANNEL_REMOTE_SECRET,
-        ).apply {
+    private fun createNotification(): Notification =
+        buildNotification(this, NotificationChannels.NOTIFICATION_CHANNEL_REMOTE_SECRET) {
             val learnMoreUrl = getString(R.string.remote_secret_learn_more_url).toUri()
             val contentIntent = PendingIntent.getActivity(
                 /* context = */
@@ -108,8 +106,7 @@ class RemoteSecretMonitorService : LifecycleService(), KoinComponent {
             setSmallIcon(R.drawable.ic_notification_small)
             setLocalOnly(true)
             setContentIntent(contentIntent)
-        }.build()
-    }
+        }
 
     private fun startMonitoringRemoteSecret(): Job {
         logger.info("Start monitoring of remote secret")
@@ -206,7 +203,6 @@ class RemoteSecretMonitorService : LifecycleService(), KoinComponent {
     }
 
     companion object {
-        private const val REMOTE_SECRET_ACTIVE_NOTIFICATION_ID = 50000
         private val FG_SERVICE_TYPE =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING else 0
     }

@@ -22,14 +22,15 @@ import org.slf4j.Logger;
 import java.util.regex.Pattern;
 
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.emojis.EmojiEditText;
+import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.ContactService;
 import ch.threema.app.services.GroupService;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.services.UserService;
-import ch.threema.app.utils.TestUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrBlank;
+
 import ch.threema.data.models.GroupModel;
 
 public class ComposeEditText extends EmojiEditText implements MentionSelectorPopup.MentionSelectorListener {
@@ -139,7 +140,7 @@ public class ComposeEditText extends EmojiEditText implements MentionSelectorPop
     private void init(Context context) {
         this.context = context;
 
-        PreferenceService preferenceService = ThreemaApplication.getServiceManager().getPreferenceService();
+        PreferenceService preferenceService = ServiceManager.require().getPreferenceService();
 
         this.setImeOptions(getImeOptions() | (EditorInfo.IME_ACTION_SEND & ~EditorInfo.IME_FLAG_NO_FULLSCREEN));
         this.setRawInputType(preferenceService.isEnterToSend() ?
@@ -261,7 +262,7 @@ public class ComposeEditText extends EmojiEditText implements MentionSelectorPop
         int maxLines = getResources().getInteger(R.integer.message_edittext_max_lines);
 
         if (this.mentionTextWatcher != null) {
-            if (TestUtil.isBlankOrNull(getText())) {
+            if (isNullOrBlank(getText())) {
                 // workaround to keep hint ellipsized on the first line
                 setMaxLines(1);
                 setHint(this.hint);

@@ -17,13 +17,13 @@ class TypingIndicatorMessageTest {
     @Test
     fun testValidTyping() {
         val typingIndicatorMessage = TypingIndicatorMessage.fromByteArray(isTypingBytes)
-        assertTrue { typingIndicatorMessage.isTyping }
+        assertTrue(typingIndicatorMessage.isTyping)
     }
 
     @Test
     fun testValidNotTyping() {
         val typingIndicatorMessage = TypingIndicatorMessage.fromByteArray(isNotTypingBytes)
-        assertFalse { typingIndicatorMessage.isTyping }
+        assertFalse(typingIndicatorMessage.isTyping)
     }
 
     @Test
@@ -36,7 +36,7 @@ class TypingIndicatorMessageTest {
             length = 1,
         )
 
-        assertTrue { typingIndicatorMessage.isTyping }
+        assertTrue(typingIndicatorMessage.isTyping)
     }
 
     @Test
@@ -50,7 +50,7 @@ class TypingIndicatorMessageTest {
             length = 1,
         )
 
-        assertTrue { typingIndicatorMessage.isTyping }
+        assertTrue(typingIndicatorMessage.isTyping)
     }
 
     @Test
@@ -95,9 +95,9 @@ class TypingIndicatorMessageTest {
         val typingIndicatorMessage =
             TypingIndicatorMessage.fromReflected(incomingTypingIndicatorMessage)
 
-        assertFalse { typingIndicatorMessage.isTyping }
+        assertFalse(typingIndicatorMessage.isTyping)
         assertEquals(fromIdentity, typingIndicatorMessage.fromIdentity)
         assertEquals(messageId, typingIndicatorMessage.messageId)
-        assertEquals(createdAt, typingIndicatorMessage.date.time)
+        assertEquals(createdAt, typingIndicatorMessage.timestamp.toEpochMilli())
     }
 }

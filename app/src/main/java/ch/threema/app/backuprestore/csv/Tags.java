@@ -28,9 +28,9 @@ public abstract class Tags {
 
     public static final String GROUP_AVATAR_PREFIX = "group_avatar_";
     public static final String DISTRIBUTION_LISTS_FILE_NAME = "distribution_list";
-    public static final String BALLOT_FILE_NAME = "ballot";
-    public static final String BALLOT_CHOICE_FILE_NAME = "ballot_choice";
-    public static final String BALLOT_VOTE_FILE_NAME = "ballot_vote";
+    public static final String POLL_FILE_NAME = "ballot";
+    public static final String POLL_CHOICE_FILE_NAME = "ballot_choice";
+    public static final String POLL_VOTE_FILE_NAME = "ballot_vote";
     public static final String CSV_FILE_POSTFIX = ".csv";
 
     public static final String TAG_INFO_VERSION = "version";
@@ -98,37 +98,37 @@ public abstract class Tags {
     public static final String TAG_DISTRIBUTION_MEMBERS = "distribution_members";
     public static final String TAG_DISTRIBUTION_LIST_ARCHIVED = "archived";
 
-    public static final String TAG_BALLOT_ID = "id";
-    public static final String TAG_BALLOT_API_ID = "aid";
-    public static final String TAG_BALLOT_API_CREATOR = "creator";
-    public static final String TAG_BALLOT_REF = "ref";
-    public static final String TAG_BALLOT_REF_ID = "ref_id";
-    public static final String TAG_BALLOT_NAME = "name";
-    public static final String TAG_BALLOT_STATE = "state";
-    public static final String TAG_BALLOT_ASSESSMENT = "assessment";
-    public static final String TAG_BALLOT_TYPE = "type";
-    public static final String TAG_BALLOT_C_TYPE = "choice_type";
-    public static final String TAG_BALLOT_LAST_VIEWED_AT = "last_viewed_at";
-    public static final String TAG_BALLOT_CREATED_AT = "created_at";
-    public static final String TAG_BALLOT_MODIFIED_AT = "modified_at";
+    public static final String TAG_POLL_ID = "id";
+    public static final String TAG_POLL_API_ID = "aid";
+    public static final String TAG_POLL_API_CREATOR = "creator";
+    public static final String TAG_POLL_REF = "ref";
+    public static final String TAG_POLL_REF_ID = "ref_id";
+    public static final String TAG_POLL_NAME = "name";
+    public static final String TAG_POLL_STATE = "state";
+    public static final String TAG_POLL_ASSESSMENT = "assessment";
+    public static final String TAG_POLL_TYPE = "type";
+    public static final String TAG_POLL_C_TYPE = "choice_type";
+    public static final String TAG_POLL_LAST_VIEWED_AT = "last_viewed_at";
+    public static final String TAG_POLL_CREATED_AT = "created_at";
+    public static final String TAG_POLL_MODIFIED_AT = "modified_at";
 
-    public static final String TAG_BALLOT_CHOICE_ID = "id";
-    public static final String TAG_BALLOT_CHOICE_BALLOT_UID = "ballot";
-    public static final String TAG_BALLOT_CHOICE_API_ID = "aid";
-    public static final String TAG_BALLOT_CHOICE_TYPE = "type";
-    public static final String TAG_BALLOT_CHOICE_NAME = "name";
-    public static final String TAG_BALLOT_CHOICE_VOTE_COUNT = "vote_count";
-    public static final String TAG_BALLOT_CHOICE_ORDER = "order";
-    public static final String TAG_BALLOT_CHOICE_CREATED_AT = "created_at";
-    public static final String TAG_BALLOT_CHOICE_MODIFIED_AT = "modified_at";
+    public static final String TAG_POLL_CHOICE_ID = "id";
+    public static final String TAG_POLL_CHOICE_POLL_UID = "ballot";
+    public static final String TAG_POLL_CHOICE_API_ID = "aid";
+    public static final String TAG_POLL_CHOICE_TYPE = "type";
+    public static final String TAG_POLL_CHOICE_NAME = "name";
+    public static final String TAG_POLL_CHOICE_VOTE_COUNT = "vote_count";
+    public static final String TAG_POLL_CHOICE_ORDER = "order";
+    public static final String TAG_POLL_CHOICE_CREATED_AT = "created_at";
+    public static final String TAG_POLL_CHOICE_MODIFIED_AT = "modified_at";
 
-    public static final String TAG_BALLOT_VOTE_ID = "id";
-    public static final String TAG_BALLOT_VOTE_BALLOT_UID = "ballot_uid";
-    public static final String TAG_BALLOT_VOTE_CHOICE_UID = "choice_uid";
-    public static final String TAG_BALLOT_VOTE_IDENTITY = "identity";
-    public static final String TAG_BALLOT_VOTE_CHOICE = "choice";
-    public static final String TAG_BALLOT_VOTE_CREATED_AT = "created_at";
-    public static final String TAG_BALLOT_VOTE_MODIFIED_AT = "modified_at";
+    public static final String TAG_POLL_VOTE_ID = "id";
+    public static final String TAG_POLL_VOTE_POLL_UID = "ballot_uid";
+    public static final String TAG_POLL_VOTE_CHOICE_UID = "choice_uid";
+    public static final String TAG_POLL_VOTE_IDENTITY = "identity";
+    public static final String TAG_POLL_VOTE_CHOICE = "choice";
+    public static final String TAG_POLL_VOTE_CREATED_AT = "created_at";
+    public static final String TAG_POLL_VOTE_MODIFIED_AT = "modified_at";
 
     public static final String TAG_REACTION_CONTACT_IDENTITY = "identity";
     public static final String TAG_REACTION_API_GROUP_ID = "api_group_id";

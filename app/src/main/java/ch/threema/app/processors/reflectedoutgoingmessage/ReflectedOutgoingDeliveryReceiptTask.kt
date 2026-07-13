@@ -1,15 +1,19 @@
 package ch.threema.app.processors.reflectedoutgoingmessage
 
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.utils.MessageUtil
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.domain.protocol.csp.messages.DeliveryReceiptMessage
 import ch.threema.protobuf.common.CspE2eMessageType
 import ch.threema.protobuf.d2d.OutgoingMessage
 import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.MessageState
-import java.util.Date
+import java.time.Instant
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("ReflectedOutgoingDeliveryReceiptTask")
 
@@ -21,7 +25,9 @@ internal class ReflectedOutgoingDeliveryReceiptTask(
     message = DeliveryReceiptMessage.fromReflected(outgoingMessage),
     type = CspE2eMessageType.DELIVERY_RECEIPT,
     serviceManager = serviceManager,
-) {
+),
+    KoinComponent {
+    private val globalEventBuses: GlobalEventBuses by inject()
     private val messageService by lazy { serviceManager.messageService }
     private val notificationService by lazy { serviceManager.notificationService }
     private val myIdentity by lazy { serviceManager.identityStore.getIdentityString()!! }
@@ -52,7 +58,7 @@ internal class ReflectedOutgoingDeliveryReceiptTask(
             updateMessage(messageModel, state)
 
             if (state == MessageState.READ) {
-                notificationService.cancel(messageReceiver)
+                notificationService.cancel(ContactConversationId(identity))
             }
         }
     }
@@ -64,26 +70,26 @@ internal class ReflectedOutgoingDeliveryReceiptTask(
                 state,
                 // the identity that reacted (this is us => reflected outgoing message)
                 myIdentity,
-                Date(outgoingMessage.createdAt),
+                Instant.ofEpochMilli(outgoingMessage.createdAt),
             )
         } else {
             when (state) {
                 MessageState.DELIVERED -> {
-                    val date = Date(outgoingMessage.createdAt)
+                    val date = Instant.ofEpochMilli(outgoingMessage.createdAt)
                     // The delivered at date is stored in created at for incoming messages
                     messageModel.createdAt = date
                     messageModel.modifiedAt = date
                     messageService.save(messageModel)
-                    ListenerManager.messageListeners.handle { l -> l.onModified(listOf(messageModel)) }
+                    globalEventBuses.messages.emit(MessageEvent.MessagesUpdated(messageModel))
                 }
 
                 MessageState.READ -> {
-                    val date = Date(outgoingMessage.createdAt)
+                    val date = Instant.ofEpochMilli(outgoingMessage.createdAt)
                     messageModel.readAt = date
                     messageModel.modifiedAt = date
                     messageModel.isRead = true
                     messageService.save(messageModel)
-                    ListenerManager.messageListeners.handle { l -> l.onModified(listOf(messageModel)) }
+                    globalEventBuses.messages.emit(MessageEvent.MessagesUpdated(messageModel))
                 }
 
                 else -> logger.error("Unsupported delivery receipt reflected of state {}", state)

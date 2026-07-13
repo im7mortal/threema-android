@@ -1179,7 +1179,13 @@ e2e: &e2e
         - Sandbox: 3a38650c681435bd1fb8498e213a2919b09388f5803aa44640e0f706326a865c
       - Special: No
 
-    Note: OnPrem provisions predefined contacts in the associated OPPF file.
+    Note 1: OnPrem provisions predefined contacts in the associated OPPF file.
+
+    Note 2: The _Valid Contacts Lookup Steps_ will prefer returning special
+    contacts with builtin public keys over returning existing contacts. In
+    theory, a special contact could therefore have a different public key or
+    verification level over the corresponding locally stored contact. This is
+    considered acceptable for the use cases of special contacts.
 
     ### Mitigating Replay
 

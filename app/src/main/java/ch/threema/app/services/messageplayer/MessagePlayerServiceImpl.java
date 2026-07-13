@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import ch.threema.app.eventbus.GlobalEventBuses;
 import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.app.services.ConversationCategoryService;
 import ch.threema.app.services.FileService;
@@ -24,10 +25,13 @@ import ch.threema.app.services.NotificationPreferenceService;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.utils.MimeUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
+import ch.threema.base.SessionScoped;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.MessageType;
 
+@SessionScoped
 public class MessagePlayerServiceImpl implements MessagePlayerService {
     private static final Logger logger = getThreemaLogger("MessagePlayerServiceImpl");
 
@@ -40,6 +44,8 @@ public class MessagePlayerServiceImpl implements MessagePlayerService {
     private final NotificationPreferenceService notificationPreferenceService;
     @NonNull
     private final ConversationCategoryService conversationCategoryService;
+    @NonNull
+    private final GlobalEventBuses globalEventBuses;
 
     public MessagePlayerServiceImpl(
         @NonNull Context context,
@@ -47,7 +53,8 @@ public class MessagePlayerServiceImpl implements MessagePlayerService {
         @NonNull FileService fileService,
         @NonNull PreferenceService preferenceService,
         @NonNull NotificationPreferenceService notificationPreferenceService,
-        @NonNull ConversationCategoryService conversationCategoryService
+        @NonNull ConversationCategoryService conversationCategoryService,
+        @NonNull GlobalEventBuses globalEventBuses
     ) {
         this.context = context;
         this.messageService = messageService;
@@ -55,6 +62,7 @@ public class MessagePlayerServiceImpl implements MessagePlayerService {
         this.preferenceService = preferenceService;
         this.notificationPreferenceService = notificationPreferenceService;
         this.conversationCategoryService = conversationCategoryService;
+        this.globalEventBuses = globalEventBuses;
     }
 
     @Override
@@ -71,35 +79,7 @@ public class MessagePlayerServiceImpl implements MessagePlayerService {
             o = this.messagePlayers.get(key);
 
             if (o == null) {
-                if (messageModel.getType() == MessageType.IMAGE) {
-                    o = new ImageMessagePlayer(
-                        this.context,
-                        this.messageService,
-                        this.fileService,
-                        messageReceiver,
-                        messageModel
-                    );
-                } else if (messageModel.getType() == MessageType.VOICEMESSAGE) {
-                    o = new AudioMessagePlayer(
-                        this.context,
-                        this.messageService,
-                        this.fileService,
-                        this.preferenceService,
-                        this.notificationPreferenceService,
-                        this.conversationCategoryService,
-                        messageReceiver,
-                        mediaControllerFuture,
-                        messageModel
-                    );
-                } else if (messageModel.getType() == MessageType.VIDEO) {
-                    o = new VideoMessagePlayer(
-                        this.context,
-                        this.messageService,
-                        this.fileService,
-                        messageReceiver,
-                        messageModel
-                    );
-                } else if (messageModel.getType() == MessageType.FILE) {
+                if (messageModel.getType() == MessageType.FILE) {
                     if (MimeUtil.isAudioFile(messageModel.getFileData().getMimeType())
                         && messageModel.getFileData().getRenderingType() == FileData.RENDERING_MEDIA) {
                         o = new AudioMessagePlayer(
@@ -109,6 +89,7 @@ public class MessagePlayerServiceImpl implements MessagePlayerService {
                             this.preferenceService,
                             this.notificationPreferenceService,
                             this.conversationCategoryService,
+                            this.globalEventBuses,
                             messageReceiver,
                             mediaControllerFuture,
                             messageModel
@@ -137,9 +118,6 @@ public class MessagePlayerServiceImpl implements MessagePlayerService {
                 logger.debug("creating new player {}", key);
             } else {
                 // make sure data model is updated as its status may have changed after the player has been created
-                if (messageModel.getType() == MessageType.VOICEMESSAGE) {
-                    o.setData(messageModel.getAudioData());
-                }
                 if (messageModel.getType() == MessageType.FILE &&
                     MimeUtil.isAudioFile(messageModel.getFileData().getMimeType()) &&
                     messageModel.getFileData().getRenderingType() == FileData.RENDERING_MEDIA) {

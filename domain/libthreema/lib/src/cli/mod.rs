@@ -2,7 +2,7 @@
 //!
 //! Note: Prefer placing CLI implementations next to the associated structures, if possible.
 use core::cell::RefCell;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use anyhow::bail;
 use clap::{Args, ValueEnum};
@@ -79,7 +79,7 @@ pub struct CommonConfigOptions {
 /// Common configuration for the CLI.
 pub struct CommonConfig {
     /// Configuration.
-    pub config: Rc<Config>,
+    pub config: Arc<Config>,
 
     /// General flavour of the application.
     pub flavor: Flavor,
@@ -105,12 +105,12 @@ impl CommonConfig {
             options.credentials,
         ) {
             (Some(consumer_config), None, None, None) => Self {
-                config: Rc::new(Config::from(ConfigEnvironment::from(consumer_config))),
+                config: Arc::new(Config::from(ConfigEnvironment::from(consumer_config))),
                 flavor: Flavor::Consumer,
             },
 
             (None, Some(work_config), None, Some(credentials)) => Self {
-                config: Rc::new(Config::from(ConfigEnvironment::from(work_config))),
+                config: Arc::new(Config::from(ConfigEnvironment::from(work_config))),
                 flavor: Flavor::Work(WorkContext {
                     credentials: credentials.clone(),
                     flavor: WorkFlavor::Work,
@@ -131,7 +131,7 @@ impl CommonConfig {
                 // Apply configuration
                 trace!(?onprem_config, "Applying OnPrem configuration");
                 Self {
-                    config: Rc::new(Config::from(ConfigEnvironment::OnPrem(Box::new(onprem_config)))),
+                    config: Arc::new(Config::from(ConfigEnvironment::OnPrem(Box::new(onprem_config)))),
                     flavor: Flavor::Work(onprem_license.work_context),
                 }
             },

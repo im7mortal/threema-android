@@ -1,7 +1,7 @@
 package ch.threema.app.location
 
 import androidx.annotation.WorkerThread
-import ch.threema.app.ThreemaApplication
+import ch.threema.app.managers.ServiceManager
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.protocol.ServerAddressProvider
 import java.lang.Exception
@@ -26,7 +26,7 @@ object NearbyPoiUtil {
             logger.debug("ignoring POI fetch request for 0/0")
             return null
         }
-        val serviceManager = ThreemaApplication.getServiceManager()
+        val serviceManager = ServiceManager.get()
             ?: return null
         val poiRepository = PoiRepository(
             okHttpClient = serviceManager.okHttpClient,

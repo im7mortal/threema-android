@@ -1,5 +1,7 @@
 package ch.threema.app.ui;
 
+import static ch.threema.android.ToastKt.showToast;
+
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -27,16 +29,16 @@ import org.koin.java.KoinJavaComponent;
 
 import java.lang.ref.WeakReference;
 
+import ch.threema.android.ToastDuration;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.activities.AddContactActivity;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.qrcodes.ContactUrlUtil;
 import ch.threema.app.qrcodes.QrCodeGenerator;
 import ch.threema.app.services.UserService;
+import ch.threema.app.usecases.ShareIdentityUseCase;
 import ch.threema.app.utils.AnimationUtil;
 import ch.threema.app.utils.ConfigUtils;
-import ch.threema.app.utils.ShareUtil;
 
 public class IdentityPopup extends DimmingPopupWindow {
 
@@ -52,7 +54,7 @@ public class IdentityPopup extends DimmingPopupWindow {
     public IdentityPopup(Context context) {
         super(context);
 
-        final ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        final ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             dismiss();
             return;
@@ -70,7 +72,7 @@ public class IdentityPopup extends DimmingPopupWindow {
         if (ConfigUtils.isOnPremBuild()) {
             popupLayout.findViewById(R.id.share_button).setVisibility(View.GONE);
         } else {
-            popupLayout.findViewById(R.id.share_button).setOnClickListener(v -> ShareUtil.shareContact(activityRef.get(), null));
+            popupLayout.findViewById(R.id.share_button).setOnClickListener(v -> shareMyId(context));
         }
 
         identityLabelTextView.setText(userService.getIdentity());
@@ -108,6 +110,14 @@ public class IdentityPopup extends DimmingPopupWindow {
 
         if (qrCodeView != null) {
             qrCodeView.setOnClickListener(this::zoomQR);
+        }
+    }
+
+    private void shareMyId(Context context) {
+        ShareIdentityUseCase shareIdentityUseCase = KoinJavaComponent.get(ShareIdentityUseCase.class);
+        var result = shareIdentityUseCase.call(userService.getIdentity(), context.getString(R.string.title_mythreemaid));
+        if (result instanceof ShareIdentityUseCase.Result.Error) {
+            showToast(context, R.string.no_activity_for_mime_type, ToastDuration.LONG);
         }
     }
 

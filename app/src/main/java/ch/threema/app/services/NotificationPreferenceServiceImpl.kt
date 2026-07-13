@@ -7,6 +7,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.net.toUri
 import ch.threema.app.R
 import ch.threema.app.stores.PreferenceStore
+import ch.threema.data.datatypes.ConversationIdObfuscated
 
 class NotificationPreferenceServiceImpl(
     private val appContext: Context,
@@ -78,11 +79,20 @@ class NotificationPreferenceServiceImpl(
         )
     }
 
-    override fun getLegacyRingtones(): Map<String, String?> =
-        preferenceStore.getMap(getKeyName(R.string.preferences__individual_ringtones))
+    override fun getLegacyRingtones(): Map<ConversationIdObfuscated, String?> =
+        preferenceStore
+            .getMap(getKeyName(R.string.preferences__individual_ringtones))
+            .mapKeys { mapEntry ->
+                ConversationIdObfuscated(mapEntry.key)
+            }
 
-    override fun setLegacyRingtones(ringtones: Map<String, String?>) {
-        preferenceStore.save(getKeyName(R.string.preferences__individual_ringtones), ringtones)
+    override fun setLegacyRingtones(ringtones: Map<ConversationIdObfuscated, String?>) {
+        preferenceStore.save(
+            getKeyName(R.string.preferences__individual_ringtones),
+            ringtones.mapKeys { (conversationIdObfuscated, _) ->
+                conversationIdObfuscated.value
+            },
+        )
     }
 
     override fun getDisableSmartReplies(): Boolean =

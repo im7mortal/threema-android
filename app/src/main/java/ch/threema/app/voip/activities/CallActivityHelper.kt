@@ -5,7 +5,7 @@ import android.widget.ImageView
 import androidx.lifecycle.lifecycleScope
 import ch.threema.app.services.ContactService
 import ch.threema.app.utils.BitmapUtil
-import ch.threema.app.utils.DispatcherProvider
+import ch.threema.common.DispatcherProvider
 import ch.threema.domain.types.IdentityString
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

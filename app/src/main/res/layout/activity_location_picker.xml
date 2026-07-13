@@ -105,7 +105,7 @@
                         android:layout_gravity="left|center_vertical"
                         android:clickable="false"
                         android:contentDescription="@string/lp_select_this_place"
-                        app:srcCompat="@drawable/ic_map_marker_outline"
+                        app:srcCompat="@drawable/ic_location_pin"
                         app:tint="?attr/colorOnSurface" />
 
                     <TextView

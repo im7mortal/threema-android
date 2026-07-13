@@ -26,14 +26,14 @@ internal class ReflectedOutgoingGroupDeleteMessageTask(
             myIdentity = myIdentity,
             // Note that we are processing only outgoing messages here
             deleteMessageSenderIdentity = myIdentity,
-            deleteMessageCreatedAt = message.date,
+            deleteMessageCreatedAt = message.timestamp,
             messageId = message.data.messageId,
             receiver = messageReceiver,
             messageService = messageService,
         )?.let { validatedMessageModelToDelete ->
             messageService.deleteMessageContentsAndRelatedData(
                 validatedMessageModelToDelete,
-                message.date,
+                message.timestamp,
             )
         }
     }

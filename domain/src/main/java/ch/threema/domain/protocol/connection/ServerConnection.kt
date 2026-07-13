@@ -2,6 +2,7 @@ package ch.threema.domain.protocol.connection
 
 import androidx.annotation.WorkerThread
 import ch.threema.base.SessionScoped
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * The [ServerConnection] connects to the server used for the exchange of messages. Different types
@@ -16,6 +17,8 @@ interface ServerConnection {
     val isRunning: Boolean
 
     val connectionState: ConnectionState
+
+    fun watchConnectionState(): StateFlow<ConnectionState>
 
     val isNewConnectionSession: Boolean
 
@@ -42,7 +45,4 @@ interface ServerConnection {
     @WorkerThread
     @Throws(InterruptedException::class)
     fun stop()
-
-    fun addConnectionStateListener(listener: ConnectionStateListener)
-    fun removeConnectionStateListener(listener: ConnectionStateListener)
 }

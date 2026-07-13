@@ -20,7 +20,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import ch.threema.android.buildActivityIntent
 import ch.threema.android.disableEnterTransition
 import ch.threema.android.disableExitTransition
-import ch.threema.android.getParcelable
+import ch.threema.android.getParcelableExtraCompat
 import ch.threema.android.showToast
 import ch.threema.app.R
 import ch.threema.app.compose.theme.ThreemaTheme
@@ -80,8 +80,8 @@ class AppStartupActivity : AppCompatActivity() {
                     showUnlockRetryDialog = true
                 }
             }
-            val pendingSystems by appStartupMonitor.observePendingSystems().collectAsStateWithLifecycle()
-            val errors by appStartupMonitor.observeErrors().collectAsStateWithLifecycle()
+            val pendingSystems by appStartupMonitor.watchPendingSystems().collectAsStateWithLifecycle()
+            val errors by appStartupMonitor.watchErrors().collectAsStateWithLifecycle()
 
             LaunchedEffect(Unit) {
                 if (errors.isEmpty() && !showUnlockRetryDialog && masterKeyManager.isProtected() && masterKeyManager.isLockedWithPassphrase()) {
@@ -172,6 +172,6 @@ class AppStartupActivity : AppCompatActivity() {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
 
-        fun Intent.getOriginalIntent(): Intent = getParcelable(EXTRA_ORIGINAL_INTENT)!!
+        fun Intent.getOriginalIntent(): Intent = getParcelableExtraCompat(EXTRA_ORIGINAL_INTENT)!!
     }
 }

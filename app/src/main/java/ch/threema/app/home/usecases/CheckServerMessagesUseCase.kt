@@ -1,8 +1,8 @@
 package ch.threema.app.home.usecases
 
 import android.database.sqlite.SQLiteException
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.storage.factories.ServerMessageModelFactory
 import kotlinx.coroutines.withContext
 

@@ -7,7 +7,7 @@ import ch.threema.app.processors.incomingcspmessage.groupcontrol.runCommonGroupR
 import ch.threema.app.tasks.runCommonReactionMessageReceiveEmojiSequenceConversion
 import ch.threema.app.tasks.runCommonReactionMessageReceiveSteps
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.GroupModel
 import ch.threema.domain.protocol.csp.messages.GroupReactionMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
@@ -77,6 +77,8 @@ class IncomingGroupReactionMessageTask(
             message.data.actionCase,
             /* emojiSequence = */
             emojiSequence,
+            /* createdAt = */
+            message.timestamp,
         )
         return if (savedSuccessfully) {
             ReceiveStepsResult.SUCCESS

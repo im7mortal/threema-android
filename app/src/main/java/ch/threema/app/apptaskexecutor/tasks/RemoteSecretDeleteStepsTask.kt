@@ -1,13 +1,12 @@
 package ch.threema.app.apptaskexecutor.tasks
 
 import ch.threema.app.di.injectNonBinding
-import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.UserService
 import ch.threema.app.services.license.LicenseService
 import ch.threema.app.startup.AppStartupMonitor
-import ch.threema.app.stores.IdentityProvider
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.toCryptographicByteArray
+import ch.threema.data.IdentityProvider
 import ch.threema.domain.models.UserCredentials
 import ch.threema.domain.protocol.ServerAddressProvider
 import ch.threema.localcrypto.MasterKeyManager
@@ -31,7 +30,6 @@ class RemoteSecretDeleteStepsTask(
     private val masterKeyManager: MasterKeyManager by inject()
     private val identityProvider: IdentityProvider by inject()
     private val serverAddressProvider: ServerAddressProvider by injectNonBinding()
-    private val preferenceService: PreferenceService by injectNonBinding()
     private val userService: UserService by injectNonBinding()
     private val licenseService: LicenseService<*> by injectNonBinding()
 
@@ -69,7 +67,7 @@ class RemoteSecretDeleteStepsTask(
     private fun getRemoteSecretClientParameters(): RemoteSecretClientParameters? {
         return RemoteSecretClientParameters(
             workServerBaseUrl = serverAddressProvider
-                .getWorkServerUrlLegacy(preferenceService.isIpv6Preferred())
+                .getWorkServerUrlLegacy()
                 ?: return null,
             userIdentity = identityProvider.getIdentity()
                 ?: return null,

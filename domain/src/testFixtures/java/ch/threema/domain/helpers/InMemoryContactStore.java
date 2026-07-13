@@ -21,7 +21,6 @@ public class InMemoryContactStore implements ContactStore {
         return this.contacts.get(identity);
     }
 
-    @Override
     public void addContact(@NonNull Contact contact) {
         this.contacts.put(contact.getIdentity(), contact);
     }
@@ -46,10 +45,5 @@ public class InMemoryContactStore implements ContactStore {
         }
 
         return getContactForIdentity(identity);
-    }
-
-    @Override
-    public boolean isSpecialContact(@NonNull String identity) {
-        return false;
     }
 }

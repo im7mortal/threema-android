@@ -17,7 +17,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.appcompat.app.ActionBar;
-import ch.threema.app.AppConstants;
 import androidx.compose.ui.platform.ComposeView;
 import ch.threema.app.R;
 import ch.threema.app.compose.common.interop.ComposeJavaBridge;
@@ -29,7 +28,10 @@ import ch.threema.app.profilepicture.CheckedProfilePicture;
 import ch.threema.app.utils.IntentDataUtil;
 import ch.threema.app.utils.RuntimeUtil;
 import ch.threema.base.utils.CoroutinesExtensionKt;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
+import ch.threema.data.datatypes.GroupConversationId;
 import ch.threema.data.models.GroupModel;
 import kotlin.Unit;
 import kotlinx.coroutines.Deferred;
@@ -137,8 +139,10 @@ public class GroupAdd2Activity extends GroupEditActivity implements ContactEditD
     @AnyThread
     private void onGroupCreatedSuccessfully(@NonNull GroupModel newModel) {
         RuntimeUtil.runOnUiThread(() -> {
-            Intent intent = new Intent(this, ComposeMessageActivity.class);
-            intent.putExtra(AppConstants.INTENT_DATA_GROUP_DATABASE_ID, newModel.getDatabaseId());
+            final Intent intent = ComposeMessageActivity.createIntent(
+                this,
+                new GroupConversationId(newModel.getDatabaseId())
+            );
             setResult(RESULT_OK);
             startActivity(intent);
             finish();

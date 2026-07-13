@@ -50,6 +50,6 @@ public class DistributionListMessageModel extends AbstractMessageModel {
         setQuotedMessageId(sourceModel.getQuotedMessageId());
         setForwardSecurityMode(sourceModel.getForwardSecurityMode());
         setDisplayTags(sourceModel.getDisplayTags());
-        setApiMessageId(sourceModel.getApiMessageId());
+        setMessageId(sourceModel.getMessageId());
     }
 }

@@ -1,5 +1,6 @@
 package ch.threema.localcrypto
 
+import android.content.Context
 import ch.threema.common.emptyByteArray
 import ch.threema.common.toCryptographicByteArray
 import ch.threema.localcrypto.MasterKeyTestData.AUTH_TOKEN
@@ -33,6 +34,7 @@ import kotlin.test.assertTrue
 class Version2MasterKeyFileManagerImplTest {
 
     private val tempDirectory = createTempDirectory()
+    private lateinit var contextMock: Context
     private lateinit var keyFile: File
     private lateinit var unencryptedKeyFile: File
     private lateinit var keyStoreCryptoMock: KeyStoreCrypto
@@ -49,8 +51,11 @@ class Version2MasterKeyFileManagerImplTest {
             every { extractSecretKeyAlias(any()) } returns SecretKeyAlias.PRIMARY
             every { deleteSecretKey(SecretKeyAlias.PRIMARY) } just runs
         }
+        contextMock = mockk {
+            every { cacheDir } returns tempDirectory
+        }
         masterKeyFileManager = Version2MasterKeyFileManagerImpl(
-            deletionDirectory = tempDirectory,
+            appContext = contextMock,
             keyFile = keyFile,
             unencryptedKeyFile = unencryptedKeyFile,
             encoder = Version2MasterKeyStorageEncoder(),
@@ -111,7 +116,7 @@ class Version2MasterKeyFileManagerImplTest {
         unencryptedKeyFile.createNewFile()
 
         masterKeyFileManager = Version2MasterKeyFileManagerImpl(
-            deletionDirectory = tempDirectory,
+            appContext = contextMock,
             keyFile = keyFile,
             unencryptedKeyFile = unencryptedKeyFile,
             encoder = mockk {
@@ -139,7 +144,7 @@ class Version2MasterKeyFileManagerImplTest {
     @Test
     fun `write unprotected key file`() {
         val masterKeyFileManager = Version2MasterKeyFileManagerImpl(
-            deletionDirectory = tempDirectory,
+            appContext = contextMock,
             keyFile = keyFile,
             unencryptedKeyFile = unencryptedKeyFile,
             encoder = Version2MasterKeyStorageEncoder(),
@@ -177,7 +182,7 @@ class Version2MasterKeyFileManagerImplTest {
             ),
         )
         val masterKeyFileManager = Version2MasterKeyFileManagerImpl(
-            deletionDirectory = tempDirectory,
+            appContext = contextMock,
             keyFile = keyFile,
             unencryptedKeyFile = unencryptedKeyFile,
             encoder = Version2MasterKeyStorageEncoder(),
@@ -216,7 +221,7 @@ class Version2MasterKeyFileManagerImplTest {
     @Test
     fun `write passphrase protected key file`() {
         val masterKeyFileManager = Version2MasterKeyFileManagerImpl(
-            deletionDirectory = tempDirectory,
+            appContext = contextMock,
             keyFile = keyFile,
             unencryptedKeyFile = unencryptedKeyFile,
             encoder = Version2MasterKeyStorageEncoder(),
@@ -258,7 +263,7 @@ class Version2MasterKeyFileManagerImplTest {
             ),
         )
         val masterKeyFileManager = Version2MasterKeyFileManagerImpl(
-            deletionDirectory = tempDirectory,
+            appContext = contextMock,
             keyFile = keyFile,
             unencryptedKeyFile = unencryptedKeyFile,
             encoder = Version2MasterKeyStorageEncoder(),
@@ -298,7 +303,7 @@ class Version2MasterKeyFileManagerImplTest {
     @Test
     fun `write remote secret protected key file`() {
         val masterKeyFileManager = Version2MasterKeyFileManagerImpl(
-            deletionDirectory = tempDirectory,
+            appContext = contextMock,
             keyFile = keyFile,
             unencryptedKeyFile = unencryptedKeyFile,
             encoder = Version2MasterKeyStorageEncoder(),
@@ -340,7 +345,7 @@ class Version2MasterKeyFileManagerImplTest {
             ),
         )
         val masterKeyFileManager = Version2MasterKeyFileManagerImpl(
-            deletionDirectory = tempDirectory,
+            appContext = contextMock,
             keyFile = keyFile,
             unencryptedKeyFile = unencryptedKeyFile,
             encoder = Version2MasterKeyStorageEncoder(),

@@ -4,14 +4,19 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
+import androidx.annotation.AnyThread
+import ch.threema.annotation.SameThread
 import ch.threema.app.utils.executor.HandlerExecutor
 import ch.threema.common.TimeProvider
-import ch.threema.common.toDate
 import ch.threema.logging.LogLevel
+import ch.threema.logging.UncaughtExceptionsLogger
 import java.io.File
 import java.io.FileWriter
 import java.io.PrintWriter
+import java.sql.Date
 import java.time.Instant
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.runBlocking
 import org.slf4j.helpers.MessageFormatter
 
 /**
@@ -40,7 +45,9 @@ class DebugLogFileBackend(
         throwable: Throwable?,
         message: String?,
     ) {
-        printAsync(level, tag, throwable, message)
+        if (isEnabled(level)) {
+            enqueuePrinting(level, tag, throwable, message)
+        }
     }
 
     override fun print(
@@ -50,42 +57,56 @@ class DebugLogFileBackend(
         messageFormat: String,
         args: Array<Any?>,
     ) {
-        if (!isEnabled(level)) {
-            return
+        if (isEnabled(level)) {
+            val message = try {
+                MessageFormatter.arrayFormat(messageFormat, args).message
+            } catch (_: Exception) {
+                messageFormat
+            }
+            enqueuePrinting(level, tag, throwable, message = message)
         }
-        val message = try {
-            MessageFormatter.arrayFormat(messageFormat, args).message
-        } catch (_: Exception) {
-            messageFormat
-        }
-        print(level, tag, throwable, message = message)
     }
 
-    private fun printAsync(
+    @AnyThread
+    private fun enqueuePrinting(
         @LogLevel level: Int,
         tag: String,
         throwable: Throwable?,
         message: String?,
     ) {
-        if (!isEnabled(level)) {
-            return
+        // If the log message comes from an uncaught exception, we intentionally block the current thread in an attempt
+        // to keep the app process alive long enough for the exception details to be fully written into the log file.
+        if (tag == UncaughtExceptionsLogger.tag) {
+            handlerExecutor.postAndBlockUntilCompletion {
+                printSynchronously(level, tag, throwable, message)
+            }
+        } else {
+            handlerExecutor.post {
+                printSynchronously(level, tag, throwable, message)
+            }
         }
+    }
 
-        handlerExecutor.post {
-            val now = timeProvider.get()
-            val logLine = compileLogLine(now, level, tag, throwable, message)
-            val logFile = debugLogFileManager.getCurrentLogFile(now)
-            try {
-                logFile.appendLine(logLine)
-                if (!hasSuccessfullyWrittenLogLine) {
-                    debugLogFileManager.deleteFallbackLogFiles()
-                    hasSuccessfullyWrittenLogLine = true
-                }
-            } catch (_: Exception) {
-                if (!hasSuccessfullyWrittenLogLine) {
-                    val fallbackLogFile = debugLogFileManager.getCurrentFallbackLogFile(now)
-                    fallbackLogFile.appendLine(logLine)
-                }
+    @SameThread
+    private fun printSynchronously(
+        @LogLevel level: Int,
+        tag: String,
+        throwable: Throwable?,
+        message: String?,
+    ) {
+        val now = timeProvider.get()
+        val logLine = compileLogLine(now, level, tag, throwable, message)
+        val logFile = debugLogFileManager.getCurrentLogFile(now)
+        try {
+            logFile.appendLine(logLine)
+            if (!hasSuccessfullyWrittenLogLine) {
+                debugLogFileManager.deleteFallbackLogFiles()
+                hasSuccessfullyWrittenLogLine = true
+            }
+        } catch (_: Exception) {
+            if (!hasSuccessfullyWrittenLogLine) {
+                val fallbackLogFile = debugLogFileManager.getCurrentFallbackLogFile(now)
+                fallbackLogFile.appendLine(logLine)
             }
         }
     }
@@ -115,7 +136,7 @@ class DebugLogFileBackend(
     }
 
     private fun getTimestamp(now: Instant) =
-        now.toDate().toString()
+        Date.from(now).toString()
 
     private fun getLogLevelString(@LogLevel level: Int) =
         when (level) {
@@ -177,6 +198,17 @@ class DebugLogFileBackend(
                 Handler(looper)
             }
             return HandlerExecutor(parentHandler)
+        }
+
+        private fun HandlerExecutor.postAndBlockUntilCompletion(runnable: Runnable) {
+            val deferred = CompletableDeferred<Unit>()
+            post {
+                runnable.run()
+                deferred.complete(Unit)
+            }
+            runBlocking {
+                deferred.await()
+            }
         }
     }
 }

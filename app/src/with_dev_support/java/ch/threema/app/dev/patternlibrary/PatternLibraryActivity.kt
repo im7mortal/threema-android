@@ -16,17 +16,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
@@ -39,8 +34,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
@@ -64,8 +57,8 @@ import androidx.compose.ui.unit.dp
 import ch.threema.android.buildActivityIntent
 import ch.threema.android.showToast
 import ch.threema.app.R
-import ch.threema.app.compose.common.SpacerVertical
-import ch.threema.app.compose.common.ThemedText
+import ch.threema.app.compose.common.appbars.AppBar
+import ch.threema.app.compose.common.appbars.NavigationIcon
 import ch.threema.app.compose.common.buttons.ButtonIconInfo
 import ch.threema.app.compose.common.buttons.ButtonOutlined
 import ch.threema.app.compose.common.buttons.TextButtonPrimary
@@ -74,6 +67,8 @@ import ch.threema.app.compose.common.buttons.primary.ButtonPrimaryDense
 import ch.threema.app.compose.common.buttons.primary.ButtonPrimaryWebsite
 import ch.threema.app.compose.common.buttons.primary.ExtendedFloatingActionButtonPrimary
 import ch.threema.app.compose.common.buttons.primary.FloatingActionButtonPrimary
+import ch.threema.app.compose.common.spacer.SpacerVertical
+import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.common.text.conversation.ConversationText
 import ch.threema.app.compose.common.text.conversation.ConversationTextDefaults
 import ch.threema.app.compose.common.text.conversation.EmojiSettings
@@ -148,29 +143,13 @@ private fun PatternLibraryContent(
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
-            TopAppBar(
+            AppBar(
                 modifier = Modifier.shadow(elevation = GridUnit.x1),
-                windowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout).only(
-                    WindowInsetsSides.Horizontal + WindowInsetsSides.Top,
-                ),
                 scrollBehavior = scrollBehavior,
-                title = {
-                    ThemedText(
-                        text = "Pattern Library",
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onClickBack,
-                    ) {
-                        Icon(
-                            modifier = Modifier.size(24.dp),
-                            painter = painterResource(R.drawable.ic_arrow_back_24),
-                            contentDescription = null,
-                        )
-                    }
-                },
+                title = "Pattern Library",
+                navigationIcon = NavigationIcon.back(
+                    onClick = onClickBack,
+                ),
                 actions = {
                     IconButton(
                         onClick = onClickToggleDynamicColors,
@@ -183,13 +162,6 @@ private fun PatternLibraryContent(
                         )
                     }
                 },
-                colors = TopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    actionIconContentColor = MaterialTheme.colorScheme.onSurface,
-                ),
             )
         },
     ) { scaffoldContentPadding ->
@@ -279,8 +251,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Primary Button",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
         )
     }
@@ -291,8 +262,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Primary Button",
             trailingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
         )
     }
@@ -303,8 +273,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Lorem ipsum dolor sit amet consectetur adipiscing elit. Dolor sit amet consectetur adipiscing elit quisque faucibus.",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
             maxLines = 2,
         )
@@ -316,8 +285,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Primary Button",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
             enabled = false,
         )
@@ -349,8 +317,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Dense",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
         )
     }
@@ -361,8 +328,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Dense",
             trailingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
         )
     }
@@ -373,8 +339,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Lorem ipsum dolor sit amet consectetur adipiscing elit. Dolor sit amet consectetur adipiscing elit quisque faucibus.",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
             maxLines = 2,
         )
@@ -386,8 +351,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Dense",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
             enabled = false,
         )
@@ -419,8 +383,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Button Website",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
         )
     }
@@ -431,8 +394,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Button Website",
             trailingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
         )
     }
@@ -443,8 +405,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Lorem ipsum dolor sit amet consectetur adipiscing elit. Dolor sit amet consectetur adipiscing elit quisque faucibus.",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
             maxLines = 2,
         )
@@ -456,8 +417,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Button Website",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
             enabled = false,
         )
@@ -489,8 +449,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Outlined Button",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
         )
     }
@@ -501,8 +460,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Lorem ipsum dolor sit amet consectetur adipiscing elit. Dolor sit amet consectetur adipiscing elit quisque faucibus.",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
             maxLines = 2,
         )
@@ -514,8 +472,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Outlined Button",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
             enabled = false,
         )
@@ -543,8 +500,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Primary Text Button",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
         )
     }
@@ -555,8 +511,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Primary Text Button",
             trailingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
         )
     }
@@ -567,8 +522,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Lorem ipsum dolor sit amet consectetur adipiscing elit. Dolor sit amet consectetur adipiscing elit quisque faucibus.",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
             maxLines = 2,
         )
@@ -580,8 +534,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Primary Text Button",
             leadingIcon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
             enabled = false,
         )
@@ -604,8 +557,7 @@ private fun LazyListScope.buttons(
             modifier = Modifier.padding(horizontal = GridUnit.x2, vertical = GridUnit.x1),
             onClick = onClickedAnyButtonComponent,
             icon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
         )
     }
@@ -628,8 +580,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Expanded",
             icon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
         )
     }
@@ -640,8 +591,7 @@ private fun LazyListScope.buttons(
             onClick = onClickedAnyButtonComponent,
             text = "Lorem ipsum dolor sit amet consectetur adipiscing elit. Dolor sit amet consectetur adipiscing elit quisque faucibus.",
             icon = ButtonIconInfo(
-                icon = R.drawable.ic_color_lens_24px,
-                contentDescription = null,
+                iconRes = R.drawable.ic_color_lens_24px,
             ),
         )
     }

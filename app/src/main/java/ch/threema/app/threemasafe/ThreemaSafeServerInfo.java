@@ -7,16 +7,14 @@ import java.net.URL;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.managers.ServiceManager;
-import ch.threema.app.utils.ConfigUtils;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.base.ThreemaException;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.base.utils.Utils;
 import okhttp3.Credentials;
 
 import static ch.threema.app.threemasafe.ThreemaSafeService.BACKUP_ID_LENGTH;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
+import static ch.threema.common.JavaCompat.toHexString;
 
 public class ThreemaSafeServerInfo {
     private static final Logger logger = getThreemaLogger("ThreemaSafeServerInfo");
@@ -51,7 +49,7 @@ public class ThreemaSafeServerInfo {
     }
 
     public void setCustomServerName(@Nullable String customServerName) {
-        if (!TestUtil.isEmptyOrNull(customServerName)) {
+        if (!isNullOrEmpty(customServerName)) {
             this.customServerName = customServerName.trim().replace(SAFE_URL_PREFIX, "");
             if (defaultServerName.equals(this.customServerName) || LEGACY_DEFAULT_SERVER_NAME.equals(this.customServerName)) {
                 this.customServerName = null;
@@ -79,7 +77,7 @@ public class ThreemaSafeServerInfo {
     }
 
     public boolean isDefaultServer() {
-        return TestUtil.isEmptyOrNull(customServerName);
+        return isNullOrEmpty(customServerName);
     }
 
     URL getBackupUrl(@Nullable byte[] backupId) throws ThreemaException {
@@ -87,7 +85,7 @@ public class ThreemaSafeServerInfo {
             throw new ThreemaException("Invalid Backup ID");
         }
 
-        URL serverUrl = getServerUrl(backupId, BACKUP_DIRECTORY_NAME + Utils.byteArrayToHexString(backupId));
+        URL serverUrl = getServerUrl(backupId, BACKUP_DIRECTORY_NAME + toHexString(backupId));
         if (serverUrl == null) {
             throw new ThreemaException("Invalid Server URL");
         }
@@ -108,7 +106,7 @@ public class ThreemaSafeServerInfo {
     String getAuthorization() throws ThreemaException {
         String username = serverUsername, password = serverPassword;
 
-        if ((TestUtil.isEmptyOrNull(serverUsername) || TestUtil.isEmptyOrNull(serverPassword)) && !TestUtil.isEmptyOrNull(customServerName)) {
+        if ((isNullOrEmpty(serverUsername) || isNullOrEmpty(serverPassword)) && !isNullOrEmpty(customServerName)) {
             int atPos = customServerName.indexOf("@");
             if (atPos > 0) {
                 String userInfo = customServerName.substring(0, atPos);
@@ -121,11 +119,11 @@ public class ThreemaSafeServerInfo {
             }
         }
 
-        if (!TestUtil.isEmptyOrNull(username) && !TestUtil.isEmptyOrNull(password)) {
+        if (!isNullOrEmpty(username) && !isNullOrEmpty(password)) {
             return Credentials.basic(username, password);
         }
 
-        var serviceManager = ThreemaApplication.getServiceManager();
+        var serviceManager = ServiceManager.get();
         var authToken = serviceManager != null ? serviceManager.getApiService().getAuthToken() : null;
         if (authToken != null) {
             return "Token " + authToken;
@@ -134,7 +132,7 @@ public class ThreemaSafeServerInfo {
     }
 
     private String getCustomServerNameOrDefault() {
-        if (!TestUtil.isEmptyOrNull(customServerName)) {
+        if (!isNullOrEmpty(customServerName)) {
             return customServerName;
         } else {
             return defaultServerName;
@@ -158,7 +156,7 @@ public class ThreemaSafeServerInfo {
 
     private String getShardHash(@Nullable byte[] backupId) {
         if (backupId != null && backupId.length == BACKUP_ID_LENGTH) {
-            return Utils.byteArrayToHexString(backupId).substring(0, 2);
+            return toHexString(backupId).substring(0, 2);
         }
         return "xx";
     }
@@ -174,7 +172,7 @@ public class ThreemaSafeServerInfo {
 
     @NonNull
     private String getDefaultServerNameFromServerAddressProvider() {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             logger.error("Cannot retrieve default safe server name as the service manager is null");
             return "";
@@ -183,7 +181,7 @@ public class ThreemaSafeServerInfo {
             return serviceManager
                 .getServerAddressProviderService()
                 .getServerAddressProvider()
-                .getSafeServerUrl(false)
+                .getSafeServerUrl()
                 .replace(SAFE_URL_PREFIX, "");
         } catch (ThreemaException e) {
             logger.error("Could not get default safe server name", e);

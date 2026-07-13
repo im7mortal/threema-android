@@ -8,9 +8,10 @@ import android.content.Intent;
 import android.os.PowerManager;
 import android.text.format.DateUtils;
 
+import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
-import java.util.Date;
+import java.time.Instant;
 
 import ch.threema.app.GlobalAppState;
 import ch.threema.app.BuildConfig;
@@ -39,7 +40,7 @@ public class AlarmManagerBroadcastReceiver extends BroadcastReceiver {
 
         logger.info("Alarm type {} received", requestCode);
 
-        if (ThreemaApplication.getServiceManager() != null) {
+        if (ServiceManager.get() != null) {
             try {
                 new Thread(() -> {
                     PowerManager.WakeLock wakeLock = null;
@@ -59,7 +60,7 @@ public class AlarmManagerBroadcastReceiver extends BroadcastReceiver {
                     } else {
                         long time = System.currentTimeMillis();
                         logger.info("Alarm type {} dispatch to LifetimeService START", requestCode);
-                        ThreemaApplication.getServiceManager().getLifetimeService().alarm(intent);
+                        ServiceManager.get().getLifetimeService().alarm(intent);
                         logger.info("Alarm type {} dispatch to LifetimeService STOP. Duration = {}ms",
                             requestCode, System.currentTimeMillis() - time);
                     }
@@ -91,18 +92,19 @@ public class AlarmManagerBroadcastReceiver extends BroadcastReceiver {
 
     public static void requireLoggedInConnection(final Context context, final int milliseconds) {
         logger.debug("requireLoggedInConnection");
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager != null) {
-            final Date now = new Date();
+            final Instant now = Instant.now();
             ServerConnection connection = serviceManager.getConnection();
             LifetimeService lifetimeService = serviceManager.getLifetimeService();
 
-            if (connection != null && connection.getConnectionState() != ConnectionState.LOGGEDIN) {
+            if (connection != null && connection.getConnectionState() != ConnectionState.LOGGED_IN) {
                 if (lifetimeService != null) {
                     lifetimeService.addListener(() -> {
-                        var lastLoggedIn = GlobalAppState.getLastLoggedIn();
-                        if (lastLoggedIn == null || lastLoggedIn.before(now)) {
-                            //schedule a alarm!
+                        GlobalAppState globalAppState = KoinJavaComponent.get(GlobalAppState.class);
+                        var lastLoggedIn = globalAppState.getLastLoggedIn();
+                        if (lastLoggedIn == null || lastLoggedIn.isBefore(now)) {
+                            // schedule an alarm!
                             logger.info("could not login to threema server, try again in {} milliseconds", milliseconds * 2);
 
                             //cancel all other pending intents

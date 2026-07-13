@@ -40,7 +40,7 @@ public class ProfilePictureRecipientsServiceImpl implements ProfilePictureRecipi
                         newIdentities[pos++] = other;
                     }
                 }
-                preferenceService.setList(LIST_NAME, newIdentities);
+                preferenceService.setEncryptedList(LIST_NAME, newIdentities);
                 ids = newIdentities;
             }
         }
@@ -56,7 +56,7 @@ public class ProfilePictureRecipientsServiceImpl implements ProfilePictureRecipi
             if (!idList.contains(id)) {
                 ids = Arrays.copyOf(ids, ids.length + 1);
                 ids[ids.length - 1] = id;
-                preferenceService.setList(LIST_NAME, ids);
+                preferenceService.setEncryptedList(LIST_NAME, ids);
             }
         }
     }
@@ -70,12 +70,12 @@ public class ProfilePictureRecipientsServiceImpl implements ProfilePictureRecipi
     @Override
     public void removeAll() {
         ids = new String[0];
-        preferenceService.setList(LIST_NAME, ids);
+        preferenceService.setEncryptedList(LIST_NAME, ids);
     }
 
     @Override
     public void replaceAll(@Nullable String[] ids) {
         this.ids = ids != null ? ids : new String[0];
-        this.preferenceService.setList(LIST_NAME, this.ids);
+        this.preferenceService.setEncryptedList(LIST_NAME, this.ids);
     }
 }

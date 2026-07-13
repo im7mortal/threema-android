@@ -46,14 +46,14 @@ class IncomingContactEditMessageTask(
             runCommonEditMessageReceiveSteps(
                 myIdentity = myIdentity,
                 editMessageSenderIdentity = message.fromIdentity,
-                editMessageCreatedAt = message.date,
+                editMessageCreatedAt = message.timestamp,
                 messageId = message.data.messageId,
                 receiver = fromReceiver,
                 messageService = messageService,
             )
                 ?: return ReceiveStepsResult.DISCARD
 
-        messageService.saveEditedMessageText(editedMessage, message.data.text, message.date)
+        messageService.saveEditedMessageText(editedMessage, message.data.text, message.timestamp)
 
         return ReceiveStepsResult.SUCCESS
     }

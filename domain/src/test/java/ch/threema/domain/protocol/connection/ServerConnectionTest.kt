@@ -1,10 +1,12 @@
 package ch.threema.domain.protocol.connection
 
+import app.cash.turbine.test
 import ch.threema.base.crypto.NaCl
 import ch.threema.base.crypto.NonceCounter
 import ch.threema.common.emptyByteArray
 import ch.threema.domain.protocol.ServerAddressProvider
 import ch.threema.libthreema.blake2bMac256
+import ch.threema.testhelpers.expectItem
 import java.io.ByteArrayInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -72,45 +74,51 @@ internal abstract class ServerConnectionTest {
         prepareServerKeys(skPublicPrimary, skSecretPrimary)
 
         val connection = createChatServerConnection()
-        val connectionStates = observeConnectionStates(connection)
-        connection.start()
 
-        assertHandshake()
+        connection.watchConnectionState().test {
+            expectItem(ConnectionState.DISCONNECTED)
 
-        // stop the connection
-        connection.stop()
+            connection.start()
 
-        // assert expected states
-        assertEquals(1, serverAddressProvider.keyFetchCount)
-        assertEquals(0, serverAddressProvider.altKeyFetchCount)
-        assertEquals(4, connectionStates.size)
-        assertEquals(ConnectionState.CONNECTING, connectionStates[0])
-        assertEquals(ConnectionState.CONNECTED, connectionStates[1])
-        assertEquals(ConnectionState.LOGGEDIN, connectionStates[2])
-        assertEquals(ConnectionState.DISCONNECTED, connectionStates[3])
+            expectItem(ConnectionState.CONNECTING)
+            expectItem(ConnectionState.CONNECTED)
+            assertHandshake()
+
+            connection.stop()
+
+            expectItem(ConnectionState.LOGGED_IN)
+            expectItem(ConnectionState.DISCONNECTED)
+            assertEquals(1, serverAddressProvider.keyFetchCount)
+            assertEquals(0, serverAddressProvider.altKeyFetchCount)
+
+            cancel()
+        }
     }
 
     @Test
-    fun testChatServerConnectionAltKey() {
+    fun testChatServerConnectionAltKey() = runTest {
         prepareServerKeys(skPublicAlt, skSecretAlt)
 
         val connection = createChatServerConnection()
-        val connectionStates = observeConnectionStates(connection)
-        connection.start()
 
-        assertHandshake()
+        connection.watchConnectionState().test {
+            expectItem(ConnectionState.DISCONNECTED)
 
-        // stop the connection
-        connection.stop()
+            connection.start()
 
-        // assert expected states
-        assertEquals(1, serverAddressProvider.keyFetchCount)
-        assertEquals(1, serverAddressProvider.altKeyFetchCount)
-        assertEquals(4, connectionStates.size)
-        assertEquals(ConnectionState.CONNECTING, connectionStates[0])
-        assertEquals(ConnectionState.CONNECTED, connectionStates[1])
-        assertEquals(ConnectionState.LOGGEDIN, connectionStates[2])
-        assertEquals(ConnectionState.DISCONNECTED, connectionStates[3])
+            expectItem(ConnectionState.CONNECTING)
+            expectItem(ConnectionState.CONNECTED)
+            assertHandshake()
+
+            connection.stop()
+
+            expectItem(ConnectionState.LOGGED_IN)
+            expectItem(ConnectionState.DISCONNECTED)
+            assertEquals(1, serverAddressProvider.keyFetchCount)
+            assertEquals(1, serverAddressProvider.altKeyFetchCount)
+
+            cancel()
+        }
     }
 
     private fun assertHandshake() {
@@ -229,19 +237,5 @@ internal abstract class ServerConnectionTest {
         tskSecret = ByteArray(NaCl.SECRET_KEY_BYTES)
         NaCl.generateKeypairInPlace(tskPublic, tskSecret)
         serverNonce = NonceCounter(sck)
-    }
-
-    /**
-     * Prepare the connection to collect the different connection states during the test and return a list of these states which
-     * can be evaluated at the end of the test.
-     */
-    private fun observeConnectionStates(connection: ServerConnection): List<ConnectionState> {
-        val connectionStates = mutableListOf<ConnectionState>()
-        connection.addConnectionStateListener { connectionState ->
-            if (connectionState != null) {
-                connectionStates.add(connectionState)
-            }
-        }
-        return connectionStates
     }
 }

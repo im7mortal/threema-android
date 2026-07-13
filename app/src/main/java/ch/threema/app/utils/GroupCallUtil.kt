@@ -4,14 +4,15 @@ import android.app.Activity
 import android.content.Context
 import android.os.SystemClock
 import android.provider.Settings
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import ch.threema.android.ToastDuration
+import ch.threema.android.showToast
 import ch.threema.app.R
-import ch.threema.app.ThreemaApplication
 import ch.threema.app.dialogs.GenericProgressDialog
 import ch.threema.app.dialogs.SimpleStringAlertDialog
+import ch.threema.app.managers.ServiceManager
 import ch.threema.app.routines.UpdateFeatureLevelRoutine
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.GroupService
@@ -73,7 +74,7 @@ object GroupCallUtil {
         activity: AppCompatActivity,
         groupModel: GroupModelOld,
     ) {
-        val serviceManager = ThreemaApplication.getServiceManager() ?: return
+        val serviceManager = ServiceManager.get() ?: return
         val contactModelRepository = serviceManager.modelRepositories.contacts
         val userService: UserService
         val groupService: GroupService
@@ -173,16 +174,14 @@ object GroupCallUtil {
         otherMembersNotSupportingGroupCallsCount: Int,
     ) {
         if (otherMembersNotSupportingGroupCallsCount > 0) {
-            Toast.makeText(
-                context,
-                ConfigUtils.getSafeQuantityString(
-                    context,
+            context.showToast(
+                context.resources.getQuantityString(
                     R.plurals.n_members_dont_support_group_calls,
                     otherMembersNotSupportingGroupCallsCount,
                     otherMembersNotSupportingGroupCallsCount,
                 ),
-                Toast.LENGTH_LONG,
-            ).show()
+                ToastDuration.LONG,
+            )
         }
         ContextCompat.startActivity(
             context,

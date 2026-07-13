@@ -40,13 +40,6 @@ class MessageIdTest {
     }
 
     @Test
-    fun `cannot create from null string`() {
-        assertFailsWith<ThreemaException> {
-            MessageId.fromString(null)
-        }
-    }
-
-    @Test
     fun `cannot create from string of wrong length`() {
         assertFailsWith<ThreemaException> {
             MessageId.fromString("112233")

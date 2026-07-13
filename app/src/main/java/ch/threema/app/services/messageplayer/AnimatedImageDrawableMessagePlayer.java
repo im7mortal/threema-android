@@ -28,8 +28,9 @@ import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.IntentDataUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
+
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.data.media.FileDataModel;
 import ch.threema.storage.models.data.media.MediaMessageDataInterface;
@@ -78,7 +79,7 @@ public class AnimatedImageDrawableMessagePlayer extends MessagePlayer {
         if (this.currentActivityRef != null && this.currentActivityRef.get() != null && this.isReceiverMatch(this.currentMessageReceiver)) {
             final String mimeType = getMessageModel().getFileData().getMimeType();
 
-            if (!TestUtil.isEmptyOrNull(mimeType) && decryptedFile.exists()) {
+            if (!isNullOrEmpty(mimeType) && decryptedFile.exists()) {
                 if (preferenceService.isAnimationAutoplay()) {
                     autoPlay(decryptedFile);
                 } else {

@@ -1,14 +1,12 @@
 package ch.threema.data
 
-import ch.threema.app.managers.CoreServiceManager
-import ch.threema.app.multidevice.MultiDeviceManager
-import ch.threema.common.now
 import ch.threema.data.datatypes.AndroidContactLookupInfo
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.datatypes.ContactNameFormat
+import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.IdColor
 import ch.threema.data.models.ContactModelData.Companion.javaCreate
-import ch.threema.data.storage.DatabaseBackend
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.ContactSyncState
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
@@ -16,13 +14,11 @@ import ch.threema.domain.models.ReadReceiptPolicy
 import ch.threema.domain.models.TypingIndicatorPolicy
 import ch.threema.domain.models.VerificationLevel
 import ch.threema.domain.models.WorkVerificationLevel
-import ch.threema.domain.stores.IdentityStore
-import ch.threema.domain.taskmanager.TaskManager
 import ch.threema.storage.models.ContactModel
-import io.mockk.every
+import ch.threema.test.TestIdentityProvider
 import io.mockk.mockk
 import java.math.BigInteger
-import kotlin.test.BeforeTest
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -32,31 +28,16 @@ import kotlin.test.assertNull
 import testdata.TestData
 
 class ContactModelJavaTest {
-    private val databaseBackendMock = mockk<DatabaseBackend>()
-    private val multiDeviceManagerMock = mockk<MultiDeviceManager>()
-    private val taskManagerMock = mockk<TaskManager>()
-    private val coreServiceManagerMock = mockk<CoreServiceManager> {
-        every { multiDeviceManager } returns multiDeviceManagerMock
-        every { taskManager } returns taskManagerMock
-        every { identityStore } returns mockk<IdentityStore> {
-            every { getIdentityString() } returns TestData.Identities.ME.value
-        }
-    }
-
-    @BeforeTest
-    fun init() {
-        every { coreServiceManagerMock.multiDeviceManager } returns multiDeviceManagerMock
-        every { coreServiceManagerMock.taskManager } returns taskManagerMock
-    }
+    private val identityProvider = TestIdentityProvider(TestData.Identities.ME)
 
     /**
      * Test the construction using the primary constructor from Java.
      */
     @Test
     fun testConstruction() {
-        val createdAt = now()
+        val createdAt = Instant.now()
         val publicKey = ByteArray(32)
-        val largeBigInteger = BigInteger("18446744073709551600")
+        val featureMask = 18446744073709551600UL
         val identity = "TESTTEST"
         val contact = ch.threema.data.models.ContactModel(
             identity,
@@ -64,20 +45,21 @@ class ContactModelJavaTest {
                 identity = identity,
                 publicKey = publicKey,
                 createdAt = createdAt,
+                lastUpdateAt = null,
                 firstName = "Test",
                 lastName = "Contact",
                 nickname = null,
                 idColor = IdColor(10),
                 verificationLevel = VerificationLevel.SERVER_VERIFIED,
                 workVerificationLevel = WorkVerificationLevel.WORK_SUBSCRIPTION_VERIFIED,
-                identityType = IdentityType.NORMAL,
-                acquaintanceLevel = ContactModel.AcquaintanceLevel.DIRECT,
+                identityType = IdentityType.REGULAR,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
                 activityState = IdentityState.ACTIVE,
-                featureMask = largeBigInteger,
+                featureMask = BigInteger(featureMask.toString()),
                 syncState = ContactSyncState.CUSTOM,
                 readReceiptPolicy = ReadReceiptPolicy.DONT_SEND,
                 typingIndicatorPolicy = TypingIndicatorPolicy.SEND,
-                isArchived = false,
+                conversationVisibility = ConversationVisibility.NORMAL,
                 androidContactLookupInfo = AndroidContactLookupInfo(lookupKey = "asdf", contactId = null),
                 localAvatarExpires = null,
                 isRestored = false,
@@ -88,8 +70,11 @@ class ContactModelJavaTest {
                 availabilityStatus = AvailabilityStatus.None,
                 workLastFullSyncAt = null,
             ),
-            databaseBackendMock,
-            coreServiceManagerMock,
+            databaseBackend = mockk(relaxed = true),
+            multiDeviceManager = mockk(relaxed = true),
+            taskManager = mockk(relaxed = true),
+            identityProvider = identityProvider,
+            globalEventBuses = mockk(),
         )
 
         val data = contact.data!!
@@ -101,10 +86,10 @@ class ContactModelJavaTest {
         assertEquals(10, data.idColor.colorIndex)
         assertEquals(VerificationLevel.SERVER_VERIFIED, data.verificationLevel)
         assertEquals(WorkVerificationLevel.WORK_SUBSCRIPTION_VERIFIED, data.workVerificationLevel)
-        assertEquals(IdentityType.NORMAL, data.identityType)
-        assertEquals(ContactModel.AcquaintanceLevel.DIRECT, data.acquaintanceLevel)
+        assertEquals(IdentityType.REGULAR, data.identityType)
+        assertEquals(AcquaintanceLevel.DIRECT, data.acquaintanceLevel)
         assertEquals(IdentityState.ACTIVE, data.activityState)
-        assertEquals(largeBigInteger, data.featureMaskBigInteger())
+        assertEquals(featureMask, data.featureMask)
         val exception = assertFailsWith<IllegalArgumentException> {
             data.featureMaskLong()
         }
@@ -116,6 +101,7 @@ class ContactModelJavaTest {
         assertNull(data.localAvatarExpires)
         assertFalse(data.isRestored)
         assertContentEquals(byteArrayOf(1, 2, 3), data.profilePictureBlobId)
+        assertEquals(ConversationVisibility.NORMAL, data.conversationVisibility)
     }
 
     @Test

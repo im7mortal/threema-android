@@ -28,7 +28,7 @@ fun AudioDevice.getIconResource(): Int {
         AudioDevice.WIRED_HEADSET -> R.drawable.ic_headset_mic_outline
         AudioDevice.EARPIECE -> R.drawable.ic_phone_in_talk
         AudioDevice.BLUETOOTH -> R.drawable.ic_bluetooth_searching_outline
-        AudioDevice.NONE -> R.drawable.ic_mic_off_outline
+        AudioDevice.NONE -> R.drawable.ic_microphone_off_outline
     }
 }
 

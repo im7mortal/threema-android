@@ -50,6 +50,7 @@ class SettingsPrivacyFragment :
     private val preferenceService: PreferenceService by inject()
     private val synchronizedSettingsService: SynchronizedSettingsService by inject()
     private val appRestrictions: AppRestrictions by inject()
+    private val shareTargetUpdateWorkerScheduler: ShareTargetUpdateWorker.Scheduler by inject()
 
     private lateinit var disableScreenshot: CheckBoxPreference
     private var disableScreenshotChecked = false
@@ -244,9 +245,9 @@ class SettingsPrivacyFragment :
     private fun initDirectSharePref() {
         getPrefOrNull<TwoStatePreference>(R.string.preferences__direct_share)?.onChange<Boolean> { enabled ->
             if (enabled) {
-                ShareTargetUpdateWorker.scheduleShareTargetShortcutUpdate(requireContext())
+                shareTargetUpdateWorkerScheduler.schedulePeriodicUpdate()
             } else {
-                ShareTargetUpdateWorker.cancelScheduledShareTargetShortcutUpdate(requireContext())
+                shareTargetUpdateWorkerScheduler.cancelPeriodicUpdate()
                 ShortcutUtil.deleteAllShareTargetShortcuts(preferenceService)
             }
         }
@@ -286,6 +287,7 @@ class SettingsPrivacyFragment :
     }
 
     private fun enableSyncFromLocal() {
+        logger.info("Enabling contact synchronization")
         try {
             if (synchronizeContactsService.enableSyncFromLocal() &&
                 ConfigUtils.requestContactPermissions(
@@ -302,6 +304,7 @@ class SettingsPrivacyFragment :
     }
 
     private fun disableSyncFromLocal() {
+        logger.info("Disabling contact synchronization")
         GenericProgressDialog.newInstance(R.string.app_name, R.string.please_wait).show(parentFragmentManager, DIALOG_TAG_DISABLE_SYNC)
         Thread(
             {

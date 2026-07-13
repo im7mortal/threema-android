@@ -6,18 +6,19 @@ import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.DistributionListService
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.RingtoneService
-import ch.threema.app.usecases.WatchTypingIdentitiesUseCase
+import ch.threema.app.typingindicator.TypingIndicatorProvider
 import ch.threema.app.usecases.availabilitystatus.WatchAllContactAvailabilityStatusesUseCase
 import ch.threema.app.usecases.contacts.WatchAllMentionNamesUseCase
 import ch.threema.app.usecases.contacts.WatchContactNameFormatSettingUseCase
 import ch.threema.app.usecases.groups.WatchGroupCallsUseCase
+import ch.threema.common.TimeProvider
 
 // TODO(SE-508): When group calls un-archive a conversation, we do not need to watch them here
 class WatchArchivedConversationListItemsUseCase(
     watchArchivedConversationsUseCase: WatchArchivedConversationsUseCase,
     watchGroupCallsUseCase: WatchGroupCallsUseCase,
     conversationCategoryService: ConversationCategoryService,
-    watchTypingIdentitiesUseCase: WatchTypingIdentitiesUseCase,
+    typingIndicatorProvider: TypingIndicatorProvider,
     contactService: ContactService,
     groupService: GroupService,
     distributionListService: DistributionListService,
@@ -27,10 +28,11 @@ class WatchArchivedConversationListItemsUseCase(
     watchAllMentionNamesUseCase: WatchAllMentionNamesUseCase,
     watchAllContactAvailabilityStatusesUseCase: WatchAllContactAvailabilityStatusesUseCase,
     draftManager: DraftManager,
+    timeProvider: TimeProvider,
 ) : WatchConversationListItemsUseCase(
     watchConversationsUseCase = watchArchivedConversationsUseCase,
     watchGroupCallsUseCase = watchGroupCallsUseCase,
-    watchTypingIdentitiesUseCase = watchTypingIdentitiesUseCase,
+    typingIndicatorProvider = typingIndicatorProvider,
     watchAvatarIterationsUseCase = watchAvatarIterationsUseCase,
     watchContactNameFormatSettingUseCase = watchContactNameFormatSettingUseCase,
     watchAllMentionNamesUseCase = watchAllMentionNamesUseCase,
@@ -41,4 +43,5 @@ class WatchArchivedConversationListItemsUseCase(
     groupService = groupService,
     distributionListService = distributionListService,
     ringtoneService = ringtoneService,
+    timeProvider = timeProvider,
 )

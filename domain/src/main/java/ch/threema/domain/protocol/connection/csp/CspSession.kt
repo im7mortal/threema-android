@@ -3,7 +3,7 @@ package ch.threema.domain.protocol.connection.csp
 import ch.threema.base.crypto.KeyPair
 import ch.threema.base.crypto.NaCl
 import ch.threema.base.crypto.NonceCounter
-import ch.threema.base.utils.TimeMeasureUtil
+import ch.threema.common.Stopwatch
 import ch.threema.common.emptyByteArray
 import ch.threema.common.generateRandomBytes
 import ch.threema.common.secureRandom
@@ -50,7 +50,7 @@ internal class CspSession(
         DONE,
     }
 
-    private val timeMeasureUtil = TimeMeasureUtil()
+    private val stopwatch = Stopwatch()
 
     private val version: Version
         get() = configuration.version
@@ -105,14 +105,14 @@ internal class CspSession(
 
         loginState = when (loginState) {
             LoginState.AWAIT_HELLO -> {
-                timeMeasureUtil.stop()
+                stopwatch.stop()
                 val serverTempKeyPub = processServerHello(message)
                 sendClientLogin(serverTempKeyPub, outbound)
                 LoginState.AWAIT_LOGIN_ACK
             }
 
             LoginState.AWAIT_LOGIN_ACK -> {
-                timeMeasureUtil.stop()
+                stopwatch.stop()
                 processServerLoginAck(message)
                 LoginState.DONE
             }
@@ -182,7 +182,7 @@ internal class CspSession(
                 assertClientCookieAndServerCookieNotEqual()
                 assertCorrectClientCookie(serverHello)
                 val serverTempKeyPub = processServerHello(serverHello)
-                logger.info("Server hello successful (rtt: {} ms)", timeMeasureUtil.elapsedTime)
+                logger.info("Server hello successful (rtt: {})", stopwatch.elapsedTime)
                 return serverTempKeyPub
             }
         } catch (e: IOException) {
@@ -213,35 +213,24 @@ internal class CspSession(
         // protocol. This gives us the same security protections as certificate pinning in the tls
         // context.
         serverPubKeyPerm = serverAddressProvider.getChatServerPublicKey()
-        var kClientTempServerPerm = NaCl(clientTempKeypair.privateKey, serverPubKeyPerm)
-        var serverHello = try {
-            kClientTempServerPerm.decrypt(
+        try {
+            return NaCl(clientTempKeypair.privateKey, serverPubKeyPerm).decrypt(
                 data = serverHelloBox,
                 nonce = nonce,
             )
         } catch (cryptoException: CryptoException) {
             logger.error("Failed to decrypt server hello. Trying again with alternate key", cryptoException)
-            null
         }
 
-        if (serverHello == null) {
-            /* Try again with alternate key */
-            serverPubKeyPerm = serverAddressProvider.getChatServerPublicKeyAlt()
-            kClientTempServerPerm = NaCl(clientTempKeypair.privateKey, serverPubKeyPerm)
-            serverHello = try {
-                kClientTempServerPerm.decrypt(
-                    data = serverHelloBox,
-                    nonce = nonce,
-                )
-            } catch (cryptoException: CryptoException) {
-                throw ServerConnectionException("Decryption of server hello box failed", cryptoException)
-            }
-        }
-
-        if (serverHello != null) {
-            return serverHello
-        } else {
-            throw ServerConnectionException("Decryption of server hello box failed")
+        // Try again with alternate key
+        serverPubKeyPerm = serverAddressProvider.getChatServerPublicKeyAlt()
+        return try {
+            NaCl(clientTempKeypair.privateKey, serverPubKeyPerm).decrypt(
+                data = serverHelloBox,
+                nonce = nonce,
+            )
+        } catch (cryptoException: CryptoException) {
+            throw ServerConnectionException("Decryption of server hello box failed", cryptoException)
         }
     }
 
@@ -280,7 +269,11 @@ internal class CspSession(
         val serverTempKeyPub = ByteArray(NaCl.PUBLIC_KEY_BYTES)
         System.arraycopy(serverHello, 0, serverTempKeyPub, 0, NaCl.PUBLIC_KEY_BYTES)
 
-        kClientTempServerTemp = NaCl(clientTempKeypair.privateKey, serverTempKeyPub)
+        kClientTempServerTemp = try {
+            NaCl(clientTempKeypair.privateKey, serverTempKeyPub)
+        } catch (cryptoException: CryptoException) {
+            throw ServerConnectionException("Could not create nacl with temporary server public key", cryptoException)
+        }
 
         return serverTempKeyPub
     }
@@ -309,7 +302,7 @@ internal class CspSession(
         }
         clientNonce = NonceCounter(clientCookie)
         val clientHello = clientTempKeypair.publicKey + clientCookie
-        timeMeasureUtil.start()
+        stopwatch.start()
         outbound.send(CspLoginMessage(clientHello))
     }
 
@@ -344,7 +337,7 @@ internal class CspSession(
             data = login,
             nonce = loginNonce,
         )
-        timeMeasureUtil.start()
+        stopwatch.start()
         outbound.send(CspLoginMessage(loginBox + extensionsBox))
         logger.debug("Sent login packet")
     }
@@ -373,7 +366,7 @@ internal class CspSession(
         /* Device cookie extension (0x03) */
         val deviceCookie = ProtocolExtension(
             ProtocolExtension.DEVICE_COOKIE_TYPE,
-            deviceCookieManager.obtainDeviceCookie(),
+            deviceCookieManager.getOrCreateDeviceCookie(),
         )
 
         return clientInfo.bytes + cspDeviceIdBytes + supportedFeaturesExtension.bytes + deviceCookie.bytes
@@ -391,7 +384,11 @@ internal class CspSession(
 
     @Throws(ServerConnectionException::class)
     private fun createVouch(serverTempKeyPub: ByteArray): ByteArray {
-        val sharedSecrets = identityStore.calcSharedSecret(serverPubKeyPerm) + identityStore.calcSharedSecret(serverTempKeyPub)
+        val sharedSecretPerm = identityStore.calcSharedSecret(serverPubKeyPerm)
+            ?: throw ServerConnectionException("Could not calculate shared secret with permanent public server key")
+        val sharedSecretTemp = identityStore.calcSharedSecret(serverTempKeyPub)
+            ?: throw ServerConnectionException("Could not calculate shared secret with temporary public server key")
+        val sharedSecrets = sharedSecretPerm + sharedSecretTemp
         val input = serverCookie + clientTempKeypair.publicKey
         return try {
             val vouchKey = blake2bMac256(
@@ -427,6 +424,6 @@ internal class CspSession(
         } catch (cryptoException: CryptoException) {
             throw ServerConnectionException("Decryption of login ack box failed", cryptoException)
         }
-        logger.info("Login ack received (rtt: {} ms)", timeMeasureUtil.elapsedTime)
+        logger.info("Login ack received (rtt: {})", stopwatch.elapsedTime)
     }
 }

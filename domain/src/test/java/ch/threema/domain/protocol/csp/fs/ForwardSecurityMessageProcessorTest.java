@@ -4,7 +4,8 @@ import org.junit.Assert;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
-import java.util.Date;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
@@ -20,6 +21,7 @@ import ch.threema.domain.fs.DHSessionId;
 import ch.threema.domain.fs.KDFRatchet;
 import ch.threema.domain.helpers.DummyUsers;
 import ch.threema.domain.helpers.ForwardSecurityMessageProcessorWrapper;
+import ch.threema.domain.helpers.InMemoryContactStore;
 import ch.threema.domain.helpers.InMemoryDHSessionStore;
 import ch.threema.domain.helpers.ServerAckTaskCodec;
 import ch.threema.domain.helpers.UnusedTaskCodec;
@@ -46,10 +48,10 @@ import ch.threema.domain.protocol.csp.messages.MissingPublicKeyException;
 import ch.threema.domain.protocol.csp.messages.SetProfilePictureMessage;
 import ch.threema.domain.protocol.csp.messages.TextMessage;
 import ch.threema.domain.protocol.csp.messages.TypingIndicatorMessage;
-import ch.threema.domain.protocol.csp.messages.ballot.GroupPollSetupMessage;
-import ch.threema.domain.protocol.csp.messages.ballot.GroupPollVoteMessage;
-import ch.threema.domain.protocol.csp.messages.ballot.PollSetupMessage;
-import ch.threema.domain.protocol.csp.messages.ballot.PollVoteMessage;
+import ch.threema.domain.protocol.csp.messages.poll.GroupPollSetupMessage;
+import ch.threema.domain.protocol.csp.messages.poll.GroupPollVoteMessage;
+import ch.threema.domain.protocol.csp.messages.poll.PollSetupMessage;
+import ch.threema.domain.protocol.csp.messages.poll.PollVoteMessage;
 import ch.threema.domain.protocol.csp.messages.file.FileMessage;
 import ch.threema.domain.protocol.csp.messages.file.GroupFileMessage;
 import ch.threema.domain.protocol.csp.messages.fs.ForwardSecurityData;
@@ -66,10 +68,8 @@ import ch.threema.domain.protocol.csp.messages.voip.VoipCallHangupMessage;
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallOfferMessage;
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallRingingMessage;
 import ch.threema.domain.protocol.csp.messages.voip.VoipICECandidatesMessage;
-import ch.threema.domain.stores.ContactStore;
 import ch.threema.domain.stores.DHSessionStoreException;
-import ch.threema.domain.stores.DHSessionStoreInterface;
-import ch.threema.domain.stores.DummyContactStore;
+import ch.threema.domain.stores.DHSessionStore;
 import ch.threema.domain.stores.IdentityStore;
 import ch.threema.domain.taskmanager.ActiveTaskCodec;
 import ch.threema.domain.testhelpers.TestHelpers;
@@ -879,7 +879,7 @@ public class ForwardSecurityMessageProcessorTest {
         // Set the last outgoing message to 25 hours before now, so that an empty message must be
         // created. Note that this works without explicitly storing the session, as the sessions are
         // kept in memory in these tests.
-        session.setLastOutgoingMessageTimestamp(new Date().getTime() - 25 * 60 * 60 * 1000);
+        session.setLastOutgoingMessageTimestamp(Instant.now().minus(25, ChronoUnit.HOURS).toEpochMilli());
 
         // Send a group text message to Bob. Note that the session exists but is not fresh anymore.
         // As the group message requires FS 1.2, it is sent without FS. Therefore, an empty message
@@ -1572,7 +1572,7 @@ public class ForwardSecurityMessageProcessorTest {
         UserContext context = new UserContext();
 
         context.dhSessionStore = new InMemoryDHSessionStore();
-        context.contactStore = new DummyContactStore();
+        context.contactStore = new InMemoryContactStore();
         context.identityStore = DummyUsers.getIdentityStoreForUser(user);
         context.handle = new ServerAckTaskCodec();
 
@@ -1613,8 +1613,8 @@ public class ForwardSecurityMessageProcessorTest {
     }
 
     private static class UserContext {
-        DHSessionStoreInterface dhSessionStore;
-        ContactStore contactStore;
+        DHSessionStore dhSessionStore;
+        InMemoryContactStore contactStore;
         IdentityStore identityStore;
         ServerAckTaskCodec handle;
         ForwardSecurityMessageProcessorWrapper fsmp;

@@ -25,6 +25,7 @@ class DatabaseOpenHelper(
     onDatabaseCorrupted: () -> Unit = {},
     private val getCreationStatements: () -> Sequence<String> = DatabaseSchemaCreator::getCreationStatements,
     private val dispatcherProvider: DispatcherProvider = DispatcherProvider.default,
+    private val downgradeHelper: DatabaseDowngradeHelper,
 ) : PermanentlyCloseableSQLiteOpenHelper(
     context = appContext,
     name = databaseName,
@@ -91,7 +92,7 @@ class DatabaseOpenHelper(
 
     override fun onDowngrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {
         logger.warn("onDowngrade, version {} -> {}", oldVersion, newVersion)
-        throw DatabaseDowngradeException(oldVersion)
+        downgradeHelper.onDowngrade(oldVersion)
     }
 
     private fun runDatabaseUpdate(databaseUpdate: DatabaseUpdate) {

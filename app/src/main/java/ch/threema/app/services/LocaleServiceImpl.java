@@ -9,7 +9,8 @@ import com.google.i18n.phonenumbers.Phonenumber;
 
 import java.util.Locale;
 
-import ch.threema.app.utils.TestUtil;
+
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class LocaleServiceImpl implements LocaleService {
     private final Context context;
@@ -72,7 +73,7 @@ public class LocaleServiceImpl implements LocaleService {
     @Override
     public String getCountryCodePhonePrefix() {
         String region = getCountryIsoCode();
-        if (!TestUtil.isEmptyOrNull(region)) {
+        if (!isNullOrEmpty(region)) {
             int countryCode = getPhoneNumberUtil().getCountryCodeForRegion(region);
             if (countryCode > 0) {
                 return "+" + countryCode;

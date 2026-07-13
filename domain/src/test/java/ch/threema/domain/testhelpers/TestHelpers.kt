@@ -33,9 +33,6 @@ object TestHelpers {
             override fun getContactForIdentityIncludingCache(identity: IdentityString): Contact {
                 return getContactForIdentity(identity)
             }
-
-            override fun addContact(contact: Contact) {}
-            override fun isSpecialContact(identity: IdentityString) = false
         }
 
     @JvmStatic

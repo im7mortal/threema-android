@@ -1,11 +1,11 @@
 package ch.threema.app.dev.preference
 
-import android.content.SharedPreferences
 import androidx.annotation.UiThread
 import androidx.annotation.WorkerThread
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
 import ch.threema.android.showToast
+import ch.threema.app.BuildConfig
 import ch.threema.app.R
 import ch.threema.app.asynctasks.AddContactRestrictionPolicy
 import ch.threema.app.asynctasks.BasicAddOrUpdateContactBackgroundTask
@@ -13,30 +13,36 @@ import ch.threema.app.asynctasks.ContactAvailable
 import ch.threema.app.asynctasks.PolicyViolation
 import ch.threema.app.dev.androidcontactsync.AndroidContactDebugActivity
 import ch.threema.app.dev.patternlibrary.PatternLibraryActivity
+import ch.threema.app.errorreporting.RecentErrorTypeIdStore
 import ch.threema.app.exceptions.InvalidEntryException
 import ch.threema.app.exceptions.PolicyViolationException
 import ch.threema.app.preference.ThreemaPreferenceFragment
 import ch.threema.app.preference.onClick
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.problemsolving.Problem
+import ch.threema.app.protocolsteps.ValidContactsLookupSteps
 import ch.threema.app.restrictions.AppRestrictions
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.MessageService
 import ch.threema.app.services.UserService
 import ch.threema.app.usecases.OverrideOneTimeHintsUseCase
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.data.repositories.ContactModelRepository
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.MessageId.Companion.random
-import ch.threema.domain.protocol.api.APIConnector
 import ch.threema.domain.protocol.csp.messages.TextMessage
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallAnswerData
 import ch.threema.domain.taskmanager.TriggerSource
+import ch.threema.logging.logAndReportError
 import ch.threema.storage.models.ContactModel
 import ch.threema.storage.models.data.status.VoipStatusDataModel
-import java.util.Date
+import java.time.Instant
+import kotlin.random.Random
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
 
 private val logger = getThreemaLogger("SettingsDeveloperFragment")
@@ -51,13 +57,13 @@ class SettingsDeveloperFragment : ThreemaPreferenceFragment() {
     private val contactService: ContactService by inject()
     private val messageService: MessageService by inject()
     private val userService: UserService by inject()
-    private val apiConnector: APIConnector by inject()
     private val appRestrictions: AppRestrictions by inject()
     private val contactModelRepository: ContactModelRepository by inject()
-    private val sharedPreferences: SharedPreferences by inject()
     private val contentCreator: ContentCreator by inject()
     private val overrideOneTimeHintsUseCase: OverrideOneTimeHintsUseCase by inject()
     private val dispatcherProvider: DispatcherProvider by inject()
+    private val validContactsLookupSteps: ValidContactsLookupSteps by inject()
+    private val recentErrorTypeIdStore: RecentErrorTypeIdStore by inject()
 
     override fun initializePreferences() {
         getPref<Preference>(R.string.preferences__dev_reset_one_time_hints).onClick {
@@ -121,6 +127,25 @@ class SettingsDeveloperFragment : ThreemaPreferenceFragment() {
             }
         }
 
+        // Create an error record without crashing the app
+        getPref<Preference>(R.string.preferences__record_unexpected_error).apply {
+            isEnabled = BuildConfig.ERROR_REPORTING_SUPPORTED &&
+                preferenceService.getErrorReportingState() != PreferenceService.ErrorReportingState.NEVER_SEND
+            onClick {
+                logger.logAndReportError("This is a test, foo = {}", Random.nextInt(from = 0, until = 10))
+                showToast("Error record created")
+            }
+        }
+
+        getPref<Preference>(R.string.preferences__clear_recent_error_type_ids).onClick {
+            lifecycleScope.launch {
+                withContext(dispatcherProvider.io) {
+                    recentErrorTypeIdStore.clear()
+                }
+                showToast("Recent error type ids cleared")
+            }
+        }
+
         // Remove developer menu
         getPref<Preference>(R.string.preferences__remove_menu).onClick {
             hideDeveloperMenu()
@@ -169,7 +194,7 @@ class SettingsDeveloperFragment : ThreemaPreferenceFragment() {
                 description = "missed",
             ),
             VoipMessage(
-                dataModel = VoipStatusDataModel.createFinished(VoipStatusDataModel.NO_CALL_ID, 42),
+                dataModel = VoipStatusDataModel.createFinished(VoipStatusDataModel.NO_CALL_ID, 42.seconds),
                 description = "finished",
             ),
             VoipMessage(
@@ -247,7 +272,7 @@ class SettingsDeveloperFragment : ThreemaPreferenceFragment() {
                 val messageRecursive = TextMessage()
                 messageRecursive.fromIdentity = contact1.identity
                 messageRecursive.toIdentity = userService.getIdentity()
-                messageRecursive.date = Date()
+                messageRecursive.timestamp = Instant.now()
                 messageRecursive.messageId = messageIdRecursive
                 messageRecursive.text = "> quote #$messageIdRecursive\n\na quote that references itself"
                 messageService.processIncomingContactMessage(messageRecursive, TriggerSource.LOCAL)
@@ -258,14 +283,14 @@ class SettingsDeveloperFragment : ThreemaPreferenceFragment() {
                 val messageChat2 = TextMessage()
                 messageChat2.fromIdentity = contact2.identity
                 messageChat2.toIdentity = userService.getIdentity()
-                messageChat2.date = Date()
+                messageChat2.timestamp = Instant.now()
                 messageChat2.messageId = messageIdCrossChat2
                 messageChat2.text = "hello, this is a secret message"
                 messageService.processIncomingContactMessage(messageChat2, TriggerSource.LOCAL)
                 val messageChat1 = TextMessage()
                 messageChat1.fromIdentity = contact1.identity
                 messageChat1.toIdentity = userService.getIdentity()
-                messageChat1.date = Date()
+                messageChat1.timestamp = Instant.now()
                 messageChat1.messageId = messageIdCrossChat1
                 messageChat1.text = "> quote #$messageIdCrossChat2\n\nOMG!"
                 messageService.processIncomingContactMessage(messageChat1, TriggerSource.LOCAL)
@@ -289,9 +314,8 @@ class SettingsDeveloperFragment : ThreemaPreferenceFragment() {
     ): ContactModel {
         val result = BasicAddOrUpdateContactBackgroundTask(
             identity = identity,
-            acquaintanceLevel = ContactModel.AcquaintanceLevel.DIRECT,
-            myIdentity = userService.getIdentity()!!,
-            apiConnector = apiConnector,
+            acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            validContactsLookupSteps = validContactsLookupSteps,
             contactModelRepository = contactModelRepository,
             addContactRestrictionPolicy = AddContactRestrictionPolicy.CHECK,
             appRestrictions = appRestrictions,

@@ -15,10 +15,8 @@ import org.slf4j.Logger;
 import java.lang.reflect.Method;
 
 import androidx.core.content.ContextCompat;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.voip.services.VoipStateService;
-import ch.threema.base.ThreemaException;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 /**
@@ -35,19 +33,13 @@ public class IncomingMobileCallReceiver extends BroadcastReceiver {
 
         logger.info("Incoming mobile call");
 
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             logger.error("Could not acquire service manager");
             return;
         }
 
-        VoipStateService voipStateService;
-        try {
-            voipStateService = serviceManager.getVoipStateService();
-        } catch (ThreemaException e) {
-            logger.error("Could not acquire VoipStateService");
-            return;
-        }
+        VoipStateService voipStateService = serviceManager.getVoipStateService();
 
         if (!voipStateService.getCallState().isIdle()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {

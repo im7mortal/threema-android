@@ -4,8 +4,8 @@ import ch.threema.app.managers.ServiceManager
 import ch.threema.app.processors.incomingcspmessage.IncomingCspMessageSubTask
 import ch.threema.app.processors.incomingcspmessage.ReceiveStepsResult
 import ch.threema.app.processors.incomingcspmessage.groupcontrol.runCommonGroupReceiveSteps
-import ch.threema.app.services.ballot.BallotVoteResult
-import ch.threema.domain.protocol.csp.messages.ballot.GroupPollVoteMessage
+import ch.threema.app.services.poll.PollVoteResult
+import ch.threema.domain.protocol.csp.messages.poll.GroupPollVoteMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.TriggerSource
 
@@ -14,7 +14,7 @@ class IncomingGroupPollVoteTask(
     triggerSource: TriggerSource,
     serviceManager: ServiceManager,
 ) : IncomingCspMessageSubTask<Nothing?>(null, triggerSource, serviceManager) {
-    private val ballotService = serviceManager.ballotService
+    private val pollService = serviceManager.pollService
 
     override suspend fun executeMessageStepsFromRemote(handle: ActiveTaskCodec): ReceiveStepsResult {
         if (runCommonGroupReceiveSteps(groupPollVoteMessage, handle, serviceManager) == null) {
@@ -27,8 +27,8 @@ class IncomingGroupPollVoteTask(
         processPollVoteMessage()
 
     private fun processPollVoteMessage(): ReceiveStepsResult {
-        val ballotVoteResult: BallotVoteResult? = ballotService.vote(groupPollVoteMessage)
-        return if (ballotVoteResult?.isSuccess == true) {
+        val pollVoteResult: PollVoteResult? = pollService.vote(groupPollVoteMessage)
+        return if (pollVoteResult?.isSuccess == true) {
             ReceiveStepsResult.SUCCESS
         } else {
             ReceiveStepsResult.DISCARD

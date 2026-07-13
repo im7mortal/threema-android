@@ -3,15 +3,10 @@ package ch.threema.domain.protocol.csp.messages.file;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import ch.threema.base.ThreemaException;
 import ch.threema.base.crypto.NonceFactory;
 import ch.threema.base.crypto.NonceScope;
-import ch.threema.domain.models.BasicContact;
-import ch.threema.domain.models.Contact;
 import ch.threema.domain.models.GroupId;
-import ch.threema.domain.models.VerificationLevel;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
 import ch.threema.domain.protocol.csp.coders.MessageBox;
 import ch.threema.domain.protocol.csp.coders.MessageCoder;
@@ -56,8 +51,8 @@ public class ProtocolTest {
             .setRenderingType(FileData.RENDERING_DEFAULT);
         groupFileMessage.setFileData(data);
 
-        ContactStore contactStore = createFakeContactStore();
-        IdentityStore identityStore = createFakeIdentityStore(myIdentity);
+        ContactStore contactStore = TestHelpers.getNoopContactStore();
+        IdentityStore identityStore = TestHelpers.getNoopIdentityStore();
         MessageCoder messageCoder = new MessageCoder(contactStore, identityStore);
 
         NonceFactory nonceFactory = TestHelpers.getNoopNonceFactory();
@@ -107,8 +102,8 @@ public class ProtocolTest {
             .setRenderingType(FileData.RENDERING_MEDIA);
         fileMessage.setFileData(data);
 
-        ContactStore contactStore = createFakeContactStore();
-        IdentityStore identityStore = createFakeIdentityStore(myIdentity);
+        ContactStore contactStore = TestHelpers.getNoopContactStore();
+        IdentityStore identityStore = TestHelpers.getNoopIdentityStore();
         MessageCoder messageCoder = new MessageCoder(contactStore, identityStore);
 
         NonceFactory nonceFactory = TestHelpers.getNoopNonceFactory();
@@ -132,97 +127,5 @@ public class ProtocolTest {
         Assertions.assertEquals("therme.jpg", fileData.getFileName());
         Assertions.assertEquals(123, fileData.getFileSize());
         Assertions.assertEquals(FileData.RENDERING_MEDIA, fileData.getRenderingType());
-    }
-
-    private static ContactStore createFakeContactStore() {
-        return new ContactStore() {
-            @Override
-            public void addCachedContact(@NonNull BasicContact contact) {
-            }
-
-            @Nullable
-            @Override
-            public BasicContact getCachedContact(@NonNull String identity) {
-                return null;
-            }
-
-            @NonNull
-            @Override
-            public Contact getContactForIdentityIncludingCache(@NonNull String identity) {
-                return getContactForIdentity(identity);
-            }
-
-            @Override
-            public Contact getContactForIdentity(@NonNull String identity) {
-                return new Contact(identity, new byte[256], VerificationLevel.UNVERIFIED);
-            }
-
-            @Override
-            public void addContact(@NonNull Contact contact) {
-            }
-
-            @Override
-            public boolean isSpecialContact(@NonNull String identity) {
-                return false;
-            }
-        };
-    }
-
-    private static IdentityStore createFakeIdentityStore(final String myIdentity) {
-        return new IdentityStore() {
-            @Override
-            public byte[] encryptData(@NonNull byte[] plaintext, @NonNull byte[] nonce, @NonNull byte[] receiverPublicKey) {
-                return plaintext;
-            }
-
-            @Override
-            public byte[] decryptData(@NonNull byte[] ciphertext, @NonNull byte[] nonce, @NonNull byte[] senderPublicKey) {
-                return ciphertext;
-            }
-
-            @NonNull
-            @Override
-            public byte[] calcSharedSecret(@NonNull byte[] publicKey) {
-                return new byte[32];
-            }
-
-            @Override
-            public String getIdentityString() {
-                return myIdentity;
-            }
-
-            @Override
-            public String getServerGroup() {
-                return null;
-            }
-
-            @Override
-            public byte[] getPublicKey() {
-                return new byte[256];
-            }
-
-            @Override
-            public byte[] getPrivateKey() {
-                return new byte[32];
-            }
-
-            @Override
-            @NonNull
-            public String getPublicNickname() {
-                return "";
-            }
-
-            @Override
-            public void setPublicNickname(@NonNull String publicNickname) {
-            }
-
-            @Override
-            public void storeIdentity(@NonNull String identity, @NonNull String serverGroup, @NonNull byte[] privateKey) {
-            }
-
-            @Override
-            public void clear() {
-            }
-        };
     }
 }

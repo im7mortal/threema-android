@@ -15,12 +15,12 @@
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toTopOf="@id/dummy_title_align_view"
         app:srcCompat="@drawable/ic_about_outline"
-        app:tint="@color/md_theme_dark_primary"
+        app:tint="?attr/colorPrimary"
         tools:ignore="ContentDescription" />
 
     <TextView
         android:id="@+id/dummy_title_align_view"
-        style="@style/WizardTitleText"
+        style="@style/WizardTextHeadlineLargeEmphasized"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         app:layout_constraintBaseline_toBaselineOf="@id/wizard_title"
@@ -28,7 +28,7 @@
 
     <TextView
         android:id="@+id/wizard_title"
-        style="@style/WizardTitleText"
+        style="@style/WizardTextHeadlineLargeEmphasized"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:gravity="center_horizontal"

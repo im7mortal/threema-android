@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+Strings in this file are not yet finalized, and as such are marked as not-translatable.
+They will eventually be moved into one of the regular strings XML files.
+-->
+<resources>
+    <string name="prefs_backup_center_title" translatable="false">Backup Center</string>
+    <string name="prefs_backup_center_summary" translatable="false">A central place to back up, restore, and manage your Threema data, local or online.</string>
+    <!-- Title of section on "Backup center" screen, to group backup options that make use of the internet -->
+    <string name="backup_section_title_online" translatable="false">Online</string>
+    <!-- Title of section on "Backup center" screen, to group backup options that don't make use of the internet -->
+    <string name="backup_section_title_local" translatable="false">Local</string>
+    <string name="threema_safe_summary" translatable="false">Automatically saves your ID and important settings online (chats not included).</string>
+    <string name="backup_data_summary" translatable="false">Manually back up everything locally, including your chats.</string>
+    <string name="no_backup_yet" translatable="false">No backup yet</string>
+    <string name="local_data_backup_title" translatable="false">Data backup</string>
+    <string name="local_data_backup_bottom_sheet_title" translatable="false">Local Data Backup</string>
+    <string name="local_data_backup_bottom_sheet_text" translatable="false">Manually save your chats, messages, and media on your device for full control and privacy.\nKeep your data safe and restore it when switching devices or recovering from a reset.\n\nBackups are stored only on your device and cannot be restored if the device is lost or damaged.</string>
+    <string name="local_data_backup_last_backup_title" translatable="false">Last backup</string>
+    <string name="local_data_backup_date_and_time" translatable="false">Date and time</string>
+    <string name="local_data_backup_size" translatable="false">Backup size</string>
+    <!-- Label in metadata list for a local backup, displayed next to an "Included" or "Not included" indicator to tell the user whether messages are included in the backup -->
+    <string name="local_data_backup_messages" translatable="false">Messages</string>
+    <!-- Label in metadata list for a local backup, displayed next to an "Included" or "Not included" indicator to tell the user whether media files are included in the backup -->
+    <string name="local_data_backup_media" translatable="false">Media</string>
+    <string name="local_data_backup_location" translatable="false">Backup location</string>
+    <!-- Label to indicate whether a particular type of data is included in a backup -->
+    <string name="local_data_backup_included" translatable="false">Included</string>
+    <!-- Label to indicate whether a particular type of data is not included in a backup -->
+    <string name="local_data_backup_not_included" translatable="false">Not included</string>
+    <string name="local_data_backup_share_backup_button" translatable="false">Share backup</string>
+    <string name="local_data_backup_recovery_key_button" translatable="false">Recovery key</string>
+    <string name="local_data_backup_create_backup_button" translatable="false">Create backup</string>
+    <string name="local_data_backup_confirm_your_key_title" translatable="false">Confirm your key</string>
+    <string name="local_data_backup_backup_settings_title" translatable="false">Backup settings</string>
+    <string name="local_data_backup_creating_backup_title" translatable="false">Creating backup</string>
+    <string name="local_data_backup_backup_complete_title" translatable="false">Backup complete</string>
+    <string name="local_data_backup_step_title" translatable="false">Step %1$d of %2$d</string>
+    <!-- Label above input field where the user has to type part of their backup recovery key to confirm that they have saved it -->
+    <string name="local_data_backup_recovery_key_confirm_label" translatable="false">Backup recovery key</string>
+    <string name="local_data_backup_password_headline" translatable="false">This password will be used to encrypt your backup and to restore the backup.</string>
+    <string name="local_data_backup_confirm_password_headline" translatable="false">Type the last 4 digits of your recovery key to confirm you\'ve saved it correctly.</string>
+    <string name="local_data_backup_backup_settings_headline" translatable="false">Choose what to include in your encrypted backup.</string>
+    <string name="local_data_backup_creating_backup_headline" translatable="false">This may take a few minutes depending on your backup size.</string>
+    <string name="local_data_backup_backup_complete_including_media_headline" translatable="false">Your messages and media have been encrypted and saved securely.</string>
+    <string name="local_data_backup_backup_complete_headline" translatable="false">Your messages have been encrypted and saved securely.</string>
+    <!-- Placeholder text displayed in the text input field that asks the user to type the last 4 digits of their backup recovery key -->
+    <string name="local_data_backup_confirm_password_placeholder" translatable="false">e.g. N9CQ</string>
+    <!-- Label on badge that appears when the user types the correct recovery key confirmation -->
+    <string name="local_data_backup_confirm_password_matched" translatable="false">Key matched</string>
+    <!-- Button label for the user to confirm that they have made a copy of their recovery key, to proceed to the creation of a backup -->
+    <string name="local_data_backup_confirm_key_saved" translatable="false">I\'ve saved my key</string>
+    <string name="local_data_backup_start_backup_button" translatable="false">Start backup</string>
+    <string name="local_data_backup_password_info_banner" translatable="false">Important: This password cannot be recovered if lost. Store it securely in a password manager or write it down and keep it somewhere safe.</string>
+    <string name="local_data_backup_always_included_label" translatable="false">Always included</string>
+    <string name="local_data_backup_media_label" translatable="false">Media</string>
+    <!-- Label on toggle switch to let the user select whether to include media files in the backup or not -->
+    <string name="local_data_backup_include_media_switch_title" translatable="false">Include media</string>
+    <string name="local_data_backup_include_media_switch_subtitle" translatable="false">Photos, videos &amp; audio</string>
+    <string name="local_data_backup_data_type_messages_title" translatable="false">Messages</string>
+    <string name="local_data_backup_data_type_messages_subtitle" translatable="false">Text, captions, reactions, polls &amp; more</string>
+    <string name="local_data_backup_data_type_photos_title" translatable="false">Photos</string>
+    <string name="local_data_backup_data_type_photos_subtitle" translatable="false">All photos sent &amp; received</string>
+    <string name="local_data_backup_data_type_videos_title" translatable="false">Videos</string>
+    <string name="local_data_backup_data_type_videos_subtitle" translatable="false">All videos shared in chats</string>
+    <string name="local_data_backup_data_type_documents_title" translatable="false">Documents and files</string>
+    <string name="local_data_backup_data_type_documents_subtitle" translatable="false">PDFs, attachments &amp; shared files</string>
+    <string name="local_data_backup_data_type_voice_messages_title" translatable="false">Voice messages</string>
+    <string name="local_data_backup_data_type_voice_messages_subtitle" translatable="false">Audio recordings from chats</string>
+    <string name="local_data_backup_media_increase_size_info" translatable="false">Including media increases backup size but preserves the full chat experience.</string>
+    <!-- Info message displayed to the user while a backup is in progress -->
+    <string name="local_data_backup_do_not_close_app_info" translatable="false">Do not lock your screen or force-close the app.</string>
+    <string name="local_data_backup_exporting_messages_status" translatable="false">Exporting messages</string>
+    <string name="local_data_backup_preparing_media_files_status" translatable="false">Preparing media files</string>
+    <string name="local_data_backup_encrypting_files_status" translatable="false">Encrypting files</string>
+    <string name="local_data_backup_finalizing_backup_status" translatable="false">Finalizing backup</string>
+    <string name="local_data_backup_status_waiting" translatable="false">Waiting…</string>
+    <string name="local_data_backup_status_in_progress" translatable="false">In progress</string>
+    <string name="local_data_backup_status_done" translatable="false">Done</string>
+    <string name="local_data_backup_status_failed" translatable="false">Failed</string>
+    <!-- A short and generic error message, usually shown in a toast when the user tries to perform an operation that is not supported by the device -->
+    <string name="feature_not_supported" translatable="false">Not supported on this device</string>
+</resources>

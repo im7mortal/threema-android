@@ -11,13 +11,13 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 import ch.threema.app.utils.FileUtil;
-import ch.threema.app.utils.TestUtil;
-import ch.threema.base.utils.Base32;
+import ch.threema.common.Base32;
 import ch.threema.storage.DatabaseProvider;
 import kotlin.Lazy;
 
 import static android.provider.MediaStore.MEDIA_IGNORE_FILENAME;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class SystemUpdateToVersion42 implements SystemUpdate {
     private static final Logger logger = getThreemaLogger("SystemUpdateToVersion42");
@@ -40,7 +40,7 @@ public class SystemUpdateToVersion42 implements SystemUpdate {
             while (contacts.moveToNext()) {
                 final String identity = contacts.getString(0);
 
-                if (!TestUtil.isEmptyOrNull(identity)) {
+                if (!isNullOrEmpty(identity)) {
                     migratePictureFile(avatarPath, ".c-", null, "c-" + identity, identity);
                     migratePictureFile(avatarPath, ".p-", null, "c-" + identity, identity);
                     migratePictureFile(wallpaperPath, ".w-", ".w", "c-" + identity, null);

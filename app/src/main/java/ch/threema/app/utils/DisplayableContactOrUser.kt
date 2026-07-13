@@ -40,7 +40,7 @@ sealed interface DisplayableContactOrUser {
                     ),
                     identityState = contactModelData.activityState,
                     showBadge = if (ConfigUtils.isWorkBuild()) {
-                        contactModelData.identityType == IdentityType.NORMAL && !ContactUtil.isEchoEchoOrGatewayContact(identity)
+                        contactModelData.identityType == IdentityType.REGULAR && !ContactUtil.isEchoEchoOrGatewayContact(identity)
                     } else {
                         contactModelData.identityType == IdentityType.WORK
                     },
@@ -60,7 +60,6 @@ sealed interface DisplayableContactOrUser {
         override val showBadge = false
 
         companion object {
-            @JvmStatic
             fun createByIdentity(userService: UserService) = User(
                 identity = userService.identity ?: "",
                 displayName = userService.displayName,

@@ -3,14 +3,15 @@ package ch.threema.app.tasks
 import ch.threema.app.groupflows.GroupChanges
 import ch.threema.app.profilepicture.GroupProfilePictureUploader.GroupProfilePictureUploadResult
 import ch.threema.app.services.ConversationCategoryService
-import ch.threema.app.services.ConversationTagService
 import ch.threema.app.services.FileService
-import ch.threema.app.utils.ConversationUtil
 import ch.threema.base.crypto.NonceFactory
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.contentEquals
-import ch.threema.data.datatypes.NotificationTriggerPolicyOverride
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.ConversationVisibility
+import ch.threema.data.datatypes.GroupConversationId
+import ch.threema.data.datatypes.GroupIdentity
+import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverride
+import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverridePolicy
 import ch.threema.data.models.GroupModel
 import ch.threema.data.models.GroupModelData
 import ch.threema.data.repositories.ContactModelRepository
@@ -31,12 +32,13 @@ import ch.threema.protobuf.common.image
 import ch.threema.protobuf.common.unit
 import ch.threema.protobuf.d2d.GroupSync.Update.MemberStateChange
 import ch.threema.protobuf.d2d.sync.ConversationCategory
-import ch.threema.protobuf.d2d.sync.ConversationVisibility
+import ch.threema.protobuf.d2d.sync.ConversationVisibility as ProtocolsConversationVisibility
 import ch.threema.protobuf.d2d.sync.Group
 import ch.threema.protobuf.d2d.sync.GroupKt
 import ch.threema.protobuf.d2d.sync.group
-import ch.threema.storage.models.ConversationTag
+import ch.threema.protobuf.toProtobuf
 import com.google.protobuf.kotlin.toByteString
+import java.time.Instant
 import kotlinx.serialization.Serializable
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -61,7 +63,7 @@ abstract class ReflectGroupSyncUpdateBaseTask<TransactionResult, TaskResult>(
     protected abstract val type: String
 
     /**
-     * This method is called as part of the transaction's precondition. Specific sub classes may
+     * This method is called as part of the transaction's precondition. Specific subclasses may
      * define their own precondition based on the current group model data by implementing this
      * method.
      */
@@ -236,7 +238,7 @@ abstract class ReflectGroupSyncUpdateImmediateTask(
         override val type = "ReflectGroupDeleteProfilePicture"
 
         override fun checkForDataRaces(currentData: GroupModelData) {
-            if (fileService.getGroupProfilePictureStream(groupModel).contentEquals(profilePictureBlob)) {
+            if (fileService.getGroupProfilePictureStream(groupModel.getDatabaseId()).contentEquals(profilePictureBlob)) {
                 logger.warn("Group race occurred: The profile picture did not change")
             }
         }
@@ -263,7 +265,7 @@ abstract class ReflectGroupSyncUpdateImmediateTask(
         override val type = "ReflectGroupDeleteProfilePicture"
 
         override fun checkForDataRaces(currentData: GroupModelData) {
-            if (!fileService.hasGroupProfilePicture(groupModel)) {
+            if (!fileService.hasGroupProfilePicture(groupModel.getDatabaseId())) {
                 logger.warn("Group race occurred: There is no group profile picture for this group")
             }
         }
@@ -325,7 +327,7 @@ abstract class ReflectGroupSyncUpdateTask(
     }
 
     class ReflectNotificationTriggerPolicyOverrideUpdate(
-        private val newNotificationTriggerPolicyOverride: NotificationTriggerPolicyOverride,
+        private val newNotificationTriggerPolicyOverride: GroupNotificationTriggerPolicyOverride?,
         groupIdentity: GroupIdentity,
     ) : ReflectGroupSyncUpdateTask(
         groupIdentity = groupIdentity,
@@ -333,47 +335,91 @@ abstract class ReflectGroupSyncUpdateTask(
         override val type: String = "ReflectNotificationTriggerPolicyOverrideUpdate"
 
         override fun isChangeValid(currentData: GroupModelData): Boolean =
-            currentData.currentNotificationTriggerPolicyOverride == newNotificationTriggerPolicyOverride
+            currentData.notificationTriggerPolicyOverride == newNotificationTriggerPolicyOverride
 
         override val buildGroupSyncChanges: GroupKt.Dsl.() -> Unit = {
-            this.notificationTriggerPolicyOverride = GroupKt.notificationTriggerPolicyOverride {
-                when (newNotificationTriggerPolicyOverride) {
-                    NotificationTriggerPolicyOverride.NotMuted -> default = unit {}
-                    NotificationTriggerPolicyOverride.MutedIndefinite ->
-                        policy = GroupKt.NotificationTriggerPolicyOverrideKt.policy {
-                            policy = Group.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.NEVER
-                        }
-
-                    NotificationTriggerPolicyOverride.MutedIndefiniteExceptMentions ->
-                        policy = GroupKt.NotificationTriggerPolicyOverrideKt.policy {
-                            policy = Group.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.MENTIONED
-                        }
-
-                    is NotificationTriggerPolicyOverride.MutedUntil ->
-                        policy = GroupKt.NotificationTriggerPolicyOverrideKt.policy {
-                            policy = Group.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.NEVER
-                            expiresAt = newNotificationTriggerPolicyOverride.utcMillis
-                        }
-                }
-            }
+            this.notificationTriggerPolicyOverride = newNotificationTriggerPolicyOverride.toProtobuf()
         }
 
         override fun serialize(): SerializableTaskData =
-            ReflectNotificationTriggerPolicyOverrideUpdateData(
-                newNotificationTriggerPolicyOverride = newNotificationTriggerPolicyOverride,
+            ReflectNotificationTriggerPolicyOverrideUpdateDataV2(
+                notificationTriggerPolicyOverridePolicy = newNotificationTriggerPolicyOverride?.policy?.serializedValue,
+                notificationTriggerPolicyOverrideExpiresAt = newNotificationTriggerPolicyOverride?.expiresAt?.toEpochMilli(),
                 groupIdentity = groupModel.groupIdentity,
             )
 
+        /**
+         * Note that this is only used for backwards compatibility as we used to persist this task data. We still need to be able to restore this task
+         * data as some clients may have persisted it.
+         */
+        @Deprecated("Use ReflectNotificationTriggerPolicyOverrideUpdateDataV2 instead")
         @Serializable
         data class ReflectNotificationTriggerPolicyOverrideUpdateData(
-            private val newNotificationTriggerPolicyOverride: NotificationTriggerPolicyOverride,
+            private val newNotificationTriggerPolicyOverride: Long?,
             private val groupIdentity: GroupIdentity,
         ) : SerializableTaskData {
             override fun createTask(): Task<*, TaskCodec> =
                 ReflectNotificationTriggerPolicyOverrideUpdate(
-                    newNotificationTriggerPolicyOverride = newNotificationTriggerPolicyOverride,
+                    newNotificationTriggerPolicyOverride = deserializeGroupNotificationTriggerPolicyOverride(),
                     groupIdentity = groupIdentity,
                 )
+
+            private fun deserializeGroupNotificationTriggerPolicyOverride(): GroupNotificationTriggerPolicyOverride? {
+                if (newNotificationTriggerPolicyOverride == null) {
+                    return null
+                }
+
+                return when {
+                    // In case the value is -1, the group is indefinitely muted
+                    newNotificationTriggerPolicyOverride == -1L -> GroupNotificationTriggerPolicyOverride(
+                        policy = GroupNotificationTriggerPolicyOverridePolicy.NEVER,
+                        expiresAt = null,
+                    )
+
+                    // In case the value is -2, the group is indefinitely muted except mentioned
+                    newNotificationTriggerPolicyOverride == -2L -> GroupNotificationTriggerPolicyOverride(
+                        policy = GroupNotificationTriggerPolicyOverridePolicy.MENTIONED,
+                        expiresAt = null,
+                    )
+
+                    // In case the value is greater than 0, it denotes the timestamp until when the group is muted
+                    newNotificationTriggerPolicyOverride > 0 -> GroupNotificationTriggerPolicyOverride(
+                        policy = GroupNotificationTriggerPolicyOverridePolicy.NEVER,
+                        expiresAt = Instant.ofEpochMilli(newNotificationTriggerPolicyOverride),
+                    )
+
+                    // In case of 0 or any negative value other than -1 and -2, there is no notification trigger policy override set
+                    else -> null
+                }
+            }
+        }
+
+        @Serializable
+        data class ReflectNotificationTriggerPolicyOverrideUpdateDataV2(
+            private val notificationTriggerPolicyOverridePolicy: Int?,
+            private val notificationTriggerPolicyOverrideExpiresAt: Long?,
+            private val groupIdentity: GroupIdentity,
+        ) : SerializableTaskData {
+            override fun createTask(): Task<*, TaskCodec> =
+                ReflectNotificationTriggerPolicyOverrideUpdate(
+                    newNotificationTriggerPolicyOverride = deserializeGroupNotificationTriggerPolicyOverride(),
+                    groupIdentity = groupIdentity,
+                )
+
+            private fun deserializeGroupNotificationTriggerPolicyOverride(): GroupNotificationTriggerPolicyOverride? {
+                if (notificationTriggerPolicyOverridePolicy == null) {
+                    return null
+                }
+
+                val policy = GroupNotificationTriggerPolicyOverridePolicy.deserialize(notificationTriggerPolicyOverridePolicy)
+                    ?: error("Could not deserialize group notification trigger policy with value $notificationTriggerPolicyOverridePolicy")
+                val expiresAt = notificationTriggerPolicyOverrideExpiresAt?.let { expiresAt -> Instant.ofEpochMilli(expiresAt) }
+
+                return GroupNotificationTriggerPolicyOverride(
+                    policy = policy,
+                    expiresAt = expiresAt,
+                )
+            }
         }
     }
 
@@ -394,7 +440,9 @@ abstract class ReflectGroupSyncUpdateTask(
 
         override fun isChangeValid(currentData: GroupModelData): Boolean {
             // The change must be correct, otherwise we must not reflect that change
-            return conversationCategoryService.isPrivateGroupChat(groupModel.getDatabaseId()) == isPrivateChat
+            return conversationCategoryService.isMarkedAsPrivate(
+                conversationId = GroupConversationId(groupDatabaseId = groupModel.getDatabaseId()),
+            ) == isPrivateChat
         }
 
         override val buildGroupSyncChanges: GroupKt.Dsl.() -> Unit = {
@@ -427,92 +475,107 @@ abstract class ReflectGroupSyncUpdateTask(
     }
 
     /**
-     * Reflect a new conversation visibility regarding the archive option.
-     *
-     * TODO(ANDR-3721): There should only be one task that reflects the conversation visibility.
+     * Reflect the conversation visibility.
      */
-    class ReflectGroupConversationVisibilityArchiveUpdate(
-        private val isArchived: Boolean,
+    class ReflectGroupConversationVisibilityUpdate(
+        private val conversationVisibility: ConversationVisibility,
         groupIdentity: GroupIdentity,
     ) : ReflectGroupSyncUpdateTask(
         groupIdentity = groupIdentity,
     ) {
-        override val type: String = "ReflectGroupConversationVisibilityArchiveUpdate"
+        override val type = "ReflectGroupConversationVisibilityUpdate"
 
         override fun isChangeValid(currentData: GroupModelData): Boolean =
-            currentData.isArchived == isArchived
+            currentData.conversationVisibility == conversationVisibility
 
         override val buildGroupSyncChanges: GroupKt.Dsl.() -> Unit = {
-            this.conversationVisibility = if (isArchived) {
-                ConversationVisibility.ARCHIVED
-            } else {
-                ConversationVisibility.NORMAL
+            this.conversationVisibility = when (this@ReflectGroupConversationVisibilityUpdate.conversationVisibility) {
+                ConversationVisibility.NORMAL -> ProtocolsConversationVisibility.NORMAL
+                ConversationVisibility.ARCHIVED -> ProtocolsConversationVisibility.ARCHIVED
+                ConversationVisibility.PINNED -> ProtocolsConversationVisibility.PINNED
             }
         }
 
-        override fun serialize(): SerializableTaskData =
-            ReflectGroupConversationVisibilityArchiveUpdateData(
-                isArchived = isArchived,
-                groupIdentity = groupModel.groupIdentity,
-            )
+        override fun serialize(): SerializableTaskData = ReflectGroupConversationVisibilityUpdateData(
+            conversationVisibilitySerialized = conversationVisibility.serializedValue,
+            groupIdentity = groupIdentity,
+        )
 
+        @Serializable
+        data class ReflectGroupConversationVisibilityUpdateData(
+            private val conversationVisibilitySerialized: Int,
+            private val groupIdentity: GroupIdentity,
+        ) : SerializableTaskData {
+            override fun createTask(): Task<*, TaskCodec> =
+                ReflectGroupConversationVisibilityUpdate(
+                    conversationVisibility = requireConversationVisibility(),
+                    groupIdentity = groupIdentity,
+                )
+
+            private fun requireConversationVisibility() = ConversationVisibility
+                .deserialize(conversationVisibilitySerialized)
+                ?: error("Could not deserialize conversation visibility from value $conversationVisibilitySerialized")
+        }
+    }
+
+    /**
+     * Note: This is only used to create the correct fully qualified name for the contained task data.
+     */
+    @Suppress("unused")
+    object ReflectGroupConversationVisibilityArchiveUpdate {
+        /**
+         * There used to be a separate task for reflecting the information whether a group was archived or not. This task does not exist anymore and
+         * is replaced by [ReflectGroupConversationVisibilityUpdate]. This task data may still be persisted on some devices. In that case we create
+         * now a [ReflectGroupConversationVisibilityUpdate] from this task.
+         *
+         * TODO(ANDR-4974): Remove this.
+         */
+        @Deprecated("This data should not be used anymore. It just exists in case it has been persisted.")
         @Serializable
         data class ReflectGroupConversationVisibilityArchiveUpdateData(
             private val isArchived: Boolean,
             private val groupIdentity: GroupIdentity,
         ) : SerializableTaskData {
-            override fun createTask(): Task<*, TaskCodec> =
-                ReflectGroupConversationVisibilityArchiveUpdate(
-                    isArchived = isArchived,
+            override fun createTask(): Task<*, TaskCodec> {
+                val conversationVisibility = when (isArchived) {
+                    true -> ConversationVisibility.ARCHIVED
+                    false -> ConversationVisibility.NORMAL
+                }
+                return ReflectGroupConversationVisibilityUpdate(
+                    conversationVisibility = conversationVisibility,
                     groupIdentity = groupIdentity,
                 )
+            }
         }
     }
 
     /**
-     * Reflect a new conversation visibility regarding the pin option.
-     *
-     * TODO(ANDR-3721): There should only be one task that reflects the conversation visibility.
+     * Note: This is only used to create the correct fully qualified name for the contained task data.
      */
-    class ReflectGroupConversationVisibilityPinnedUpdate(
-        private val isPinned: Boolean,
-        groupIdentity: GroupIdentity,
-    ) : ReflectGroupSyncUpdateTask(
-        groupIdentity = groupIdentity,
-    ),
-        KoinComponent {
-        private val conversationTagService: ConversationTagService by inject()
+    @Suppress("unused")
+    object ReflectGroupConversationVisibilityPinnedUpdate {
 
-        override val type: String = "ReflectGroupConversationVisibilityPinnedUpdate"
-
-        override fun isChangeValid(currentData: GroupModelData): Boolean =
-            conversationTagService.isTaggedWith(
-                ConversationUtil.getGroupConversationUid(groupModel.getDatabaseId()),
-                ConversationTag.PINNED,
-            ) == isPinned
-
-        override val buildGroupSyncChanges: GroupKt.Dsl.() -> Unit = {
-            this.conversationVisibility = if (isPinned) {
-                ConversationVisibility.PINNED
-            } else {
-                ConversationVisibility.NORMAL
-            }
-        }
-
-        override fun serialize(): SerializableTaskData =
-            ReflectGroupConversationVisibilityPinnedUpdateData(
-                isPinned = isPinned,
-                groupIdentity = groupModel.groupIdentity,
-            )
-
+        /**
+         * There used to be a separate task for reflecting the information whether a group was archived or not. This task does not exist anymore and
+         * is replaced by [ReflectGroupConversationVisibilityUpdate]. This task data may still be persisted on some devices. In that case we create
+         * now a [ReflectGroupConversationVisibilityUpdate] from this task.
+         *
+         * TODO(ANDR-4974): Remove this.
+         */
+        @Deprecated("This data should not be used anymore. It just exists in case it has been persisted.")
         @Serializable
         data class ReflectGroupConversationVisibilityPinnedUpdateData(
             private val isPinned: Boolean,
             private val groupIdentity: GroupIdentity,
         ) : SerializableTaskData {
             override fun createTask(): Task<*, TaskCodec> {
-                return ReflectGroupConversationVisibilityPinnedUpdate(
-                    isPinned = isPinned,
+                val conversationVisibility = if (isPinned) {
+                    ConversationVisibility.PINNED
+                } else {
+                    ConversationVisibility.NORMAL
+                }
+                return ReflectGroupConversationVisibilityUpdate(
+                    conversationVisibility = conversationVisibility,
                     groupIdentity = groupIdentity,
                 )
             }

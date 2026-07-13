@@ -1,16 +1,14 @@
 package ch.threema.android
 
 import android.content.Intent
-import android.os.Build
+import androidx.core.content.IntentCompat
 import java.io.Serializable
 
-@Suppress("DEPRECATION")
-inline fun <reified T : Any?> Intent.getParcelable(key: String): T? =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) getParcelableExtra(key, T::class.java) else getParcelableExtra(key)
+inline fun <reified T> Intent.getParcelableExtraCompat(key: String): T? =
+    IntentCompat.getParcelableExtra(this, key, T::class.java)
 
-@Suppress("DEPRECATION")
-inline fun <reified T : Serializable?> Intent.getSerializable(key: String): Serializable? =
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) getSerializableExtra(key, T::class.java) else getSerializableExtra(key)
+inline fun <reified T : Serializable?> Intent.getSerializableExtraCompat(key: String): T? =
+    IntentCompat.getSerializableExtra(this, key, T::class.java)
 
 /**
  * Get the int value of the extras or null if no element with [key] is available. Note that 0 is returned in case there is a value for the [key] but
@@ -21,4 +19,22 @@ fun Intent.getIntOrNull(key: String): Int? =
         null
     } else {
         extras?.getInt(key)
+    }
+
+/**
+ * Get the long value of the extras or null if no element with [key] is available. Note that 0 is returned in case there is a value for the [key] but
+ * it is not a long.
+ */
+fun Intent.getLongOrNull(key: String): Long? =
+    if (extras?.containsKey(key) != true) {
+        null
+    } else {
+        extras?.getLong(key)
+    }
+
+fun Intent.getStringOrNull(key: String): String? =
+    if (extras?.containsKey(key) != true) {
+        null
+    } else {
+        extras?.getString(key)
     }

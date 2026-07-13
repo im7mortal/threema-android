@@ -14,7 +14,6 @@ import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.cache.ThumbnailCache;
 import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.app.services.FileService;
@@ -24,7 +23,6 @@ import ch.threema.app.services.UserService;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.app.ui.models.MessageViewElement;
-import ch.threema.base.utils.Utils;
 import ch.threema.data.datatypes.ContactNameFormat;
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.DistributionListMessageModel;
@@ -35,6 +33,8 @@ import ch.threema.storage.models.data.MessageContentsType;
 import static ch.threema.app.messagereceiver.MessageReceiver.Type_CONTACT;
 import static ch.threema.app.messagereceiver.MessageReceiver.Type_DISTRIBUTION_LIST;
 import static ch.threema.app.messagereceiver.MessageReceiver.Type_GROUP;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
+import static ch.threema.common.StringExtensionsKt.truncateUTF8String;
 
 public class QuoteUtil {
     private static final Logger logger = getThreemaLogger("QuoteUtil");
@@ -83,7 +83,7 @@ public class QuoteUtil {
             );
         } else {
             String text = messageModel.getBody();
-            if (!TestUtil.isEmptyOrNull(text)) {
+            if (!isNullOrEmpty(text)) {
                 return parseQuoteV1(text);
             }
             return null;
@@ -162,9 +162,9 @@ public class QuoteUtil {
             }
 
             if (receiverMatch) {
-                final @NonNull MessageViewElement viewElement = MessageUtil.getViewElement(context, quotedMessageModel, contactNameFormat);
+                final @NonNull MessageViewElement viewElement = MessageUtil.getViewElement(quotedMessageModel, contactNameFormat);
                 final String identity = quotedMessageModel.isOutbox() ? userService.getIdentity() : quotedMessageModel.getIdentity();
-                final @NonNull String quotedText = TestUtil.isEmptyOrNull(viewElement.text) ? (viewElement.placeholder != null ? viewElement.placeholder : "") : viewElement.text;
+                final @NonNull String quotedText = isNullOrEmpty(viewElement.text) ? (viewElement.placeholder != null ? viewElement.placeholder : "") : viewElement.text;
                 final @DrawableRes Integer icon = viewElement.icon;
                 Bitmap thumbnail = null;
                 if (quotedMessageModel.getMessageContentsType() != MessageContentsType.VOICE_MESSAGE) {
@@ -206,7 +206,7 @@ public class QuoteUtil {
         String body = text;
         String quotedMessageId = null;
 
-        if (!TestUtil.isEmptyOrNull(text)) {
+        if (!isNullOrEmpty(text)) {
             Matcher match = quoteV2MatchPattern.matcher(text);
             try {
                 if (match.find()) {
@@ -252,10 +252,10 @@ public class QuoteUtil {
      */
     public static int getQuoteType(AbstractMessageModel messageModel) {
         if (messageModel != null) {
-            if (!TestUtil.isEmptyOrNull(messageModel.getQuotedMessageId())) {
+            if (!isNullOrEmpty(messageModel.getQuotedMessageId())) {
                 return QUOTE_TYPE_V2;
             }
-            if (!TestUtil.isEmptyOrNull(messageModel.getBody())) {
+            if (!isNullOrEmpty(messageModel.getBody())) {
                 if (isQuoteV1(messageModel.getBody())) {
                     return QUOTE_TYPE_V1;
                 }
@@ -296,20 +296,21 @@ public class QuoteUtil {
             text = messageCaption;
         }
 
-        if (substituteAndTruncate && TestUtil.isEmptyOrNull(text)) {
+        if (substituteAndTruncate && isNullOrEmpty(text)) {
             text = messageCaption;
-            if (TestUtil.isEmptyOrNull(text)) {
-                MessageViewElement viewElement = MessageUtil.getViewElement(
-                    ThreemaApplication.getAppContext(),
+            if (isNullOrEmpty(text) && messageType != null && isOutbox != null) {
+                MessageViewElement viewElement = MessageUtil.getMessageViewElementFactory().getViewElement(
                     messageType,
                     messageBody,
                     messageCaption,
                     isOutbox,
                     contactNameFormat
                 );
-                text = viewElement.text;
-                if (text == null) {
-                    text = viewElement.placeholder;
+                if (viewElement != null) {
+                    text = viewElement.text;
+                    if (text == null) {
+                        text = viewElement.placeholder;
+                    }
                 }
             }
         }
@@ -341,7 +342,7 @@ public class QuoteUtil {
 
     private static String truncateQuote(String text) {
         if (text.length() > MAX_QUOTE_CONTENTS_LENGTH) {
-            text = Utils.truncateUTF8String(text, MAX_QUOTE_CONTENTS_LENGTH);
+            text = truncateUTF8String(text, MAX_QUOTE_CONTENTS_LENGTH);
             text += "…";
         }
         return text;
@@ -361,12 +362,9 @@ public class QuoteUtil {
         MessageType messageType = messageModel.getType();
         if (messageType != null) {
             switch (messageModel.getType()) {
-                case IMAGE:
                 case FILE:
-                case VIDEO:
-                case VOICEMESSAGE:
                 case TEXT:
-                case BALLOT:
+                case POLL:
                 case LOCATION:
                     return messageModel.getApiMessageId() != null;
                 default:

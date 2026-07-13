@@ -1,6 +1,7 @@
 package ch.threema.app.processors.reflectedmessageupdate
 
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.managers.ServiceManager
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.models.GroupId
@@ -11,7 +12,9 @@ import ch.threema.protobuf.d2d.ConversationId
 import ch.threema.protobuf.d2d.OutgoingMessageUpdate
 import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.MessageState
-import java.util.Date
+import java.time.Instant
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("ReflectedOutgoingMessageUpdateTask")
 
@@ -19,7 +22,8 @@ class ReflectedOutgoingMessageUpdateTask(
     private val outgoingMessageUpdate: OutgoingMessageUpdate,
     private val timestamp: ULong,
     serviceManager: ServiceManager,
-) {
+) : KoinComponent {
+    private val globalEventBuses: GlobalEventBuses by inject()
     private val messageService by lazy { serviceManager.messageService }
 
     fun run() {
@@ -97,10 +101,8 @@ class ReflectedOutgoingMessageUpdateTask(
         messageService.updateOutgoingMessageState(
             messageModel,
             MessageState.SENT,
-            Date(timestamp.toLong()),
+            Instant.ofEpochMilli(timestamp.toLong()),
         )
-        ListenerManager.messageListeners.handle {
-            it.onModified(listOf(messageModel))
-        }
+        globalEventBuses.messages.emit(MessageEvent.MessagesUpdated(messageModel))
     }
 }

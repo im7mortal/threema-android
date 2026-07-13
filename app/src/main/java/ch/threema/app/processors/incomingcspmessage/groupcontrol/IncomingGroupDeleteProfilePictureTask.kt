@@ -1,12 +1,12 @@
 package ch.threema.app.processors.incomingcspmessage.groupcontrol
 
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.GroupEvent
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.processors.incomingcspmessage.IncomingCspMessageSubTask
 import ch.threema.app.processors.incomingcspmessage.ReceiveStepsResult
 import ch.threema.app.tasks.ReflectGroupSyncUpdateImmediateTask
 import ch.threema.app.tasks.ReflectionResult
-import ch.threema.app.utils.ShortcutUtil
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.protocol.csp.messages.GroupDeleteProfilePictureMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
@@ -18,15 +18,14 @@ class IncomingGroupDeleteProfilePictureTask(
     message: GroupDeleteProfilePictureMessage,
     triggerSource: TriggerSource,
     serviceManager: ServiceManager,
+    private val globalEventBuses: GlobalEventBuses,
 ) : IncomingCspMessageSubTask<GroupDeleteProfilePictureMessage>(
     message,
     triggerSource,
     serviceManager,
 ) {
     private val fileService by lazy { serviceManager.fileService }
-    private val groupService by lazy { serviceManager.groupService }
     private val multiDeviceManager by lazy { serviceManager.multiDeviceManager }
-    private val preferenceService by lazy { serviceManager.preferenceService }
 
     override suspend fun executeMessageStepsFromRemote(handle: ActiveTaskCodec): ReceiveStepsResult {
         logger.info("Processing incoming delete-profile-picture message for group with id {}", message.apiGroupId)
@@ -39,7 +38,7 @@ class IncomingGroupDeleteProfilePictureTask(
         }
 
         // If the group does not have a profile picture, discard this message
-        if (!fileService.hasGroupProfilePicture(groupModel)) {
+        if (!fileService.hasGroupProfilePicture(groupModel.getDatabaseId())) {
             logger.info("Discarding this message as group has no profile picture")
             return ReceiveStepsResult.DISCARD
         }
@@ -77,12 +76,7 @@ class IncomingGroupDeleteProfilePictureTask(
 
         fileService.removeGroupProfilePicture(groupModel)
 
-        ListenerManager.groupListeners.handle { it.onUpdatePhoto(groupModel.groupIdentity) }
-
-        ShortcutUtil.updateShareTargetShortcut(
-            groupService.createReceiver(groupModel),
-            preferenceService.getContactNameFormat(),
-        )
+        globalEventBuses.groups.emit(GroupEvent.GroupProfilePictureUpdated(groupModel.groupIdentity))
 
         return ReceiveStepsResult.SUCCESS
     }

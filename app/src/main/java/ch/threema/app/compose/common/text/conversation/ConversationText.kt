@@ -295,7 +295,7 @@ private fun buildInlineContentEmojiMap(
                 // Placeholder in Previews because AsyncEmojiImage is not previewable
                 Icon(
                     modifier = Modifier.fillMaxSize(),
-                    painter = painterResource(R.drawable.ic_tag_faces_outline),
+                    painter = painterResource(R.drawable.ic_emoji),
                     contentDescription = null,
                 )
             }

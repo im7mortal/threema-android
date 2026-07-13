@@ -12,7 +12,7 @@ import ch.threema.protobuf.group_call.ParticipantToParticipant
 import ch.threema.protobuf.group_call.ParticipantToSfu
 import com.google.protobuf.ByteString
 import com.google.protobuf.InvalidProtocolBufferException
-import java.util.Date
+import java.time.Instant
 
 private val logger = getThreemaLogger("P2PMessages")
 
@@ -156,7 +156,7 @@ sealed class P2PMessageContent {
                     ParticipantToParticipant.CaptureState.StateCase.MICROPHONE -> Microphone(captureState.microphone.hasOn())
                     ParticipantToParticipant.CaptureState.StateCase.CAMERA -> Camera(captureState.camera.hasOn())
                     ParticipantToParticipant.CaptureState.StateCase.SCREEN -> if (captureState.screen.hasOn()) {
-                        Screen.on(Date(captureState.screen.on.startedAt))
+                        Screen.on(Instant.ofEpochMilli(captureState.screen.on.startedAt))
                     } else {
                         Screen.off()
                     }
@@ -214,7 +214,7 @@ sealed class P2PMessageContent {
         /**
          * Capture state for screensharing. If [startedAt] is provided, this means that screen sharing is active.
          */
-        data class Screen(val startedAt: Date?) : CaptureState() {
+        data class Screen(val startedAt: Instant?) : CaptureState() {
             override val type = "CaptureState.Screen"
 
             override val active: Boolean
@@ -224,7 +224,7 @@ sealed class P2PMessageContent {
                 val builder = ParticipantToParticipant.CaptureState.Screen.newBuilder()
                 if (startedAt != null) {
                     builder.on = ParticipantToParticipant.CaptureState.Screen.On.newBuilder()
-                        .setStartedAt(startedAt.time)
+                        .setStartedAt(startedAt.toEpochMilli())
                         .build()
                 } else {
                     builder.off = Unit.newBuilder().build()
@@ -235,7 +235,7 @@ sealed class P2PMessageContent {
             }
 
             companion object {
-                fun on(startedAt: Date) = Screen(startedAt)
+                fun on(startedAt: Instant) = Screen(startedAt)
                 fun off() = Screen(null)
             }
         }

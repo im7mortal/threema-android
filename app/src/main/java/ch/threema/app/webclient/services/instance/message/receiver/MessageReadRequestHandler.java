@@ -124,7 +124,7 @@ public class MessageReadRequestHandler extends MessageReceiver {
             List<AbstractMessageModel> messages = receiver.loadMessages(filter);
             new MarkAsReadRoutine(messageService, notificationService)
                 .run(messages, receiver);
-            notificationService.cancel(receiver);
+            notificationService.cancel(receiver.getConversationId());
         }
     }
 

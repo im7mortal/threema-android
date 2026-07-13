@@ -9,9 +9,9 @@ import java.io.IOException;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Date;
 import java.util.List;
 
 import androidx.annotation.AnyThread;
@@ -33,20 +33,18 @@ import ch.threema.domain.protocol.csp.MessageTooLongException;
 import ch.threema.domain.protocol.csp.messages.AbstractGroupMessage;
 import ch.threema.domain.protocol.csp.messages.AbstractMessage;
 import ch.threema.domain.protocol.csp.messages.BadMessageException;
-import ch.threema.domain.protocol.csp.messages.ballot.BallotSetupInterface;
+import ch.threema.domain.protocol.csp.messages.poll.PollSetupInterface;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
 import ch.threema.domain.protocol.csp.messages.fs.ForwardSecurityMode;
 import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.protobuf.csp.e2e.Reaction;
 import ch.threema.storage.models.AbstractMessageModel;
-import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.DistributionListMessageModel;
 import ch.threema.storage.models.group.GroupMessageModel;
 import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.MessageType;
-import ch.threema.storage.models.ServerMessageModel;
-import ch.threema.storage.models.ballot.BallotModel;
+import ch.threema.storage.models.poll.PollModel;
 import ch.threema.storage.models.data.DisplayTag;
 import ch.threema.storage.models.data.MessageContentsType;
 import ch.threema.storage.models.data.status.ForwardSecurityStatusDataModel;
@@ -159,7 +157,7 @@ public interface MessageService {
                                                @NonNull MessageReceiver receiver,
                                                @Nullable GroupCallDescription call,
                                                boolean isOutbox,
-                                               Date postedDate);
+                                               Instant postedDate);
 
     AbstractMessageModel createForwardSecurityStatus(
         @NonNull MessageReceiver receiver,
@@ -174,7 +172,7 @@ public interface MessageService {
      * @param type         the type
      * @param identity     the identity that will be included in the message (needed for
      *                     MEMBER_ADDED, MEMBER_LEFT, MEMBER_KICKED, FIRST_VOTE, and RECEIVED_VOTE)
-     * @param ballotName   the name of the ballot (needed for FIRST_VOTE, MODIFIED_VOTE,
+     * @param pollName     the name of the poll (needed for FIRST_VOTE, MODIFIED_VOTE,
      *                     RECEIVED_VOTE, and VOTES_COMPLETE)
      * @param newGroupName the new group name (needed for RENAMED)
      * @return the group status message model
@@ -183,7 +181,7 @@ public interface MessageService {
         @NonNull GroupMessageReceiver receiver,
         @NonNull GroupStatusDataModel.GroupStatusType type,
         @Nullable String identity,
-        @Nullable String ballotName,
+        @Nullable String pollName,
         @Nullable String newGroupName
     );
 
@@ -197,7 +195,7 @@ public interface MessageService {
      * @param message original message to edit
      * @param newText new message text
      */
-    void sendEditedMessageText(@NonNull AbstractMessageModel message, @NonNull String newText, @NonNull Date editedAt, @NonNull MessageReceiver receiver) throws Exception;
+    void sendEditedMessageText(@NonNull AbstractMessageModel message, @NonNull String newText, @NonNull Instant editedAt, @NonNull MessageReceiver receiver) throws Exception;
 
     /**
      * Save the edited text of a message. If editedAt is not null, an edit history entry will be created with the previous text of the message.
@@ -207,7 +205,7 @@ public interface MessageService {
      * @param text     the new text for this message
      * @param editedAt the date when the message was edited or null
      */
-    void saveEditedMessageText(@NonNull AbstractMessageModel message, String text, @Nullable Date editedAt);
+    void saveEditedMessageText(@NonNull AbstractMessageModel message, String text, @Nullable Instant editedAt);
 
     /**
      * Save a reaction message
@@ -216,9 +214,16 @@ public interface MessageService {
      * @param senderIdentity Identity of the sender of this message
      * @param actionCase     The action to take
      * @param emojiSequence  The emoji for the reaction
+     * @param createdAt      The timestamp when the reaction was created/withdrawn.
      * @return True if the reaction message was saved successfully
      */
-    boolean saveEmojiReactionMessage(@NonNull AbstractMessageModel targetMessage, @NonNull String senderIdentity, @Nullable Reaction.ActionCase actionCase, @NonNull String emojiSequence);
+    boolean saveEmojiReactionMessage(
+        @NonNull AbstractMessageModel targetMessage,
+        @NonNull String senderIdentity,
+        @Nullable Reaction.ActionCase actionCase,
+        @NonNull String emojiSequence,
+        @NonNull Instant createdAt
+    );
 
     /**
      * Clear the MessageState of the supplied message if the current state is either USERACK or USERDEC
@@ -248,7 +253,7 @@ public interface MessageService {
      *
      * @param message original message to delete
      */
-    void deleteMessageContentsAndRelatedData(@NonNull AbstractMessageModel message, Date deletedAt);
+    void deleteMessageContentsAndRelatedData(@NonNull AbstractMessageModel message, Instant deletedAt);
 
     String getCorrelationId();
 
@@ -284,8 +289,8 @@ public interface MessageService {
         @NonNull TriggerSource triggerSource
     ) throws Exception;
 
-    AbstractMessageModel sendBallotMessage(
-        @NonNull BallotModel ballotModel,
+    AbstractMessageModel sendPollMessage(
+        @NonNull PollModel pollModel,
         @NonNull MessageId messageId,
         @NonNull TriggerSource triggerSource
     ) throws MessageTooLongException;
@@ -300,7 +305,7 @@ public interface MessageService {
      * saved even if the message has already been marked as read.
      * <p>
      * Do not use this method for reactions: Use
-     * {@link #addMessageReaction(AbstractMessageModel, MessageState, String, Date)} instead.
+     * {@link #addMessageReaction(AbstractMessageModel, MessageState, String, Instant)} instead.
      *
      * @param messageModel the message model that should be updated
      * @param state        the mew state
@@ -309,7 +314,7 @@ public interface MessageService {
     void updateOutgoingMessageState(
         @NonNull final AbstractMessageModel messageModel,
         @NonNull MessageState state,
-        @NonNull Date date
+        @NonNull Instant date
     );
 
     /**
@@ -324,7 +329,7 @@ public interface MessageService {
         @NonNull AbstractMessageModel messageModel,
         @NonNull MessageState state,
         @NonNull String fromIdentity,
-        @NonNull Date date
+        @NonNull Instant date
     );
 
     boolean markAsRead(AbstractMessageModel message, boolean silent);
@@ -382,7 +387,7 @@ public interface MessageService {
     @WorkerThread
     List<AbstractMessageModel> getMessagesForReceiver(@NonNull MessageReceiver receiver);
 
-    List<AbstractMessageModel> getMessageForBallot(BallotModel ballotModel);
+    List<AbstractMessageModel> getMessageForPoll(PollModel pollModel);
 
     @Nullable
     MessageModel getContactMessageModel(final Integer id);
@@ -422,22 +427,21 @@ public interface MessageService {
 
     MessageString getMessageString(AbstractMessageModel messageModel, int maxLength, boolean withPrefix);
 
-    void saveIncomingServerMessage(ServerMessageModel msg);
-
     boolean downloadThumbnailIfPresent(@NonNull FileData fileData, @NonNull AbstractMessageModel messageModel) throws Exception;
 
     boolean shouldAutoDownload(@NonNull AbstractMessageModel messageModel);
 
+    @WorkerThread
     boolean downloadMediaMessage(AbstractMessageModel mediaMessageModel, ProgressListener progressListener) throws Exception;
 
     boolean cancelMessageDownload(AbstractMessageModel messageModel);
 
     void cancelMessageUpload(AbstractMessageModel messageModel);
 
-    AbstractMessageModel saveBallotCreateMessage(
+    AbstractMessageModel savePollCreateMessage(
         @NonNull MessageReceiver<?> receiver,
         @NonNull MessageId messageId,
-        @NonNull BallotSetupInterface message,
+        @NonNull PollSetupInterface message,
         @Nullable AbstractMessageModel messageModel,
         int messageFlags,
         @Nullable ForwardSecurityMode forwardSecurityMode,

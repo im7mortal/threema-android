@@ -27,10 +27,11 @@ import ch.threema.app.ui.CheckableConstraintLayout;
 import ch.threema.app.ui.listitemholder.AvatarListItemHolder;
 import ch.threema.app.utils.AdapterUtil;
 import ch.threema.app.utils.NameUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.ConversationModel;
 import ch.threema.storage.models.group.GroupModelOld;
+
+import static ch.threema.common.JavaCompat.isNullOrBlank;
 
 public class RecentListAdapter extends FilterableListAdapter {
     private final Context context;
@@ -122,7 +123,7 @@ public class RecentListAdapter extends FilterableListAdapter {
             );
         } else if (conversationModel.isDistributionListConversation()) {
             subjectText = context.getString(R.string.distribution_list);
-            holder.groupView.setImageResource(R.drawable.ic_bullhorn_outline);
+            holder.groupView.setImageResource(R.drawable.ic_distribution_list);
         } else {
             subjectText = contactModel.getIdentity();
             holder.groupView.setImageResource(R.drawable.ic_person_outline);
@@ -229,7 +230,7 @@ public class RecentListAdapter extends FilterableListAdapter {
         protected void publishResults(CharSequence constraint, FilterResults results) {
             values = (List<ConversationModel>) results.values;
             if (filterResultsListener != null) {
-                filterResultsListener.onResultsAvailable(TestUtil.isBlankOrNull(constraint) ? 0 : results.count);
+                filterResultsListener.onResultsAvailable(isNullOrBlank(constraint) ? 0 : results.count);
             }
             notifyDataSetChanged();
         }

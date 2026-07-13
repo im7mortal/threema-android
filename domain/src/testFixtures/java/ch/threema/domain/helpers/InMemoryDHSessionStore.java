@@ -9,13 +9,13 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.domain.fs.DHSession;
 import ch.threema.domain.fs.DHSessionId;
-import ch.threema.domain.stores.DHSessionStoreInterface;
+import ch.threema.domain.stores.DHSessionStore;
 import ch.threema.domain.taskmanager.ActiveTaskCodec;
 
 /**
  * Dummy DH session store for testing purposes only (not optimized).
  */
-public class InMemoryDHSessionStore implements DHSessionStoreInterface {
+public class InMemoryDHSessionStore implements DHSessionStore {
     final private List<DHSession> dhSessionList;
 
     public InMemoryDHSessionStore() {

@@ -2,9 +2,9 @@ package ch.threema.app.routines;
 
 import org.slf4j.Logger;
 
-import java.util.Calendar;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Collections;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,13 +69,9 @@ public class UpdateFeatureLevelRoutine implements Runnable {
                 .filter(c -> !userService.getIdentity().equals(c.getIdentity()))
                 .collect(Collectors.toList());
 
-            //remove already checked identities
-            final Calendar calendar = Calendar.getInstance();
-            calendar.setTime(new Date());
-            final long nowTimestamp = calendar.getTimeInMillis();
+            final Instant now = Instant.now();
             //leave the identity 1 hour in the cache!
-            calendar.add(Calendar.HOUR, -1);
-            final long validTimestamp = calendar.getTimeInMillis();
+            final long validTimestamp = now.minus(1, ChronoUnit.HOURS).toEpochMilli();
 
             synchronized (checkedIdentities) {
                 // Leave only identities that have not been checked in the last hour
@@ -108,7 +104,7 @@ public class UpdateFeatureLevelRoutine implements Runnable {
                             ContactModel model = filteredList.get(n);
                             model.setFeatureMaskFromLocal(featureMask);
                             // Update checked identities cache
-                            checkedIdentities.put(model.getIdentity(), nowTimestamp);
+                            checkedIdentities.put(model.getIdentity(), now.toEpochMilli());
                         }
                     } catch (ModelDeletedException e) {
                         logger.warn("Model has been deleted", e);

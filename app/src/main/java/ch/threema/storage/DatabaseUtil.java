@@ -2,7 +2,7 @@ package ch.threema.storage;
 
 import android.database.Cursor;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.List;
 
 import androidx.annotation.NonNull;
@@ -18,8 +18,8 @@ public class DatabaseUtil {
     }
 
     @Nullable
-    public static Long getDateTimeContentValue(@Nullable Date date) {
-        return date != null ? date.getTime() : null;
+    public static Long getDateTimeContentValue(@Nullable Instant date) {
+        return date != null ? date.toEpochMilli() : null;
     }
 
     /**

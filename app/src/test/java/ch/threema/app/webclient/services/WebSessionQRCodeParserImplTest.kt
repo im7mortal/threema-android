@@ -1,7 +1,7 @@
 package ch.threema.app.webclient.services
 
 import ch.threema.app.webclient.services.WebSessionQRCodeParser.InvalidQrCodeException
-import ch.threema.base.utils.Base64
+import ch.threema.common.Base64
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals

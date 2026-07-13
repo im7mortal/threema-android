@@ -1,5 +1,6 @@
 package ch.threema.app.services
 
+import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.groupflows.CreateGroupFlow
 import ch.threema.app.groupflows.DisbandGroupFlow
 import ch.threema.app.groupflows.GroupChanges
@@ -63,6 +64,7 @@ class GroupFlowDispatcher(
     private val taskManager: TaskManager,
     private val connection: ServerConnection,
     private val identityBlockedSteps: IdentityBlockedSteps,
+    private val globalEventBuses: GlobalEventBuses,
 ) {
     private val outgoingCspMessageServices by lazy {
         OutgoingCspMessageServices(
@@ -118,9 +120,9 @@ class GroupFlowDispatcher(
             outgoingCspMessageServices,
             groupProfilePictureUploader,
             fileService,
-            preferenceService,
             taskManager,
             connection,
+            globalEventBuses,
         ),
     )
 

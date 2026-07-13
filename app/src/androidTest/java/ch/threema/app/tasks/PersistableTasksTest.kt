@@ -470,24 +470,28 @@ class PersistableTasksTest {
     }
 
     @Test
-    fun testContactAvailabilityStatusUpdate() {
+    fun testBatchUpdateContactAvailabilityStatusTask() {
         assertValidEncoding(
-            ReflectContactSyncUpdateTask.ReflectAvailabilityStatusUpdate::class,
-            """{"type":"ch.threema.app.tasks.ReflectContactSyncUpdateTask.ReflectAvailabilityStatusUpdate.""" +
-                """ReflectAvailabilityStatusUpdateData","availabilityStatus":{"type":"ch.threema.data.datatypes.AvailabilityStatus.None"},""" +
-                """"identity":"01234567"}""",
+            BatchUpdateContactAvailabilityStatusTask::class,
+            """{"type":"ch.threema.app.tasks.BatchUpdateContactAvailabilityStatusTask.BatchUpdateContactAvailabilityStatusTaskData",""" +
+                """"availabilityStatusesTaskData":[]}""",
         )
         assertValidEncoding(
-            ReflectContactSyncUpdateTask.ReflectAvailabilityStatusUpdate::class,
-            """{"type":"ch.threema.app.tasks.ReflectContactSyncUpdateTask.ReflectAvailabilityStatusUpdate.""" +
-                """ReflectAvailabilityStatusUpdateData","availabilityStatus":{"type":"ch.threema.data.datatypes.AvailabilityStatus.Unavailable",""" +
-                """"description":"On vacation"},"identity":"01234567"}""",
+            BatchUpdateContactAvailabilityStatusTask::class,
+            """{"type":"ch.threema.app.tasks.BatchUpdateContactAvailabilityStatusTask.BatchUpdateContactAvailabilityStatusTaskData",""" +
+                """"availabilityStatusesTaskData":[""" +
+                """{"identity":"01234567","category":0,"description":""}""" +
+                """]}""",
         )
         assertValidEncoding(
-            ReflectContactSyncUpdateTask.ReflectAvailabilityStatusUpdate::class,
-            """{"type":"ch.threema.app.tasks.ReflectContactSyncUpdateTask.ReflectAvailabilityStatusUpdate.""" +
-                """ReflectAvailabilityStatusUpdateData","availabilityStatus":{"type":"ch.threema.data.datatypes.AvailabilityStatus.Busy",""" +
-                """"description":"In a meeting"},"identity":"01234567"}""",
+            BatchUpdateContactAvailabilityStatusTask::class,
+            """{"type":"ch.threema.app.tasks.BatchUpdateContactAvailabilityStatusTask.BatchUpdateContactAvailabilityStatusTaskData",""" +
+                """"availabilityStatusesTaskData":[""" +
+                """{"identity":"01234567","category":0,"description":""},""" +
+                """{"identity":"01234567","category":1,"description":"Vacation"},""" +
+                """{"identity":"01234567","category":2,"description":"In a meeting"},""" +
+                """{"identity":"01234567","category":3,"description":"not-valid"}""" +
+                """]}""",
         )
     }
 
@@ -500,22 +504,27 @@ class PersistableTasksTest {
     }
 
     @Test
-    fun testReflectWorkLastFullSyncAtUpdate() {
+    fun testBatchUpdateContactWorkLastFullSyncAtTask() {
         assertValidEncoding(
-            ReflectContactSyncUpdateTask.ReflectWorkLastFullSyncAtUpdate::class,
-            """{"type":"ch.threema.app.tasks.ReflectContactSyncUpdateTask.ReflectWorkLastFullSyncAtUpdate.""" +
-                """ReflectWorkLastFullSyncAtUpdateData","workLastFullSyncAt":1775144426988, "identity":"01234567"}""",
+            BatchUpdateContactWorkLastFullSyncAtTask::class,
+            """{"type":"ch.threema.app.tasks.BatchUpdateContactWorkLastFullSyncAtTask.""" +
+                """BatchUpdateContactWorkLastFullSyncAtUpdateTaskData",""" +
+                """"workLastFullSyncAtTimestamps":{"01234567":"2026-04-01T12:00:26.988Z"}}""",
         )
-    }
-
-    @Test
-    fun testReflectWorkLastFullSyncAtWithAvailabilityStatusUpdate() {
         assertValidEncoding(
-            ReflectContactSyncUpdateTask.ReflectWorkLastFullSyncAtWithAvailabilityStatusUpdate::class,
-            """{"type":"ch.threema.app.tasks.ReflectContactSyncUpdateTask.ReflectWorkLastFullSyncAtWithAvailabilityStatusUpdate.""" +
-                """ReflectWorkLastFullSyncAtWithAvailabilityStatusUpdateData","workLastFullSyncAt":1775144426988, """ +
-                """"availabilityStatus":{"type":"ch.threema.data.datatypes.AvailabilityStatus.Busy", "description":"In a meeting"}, """ +
-                """"identity":"01234567"}""",
+            BatchUpdateContactWorkLastFullSyncAtTask::class,
+            """{"type":"ch.threema.app.tasks.BatchUpdateContactWorkLastFullSyncAtTask.""" +
+                """BatchUpdateContactWorkLastFullSyncAtUpdateTaskData",""" +
+                """"workLastFullSyncAtTimestamps":{""" +
+                """"01234567":"2026-04-01T12:00:26.988Z",""" +
+                """"01234568":"2026-04-02T08:15:00Z"""" +
+                """}}""",
+        )
+        assertValidEncoding(
+            BatchUpdateContactWorkLastFullSyncAtTask::class,
+            """{"type":"ch.threema.app.tasks.BatchUpdateContactWorkLastFullSyncAtTask.""" +
+                """BatchUpdateContactWorkLastFullSyncAtUpdateTaskData",""" +
+                """"workLastFullSyncAtTimestamps":{}}""",
         )
     }
 
@@ -789,13 +798,34 @@ class PersistableTasksTest {
     }
 
     @Test
-    fun testGroupNotificationTriggerPolicyOverrideUpdate() {
+    fun testGroupNotificationTriggerPolicyOverrideUpdateMutedIndefinite() {
         assertValidEncoding(
             ReflectGroupSyncUpdateTask.ReflectNotificationTriggerPolicyOverrideUpdate::class,
-            """{"type":"ch.threema.app.tasks.ReflectGroupSyncUpdateTask.ReflectNotificationTriggerPolicyOverrideUpdate.""" +
-                """ReflectNotificationTriggerPolicyOverrideUpdateData","newNotificationTriggerPolicyOverride":""" +
-                """{"type":"ch.threema.data.datatypes.NotificationTriggerPolicyOverride.MutedUntil","dbValue":1740396953761,""" +
-                """"utcMillis":1740396953761},"groupIdentity":{"creatorIdentity":"01234567","groupId":6361180283070237492}}""",
+            "{\"type\":\"ch.threema.app.tasks.ReflectGroupSyncUpdateTask.ReflectNotificationTriggerPolicyOverrideUpdate.ReflectNotificationTriggerPolicyOverrideUpdateData\",\"newNotificationTriggerPolicyOverride\":-1,\"groupIdentity\":{\"creatorIdentity\":\"01234567\",\"groupId\":-5934730444204722858}}",
+        )
+    }
+
+    @Test
+    fun testGroupNotificationTriggerPolicyOverrideUpdateNotMuted() {
+        assertValidEncoding(
+            ReflectGroupSyncUpdateTask.ReflectNotificationTriggerPolicyOverrideUpdate::class,
+            "{\"type\":\"ch.threema.app.tasks.ReflectGroupSyncUpdateTask.ReflectNotificationTriggerPolicyOverrideUpdate.ReflectNotificationTriggerPolicyOverrideUpdateData\",\"newNotificationTriggerPolicyOverride\":null,\"groupIdentity\":{\"creatorIdentity\":\"01234567\",\"groupId\":-5934730444204722858}}",
+        )
+    }
+
+    @Test
+    fun testGroupNotificationTriggerPolicyOverrideUpdateMutedIndefiniteExceptMentions() {
+        assertValidEncoding(
+            ReflectGroupSyncUpdateTask.ReflectNotificationTriggerPolicyOverrideUpdate::class,
+            "{\"type\":\"ch.threema.app.tasks.ReflectGroupSyncUpdateTask.ReflectNotificationTriggerPolicyOverrideUpdate.ReflectNotificationTriggerPolicyOverrideUpdateData\",\"newNotificationTriggerPolicyOverride\":-2,\"groupIdentity\":{\"creatorIdentity\":\"01234567\",\"groupId\":-5934730444204722858}}",
+        )
+    }
+
+    @Test
+    fun testGroupNotificationTriggerPolicyOverrideUpdateMutedUntil() {
+        assertValidEncoding(
+            ReflectGroupSyncUpdateTask.ReflectNotificationTriggerPolicyOverrideUpdate::class,
+            "{\"type\":\"ch.threema.app.tasks.ReflectGroupSyncUpdateTask.ReflectNotificationTriggerPolicyOverrideUpdate.ReflectNotificationTriggerPolicyOverrideUpdateData\",\"newNotificationTriggerPolicyOverride\":1774242424242,\"groupIdentity\":{\"creatorIdentity\":\"01234567\",\"groupId\":-5934730444204722858}}",
         )
     }
 
@@ -819,37 +849,106 @@ class PersistableTasksTest {
     }
 
     @Test
+    fun testReflectContactConversationVisibilityUpdateNormal() {
+        assertValidEncoding(
+            expectedTaskClass = ReflectContactSyncUpdateTask.ReflectConversationVisibilityUpdate::class,
+            encodedTask = "{\"type\":\"ch.threema.app.tasks.ReflectContactSyncUpdateTask.ReflectConversationVisibilityUpdate" +
+                ".ReflectConversationVisibilityUpdateData\",\"conversationVisibilitySerialized\":0,\"contactIdentity\":\"08A929AT\"}",
+        )
+    }
+
+    @Test
+    fun testReflectContactConversationVisibilityUpdateArchived() {
+        assertValidEncoding(
+            expectedTaskClass = ReflectContactSyncUpdateTask.ReflectConversationVisibilityUpdate::class,
+            encodedTask = "{\"type\":\"ch.threema.app.tasks.ReflectContactSyncUpdateTask.ReflectConversationVisibilityUpdate" +
+                ".ReflectConversationVisibilityUpdateData\",\"conversationVisibilitySerialized\":1,\"contactIdentity\":\"01234567\"}",
+        )
+    }
+
+    @Test
+    fun testReflectContactConversationVisibilityUpdatePinned() {
+        assertValidEncoding(
+            expectedTaskClass = ReflectContactSyncUpdateTask.ReflectConversationVisibilityUpdate::class,
+            encodedTask = "{\"type\":\"ch.threema.app.tasks.ReflectContactSyncUpdateTask.ReflectConversationVisibilityUpdate" +
+                ".ReflectConversationVisibilityUpdateData\",\"conversationVisibilitySerialized\":2,\"contactIdentity\":\"01234567\"}",
+        )
+    }
+
+    @Test
+    fun testReflectGroupConversationVisibilityUpdateNormal() {
+        assertValidEncoding(
+            expectedTaskClass = ReflectGroupSyncUpdateTask.ReflectGroupConversationVisibilityUpdate::class,
+            encodedTask = "{\"type\":\"ch.threema.app.tasks.ReflectGroupSyncUpdateTask.ReflectGroupConversationVisibilityUpdate" +
+                ".ReflectGroupConversationVisibilityUpdateData\",\"conversationVisibilitySerialized\":0,\"groupIdentity\":" +
+                "{\"creatorIdentity\":\"01234567\",\"groupId\":2389353804288243297}}",
+        )
+    }
+
+    @Test
+    fun testReflectGroupConversationVisibilityUpdateArchived() {
+        assertValidEncoding(
+            expectedTaskClass = ReflectGroupSyncUpdateTask.ReflectGroupConversationVisibilityUpdate::class,
+            encodedTask = "{\"type\":\"ch.threema.app.tasks.ReflectGroupSyncUpdateTask.ReflectGroupConversationVisibilityUpdate" +
+                ".ReflectGroupConversationVisibilityUpdateData\",\"conversationVisibilitySerialized\":1,\"groupIdentity\":" +
+                "{\"creatorIdentity\":\"01234567\",\"groupId\":2389353804288243297}}",
+        )
+    }
+
+    @Test
+    fun testReflectGroupConversationVisibilityUpdatePinned() {
+        assertValidEncoding(
+            expectedTaskClass = ReflectGroupSyncUpdateTask.ReflectGroupConversationVisibilityUpdate::class,
+            encodedTask = "{\"type\":\"ch.threema.app.tasks.ReflectGroupSyncUpdateTask.ReflectGroupConversationVisibilityUpdate" +
+                ".ReflectGroupConversationVisibilityUpdateData\",\"conversationVisibilitySerialized\":2,\"groupIdentity\":" +
+                "{\"creatorIdentity\":\"01234567\",\"groupId\":2389353804288243297}}",
+        )
+    }
+
+    /**
+     * TODO(ANDR-4974): Remove this.
+     */
+    @Test
     fun testReflectContactConversationVisibilityArchiveUpdate() {
         assertValidEncoding(
-            ReflectContactSyncUpdateTask.ReflectConversationVisibilityArchiveUpdate::class,
+            ReflectContactSyncUpdateTask.ReflectConversationVisibilityUpdate::class,
             "{\"type\":\"ch.threema.app.tasks.ReflectContactSyncUpdateTask.ReflectConversationVisibilityArchiveUpdate" +
                 ".ReflectConversationVisibilityArchiveUpdateData\",\"isArchived\":true,\"contactIdentity\":\"01234567\"}",
         )
     }
 
+    /**
+     * TODO(ANDR-4974): Remove this.
+     */
     @Test
     fun testReflectGroupConversationVisibilityArchiveUpdate() {
         assertValidEncoding(
-            ReflectGroupSyncUpdateTask.ReflectGroupConversationVisibilityArchiveUpdate::class,
+            ReflectGroupSyncUpdateTask.ReflectGroupConversationVisibilityUpdate::class,
             "{\"type\":\"ch.threema.app.tasks.ReflectGroupSyncUpdateTask.ReflectGroupConversationVisibilityArchiveUpdate" +
                 ".ReflectGroupConversationVisibilityArchiveUpdateData\",\"isArchived\":true," +
                 "\"groupIdentity\":{\"creatorIdentity\":\"01234567\",\"groupId\":6361180283070237492}}",
         )
     }
 
+    /**
+     * TODO(ANDR-4974): Remove this.
+     */
     @Test
     fun testReflectContactConversationVisibilityPinnedUpdate() {
         assertValidEncoding(
-            ReflectContactSyncUpdateTask.ReflectConversationVisibilityPinnedUpdate::class,
+            ReflectContactSyncUpdateTask.ReflectConversationVisibilityUpdate::class,
             "{\"type\":\"ch.threema.app.tasks.ReflectContactSyncUpdateTask.ReflectConversationVisibilityPinnedUpdate" +
                 ".ReflectConversationVisibilityPinnedUpdateData\",\"isPinned\":true,\"contactIdentity\":\"01234567\"}",
         )
     }
 
+    /**
+     * TODO(ANDR-4974): Remove this.
+     */
     @Test
     fun testReflectGroupConversationVisibilityPinnedUpdate() {
         assertValidEncoding(
-            ReflectGroupSyncUpdateTask.ReflectGroupConversationVisibilityPinnedUpdate::class,
+            ReflectGroupSyncUpdateTask.ReflectGroupConversationVisibilityUpdate::class,
             "{\"type\":\"ch.threema.app.tasks.ReflectGroupSyncUpdateTask.ReflectGroupConversationVisibilityPinnedUpdate" +
                 ".ReflectGroupConversationVisibilityPinnedUpdateData\",\"isPinned\":true," +
                 "\"groupIdentity\":{\"creatorIdentity\":\"01234567\",\"groupId\":6361180283070237492}}",
@@ -886,6 +985,14 @@ class PersistableTasksTest {
             expectedTaskClass = ConvertGroupProfilePictureTask::class,
             encodedTask = """{"type":"ch.threema.app.tasks.ConvertGroupProfilePictureTask.ConvertGroupProfilePictureTaskData",""" +
                 """"groupIdentity":{"creatorIdentity":"01234567","groupId":42}}""",
+        )
+    }
+
+    @Test
+    fun testSyncPredefinedContactsTask() {
+        assertValidEncoding(
+            expectedTaskClass = SyncPredefinedContactsTask::class,
+            encodedTask = "{\"type\":\"ch.threema.app.tasks.SyncPredefinedContactsTask.SyncPredefinedContactsTaskData\"}",
         )
     }
 

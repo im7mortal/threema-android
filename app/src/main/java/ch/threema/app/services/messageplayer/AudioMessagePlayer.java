@@ -26,7 +26,8 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 
 import ch.threema.app.R;
-import ch.threema.app.managers.ListenerManager;
+import ch.threema.app.eventbus.GlobalEventBuses;
+import ch.threema.app.eventbus.events.ActionEvent;
 import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.app.services.ConversationCategoryService;
 import ch.threema.app.services.FileService;
@@ -34,13 +35,14 @@ import ch.threema.app.services.MessageService;
 import ch.threema.app.services.NotificationPreferenceService;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.utils.BitmapUtil;
+import ch.threema.app.utils.FileProviderUtil;
 import ch.threema.app.utils.LocaleUtil;
 import ch.threema.app.utils.RuntimeUtil;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
 import ch.threema.logging.ThreemaLogger;
 import ch.threema.storage.models.AbstractMessageModel;
-import ch.threema.storage.models.MessageType;
-import ch.threema.storage.models.data.media.AudioDataModel;
 import ch.threema.storage.models.data.media.FileDataModel;
 import ch.threema.storage.models.data.media.MediaMessageDataInterface;
 
@@ -56,9 +58,10 @@ public class AudioMessagePlayer extends MessagePlayer {
     private final PreferenceService preferenceService;
     @NonNull
     private final NotificationPreferenceService notificationPreferenceService;
-    private final FileService fileService;
     private final ConversationCategoryService conversationCategoryService;
     private final ListenableFuture<MediaController> mediaControllerFuture;
+    @NonNull
+    private final GlobalEventBuses globalEventBuses;
 
     protected AudioMessagePlayer(
         @NonNull Context context,
@@ -67,6 +70,7 @@ public class AudioMessagePlayer extends MessagePlayer {
         @NonNull PreferenceService preferenceService,
         @NonNull NotificationPreferenceService notificationPreferenceService,
         @NonNull ConversationCategoryService conversationCategoryService,
+        @NonNull GlobalEventBuses globalEventBuses,
         @NonNull MessageReceiver<?> messageReceiver,
         @NonNull ListenableFuture<MediaController> mediaControllerFuture,
         @NonNull AbstractMessageModel messageModel
@@ -75,8 +79,8 @@ public class AudioMessagePlayer extends MessagePlayer {
 
         this.preferenceService = preferenceService;
         this.notificationPreferenceService = notificationPreferenceService;
-        this.fileService = fileService;
         this.conversationCategoryService = conversationCategoryService;
+        this.globalEventBuses = globalEventBuses;
         this.mediaControllerFuture = mediaControllerFuture;
 
         logger.info("New AudioMediaPlayer instance: {}", messageModel.getId());
@@ -130,7 +134,7 @@ public class AudioMessagePlayer extends MessagePlayer {
             if (playbackState == Player.STATE_ENDED) {
                 logger.info("onStopped");
                 AudioMessagePlayer.super.stop();
-                ListenerManager.messagePlayerListener.handle(listener -> listener.onAudioPlayEnded(getMessageModel(), mediaControllerFuture));
+                globalEventBuses.getActions().emit(new ActionEvent.VoiceMessagePlaybackEnded(getMessageModel()));
             } else if (playbackState == Player.STATE_READY) {
                 logger.info("onReady");
                 markAsConsumed();
@@ -154,28 +158,20 @@ public class AudioMessagePlayer extends MessagePlayer {
 
     @Override
     public MediaMessageDataInterface getData() {
-        if (getMessageModel().getType() == MessageType.VOICEMESSAGE) {
-            return this.getMessageModel().getAudioData();
-        } else {
-            return this.getMessageModel().getFileData();
-        }
+        return this.getMessageModel().getFileData();
     }
 
     @Override
     protected AbstractMessageModel setData(MediaMessageDataInterface data) {
         AbstractMessageModel messageModel = this.getMessageModel();
-        if (messageModel.getType() == MessageType.VOICEMESSAGE) {
-            messageModel.setAudioData((AudioDataModel) data);
-        } else {
-            messageModel.setFileData((FileDataModel) data);
-        }
+        messageModel.setFileData((FileDataModel) data);
         return messageModel;
     }
 
     @Override
     protected void open(File decryptedFile) {
         this.decryptedFile = decryptedFile;
-        this.decryptedFileUri = fileService.getShareFileUri(decryptedFile, null);
+        this.decryptedFileUri = FileProviderUtil.getUriForFile(getContext(), decryptedFile);
         this.position = 0;
         this.duration = 0;
 
@@ -185,7 +181,10 @@ public class AudioMessagePlayer extends MessagePlayer {
         if (mediaController != null) {
             String displayName;
             Bitmap artworkBitmap = null;
-            if (!this.notificationPreferenceService.isShowMessagePreview() || this.conversationCategoryService.isPrivateChat(currentMessageReceiver.getUniqueIdString())) {
+            if (
+                !this.notificationPreferenceService.isShowMessagePreview() ||
+                    this.conversationCategoryService.isMarkedAsPrivate(currentMessageReceiver.getConversationId())
+            ) {
                 displayName = getContext().getString(R.string.notification_channel_voice_message_player);
             } else {
                 displayName = currentMessageReceiver.getDisplayName(preferenceService.getContactNameFormat());
@@ -195,7 +194,7 @@ public class AudioMessagePlayer extends MessagePlayer {
             MediaMetadata.Builder metadataBuilder = new MediaMetadata.Builder()
                 .setTitle(displayName)
                 .setArtist(getContext().getString(R.string.voice_message_from,
-                    LocaleUtil.formatTimeStampStringAbsolute(getAppContext(), getMessageModel().getCreatedAt().getTime())));
+                    LocaleUtil.formatTimeStampStringAbsolute(getAppContext(), getMessageModel().getCreatedAt())));
 
             if (artworkBitmap != null) {
                 metadataBuilder.setArtworkData(BitmapUtil.bitmapToByteArray(artworkBitmap, Bitmap.CompressFormat.JPEG, 80), MediaMetadata.PICTURE_TYPE_FRONT_COVER);
@@ -248,9 +247,7 @@ public class AudioMessagePlayer extends MessagePlayer {
         duration = (int) longDuration;
         if (longDuration == TIME_UNSET) {
             MediaMessageDataInterface d = this.getData();
-            if (d instanceof AudioDataModel) {
-                duration = (int) (((AudioDataModel) d).getDuration() * SECOND_IN_MILLIS);
-            } else if (d instanceof FileDataModel) {
+            if (d instanceof FileDataModel) {
                 duration = (int) (((FileDataModel) d).getDurationSeconds() * SECOND_IN_MILLIS);
             }
         }

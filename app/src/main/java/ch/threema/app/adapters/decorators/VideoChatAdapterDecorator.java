@@ -21,7 +21,6 @@ import ch.threema.app.utils.ImageViewUtil;
 import ch.threema.app.utils.LinkifyUtil;
 import ch.threema.app.utils.MessageUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.DistributionListMessageModel;
@@ -29,6 +28,7 @@ import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.MessageType;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class VideoChatAdapterDecorator extends ChatAdapterDecorator {
     private static final Logger logger = getThreemaLogger("VideoChatAdapterDecorator");
@@ -78,36 +78,11 @@ public class VideoChatAdapterDecorator extends ChatAdapterDecorator {
 
         configureThumbnail(holder);
 
-        if (getMessageModel().getType() == MessageType.VIDEO) {
-            configureForMessageTypeVideo(holder, context);
-        } else if (getMessageModel().getType() == MessageType.FILE) {
+        if (getMessageModel().getType() == MessageType.FILE) {
             configureForMessageTypeFile(holder, context);
         }
 
         configureVideoMessagePlayer(holder, context, videoMessagePlayer);
-    }
-
-    private void configureForMessageTypeVideo(@NonNull ComposeMessageHolder holder, @NonNull Context context) {
-        String datePrefixString = "";
-        dateContentDescriptionPrefix = "";
-
-        long duration = getMessageModel().getVideoData().getDuration();
-        int size = getMessageModel().getVideoData().getVideoSize();
-        //do not show duration if 0
-        if (duration > 0) {
-            datePrefixString = ElapsedTimeFormatter.secondsToString(duration);
-            dateContentDescriptionPrefix = context.getString(R.string.duration) + ": " + ElapsedTimeFormatter.getDurationStringHuman(context, duration);
-            setDuration(duration);
-        }
-
-        if (size > 0) {
-            datePrefixString += " (" + Formatter.formatShortFileSize(context, size) + ")";
-            dateContentDescriptionPrefix = context.getString(R.string.file_size) + ": " + Formatter.formatShortFileSize(context, size);
-        }
-
-        setDatePrefix(datePrefixString);
-
-        setDefaultBackground(holder);
     }
 
     private void configureForMessageTypeFile(@NonNull ComposeMessageHolder holder, @NonNull Context context) {
@@ -124,11 +99,11 @@ public class VideoChatAdapterDecorator extends ChatAdapterDecorator {
                 if (size > 0) {
                     datePrefixString = datePrefixString + " | ";
                 }
-                datePrefixString = datePrefixString + getMessageModel().getFileData().getDurationString();
+                datePrefixString = datePrefixString + ElapsedTimeFormatter.secondsToString(duration);
             }
         } else {
             if (duration > 0) {
-                datePrefixString = datePrefixString + getMessageModel().getFileData().getDurationString();
+                datePrefixString = datePrefixString + ElapsedTimeFormatter.secondsToString(duration);
                 dateContentDescriptionPrefix = context.getString(R.string.duration) + ": " + ElapsedTimeFormatter.getDurationStringHuman(context, duration);
             }
         }
@@ -167,7 +142,7 @@ public class VideoChatAdapterDecorator extends ChatAdapterDecorator {
                     RuntimeUtil.runOnUiThread(() -> {
                         setControllerState(holder);
                         if (!success) {
-                            if (!TestUtil.isEmptyOrNull(message)) {
+                            if (!isNullOrEmpty(message)) {
                                 Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show();
                             }
                         }
@@ -199,7 +174,7 @@ public class VideoChatAdapterDecorator extends ChatAdapterDecorator {
                             holder.controller.setPlay();
                         } else {
                             holder.controller.setReadyToDownload();
-                            if (!TestUtil.isEmptyOrNull(message)) {
+                            if (!isNullOrEmpty(message)) {
                                 Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show();
                             }
                         }
@@ -265,8 +240,10 @@ public class VideoChatAdapterDecorator extends ChatAdapterDecorator {
     private void configureThumbnail(@NonNull ComposeMessageHolder holder) {
         Bitmap thumbnail;
         try {
-            thumbnail = getFileService().getMessageThumbnailBitmap(getMessageModel(),
-                getThumbnailCache());
+            thumbnail = getFileService().getMessageThumbnailBitmap(
+                getMessageModel(),
+                getThumbnailCache()
+            );
         } catch (Exception e) {
             logger.error("Exception", e);
             thumbnail = null;
@@ -331,9 +308,7 @@ public class VideoChatAdapterDecorator extends ChatAdapterDecorator {
     }
 
     private void setControllerStateIncomingMessage(@NonNull ComposeMessageHolder holder) {
-        boolean isDownloaded = getMessageModel().getType() == MessageType.VIDEO
-            ? getMessageModel().getVideoData().isDownloaded()
-            : getMessageModel().getFileData().isDownloaded();
+        boolean isDownloaded = getMessageModel().getFileData().isDownloaded();
 
         if (isDownloaded) {
             holder.controller.setPlay();

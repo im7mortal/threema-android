@@ -13,23 +13,24 @@ import ch.threema.android.setBackoffCriteria
 import ch.threema.android.setInitialDelay
 import ch.threema.android.setInputData
 import ch.threema.app.di.awaitAppFullyReadyWithTimeout
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.ConversationEvent
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.restrictions.AppRestrictions
 import ch.threema.app.services.ConversationService
 import ch.threema.app.services.FileService
 import ch.threema.app.services.MessageService
-import ch.threema.app.services.ballot.BallotService
+import ch.threema.app.services.poll.PollService
 import ch.threema.app.utils.AutoDeleteUtil
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.storage.models.ConversationModel
 import ch.threema.storage.models.MessageState
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.DisplayTag
-import ch.threema.storage.models.data.media.BallotDataModel
-import java.util.Date
+import ch.threema.storage.models.data.media.PollDataModel
+import java.time.Instant
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -50,7 +51,8 @@ class AutoDeleteWorker(
     private val conversationService: ConversationService by inject()
     private val messageService: MessageService by inject()
     private val fileService: FileService by inject()
-    private val ballotService: BallotService by inject()
+    private val pollService: PollService by inject()
+    private val globalEventBuses: GlobalEventBuses by inject()
 
     override suspend fun doWork(): Result {
         logger.info("Start auto delete work")
@@ -75,7 +77,7 @@ class AutoDeleteWorker(
         }
 
         if (numDeletedMessages > 0) {
-            ListenerManager.conversationListeners.handle { listener -> listener.onModifiedAll() }
+            globalEventBuses.conversations.emit(ConversationEvent.AllConversationsUpdated)
         }
         logger.info("Auto delete finished. Number of cleared messages =  {}", numDeletedMessages)
 
@@ -87,7 +89,7 @@ class AutoDeleteWorker(
         graceDays: Int,
     ): Int {
         var numDeletedMessages = 0
-        val today = Date()
+        val today = Instant.now()
 
         // do not delete messages in note groups
         if (conversationModel.isGroupConversation) {
@@ -124,31 +126,33 @@ class AutoDeleteWorker(
                     today,
                 ) >= graceDays
             ) {
-                if (messageModel.type == MessageType.BALLOT) {
-                    val ballotModel = ballotService.get(messageModel.ballotData.ballotId)
-                    if (messageModel.ballotData.type == BallotDataModel.Type.BALLOT_CLOSED) {
+                if (messageModel.type == MessageType.POLL) {
+                    val pollModel = pollService.get(messageModel.pollData.pollId)
+                    if (messageModel.pollData.type == PollDataModel.Type.POLL_CLOSED) {
                         logger.info(
-                            "Removing ballot message {}",
+                            "Removing poll message {}",
                             messageModel.apiMessageId ?: messageModel.id,
                         )
-                        if (ballotModel != null) {
-                            ballotService.remove(ballotModel)
+                        if (pollModel != null) {
+                            pollService.remove(pollModel)
                         } else {
-                            // associated BallotModel has already been deleted - just remove the remaining message
-                            messageService.remove(messageModel, false)
+                            // associated PollModel has already been deleted - just remove the remaining message
+                            messageService.remove(messageModel)
                         }
                         numDeletedMessages++
                     } else {
                         logger.info(
-                            "Skipping ballot message {} of type {}.",
+                            "Skipping poll message {} of type {}.",
                             messageModel.apiMessageId ?: messageModel.id,
-                            messageModel.ballotData.type,
+                            messageModel.pollData.type,
                         )
                     }
                 } else {
                     logger.info("Removing message {}", messageModel.apiMessageId ?: messageModel.id)
-                    fileService.removeMessageFiles(messageModel, true)
-                    messageService.remove(messageModel, false)
+                    messageModel.uid?.let { messageUid ->
+                        fileService.deleteMessageFiles(messageUid)
+                    }
+                    messageService.remove(messageModel)
                     numDeletedMessages++
                 }
             }

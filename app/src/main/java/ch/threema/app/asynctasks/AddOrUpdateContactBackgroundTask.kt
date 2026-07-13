@@ -3,31 +3,25 @@ package ch.threema.app.asynctasks
 import androidx.annotation.StringRes
 import androidx.annotation.WorkerThread
 import ch.threema.app.R
+import ch.threema.app.protocolsteps.Contact
+import ch.threema.app.protocolsteps.Init
+import ch.threema.app.protocolsteps.Invalid
+import ch.threema.app.protocolsteps.PredefinedContactPublicKeyMismatch
+import ch.threema.app.protocolsteps.SpecialContact
+import ch.threema.app.protocolsteps.UserContact
+import ch.threema.app.protocolsteps.ValidContactsLookupSteps
 import ch.threema.app.restrictions.AppRestrictions
 import ch.threema.app.utils.executor.BackgroundTask
-import ch.threema.base.ThreemaException
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.common.Http
-import ch.threema.common.now
-import ch.threema.data.datatypes.AvailabilityStatus
-import ch.threema.data.datatypes.IdColor
 import ch.threema.data.models.ContactModel
 import ch.threema.data.models.ContactModelData
 import ch.threema.data.repositories.ContactCreateException
 import ch.threema.data.repositories.ContactModelRepository
-import ch.threema.domain.models.ContactSyncState
-import ch.threema.domain.models.IdentityState
-import ch.threema.domain.models.IdentityType
-import ch.threema.domain.models.ReadReceiptPolicy
-import ch.threema.domain.models.TypingIndicatorPolicy
+import ch.threema.data.toContactModelData
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.VerificationLevel
-import ch.threema.domain.models.WorkVerificationLevel
-import ch.threema.domain.protocol.api.APIConnector
-import ch.threema.domain.protocol.api.APIConnector.FetchIdentityResult
-import ch.threema.domain.protocol.api.APIConnector.HttpConnectionException
-import ch.threema.domain.protocol.api.APIConnector.NetworkException
+import ch.threema.domain.taskmanager.ProtocolException
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel
 import kotlinx.coroutines.runBlocking
 
 private val logger = getThreemaLogger("AddOrUpdateContactBackgroundTask")
@@ -40,19 +34,22 @@ private val logger = getThreemaLogger("AddOrUpdateContactBackgroundTask")
  * adding the new contact. If the contact already exists, it checks that the public key matches and
  * returns [Failed] if it doesn't match.
  *
+ * When adding new contacts, the list of predefined contacts is checked. If a match is found, the
+ * public key will be verified, [RemotePublicKeyMismatch] will be returned on mismatch. Additionally,
+ * the contact will be marked as fully verified, and the predefined nickname will be used.
+ *
  * This task also updates the contact if it already exists. This includes changing the acquaintance
- * level to [acquaintanceLevel] and the verification level to fully verified (if [expectedPublicKey]
- * is provided and matches).
+ * level to [acquaintanceLevel] and the verification level to "fully verified" if [expectedPublicKey]
+ * is provided and matches.
  *
  * Note that this task can be overridden and the behavior can be adjusted by overwriting [onBefore],
  * [onContactResult], and [onFinished]. For tasks that do not need to perform any additional
  * background work, the [BasicAddOrUpdateContactBackgroundTask] can be used.
  */
 abstract class AddOrUpdateContactBackgroundTask<T>(
-    protected val identity: IdentityString,
-    protected val acquaintanceLevel: AcquaintanceLevel,
-    private val myIdentity: IdentityString,
-    private val apiConnector: APIConnector,
+    private val identity: IdentityString,
+    private val acquaintanceLevel: AcquaintanceLevel,
+    private val validContactsLookupSteps: ValidContactsLookupSteps,
     private val contactModelRepository: ContactModelRepository,
     private val addContactRestrictionPolicy: AddContactRestrictionPolicy,
     private val appRestrictions: AppRestrictions,
@@ -115,93 +112,45 @@ abstract class AddOrUpdateContactBackgroundTask<T>(
      */
     open fun onFinished(result: T) = Unit
 
-    private fun checkAndAddNewContact(): ContactResult {
-        if (identity == myIdentity) {
-            return UserIdentity
-        }
-
-        // Update contact if it exists
-        contactModelRepository.getByIdentity(identity)?.let { contactModel ->
-            contactModel.data?.let { contactModelData ->
-                return updateContact(
-                    contactModel = contactModel,
-                    currentData = contactModelData,
-                    expectedPublicKey = expectedPublicKey,
-                )
+    private fun checkAndAddNewContact(): ContactResult =
+        try {
+            when (val contactOrInit = validContactsLookupSteps.run(identity)) {
+                is Contact -> updateContact(contactOrInit.contactModel)
+                is Init -> addNewContact(contactOrInit.contactModelData)
+                is Invalid -> InvalidThreemaId
+                is SpecialContact -> addNewContact(contactOrInit.cachedContact.toContactModelData())
+                is UserContact -> UserIdentity
+                is PredefinedContactPublicKeyMismatch -> RemotePublicKeyMismatch
             }
+        } catch (e: ProtocolException) {
+            logger.error("Could not fetch contact", e)
+            ConnectionError
         }
 
+    private fun addNewContact(contactModelData: ContactModelData): ContactResult {
         // Only proceed if adding contacts is allowed
         if (addContactRestrictionPolicy == AddContactRestrictionPolicy.CHECK && appRestrictions.isAddContactDisabled()) {
             return PolicyViolation
         }
 
-        // Fetch the identity
-        val result = try {
-            apiConnector.fetchIdentity(identity)
-        } catch (exception: Exception) {
-            logger.error("Failed to fetch identity", exception)
-            return when (exception) {
-                is HttpConnectionException -> {
-                    if (exception.errorCode == Http.StatusCode.NOT_FOUND) {
-                        InvalidThreemaId
-                    } else {
-                        ConnectionError
-                    }
-                }
-                is NetworkException, is ThreemaException -> ConnectionError
-                else -> throw exception
-            }
-        }
-
-        // Add the new contact
-        return addNewContact(result, expectedPublicKey)
-    }
-
-    private fun addNewContact(
-        result: FetchIdentityResult,
-        expectedPublicKey: ByteArray?,
-    ): ContactResult {
+        // Determine verification level
         val verificationLevel = if (expectedPublicKey != null) {
-            if (expectedPublicKey.contentEquals(result.publicKey)) {
+            if (expectedPublicKey.contentEquals(contactModelData.publicKey)) {
                 VerificationLevel.FULLY_VERIFIED
             } else {
+                logger.error("Warning: Fetched contact public key for {} does not match expected public key", identity)
                 return RemotePublicKeyMismatch
             }
         } else {
-            VerificationLevel.UNVERIFIED
+            contactModelData.verificationLevel
         }
 
         return runBlocking {
             try {
                 val contactModel = contactModelRepository.createFromLocal(
-                    contactModelData = ContactModelData(
-                        identity = result.identity,
-                        publicKey = result.publicKey,
-                        createdAt = now(),
-                        firstName = "",
-                        lastName = "",
-                        nickname = null,
-                        idColor = IdColor.ofIdentity(result.identity),
+                    contactModelData.copy(
                         verificationLevel = verificationLevel,
-                        workVerificationLevel = WorkVerificationLevel.NONE,
-                        identityType = result.getIdentityType(),
                         acquaintanceLevel = acquaintanceLevel,
-                        activityState = result.getIdentityState(),
-                        syncState = ContactSyncState.INITIAL,
-                        featureMask = result.featureMask.toULong(),
-                        readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
-                        typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
-                        isArchived = false,
-                        androidContactLookupInfo = null,
-                        localAvatarExpires = null,
-                        isRestored = false,
-                        profilePictureBlobId = null,
-                        jobTitle = null,
-                        department = null,
-                        notificationTriggerPolicyOverride = null,
-                        availabilityStatus = AvailabilityStatus.None,
-                        workLastFullSyncAt = null,
                     ),
                 )
                 ContactCreated(contactModel)
@@ -218,18 +167,19 @@ abstract class AddOrUpdateContactBackgroundTask<T>(
         }
     }
 
-    private fun updateContact(
-        contactModel: ContactModel,
-        currentData: ContactModelData,
-        expectedPublicKey: ByteArray?,
-    ): ContactResult {
+    private fun updateContact(contactModel: ContactModel): ContactResult {
+        val currentContactModelData = contactModel.data ?: run {
+            logger.error("Contact model data is null while updating contact")
+            return GenericFailure
+        }
+
         var verificationLevelChanged = false
         var contactVerifiedAgain = false
         var acquaintanceLevelChanged = false
 
         if (expectedPublicKey != null) {
-            if (expectedPublicKey.contentEquals(currentData.publicKey)) {
-                if (currentData.verificationLevel != VerificationLevel.FULLY_VERIFIED) {
+            if (expectedPublicKey.contentEquals(currentContactModelData.publicKey)) {
+                if (currentContactModelData.verificationLevel != VerificationLevel.FULLY_VERIFIED) {
                     contactModel.setVerificationLevelFromLocal(VerificationLevel.FULLY_VERIFIED)
                     verificationLevelChanged = true
                 } else {
@@ -240,7 +190,7 @@ abstract class AddOrUpdateContactBackgroundTask<T>(
             }
         }
 
-        if (currentData.acquaintanceLevel != acquaintanceLevel) {
+        if (currentContactModelData.acquaintanceLevel != acquaintanceLevel) {
             contactModel.setAcquaintanceLevelFromLocal(acquaintanceLevel)
             acquaintanceLevelChanged = true
         }
@@ -258,25 +208,6 @@ abstract class AddOrUpdateContactBackgroundTask<T>(
     }
 }
 
-fun FetchIdentityResult.getIdentityType(): IdentityType = when (type) {
-    0 -> IdentityType.NORMAL
-    1 -> IdentityType.WORK
-    else -> {
-        logger.warn("Identity fetch returned invalid identity type: {}", type)
-        IdentityType.NORMAL
-    }
-}
-
-fun FetchIdentityResult.getIdentityState(): IdentityState = when (state) {
-    IdentityState.ACTIVE.value -> IdentityState.ACTIVE
-    IdentityState.INACTIVE.value -> IdentityState.INACTIVE
-    IdentityState.INVALID.value -> IdentityState.INVALID
-    else -> {
-        logger.warn("Identity fetch returned invalid identity state: {}", state)
-        IdentityState.ACTIVE
-    }
-}
-
 /**
  * Use this task for creating a new contact when no additional background work is required after the
  * contact has been created. The [ContactResult] is directly passed to [onFinished]. See
@@ -285,21 +216,19 @@ fun FetchIdentityResult.getIdentityState(): IdentityState = when (state) {
 open class BasicAddOrUpdateContactBackgroundTask(
     identity: IdentityString,
     acquaintanceLevel: AcquaintanceLevel,
-    myIdentity: IdentityString,
-    apiConnector: APIConnector,
+    validContactsLookupSteps: ValidContactsLookupSteps,
     contactModelRepository: ContactModelRepository,
     addContactRestrictionPolicy: AddContactRestrictionPolicy,
     appRestrictions: AppRestrictions,
     expectedPublicKey: ByteArray? = null,
 ) : AddOrUpdateContactBackgroundTask<ContactResult>(
-    identity,
-    acquaintanceLevel,
-    myIdentity,
-    apiConnector,
-    contactModelRepository,
-    addContactRestrictionPolicy,
-    appRestrictions,
-    expectedPublicKey,
+    identity = identity,
+    acquaintanceLevel = acquaintanceLevel,
+    validContactsLookupSteps = validContactsLookupSteps,
+    contactModelRepository = contactModelRepository,
+    addContactRestrictionPolicy = addContactRestrictionPolicy,
+    appRestrictions = appRestrictions,
+    expectedPublicKey = expectedPublicKey,
 ) {
     final override fun onContactResult(result: ContactResult): ContactResult = result
 }

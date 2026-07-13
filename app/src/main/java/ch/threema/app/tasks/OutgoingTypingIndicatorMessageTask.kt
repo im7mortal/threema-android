@@ -1,10 +1,10 @@
 package ch.threema.app.tasks
 
-import ch.threema.common.now
 import ch.threema.domain.models.MessageId
 import ch.threema.domain.protocol.csp.messages.TypingIndicatorMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.types.IdentityString
+import java.time.Instant
 
 class OutgoingTypingIndicatorMessageTask(
     private val isTyping: Boolean,
@@ -22,7 +22,7 @@ class OutgoingTypingIndicatorMessageTask(
             messageModel = null,
             toIdentity = toIdentity,
             messageId = MessageId.random(),
-            createdAt = now(),
+            createdAt = Instant.now(),
             handle = handle,
         )
     }

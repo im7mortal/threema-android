@@ -114,7 +114,7 @@ class MediaGalleryAdapter(
             if (holder.messageId != messageModel.id) {
                 val placeholderIcon: Int =
                     if (messageModel.messageContentsType == MessageContentsType.VOICE_MESSAGE) {
-                        R.drawable.ic_keyboard_voice_outline
+                        R.drawable.ic_microphone_outline
                     } else if (messageModel.type == MessageType.FILE) {
                         IconUtil.getMimeIcon(messageModel.fileData.mimeType)
                     } else {
@@ -127,65 +127,58 @@ class MediaGalleryAdapter(
                     .transition(DrawableTransitionOptions.withCrossFade())
                     .optionalCenterCrop()
                     .error(placeholderIcon)
-                    .into(object :
-                        CustomViewTarget<ShapeableImageView?, Drawable?>(holder.imageView!!) {
-                        override fun onResourceCleared(placeholder: Drawable?) {}
-                        override fun onLoadFailed(errorDrawable: Drawable?) {
-                            decorateItem(holder, messageModel)
-                            holder.imageView?.setImageDrawable(errorDrawable)
-                        }
+                    .into(
+                        object :
+                            CustomViewTarget<ShapeableImageView?, Drawable?>(holder.imageView!!) {
+                            override fun onResourceCleared(placeholder: Drawable?) {}
+                            override fun onLoadFailed(errorDrawable: Drawable?) {
+                                decorateItem(holder, messageModel)
+                                holder.imageView?.setImageDrawable(errorDrawable)
+                            }
 
-                        override fun onResourceReady(
-                            resource: Drawable,
-                            transition: Transition<in Drawable?>?,
-                        ) {
-                            holder.textContainerView?.visibility = View.GONE
-                            holder.vmContainerView?.visibility = View.GONE
-                            holder.imageView?.clearColorFilter()
-                            holder.imageView?.scaleType = ImageView.ScaleType.CENTER_CROP
-                            holder.imageView?.setImageDrawable(resource)
-                            if (messageModel.messageContentsType == MessageContentsType.GIF) {
-                                holder.animatedFormatLabelContainer?.visibility = View.VISIBLE
-                                holder.animatedFormatLabelIconView?.setImageResource(R.drawable.ic_gif_24dp)
-                                holder.animatedFormatLabelIconView?.contentDescription =
-                                    context.getString(R.string.attach_gif)
-                            } else if (messageModel.messageContentsType == MessageContentsType.IMAGE &&
-                                MimeUtil.isAnimatedImageFormat(messageModel.fileData.mimeType)
+                            override fun onResourceReady(
+                                resource: Drawable,
+                                transition: Transition<in Drawable?>?,
                             ) {
-                                holder.animatedFormatLabelContainer?.visibility = View.VISIBLE
-                                holder.animatedFormatLabelIconView?.setImageResource(R.drawable.ic_webp)
-                                holder.animatedFormatLabelIconView?.contentDescription = "WebP"
-                            } else {
-                                holder.animatedFormatLabelContainer?.visibility = View.GONE
-                            }
-
-                            if (messageModel.messageContentsType == MessageContentsType.VIDEO) {
-                                val duration: Long = when (messageModel.type) {
-                                    MessageType.VIDEO -> {
-                                        messageModel.videoData.duration.toLong()
-                                    }
-
-                                    MessageType.FILE -> {
-                                        messageModel.fileData.durationSeconds
-                                    }
-
-                                    else -> {
-                                        0
-                                    }
-                                }
-
-                                if (duration > 0) {
-                                    holder.videoDuration?.text = ElapsedTimeFormatter.secondsToString(duration)
-                                    holder.videoDuration?.visibility = View.VISIBLE
+                                holder.textContainerView?.visibility = View.GONE
+                                holder.vmContainerView?.visibility = View.GONE
+                                holder.imageView?.clearColorFilter()
+                                holder.imageView?.scaleType = ImageView.ScaleType.CENTER_CROP
+                                holder.imageView?.setImageDrawable(resource)
+                                if (messageModel.messageContentsType == MessageContentsType.GIF) {
+                                    holder.animatedFormatLabelContainer?.visibility = View.VISIBLE
+                                    holder.animatedFormatLabelIconView?.setImageResource(R.drawable.ic_gif_24dp)
+                                    holder.animatedFormatLabelIconView?.contentDescription =
+                                        context.getString(R.string.attach_gif)
+                                } else if (messageModel.messageContentsType == MessageContentsType.IMAGE &&
+                                    MimeUtil.isAnimatedImageFormat(messageModel.fileData.mimeType)
+                                ) {
+                                    holder.animatedFormatLabelContainer?.visibility = View.VISIBLE
+                                    holder.animatedFormatLabelIconView?.setImageResource(R.drawable.ic_webp)
+                                    holder.animatedFormatLabelIconView?.contentDescription = "WebP"
                                 } else {
-                                    holder.videoDuration?.visibility = View.GONE
+                                    holder.animatedFormatLabelContainer?.visibility = View.GONE
                                 }
-                                holder.videoContainerView?.visibility = View.VISIBLE
-                            } else {
-                                holder.videoContainerView?.visibility = View.GONE
+
+                                if (messageModel.messageContentsType == MessageContentsType.VIDEO) {
+                                    val duration: Long = when (messageModel.type) {
+                                        MessageType.FILE -> messageModel.fileData.durationSeconds
+                                        else -> 0
+                                    }
+
+                                    if (duration > 0) {
+                                        holder.videoDuration?.text = ElapsedTimeFormatter.secondsToString(duration)
+                                        holder.videoDuration?.visibility = View.VISIBLE
+                                    } else {
+                                        holder.videoDuration?.visibility = View.GONE
+                                    }
+                                    holder.videoContainerView?.visibility = View.VISIBLE
+                                } else {
+                                    holder.videoContainerView?.visibility = View.GONE
+                                }
                             }
-                        }
-                    })
+                        },
+                    )
             }
             holder.messageId = messageModel.id
             (holder.itemView as CheckableFrameLayout).isChecked = checkedItems.get(position)
@@ -216,8 +209,6 @@ class MediaGalleryAdapter(
         if (messageModel.messageContentsType == MessageContentsType.VOICE_MESSAGE) {
             val duration: Long = if (messageModel.type == MessageType.FILE) {
                 messageModel.fileData.durationSeconds
-            } else if (messageModel.type == MessageType.VOICEMESSAGE) {
-                messageModel.audioData.duration.toLong()
             } else {
                 0
             }
@@ -306,7 +297,7 @@ class MediaGalleryAdapter(
      * get specified checked item. returns null if out of range or no data available
      */
     fun getCheckedItemAt(i: Int): AbstractMessageModel? {
-        if (i >= 0 && i < checkedItems.size()) {
+        if (i >= 0 && i < checkedItems.size) {
             messageModels?.let {
                 return it[checkedItems.keyAt(i)]
             }

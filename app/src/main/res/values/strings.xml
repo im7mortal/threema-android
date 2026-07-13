@@ -32,6 +32,12 @@
     <string name="title_job_title">Job Title</string>
     <string name="title_department">Department</string>
     <string name="send">Send</string>
+    <string name="prefs_linked_devices">Linked devices</string>
+    <string name="prefs_community_and_sharing">Community &amp; sharing</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <string name="prefs_advanced">Advanced</string>
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
+    <string name="prefs_about">About</string>
     <string name="prefs_privacy">Privacy</string>
     <string name="prefs_notifications">Sound &amp; Notifications</string>
     <string name="prefs_chatdisplay">Chat</string>
@@ -84,8 +90,11 @@
     <string name="prefs_sum_threema_push_off">Check for new messages using system push service</string>
     <string name="prefs_logging">Logging</string>
     <string name="prefs_title_message_log_switch">Log to file</string>
-    <string name="prefs_title_sum_message_log_on">Events and network information will be logged to the file debug_log.txt</string>
-    <string name="prefs_title_sum_message_log_off">Events will not be logged</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_on_since">Logging system activity since %1$s (%2$s)</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_forced_on">System activity is being logged. Delete the file “%1$s” to disable logging. (%2$s)</string>
+    <string name="prefs_title_sum_message_log_off">System activity is not being logged</string>
     <string name="prefs_reset_push">Reset push token</string>
     <string name="prefs_sum_reset_push">Re-register the device for push notifications with FCM/HMS</string>
     <string name="prefs_notification_preview">Show message preview</string>
@@ -196,9 +205,10 @@
     <string name="masterkey_passphrase_hint">Passphrase</string>
     <string name="master_key_locked_want_exit">The master key is still locked. Would you like to try again?</string>
     <string name="click_here_to_change_passphrase">Tap here to change passphrase</string>
-    <string name="attach_camera">System Camera</string>
+    <string name="attach_camera">Camera</string>
     <string name="menu_restore">Restore from backup</string>
-    <string name="restore_id_hint">Enter or paste the text string of the ID export to restore</string>
+    <string name="restore_id_hint">Enter the text string of the ID export to restore. Or scan the QR code of your ID export.</string>
+    <string name="restore_id_string_label">ID export text string</string>
     <string name="location_placeholder">Location</string>
     <string name="video_placeholder">Video</string>
     <string name="audio_placeholder">Audio</string>
@@ -356,8 +366,11 @@
     <string name="status_rename_group">Group renamed to “%1$s”</string>
     <string name="status_group_new_photo">Group picture updated.</string>
     <string name="status_group_new_member">“%1$s” added to group.</string>
+    <string name="status_group_you_were_added">You were added to the group.</string>
     <string name="status_group_member_left">“%1$s” left the group.</string>
+    <string name="status_group_you_left">You have left the group.</string>
     <string name="status_group_member_kicked">“%1$s” has been removed from the group.</string>
+    <string name="status_group_you_were_removed">You were removed from the group.</string>
     <string name="can_not_send_no_group_members">You cannot send a message to an empty group</string>
     <string name="you_are_not_a_member_of_this_group">You are not a member of this group</string>
     <string name="title_public_nickname">Nickname</string>
@@ -495,6 +508,7 @@
     <string name="ballot_result_final">Final result</string>
     <string name="invalid_cannot_send">You cannot send messages to an invalid contact</string>
     <string name="ballot_answer_count_error">Please enter at least two answers for a poll.</string>
+    <string name="ballot_removed">Poll removed</string>
     <string name="contact_state_inactive">Inactive</string>
     <string name="contact_state_invalid">Invalid</string>
     <string name="back">Back</string>
@@ -702,7 +716,7 @@
         additional means of identifying you to users who do not yet have you in their address book. We recommend
         providing only your first name or a pseudonym. If you don’t set a nickname, we’ll use your ${app_name_short} ID by default.</string>
     <string name="not_linked">not linked</string>
-    <string name="linked">linked</string>
+    <string name="linked">Linked</string>
     <string name="pending_sms_verification_notice">Your mobile number is not yet verified.</string>
     <string name="no_sms_received">Didn’t receive an SMS?</string>
     <string name="really_cancel_verify">Do you really want to abort the mobile number verification?</string>
@@ -716,7 +730,6 @@
     <string name="new_wizard_anonymous_confirm">You have entered neither a mobile number nor an email address to link to your ${app_name_short} ID. You will not appear on contact lists. Do you really want to use ${app_name} anonymously?</string>
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_anonymous_confirm_phone_only">You have not entered a phone number to link to your ${app_name_short} ID. You will therefore not automatically be added to contact lists. Do you really want to use ${app_name} anonymously?</string>
-    <string name="new_wizard_scan_id_backup">Or scan the QR code of your ID export</string>
     <string name="error_saving_file">Some files could not be saved</string>
     <string name="wait_one_minute">Please wait for at least 10 minutes for the SMS to arrive before requesting a call.</string>
     <string name="backup_id">Exported ID</string>
@@ -799,7 +812,8 @@
     <string name="prefs_language_override">Language</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
     <string name="threema_channel_intro">${app_name_short} Channel provides you with news about all things ${app_name_short}. Would you like to subscribe to ${app_name_short} Channel and add it to your contacts? It’s free and you can unsubscribe at any time.</string>
-    <string name="quote">Quote</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
+    <string name="reply_to_message">Reply</string>
     <string name="contacts_deleted">Contacts have been deleted</string>
     <string name="take_photo">Take photo</string>
     <string name="select_from_gallery">Select from gallery</string>
@@ -1243,7 +1257,10 @@
     <string name="max_selectable_media_exceeded">No more than %d objects can be sent at once.</string>
     <string name="error_unable_loading_media_thumb">Error. Media thumbnail could not be loaded</string>
     <string name="filter_list">Filter list</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
+    <string name="search_list">Search list</string>
     <string name="hint_filter_list">Enter filter text</string>
+    <string name="hint_search_list">Enter search text</string>
     <string name="add">Add</string>
     <string name="only_images_or_videos">Only images or videos can be selected</string>
     <string name="media_gallery_gifs">GIFs</string>
@@ -1572,7 +1589,7 @@
     <string name="problemsolver_to_settings">To settings</string>
     <!-- Label on button to dismiss/hide a warning -->
     <string name="problemsolver_dismiss">Dismiss</string>
-    <string name="prefs_advanced_options">Advanced options</string>
+    <string name="prefs_advanced_options">Advanced settings</string>
     <string name="push_service">Push service</string>
     <string name="edit_and_send">Edit and send</string>
     <string name="media_gallery_animated_webps">Animated WebPs</string>
@@ -1603,10 +1620,11 @@
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="error_reporting_summary_always_ask">Ask every time whether to send an error report to ${company_name}</string>
     <string name="error_detected_dialog_title">Send anonymous report</string>
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
-    <string name="crash_detected_dialog_text">It seems that ${app_name_short} has recently crashed. Would you like to submit an anonymous error report?</string>
+    <string name="crash_detected_dialog_text">A problem seems to have occurred recently. Would you like to submit an anonymous error report?</string>
     <string name="crash_detected_dialog_remember_choice">Remember my choice</string>
     <string name="crash_detected_dialog_send_button">Send</string>
+    <string name="error_reporting_learn_more_button">Learn more</string>
+    <string name="error_reporting_details_button">Technical details</string>
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
     <string name="prefs_error_reporting_id">Anonymous device ID</string>
     <!-- The %s is a placeholder for an ID. It must be left as-is. -->
@@ -1641,6 +1659,7 @@
     <string name="backup_path_selection_documents">Use “Documents” folder</string>
 
     <!-- accessibility -->
+    <string name="cd_menu_more">More options</string>
     <string name="cd_edited">message was edited</string>
     <string name="cd_created_at">created at %s</string>
     <string name="cd_edited_at">edited at %s</string>
@@ -1801,7 +1820,6 @@
     <string name="edit_availability_status_modal_optional_message_placeholder">In a meeting</string>
     <string name="edit_availability_status_modal_optional_message_description">Set a custom status message when Busy or Unavailable is selected.</string>
     <string name="edit_availability_status_modal_optional_message_too_long">Text is too long, please shorten it</string>
-    <string name="edit_availability_status_did_change">Availability status changed</string>
 
     <string name="tooltip_title_availability_status">Availability status</string>
     <string name="tooltip_text_availability_status_in_chat">See if someone is busy or unavailable before messaging them. You can set your own status in your profile.</string>
@@ -1888,6 +1906,8 @@
         <item quantity="many">%d messages deleted</item>
         <item quantity="other">%d messages deleted</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
+    <string name="notifications_for_one_week">For 1 week</string>
     <plurals name="notifications_for_x_hours">
         <item quantity="one">For %d hour</item>
         <item quantity="few">For %d hours</item>

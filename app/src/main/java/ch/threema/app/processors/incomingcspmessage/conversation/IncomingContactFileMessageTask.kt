@@ -1,21 +1,24 @@
 package ch.threema.app.processors.incomingcspmessage.conversation
 
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.processors.incomingcspmessage.IncomingCspMessageSubTask
 import ch.threema.app.processors.incomingcspmessage.ReceiveStepsResult
 import ch.threema.app.utils.MimeUtil
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.common.now
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.protocol.csp.messages.file.FileData
 import ch.threema.domain.protocol.csp.messages.file.FileMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.TriggerSource
-import ch.threema.storage.models.ContactModel
 import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.media.FileDataModel
+import java.time.Instant
 import java.util.UUID
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("IncomingContactFileMessageTask")
 
@@ -27,7 +30,9 @@ class IncomingContactFileMessageTask(
     fileMessage,
     triggerSource,
     serviceManager,
-) {
+),
+    KoinComponent {
+    private val globalEventBuses: GlobalEventBuses by inject()
     private val messageService = serviceManager.messageService
     private val contactService = serviceManager.contactService
     private val contactRepository = serviceManager.modelRepositories.contacts
@@ -74,12 +79,12 @@ class IncomingContactFileMessageTask(
             fileData = fileData,
         )
 
-        // 4. Un-archive the contact and set the the acquaintance level to "direct" because it is a 1:1 chat now
+        // 4. Un-archive the contact and set the acquaintance level to "direct" because it is a 1:1 chat now
         if (triggerSource == TriggerSource.REMOTE) {
-            contactService.setIsArchived(message.fromIdentity, false, triggerSource)
+            contactService.unarchive(message.fromIdentity, triggerSource)
             contactService.setAcquaintanceLevel(
                 message.fromIdentity,
-                ContactModel.AcquaintanceLevel.DIRECT,
+                AcquaintanceLevel.DIRECT,
             )
         }
 
@@ -88,13 +93,9 @@ class IncomingContactFileMessageTask(
             contactService.bumpLastUpdate(message.fromIdentity)
         }
 
-        // 6. Save message model and inform listeners about new message
+        // 6. Save message model and inform event bus about new message
         messageService.save(messageModel)
-        ListenerManager.messageListeners.handle { messageListener ->
-            messageListener.onNew(
-                messageModel,
-            )
-        }
+        globalEventBuses.messages.emit(MessageEvent.NewMessage(messageModel))
 
         // 7. Download thumbnail and content blob (if auto download enabled)
         //    We still return SUCCESS even if the blobs could net be downloaded
@@ -114,15 +115,15 @@ class IncomingContactFileMessageTask(
     ): MessageModel {
         return MessageModel().apply {
             uid = UUID.randomUUID().toString()
-            apiMessageId = message.messageId.toString()
+            messageId = message.messageId
 
             identity = fileMessage.fromIdentity
 
             this.fileData = fileDataModel
             messageContentsType = MimeUtil.getContentTypeFromFileData(fileDataModel)
 
-            postedAt = message.date
-            createdAt = now()
+            postedAt = message.timestamp
+            createdAt = Instant.now()
 
             messageFlags = message.messageFlags
 
@@ -145,11 +146,7 @@ class IncomingContactFileMessageTask(
             messageService.downloadThumbnailIfPresent(fileData, messageModel)
         }.onSuccess { thumbnailWasDownloaded: Boolean ->
             if (thumbnailWasDownloaded) {
-                ListenerManager.messageListeners.handle { messageListener ->
-                    messageListener.onModified(
-                        listOf(messageModel),
-                    )
-                }
+                globalEventBuses.messages.emit(MessageEvent.MessagesUpdated(messageModel))
             }
         }.onFailure { throwable ->
             logger.error("Unable to download thumbnail blob", throwable)

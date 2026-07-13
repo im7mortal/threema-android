@@ -6,7 +6,7 @@ use tracing::error;
 use crate::{
     common::{CspDeviceId, MessageFlags, MessageId, ThreemaId},
     csp::{
-        CspProtocolError, InternalErrorCause,
+        CspProtocolError, CspProtocolInternalErrorCause,
         payload::{FrameEncoder, OutgoingFrame},
     },
     utils::{
@@ -31,7 +31,7 @@ impl EchoPayload {
     fn encode_into(&self, writer: &mut impl ByteWriter) -> Result<(), CspProtocolError> {
         writer
             .write(&self.0)
-            .map_err(|error| InternalErrorCause::EncodingFailed {
+            .map_err(|error| CspProtocolInternalErrorCause::EncodingFailed {
                 name: Self::NAME,
                 source: error,
             })?;
@@ -107,7 +107,7 @@ impl MessageWithMetadataBox {
         // `OutgoingMessageWithMetadataBox::encode_into` directly.
         writer
             .write(&self.bytes)
-            .map_err(|error| InternalErrorCause::EncodingFailed {
+            .map_err(|error| CspProtocolInternalErrorCause::EncodingFailed {
                 name: Self::NAME,
                 source: error,
             })?;
@@ -166,7 +166,7 @@ impl MessageAck {
                 writer.write(&self.sender_identity.to_bytes())?;
                 writer.write_u64_le(self.id.0)
             })
-            .map_err(|error| InternalErrorCause::EncodingFailed {
+            .map_err(|error| CspProtocolInternalErrorCause::EncodingFailed {
                 name: Self::NAME,
                 source: error,
             })?;
@@ -303,7 +303,7 @@ impl PushNotificationToken {
                     writer.write(token.as_bytes())
                 },
             })
-            .map_err(|error| InternalErrorCause::EncodingFailed {
+            .map_err(|error| CspProtocolInternalErrorCause::EncodingFailed {
                 name: Self::NAME,
                 source: error,
             })?;
@@ -351,7 +351,7 @@ impl DeletePushNotificationToken {
                         }
                         Ok(())
                     })
-                    .map_err(|error| InternalErrorCause::EncodingFailed {
+                    .map_err(|error| CspProtocolInternalErrorCause::EncodingFailed {
                         name: Self::NAME,
                         source: error,
                     })?;
@@ -370,7 +370,7 @@ impl ConnectionIdleTimeout {
     fn encode_into(&self, writer: &mut impl ByteWriter) -> Result<(), CspProtocolError> {
         writer
             .write_u16_le(self.0)
-            .map_err(|error| InternalErrorCause::EncodingFailed {
+            .map_err(|error| CspProtocolInternalErrorCause::EncodingFailed {
                 name: Self::NAME,
                 source: error,
             })?;
@@ -550,14 +550,14 @@ impl TryFrom<Vec<u8>> for IncomingPayload {
 
 #[cfg(test)]
 mod incoming_payload_tests {
-    use data_encoding::HEXLOWER;
+    use data_encoding::HEXLOWER_PERMISSIVE;
 
     use super::IncomingPayload;
     use crate::common::{MessageFlags, MessageId, ThreemaId};
 
     #[test]
     fn valid_message() -> anyhow::Result<()> {
-        let payload = HEXLOWER.decode(
+        let payload = HEXLOWER_PERMISSIVE.decode(
             b"\
                 02000000304441354d453736304850543945574489aa9a7eaff77d96cb7327680100340000000000\
                 00000000000000000000000000000000000000000000000000000000439039d79074fa4a0d0961d6\
@@ -668,7 +668,7 @@ impl OutgoingPayload {
                 // Encode reserved bytes
                 writer.write(&PAYLOAD_HEADER_RESERVED)
             })
-            .map_err(|error| InternalErrorCause::EncodingFailed {
+            .map_err(|error| CspProtocolInternalErrorCause::EncodingFailed {
                 name: Self::NAME,
                 source: error,
             })?;
@@ -709,7 +709,7 @@ impl FrameEncoder for EncryptedOutgoingPayload {
         let length = self.0.len();
         let length = u16::try_from(length).map_err(|_| {
             error!(length, "Encoded frame length exceeds a u16");
-            InternalErrorCause::from("Encoded frame too large, exceeds a u16")
+            CspProtocolInternalErrorCause::from("Encoded frame too large, exceeds a u16")
         })?;
 
         // Encode the header and the content
@@ -721,7 +721,7 @@ impl FrameEncoder for EncryptedOutgoingPayload {
                 // Encode the content
                 writer.write(&self.0)
             })
-            .map_err(|error| InternalErrorCause::EncodingFailed {
+            .map_err(|error| CspProtocolInternalErrorCause::EncodingFailed {
                 name: OutgoingFrame::NAME,
                 source: error,
             })?;

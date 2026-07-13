@@ -1,22 +1,24 @@
 package ch.threema.data.repositories
 
 import ch.threema.KoinTestRule
-import ch.threema.app.TestCoreServiceManager
 import ch.threema.app.TestMultiDeviceManager
+import ch.threema.app.TestNonceStore
 import ch.threema.app.TestTaskManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.GlobalEventFlows
 import ch.threema.app.multidevice.MultiDeviceManager
-import ch.threema.app.stores.EncryptedPreferenceStore
-import ch.threema.app.stores.IdentityProvider
-import ch.threema.app.stores.PreferenceStore
 import ch.threema.app.testutils.TestHelpers
-import ch.threema.app.testutils.mockUser
-import ch.threema.base.crypto.NaCl
+import ch.threema.base.crypto.NonceFactory
+import ch.threema.common.DispatcherProvider
+import ch.threema.data.IdentityProvider
 import ch.threema.data.datatypes.AndroidContactLookupInfo
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.IdColor
 import ch.threema.data.models.ContactModelData
 import ch.threema.domain.helpers.TransactionAckTaskCodec
 import ch.threema.domain.helpers.UnusedTaskCodec
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.ContactSyncState
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
@@ -24,19 +26,19 @@ import ch.threema.domain.models.ReadReceiptPolicy
 import ch.threema.domain.models.TypingIndicatorPolicy
 import ch.threema.domain.models.VerificationLevel
 import ch.threema.domain.models.WorkVerificationLevel
-import ch.threema.domain.stores.IdentityStore
 import ch.threema.domain.types.Identity
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.DatabaseService
-import ch.threema.storage.TestDatabaseProvider
+import ch.threema.storage.factories.ContactModelFactory
 import ch.threema.storage.models.ContactModel
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel
+import ch.threema.test.TestData.PUBLIC_KEY
+import ch.threema.test.TestDatabaseProvider
 import ch.threema.testhelpers.nonSecureRandomArray
 import ch.threema.testhelpers.randomIdentity
 import io.mockk.every
 import io.mockk.mockk
-import java.util.Date
+import java.time.Instant
 import junit.framework.TestCase.assertNotNull
+import kotlin.getValue
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -49,21 +51,31 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import org.koin.dsl.module
 
 @RunWith(value = Parameterized::class)
-class ContactModelRepositoryTest(private val contactModelData: ContactModelData) {
+class ContactModelRepositoryTest(private val contactModelData: ContactModelData) : KoinComponent {
+    private val globalEventFlows: GlobalEventFlows by inject()
+    private val globalEventBuses: GlobalEventBuses by inject()
+    private val dispatcherProvider: DispatcherProvider by inject()
+
     // Services where MD is disabled
     private lateinit var databaseProvider: TestDatabaseProvider
-    private lateinit var databaseService: DatabaseService
-    private lateinit var coreServiceManager: TestCoreServiceManager
+    private lateinit var contactModelFactory: ContactModelFactory
+    private lateinit var multiDeviceManager: TestMultiDeviceManager
+    private lateinit var taskManager: TestTaskManager
+    private lateinit var nonceFactory: NonceFactory
     private lateinit var contactModelRepository: ContactModelRepository
 
     // Services where MD is enabled
     private lateinit var databaseProviderMd: TestDatabaseProvider
-    private lateinit var databaseServiceMd: DatabaseService
+    private lateinit var contactModelFactoryMd: ContactModelFactory
     private lateinit var taskCodecMd: TransactionAckTaskCodec
-    private lateinit var coreServiceManagerMd: TestCoreServiceManager
+    private lateinit var multiDeviceManagerMd: TestMultiDeviceManager
+    private lateinit var taskManagerMd: TestTaskManager
+    private lateinit var nonceFactoryMd: NonceFactory
     private lateinit var contactModelRepositoryMd: ContactModelRepository
 
     private enum class TestTriggerSource {
@@ -76,9 +88,9 @@ class ContactModelRepositoryTest(private val contactModelData: ContactModelData)
     private val instrumentedTestModule = module {
         factory<MultiDeviceManager> {
             if (isMultiDeviceEnabled) {
-                coreServiceManagerMd.multiDeviceManager
+                multiDeviceManagerMd
             } else {
-                coreServiceManager.multiDeviceManager
+                multiDeviceManager
             }
         }
     }
@@ -88,123 +100,49 @@ class ContactModelRepositoryTest(private val contactModelData: ContactModelData)
         modules = listOf(instrumentedTestModule),
     )
 
-    companion object {
-        @JvmStatic
-        @Parameterized.Parameters
-        fun initialValuesSet() = setOf(
-            getInitialContactModelData(),
-            getInitialContactModelData(publicKey = ByteArray(NaCl.PUBLIC_KEY_BYTES) { it.toByte() }),
-            getInitialContactModelData(createdAt = Date(42)),
-            getInitialContactModelData(identityType = IdentityType.WORK),
-            getInitialContactModelData(acquaintanceLevel = AcquaintanceLevel.GROUP),
-            getInitialContactModelData(activityState = IdentityState.INACTIVE),
-            getInitialContactModelData(featureMask = 64.toULong()),
-        )
-
-        private fun getInitialContactModelData(
-            identity: IdentityString = "ABCDEFGH",
-            publicKey: ByteArray = ByteArray(NaCl.PUBLIC_KEY_BYTES),
-            createdAt: Date = Date(),
-            firstName: String = "",
-            lastName: String = "",
-            nickname: String? = null,
-            verificationLevel: VerificationLevel = VerificationLevel.UNVERIFIED,
-            workVerificationLevel: WorkVerificationLevel = WorkVerificationLevel.NONE,
-            identityType: IdentityType = IdentityType.NORMAL,
-            acquaintanceLevel: AcquaintanceLevel = AcquaintanceLevel.DIRECT,
-            activityState: IdentityState = IdentityState.ACTIVE,
-            syncState: ContactSyncState = ContactSyncState.INITIAL,
-            featureMask: ULong = 0u,
-            readReceiptPolicy: ReadReceiptPolicy = ReadReceiptPolicy.DEFAULT,
-            typingIndicatorPolicy: TypingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
-            androidContactLookupInfo: AndroidContactLookupInfo? = null,
-            localAvatarExpires: Date? = null,
-            isRestored: Boolean = false,
-            profilePictureBlobId: ByteArray? = null,
-            jobTitle: String? = null,
-            department: String? = null,
-        ) = ContactModelData(
-            identity = identity,
-            publicKey = publicKey,
-            createdAt = createdAt,
-            firstName = firstName,
-            lastName = lastName,
-            nickname = nickname,
-            idColor = IdColor.ofIdentity(identity),
-            verificationLevel = verificationLevel,
-            workVerificationLevel = workVerificationLevel,
-            identityType = identityType,
-            acquaintanceLevel = acquaintanceLevel,
-            activityState = activityState,
-            syncState = syncState,
-            featureMask = featureMask,
-            readReceiptPolicy = readReceiptPolicy,
-            typingIndicatorPolicy = typingIndicatorPolicy,
-            isArchived = false,
-            androidContactLookupInfo = androidContactLookupInfo,
-            localAvatarExpires = localAvatarExpires,
-            isRestored = isRestored,
-            profilePictureBlobId = profilePictureBlobId,
-            jobTitle = jobTitle,
-            department = department,
-            notificationTriggerPolicyOverride = null,
-            availabilityStatus = AvailabilityStatus.None,
-            workLastFullSyncAt = null,
-        )
-    }
-
     @BeforeTest
     fun before() {
-        val preferenceStore: PreferenceStore = mockk {
-            mockUser(TestHelpers.TEST_CONTACT)
-        }
-        val encryptedPreferenceStore: EncryptedPreferenceStore = mockk {
-            mockUser(TestHelpers.TEST_CONTACT)
-        }
         val identityProviderMock: IdentityProvider = mockk {
-            every { getIdentity() } returns Identity(TestHelpers.TEST_CONTACT.identity)
-            every { getIdentityString() } returns TestHelpers.TEST_CONTACT.identity
-        }
-        val identityStoreMock = mockk<IdentityStore> {
             every { getIdentity() } returns Identity(TestHelpers.TEST_CONTACT.identity)
             every { getIdentityString() } returns TestHelpers.TEST_CONTACT.identity
         }
 
         // Instantiate services where MD is disabled
         this.databaseProvider = TestDatabaseProvider()
-        this.coreServiceManager = TestCoreServiceManager(
+        multiDeviceManager = TestMultiDeviceManager()
+        taskManager = TestTaskManager(UnusedTaskCodec())
+        nonceFactory = NonceFactory(TestNonceStore())
+        this.contactModelFactory = ContactModelFactory(databaseProvider, identityProviderMock)
+        this.contactModelRepository = ModelRepositories(
             databaseProvider = databaseProvider,
             identityProvider = identityProviderMock,
-            preferenceStore = preferenceStore,
-            encryptedPreferenceStore = encryptedPreferenceStore,
-            taskManager = TestTaskManager(UnusedTaskCodec()),
-            identityStore = identityStoreMock,
-        )
-        this.databaseService = coreServiceManager.databaseService
-        this.contactModelRepository = ModelRepositories(
-            coreServiceManager = coreServiceManager,
-            identityProvider = identityProviderMock,
+            multiDeviceManager = multiDeviceManager,
+            taskManager = taskManager,
+            nonceFactory = nonceFactory,
+            globalEventBuses = globalEventBuses,
+            globalEventFlows = globalEventFlows,
+            dispatcherProvider = dispatcherProvider,
         ).contacts
 
         // Instantiate services where MD is enabled
         this.databaseProviderMd = TestDatabaseProvider()
         this.taskCodecMd = TransactionAckTaskCodec()
-        this.coreServiceManagerMd = TestCoreServiceManager(
+        multiDeviceManagerMd = TestMultiDeviceManager(
+            isMultiDeviceActive = true,
+            isMdDisabledOrSupportsFs = false,
+        )
+        taskManagerMd = TestTaskManager(taskCodecMd)
+        nonceFactoryMd = NonceFactory(TestNonceStore())
+        this.contactModelFactoryMd = ContactModelFactory(databaseProviderMd, identityProviderMock)
+        this.contactModelRepositoryMd = ModelRepositories(
             databaseProvider = databaseProviderMd,
             identityProvider = identityProviderMock,
-            preferenceStore = preferenceStore,
-            encryptedPreferenceStore = encryptedPreferenceStore,
-            multiDeviceManager = TestMultiDeviceManager(
-                isMultiDeviceActive = true,
-                isMdDisabledOrSupportsFs = false,
-            ),
-            taskManager = TestTaskManager(taskCodecMd),
-            identityStore = identityStoreMock,
-        )
-        this.databaseServiceMd = coreServiceManagerMd.databaseService
-        this.contactModelRepositoryMd = ModelRepositories(
-            coreServiceManager = coreServiceManagerMd,
-            identityProvider = identityProviderMock,
+            multiDeviceManager = multiDeviceManagerMd,
+            taskManager = taskManagerMd,
+            nonceFactory = nonceFactoryMd,
+            globalEventBuses = globalEventBuses,
+            globalEventFlows = globalEventFlows,
+            dispatcherProvider = dispatcherProvider,
         ).contacts
     }
 
@@ -273,16 +211,16 @@ class ContactModelRepositoryTest(private val contactModelData: ContactModelData)
         val publicKey = nonSecureRandomArray(32)
 
         // Create contact using "old model"
-        databaseService.contactModelFactory.createOrUpdate(ContactModel.create(identity, publicKey))
-        databaseServiceMd.contactModelFactory.createOrUpdate(ContactModel.create(identity, publicKey))
+        contactModelFactory.create(ContactModel.create(identity, publicKey))
+        contactModelFactoryMd.create(ContactModel.create(identity, publicKey))
 
         // Fetch contact using "new model"
         val model = contactModelRepository.getByIdentity(identity)!!
         val modelMd = contactModelRepositoryMd.getByIdentity(identity)!!
         assertEquals(model.identity, modelMd.identity)
         assertContentEquals(model.data, modelMd.data)
-        assertTrue { model.identity == identity }
-        assertTrue { model.data?.identity == identity }
+        assertEquals(identity, model.identity)
+        assertEquals(identity, model.data?.identity)
         assertContentEquals(publicKey, model.data?.publicKey)
     }
 
@@ -369,11 +307,10 @@ class ContactModelRepositoryTest(private val contactModelData: ContactModelData)
                     declareNonMdDependencies()
                     contactModelRepository.createFromLocal(contactModelData)
                 }
-                val runCreationMd =
-                    suspend {
-                        declareMdDependencies()
-                        contactModelRepositoryMd.createFromLocal(contactModelData)
-                    }
+                val runCreationMd = suspend {
+                    declareMdDependencies()
+                    contactModelRepositoryMd.createFromLocal(contactModelData)
+                }
 
                 runCreation to runCreationMd
             }
@@ -485,7 +422,7 @@ class ContactModelRepositoryTest(private val contactModelData: ContactModelData)
     fun updateNickname() {
         // Create contact using "old model"
         val identity = randomIdentity()
-        databaseService.contactModelFactory.createOrUpdate(
+        contactModelFactory.create(
             ContactModel.create(
                 identity,
                 nonSecureRandomArray(32),
@@ -548,5 +485,72 @@ class ContactModelRepositoryTest(private val contactModelData: ContactModelData)
 
         // Just in case there are new fields added that are not explicitly compared here
         assertEquals(expected, actual)
+    }
+
+    companion object {
+        @JvmStatic
+        @Parameterized.Parameters
+        fun initialValuesSet() = setOf(
+            getInitialContactModelData(),
+            getInitialContactModelData(publicKey = PUBLIC_KEY),
+            getInitialContactModelData(createdAt = Instant.ofEpochMilli(42)),
+            getInitialContactModelData(identityType = IdentityType.WORK),
+            getInitialContactModelData(acquaintanceLevel = AcquaintanceLevel.GROUP_OR_DELETED),
+            getInitialContactModelData(activityState = IdentityState.INACTIVE),
+            getInitialContactModelData(featureMask = 64.toULong()),
+        )
+
+        private fun getInitialContactModelData(
+            identity: IdentityString = "ABCDEFGH",
+            publicKey: ByteArray = PUBLIC_KEY,
+            createdAt: Instant = Instant.now(),
+            lastUpdateAt: Instant? = null,
+            firstName: String = "",
+            lastName: String = "",
+            nickname: String? = null,
+            verificationLevel: VerificationLevel = VerificationLevel.UNVERIFIED,
+            workVerificationLevel: WorkVerificationLevel = WorkVerificationLevel.NONE,
+            identityType: IdentityType = IdentityType.REGULAR,
+            acquaintanceLevel: AcquaintanceLevel = AcquaintanceLevel.DIRECT,
+            activityState: IdentityState = IdentityState.ACTIVE,
+            syncState: ContactSyncState = ContactSyncState.INITIAL,
+            featureMask: ULong = 0u,
+            readReceiptPolicy: ReadReceiptPolicy = ReadReceiptPolicy.DEFAULT,
+            typingIndicatorPolicy: TypingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
+            androidContactLookupInfo: AndroidContactLookupInfo? = null,
+            localAvatarExpires: Instant? = null,
+            isRestored: Boolean = false,
+            profilePictureBlobId: ByteArray? = null,
+            jobTitle: String? = null,
+            department: String? = null,
+        ) = ContactModelData(
+            identity = identity,
+            publicKey = publicKey,
+            createdAt = createdAt,
+            lastUpdateAt = lastUpdateAt,
+            firstName = firstName,
+            lastName = lastName,
+            nickname = nickname,
+            idColor = IdColor.ofIdentity(identity),
+            verificationLevel = verificationLevel,
+            workVerificationLevel = workVerificationLevel,
+            identityType = identityType,
+            acquaintanceLevel = acquaintanceLevel,
+            activityState = activityState,
+            syncState = syncState,
+            featureMask = featureMask,
+            readReceiptPolicy = readReceiptPolicy,
+            typingIndicatorPolicy = typingIndicatorPolicy,
+            conversationVisibility = ConversationVisibility.NORMAL,
+            androidContactLookupInfo = androidContactLookupInfo,
+            localAvatarExpires = localAvatarExpires,
+            isRestored = isRestored,
+            profilePictureBlobId = profilePictureBlobId,
+            jobTitle = jobTitle,
+            department = department,
+            notificationTriggerPolicyOverride = null,
+            availabilityStatus = AvailabilityStatus.None,
+            workLastFullSyncAt = null,
+        )
     }
 }

@@ -46,6 +46,7 @@ class IncomingContactReactionMessageTask(
             message.fromIdentity,
             message.data.actionCase,
             emojiSequence,
+            message.timestamp,
         )
 
         return ReceiveStepsResult.SUCCESS

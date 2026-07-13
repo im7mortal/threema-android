@@ -47,7 +47,7 @@ class PassphraseStateMonitorTest {
         )
 
         val job = launch {
-            passphraseStateMonitor.monitorPassphraseLock()
+            passphraseStateMonitor.run()
         }
 
         // Initially our lock is NO_PASSPHRASE, but initially the service also isn't running, so we don't need to do anything

@@ -7,6 +7,8 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.provider.ContactsContract;
 
+import ch.threema.app.eventbus.GlobalEventBuses;
+import ch.threema.app.eventbus.events.ProfileEvent;
 import ch.threema.app.preference.service.SynchronizedSettingsService;
 import ch.threema.app.profilepicture.CheckedProfilePicture;
 import ch.threema.app.profilepicture.ProfilePicture;
@@ -21,7 +23,6 @@ import org.slf4j.Logger;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Date;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -33,6 +34,7 @@ import ch.threema.app.managers.ListenerManager;
 import ch.threema.app.multidevice.MultiDeviceManager;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.routines.UpdateWorkInfoRoutine;
+import ch.threema.domain.models.Nickname;
 import ch.threema.domain.models.SerialCredentials;
 import ch.threema.domain.models.UserCredentials;
 import ch.threema.app.stores.PreferenceStore;
@@ -43,10 +45,8 @@ import ch.threema.app.utils.ContactUtil;
 import ch.threema.app.utils.DeviceIdProvider;
 import ch.threema.app.utils.LocaleUtil;
 import ch.threema.app.utils.PushUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.base.ThreemaException;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.base.utils.Utils;
 import ch.threema.domain.identitybackup.IdentityBackup;
 import ch.threema.domain.models.LicenseCredentials;
 import ch.threema.domain.protocol.ThreemaFeature;
@@ -59,10 +59,10 @@ import ch.threema.domain.stores.IdentityStore;
 import ch.threema.domain.taskmanager.TaskManager;
 import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.libthreema.CryptoException;
-import ch.threema.localcrypto.exceptions.MasterKeyLockedException;
 import ch.threema.storage.models.ContactModel;
 
 import static ch.threema.app.AppConstants.PHONE_LINKED_PLACEHOLDER;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 import static ch.threema.common.JavaCompat.readBytes;
 import static ch.threema.common.OkHttpExtensionsKt.isHttpAuthError;
 import static ch.threema.common.SecureRandomExtensionsKt.generateRandomBytes;
@@ -100,6 +100,8 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
     private final MultiDeviceManager multiDeviceManager;
     @NonNull
     private final DeviceIdProvider deviceIdProvider;
+    @NonNull
+    private final GlobalEventBuses globalEventBuses;
     private String policyResponseData;
     private String policySignature;
     private int policyErrorCode;
@@ -122,7 +124,8 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
         @NonNull TaskManager taskManager,
         @NonNull TaskCreator taskCreator,
         @NonNull MultiDeviceManager multiDeviceManager,
-        @NonNull DeviceIdProvider deviceIdProvider
+        @NonNull DeviceIdProvider deviceIdProvider,
+        @NonNull GlobalEventBuses globalEventBuses
     ) {
         this.context = context;
         this.preferenceStore = preferenceStore;
@@ -137,6 +140,7 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
         this.taskManager = taskManager;
         this.multiDeviceManager = multiDeviceManager;
         this.deviceIdProvider = deviceIdProvider;
+        this.globalEventBuses = globalEventBuses;
     }
 
     @Override
@@ -453,7 +457,7 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
             return linkedMobile;
         }
 
-        if (TestUtil.isEmptyOrNull(linkedMobile)) {
+        if (isNullOrEmpty(linkedMobile)) {
             return null;
         }
         return "+" + linkedMobile;
@@ -533,10 +537,8 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
     public String setPublicNickname(@Nullable String publicNickname, @NonNull TriggerSource triggerSource) {
         logger.info("Setting nickname");
         final @NonNull String oldNickname = this.identityStore.getPublicNickname();
-        // truncate string into a 32 byte length string
-        // fix #ANDR-530
-        final @Nullable String publicNicknameTruncated = publicNickname != null
-            ? Utils.truncateUTF8StringNonNull(publicNickname, ProtocolDefines.PUSH_FROM_LEN)
+        final @NonNull String publicNicknameTruncated = publicNickname != null
+            ? new Nickname(publicNickname).getNickname()
             : "";
         this.identityStore.setPublicNickname(publicNicknameTruncated);
         // run update work info (only if the app is the work version)
@@ -571,8 +573,7 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
             return null;
         }
 
-        try {
-            var stream = fileService.getUserDefinedProfilePictureStream(getIdentity());
+        try (var stream = fileService.getUserDefinedProfilePictureStream(getIdentity())) {
             if (stream == null) {
                 return null;
             }
@@ -610,7 +611,7 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
     public void setUserProfilePictureFromSync(
         @NonNull ContactService.ProfilePictureUploadData uploadData,
         @NonNull TriggerSource triggerSource
-    ) throws MasterKeyLockedException, IOException {
+    ) throws IOException {
         if (triggerSource != TriggerSource.SYNC) {
             throw new IllegalArgumentException("This method must only be used from sync");
         }
@@ -630,8 +631,8 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
         // Persist the changes regarding blob id and upload date
         this.preferenceService.setProfilePicUploadData(uploadData);
 
-        // Notify listeners
-        ListenerManager.profileListeners.handle(listener -> listener.onAvatarChanged(triggerSource));
+        // Notify event bus
+        globalEventBuses.getProfiles().emit(new ProfileEvent.ProfilePictureUpdated(triggerSource));
     }
 
     @Override
@@ -665,10 +666,10 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
         // Only upload blob every 7 days
         var uploadedAtInstant = preferenceService.getProfilePicUploadTimestamp();
         long uploadedAt = uploadedAtInstant != null ? uploadedAtInstant.toEpochMilli() : 0;
-        Date uploadDeadline = new Date(uploadedAt + ContactUtil.PROFILE_PICTURE_BLOB_CACHE_DURATION);
-        Date now = new Date();
+        Instant uploadDeadline = Instant.ofEpochMilli(uploadedAt + ContactUtil.PROFILE_PICTURE_BLOB_CACHE_DURATION);
+        Instant now = Instant.now();
 
-        if (now.after(uploadDeadline)) {
+        if (now.isAfter(uploadDeadline)) {
             logger.info("Uploading profile picture blob");
 
             @Nullable ContactService.ProfilePictureUploadData data = uploadContactPhoto(profilePicture);
@@ -677,7 +678,7 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
                 return new ContactService.ProfilePictureUploadData();
             }
 
-            data.uploadedAt = now.getTime();
+            data.uploadedAt = now.toEpochMilli();
 
             preferenceService.setProfilePicUploadData(data);
             return data;
@@ -732,8 +733,8 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
         // Reset the last profile picture upload date
         this.preferenceService.setProfilePicUploadData(null);
 
-        // Notify listeners
-        ListenerManager.profileListeners.handle(listener -> listener.onAvatarChanged(triggerSource));
+        // Notify event bus
+        globalEventBuses.getProfiles().emit(new ProfileEvent.ProfilePictureUpdated(triggerSource));
     }
 
     private String getLanguage() {
@@ -822,7 +823,7 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
         ThreemaFeature.Builder builder = (new ThreemaFeature.Builder())
             .audio(true)
             .group(true)
-            .ballot(true)
+            .poll(true)
             .file(true)
             .voip(true)
             .videocalls(true)

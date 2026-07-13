@@ -4,11 +4,14 @@ import android.content.Context;
 import android.view.View;
 import android.widget.ImageView;
 
+import org.koin.java.KoinJavaComponent;
+
 import java.util.EnumMap;
 import java.util.Map;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.DrawableRes;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import ch.threema.app.R;
@@ -21,23 +24,17 @@ import static ch.threema.app.utils.MessageUtilKt.getUiContentColor;
  * This class caches bitmaps and resources used for the message states (e.g. sent, read, acked...)
  */
 public class StateBitmapUtil {
-    // Singleton stuff
-    private static StateBitmapUtil instance;
-
-    @Nullable
+    @Deprecated
+    @NonNull
     public static StateBitmapUtil getInstance() {
-        return instance;
-    }
-
-    public static synchronized void init(Context context) {
-        StateBitmapUtil.instance = new StateBitmapUtil(context.getApplicationContext());
+        return KoinJavaComponent.get(StateBitmapUtil.class);
     }
 
     private final Map<MessageState, Integer> messageStateBitmapResourceIds = new EnumMap<>(MessageState.class);
     private final Map<MessageState, Integer> messageStateDescriptionMap = new EnumMap<>(MessageState.class);
     private final int warningColor;
 
-    private StateBitmapUtil(Context context) {
+    public StateBitmapUtil(@NonNull Context context) {
         this.messageStateBitmapResourceIds.put(MessageState.READ, R.drawable.ic_visibility_filled);
         this.messageStateBitmapResourceIds.put(MessageState.DELIVERED, R.drawable.ic_inbox_filled);
         this.messageStateBitmapResourceIds.put(MessageState.SENT, R.drawable.ic_mail_filled);
@@ -45,9 +42,9 @@ public class StateBitmapUtil {
         this.messageStateBitmapResourceIds.put(MessageState.SENDING, R.drawable.ic_upload_filled);
         this.messageStateBitmapResourceIds.put(MessageState.PENDING, R.drawable.ic_upload_filled);
         this.messageStateBitmapResourceIds.put(MessageState.UPLOADING, R.drawable.ic_upload_filled);
-        this.messageStateBitmapResourceIds.put(MessageState.TRANSCODING, R.drawable.ic_outline_hourglass_top_24);
-        this.messageStateBitmapResourceIds.put(MessageState.CONSUMED, R.drawable.ic_baseline_hearing_24);
-        this.messageStateBitmapResourceIds.put(MessageState.FS_KEY_MISMATCH, R.drawable.ic_baseline_key_off_24);
+        this.messageStateBitmapResourceIds.put(MessageState.TRANSCODING, R.drawable.ic_hourglass_top_filled);
+        this.messageStateBitmapResourceIds.put(MessageState.CONSUMED, R.drawable.ic_hearing);
+        this.messageStateBitmapResourceIds.put(MessageState.FS_KEY_MISMATCH, R.drawable.ic_key_off);
 
         this.messageStateDescriptionMap.put(MessageState.READ, R.string.state_read);
         this.messageStateDescriptionMap.put(MessageState.DELIVERED, R.string.state_delivered);

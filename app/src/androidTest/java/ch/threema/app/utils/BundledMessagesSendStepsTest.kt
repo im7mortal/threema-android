@@ -8,7 +8,7 @@ import ch.threema.domain.protocol.csp.messages.TextMessage
 import ch.threema.domain.protocol.csp.messages.fs.ForwardSecurityMode
 import ch.threema.domain.taskmanager.ActiveTask
 import ch.threema.domain.taskmanager.ActiveTaskCodec
-import java.util.Date
+import java.time.Instant
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -38,7 +38,7 @@ class BundledMessagesSendStepsTest : MessageProcessorProvider() {
     fun testContactMessage() {
         runInsideOfATask { handle ->
             val messageId = MessageId.random()
-            val createdAt = Date()
+            val createdAt = Instant.now()
             var hasBeenMarkedAsSent = false
             var forwardSecurityModes: Map<String, ForwardSecurityMode>? = null
             val outgoingCspMessageHandle = OutgoingCspMessageHandle(
@@ -76,7 +76,7 @@ class BundledMessagesSendStepsTest : MessageProcessorProvider() {
     fun testGroupMessage() {
         runInsideOfATask { handle ->
             val messageId = MessageId.random()
-            val createdAt = Date()
+            val createdAt = Instant.now()
             val group = groupAB
             var hasBeenMarkedAsSent = false
             var forwardSecurityModes: Map<String, ForwardSecurityMode>? = null
@@ -120,7 +120,7 @@ class BundledMessagesSendStepsTest : MessageProcessorProvider() {
                 contactA.toBasicContact(),
                 OutgoingCspContactMessageCreator(
                     MessageId.random(),
-                    Date(),
+                    Instant.now(),
                     contactA.identity,
                 ) {
                     TextMessage().apply { text = "Test" }
@@ -131,7 +131,7 @@ class BundledMessagesSendStepsTest : MessageProcessorProvider() {
                 contactB.toBasicContact(),
                 OutgoingCspContactMessageCreator(
                     MessageId.random(),
-                    Date(),
+                    Instant.now(),
                     contactA.identity,
                 ) {
                     TextMessage().apply { text = "Test" }
@@ -142,7 +142,7 @@ class BundledMessagesSendStepsTest : MessageProcessorProvider() {
                 groupAB.members.map { it.toBasicContact() }.toSet(),
                 OutgoingCspGroupMessageCreator(
                     MessageId.random(),
-                    Date(),
+                    Instant.now(),
                     groupAB.groupModel,
                 ) {
                     GroupTextMessage().apply { text = "Test" }
@@ -197,7 +197,7 @@ class BundledMessagesSendStepsTest : MessageProcessorProvider() {
                     messageHandle.messageCreator.messageId.messageIdLong,
                     it.messageId.messageIdLong,
                 )
-                assertEquals(messageHandle.messageCreator.createdAt.time, it.date.time)
+                assertEquals(messageHandle.messageCreator.createdAt, it.timestamp)
             }
             .map { it.toIdentity }
             .toList()

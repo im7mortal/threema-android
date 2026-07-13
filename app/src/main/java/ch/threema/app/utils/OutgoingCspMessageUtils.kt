@@ -12,11 +12,10 @@ import ch.threema.app.services.UserService
 import ch.threema.base.crypto.Nonce
 import ch.threema.base.crypto.NonceFactory
 import ch.threema.base.crypto.NonceScope
-import ch.threema.base.utils.Utils
+import ch.threema.base.isInDeviceTest
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.lazy
-import ch.threema.common.now
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.GroupModel
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.domain.models.BasicContact
@@ -45,9 +44,9 @@ import ch.threema.domain.taskmanager.getEncryptedOutgoingMessageEnvelope
 import ch.threema.domain.taskmanager.getEncryptedOutgoingMessageUpdateSentEnvelope
 import ch.threema.domain.taskmanager.toCspMessage
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.ContactModel
+import ch.threema.storage.models.ContactModel.NO_PROFILE_PICTURE_BLOB_ID
 import ch.threema.storage.models.group.GroupModelOld
-import java.util.Date
+import java.time.Instant
 
 private val logger = getThreemaLogger("OutgoingCspMessageUtils")
 
@@ -95,9 +94,9 @@ fun String.fetchContactModel(apiConnector: APIConnector): BasicContact =
                     else -> IdentityState.INVALID
                 },
                 when (it.type) {
-                    0 -> IdentityType.NORMAL
+                    0 -> IdentityType.REGULAR
                     1 -> IdentityType.WORK
-                    else -> IdentityType.NORMAL // Out of range!
+                    else -> IdentityType.REGULAR // Out of range!
                 },
                 verificationLevel = VerificationLevel.UNVERIFIED,
                 workVerificationLevel = WorkVerificationLevel.NONE,
@@ -116,7 +115,7 @@ sealed interface OutgoingCspMessageCreator {
     /**
      * The created at date of the message.
      */
-    val createdAt: Date
+    val createdAt: Instant
 
     /**
      * Create a generic message that can be used to be reflected.
@@ -151,7 +150,7 @@ class OutgoingCspContactMessageCreator(
     /**
      * The date that will be used as created-at date for the message.
      */
-    override val createdAt: Date,
+    override val createdAt: Instant,
     /**
      * The identity of the recipient contact.
      */
@@ -182,7 +181,7 @@ class OutgoingCspContactMessageCreator(
             }
 
             it.messageId = messageId
-            it.date = createdAt
+            it.timestamp = createdAt
             it.fromIdentity = fromIdentity
             it.toIdentity = toIdentity
         }
@@ -200,7 +199,7 @@ class OutgoingCspGroupMessageCreator(
     /**
      * The date that will be used as created-at date for the outgoing messages.
      */
-    override val createdAt: Date,
+    override val createdAt: Instant,
     /**
      * The group id of the group that will be set for the outgoing messages.
      */
@@ -226,7 +225,7 @@ class OutgoingCspGroupMessageCreator(
 ) : OutgoingCspMessageCreator {
     constructor(
         messageId: MessageId,
-        createdAt: Date,
+        createdAt: Instant,
         group: GroupModelOld,
         createAbstractGroupMessage: () -> AbstractGroupMessage,
     ) : this(
@@ -239,7 +238,7 @@ class OutgoingCspGroupMessageCreator(
 
     constructor(
         messageId: MessageId,
-        createdAt: Date,
+        createdAt: Instant,
         group: GroupModel,
         createAbstractGroupMessage: () -> AbstractGroupMessage,
     ) : this(
@@ -251,7 +250,7 @@ class OutgoingCspGroupMessageCreator(
 
     constructor(
         messageId: MessageId,
-        createdAt: Date,
+        createdAt: Instant,
         groupIdentity: GroupIdentity,
         createAbstractGroupMessage: () -> AbstractGroupMessage,
     ) : this(
@@ -274,7 +273,7 @@ class OutgoingCspGroupMessageCreator(
     ): AbstractGroupMessage {
         return createGroupMessage().also {
             it.messageId = messageId
-            it.date = createdAt
+            it.timestamp = createdAt
             it.fromIdentity = fromIdentity
             it.toIdentity = toIdentity
             it.apiGroupId = groupId
@@ -705,15 +704,6 @@ private fun runProfilePictureDistributionSteps(
         return null
     }
 
-    if (!services.contactService.isContactAllowedToReceiveProfilePicture(receiverIdentity)) {
-        logger.info(
-            "{}: Contact {} is not allowed to receive the profile picture",
-            prefix,
-            receiverIdentity,
-        )
-        return null
-    }
-
     val data = services.userService.uploadUserProfilePictureOrGetPreviousUploadData()
     if (data.blobId == null) {
         logger.warn("{}: Blob ID is null; abort", prefix)
@@ -725,7 +715,18 @@ private fun runProfilePictureDistributionSteps(
         return null
     }
 
-    if (data.blobId.contentEquals(contactModelData.profilePictureBlobId)) {
+    val profilePictureBlobId = if (services.contactService.isContactAllowedToReceiveProfilePicture(receiverIdentity)) {
+        data.blobId
+    } else {
+        if (isInDeviceTest()) {
+            // TODO(ANDR-4336): This early return is a workaround to avoid breaking various hard to maintain device tests.
+            //  It should be removed eventually.
+            return null
+        }
+        NO_PROFILE_PICTURE_BLOB_ID
+    }
+
+    if (profilePictureBlobId.contentEquals(contactModelData.profilePictureBlobId)) {
         logger.debug(
             "{}: Contact {} already has the latest profile picture",
             prefix,
@@ -734,19 +735,19 @@ private fun runProfilePictureDistributionSteps(
         return null
     }
 
-    contactModel.setProfilePictureBlobId(data.blobId)
+    contactModel.setProfilePictureBlobId(profilePictureBlobId)
 
     val profilePictureMessageCreator =
         OutgoingCspContactMessageCreator(
             messageId = MessageId.random(),
-            createdAt = now(),
+            createdAt = Instant.now(),
             identity = receiverIdentity,
         ) {
-            if (data.blobId.contentEquals(ContactModel.NO_PROFILE_PICTURE_BLOB_ID)) {
+            if (profilePictureBlobId.contentEquals(NO_PROFILE_PICTURE_BLOB_ID)) {
                 DeleteProfilePictureMessage()
             } else {
                 SetProfilePictureMessage(
-                    blobId = data.blobId,
+                    blobId = profilePictureBlobId,
                     size = data.size,
                     encryptionKey = data.encryptionKey,
                 )
@@ -762,18 +763,18 @@ private fun runProfilePictureDistributionSteps(
 private fun AbstractMessage.logMessage(logMessage: String) {
     if (toIdentity.isNotBlank()) {
         logger.info(
-            "{} message {} of type {} to {}",
+            "{} message {} of type 0x{} to {}",
             logMessage,
             messageId,
-            Utils.byteToHex(type.toByte(), true, true),
+            type.toByte().toHexString(HexFormat.UpperCase),
             toIdentity,
         )
     } else {
         logger.info(
-            "{} message {} of type {}",
+            "{} message {} of type 0x{}",
             logMessage,
             messageId,
-            Utils.byteToHex(type.toByte(), true, true),
+            type.toByte().toHexString(HexFormat.UpperCase),
         )
     }
 }

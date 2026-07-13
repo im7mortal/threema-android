@@ -1,6 +1,7 @@
 package ch.threema.app.services
 
 import android.net.Uri
+import ch.threema.data.datatypes.ConversationIdObfuscated
 
 interface NotificationPreferenceService {
     fun isMasterKeyNewMessageNotifications(): Boolean
@@ -84,9 +85,9 @@ interface NotificationPreferenceService {
      * The mapping of custom per-conversation notification sounds.
      * Only used on devices that don't support notification channels, i.e., Android 7
      */
-    fun getLegacyRingtones(): Map<String, String?>
+    fun getLegacyRingtones(): Map<ConversationIdObfuscated, String?>
 
-    fun setLegacyRingtones(ringtones: Map<String, String?>)
+    fun setLegacyRingtones(ringtones: Map<ConversationIdObfuscated, String?>)
 
     fun isShowMessagePreview(): Boolean
 

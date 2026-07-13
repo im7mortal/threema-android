@@ -45,7 +45,7 @@
         android:layout_width="@dimen/emoji_button_width"
         android:layout_height="@dimen/emoji_button_width"
         android:layout_marginEnd="@dimen/emoji_search_padding"
-        android:src="@drawable/ic_tag_faces_outline"
+        android:src="@drawable/ic_emoji"
         android:text="@string/select_emoji"
         android:tint="?attr/colorOnSurface"
         app:layout_constraintBottom_toBottomOf="@id/search_term"

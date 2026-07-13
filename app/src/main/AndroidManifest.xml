@@ -180,7 +180,6 @@
         android:allowBackup="false"
         android:appCategory="social"
         android:dataExtractionRules="@xml/data_extraction_rules"
-        android:enableOnBackInvokedCallback="true"
         android:hardwareAccelerated="true"
         android:hasFragileUserData="true"
         android:icon="@mipmap/ic_launcher"
@@ -231,7 +230,6 @@
         <activity
             android:name=".activities.ComposeMessageActivity"
             android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize|uiMode"
-            android:enableOnBackInvokedCallback="false"
             android:exported="true"
             android:launchMode="singleTop"
             android:parentActivityName=".home.HomeActivity"
@@ -245,6 +243,13 @@
                 <data android:mimeType="@string/contacts_mime_type" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".conversation.ConversationActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:parentActivityName=".home.HomeActivity"
+            android:theme="@style/Theme.Threema.WithToolbar"
+            android:windowSoftInputMode="adjustNothing" />
         <activity
             android:name=".activities.RecipientListActivity"
             android:configChanges="uiMode"
@@ -387,17 +392,13 @@
         <activity
             android:name=".activities.WorkIntroActivity"
             android:exported="false"
-            android:screenOrientation="sensorPortrait"
-            android:theme="@style/Theme.Threema.Wizard">
-
-        </activity>
+            android:theme="@style/Theme.Threema.WithToolbar" />
         <activity
             android:name=".activities.EnterSerialActivity"
             android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize|uiMode"
             android:exported="true"
             android:launchMode="singleTop"
-            android:screenOrientation="sensorPortrait"
-            android:theme="@style/Theme.Threema.Wizard"
+            android:theme="@style/Theme.Threema.WithToolbar"
             android:windowSoftInputMode="adjustPan">
             <intent-filter
                 android:autoVerify="true"
@@ -449,7 +450,7 @@
             android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize|uiMode"
             android:theme="@style/Theme.Threema.WithToolbar" />
         <activity
-            android:name=".activities.ServerMessageActivity"
+            android:name=".servermessage.ServerMessageActivity"
             android:label="server_message"
             android:theme="@style/Theme.Threema.WithToolbar" />
         <activity
@@ -459,6 +460,15 @@
         <activity
             android:name=".activities.BackupAdminActivity"
             android:configChanges="uiMode"
+            android:theme="@style/Theme.Threema.WithToolbar" />
+        <activity
+            android:name=".backupcenter.BackupCenterActivity"
+            android:theme="@style/Theme.Threema.WithToolbar" />
+        <activity
+            android:name=".backupcenter.LocalDataBackupActivity"
+            android:theme="@style/Theme.Threema.WithToolbar" />
+        <activity
+            android:name=".backupcenter.CreateLocalDataBackupActivity"
             android:theme="@style/Theme.Threema.WithToolbar" />
         <activity
             android:name=".pinlock.PinLockActivity"
@@ -519,15 +529,15 @@
             android:stateNotNeeded="true"
             android:theme="@android:style/Theme.NoDisplay" />
         <activity
-            android:name=".activities.ballot.BallotOverviewActivity"
+            android:name=".activities.poll.PollOverviewActivity"
             android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize|uiMode"
             android:theme="@style/Theme.Threema.WithToolbar" />
         <activity
-            android:name=".activities.ballot.BallotMatrixActivity"
+            android:name=".activities.poll.PollMatrixActivity"
             android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize|uiMode"
             android:theme="@style/Theme.Threema.WithToolbar" />
         <activity
-            android:name=".activities.ballot.BallotChooserActivity"
+            android:name=".activities.poll.PollChooserActivity"
             android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize|uiMode"
             android:theme="@style/Theme.Threema.WithToolbar" />
         <activity
@@ -535,7 +545,7 @@
             android:configChanges="uiMode"
             android:theme="@style/Theme.Threema.WithToolbar" />
         <activity
-            android:name=".activities.ballot.BallotWizardActivity"
+            android:name=".activities.poll.PollWizardActivity"
             android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize|uiMode"
             android:theme="@style/Theme.Threema.WithToolbar"
             android:windowSoftInputMode="adjustResize" />
@@ -566,7 +576,6 @@
             android:name=".webclient.activities.SessionsActivity"
             android:configChanges="uiMode"
             android:launchMode="singleTop"
-            android:parentActivityName=".home.HomeActivity"
             android:theme="@style/Theme.Threema.WithToolbar" />
         <activity
             android:name=".webclient.activities.SessionsIntroActivity"
@@ -576,16 +585,13 @@
             android:name=".webclient.activities.WebDiagnosticsActivity"
             android:configChanges="uiMode"
             android:parentActivityName=".home.HomeActivity"
-            android:screenOrientation="sensorPortrait"
-            android:theme="@style/Theme.Threema.WithToolbar"
-            tools:ignore="LockedOrientationActivity" />
+            android:theme="@style/Theme.Threema.WithToolbar" />
 
         <!-- MD activities -->
         <activity
             android:name=".multidevice.LinkedDevicesActivity"
             android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize|uiMode"
             android:launchMode="singleTop"
-            android:parentActivityName=".home.HomeActivity"
             android:theme="@style/Theme.Threema.WithToolbar" />
         <activity
             android:name=".multidevice.wizard.LinkNewDeviceWizardActivity"
@@ -618,9 +624,7 @@
             android:theme="@style/Theme.Threema.TransparentStatusbar_Fullscreen" />
         <activity
             android:name=".voip.activities.CallActionIntentActivity"
-            android:exported="true"
-            android:screenOrientation="sensorPortrait"
-            tools:ignore="LockedOrientationActivity">
+            android:exported="true">
             <intent-filter tools:ignore="AppLinkUrlError">
                 <!-- Handle calls from phonebook -->
                 <action android:name="android.intent.action.VIEW" />
@@ -631,9 +635,10 @@
         <activity
             android:name=".voip.activities.WebRTCDebugActivity"
             android:parentActivityName=".home.HomeActivity"
-            android:screenOrientation="sensorPortrait"
-            android:theme="@style/Theme.Threema.WithToolbar"
-            tools:ignore="LockedOrientationActivity" />
+            android:theme="@style/Theme.Threema.WithToolbar" />
+        <activity
+            android:name=".troubleshooting.contacts.ContactsDiagnosticsActivity"
+            android:theme="@style/Theme.Threema.WithToolbar" />
         <activity
             android:name=".activities.WhatsNewActivity"
             android:configChanges="touchscreen|keyboard|keyboardHidden|orientation|screenLayout|screenSize|uiMode"
@@ -643,35 +648,29 @@
         <!-- Wizard activities -->
         <activity
             android:name=".activities.wizard.WizardIntroActivity"
-            android:screenOrientation="sensorPortrait"
-            android:theme="@style/Theme.Threema.Wizard" />
+            android:theme="@style/Theme.Threema.WithToolbar" />
         <activity
             android:name=".activities.wizard.WizardStartActivity"
-            android:screenOrientation="sensorPortrait"
-            android:theme="@style/Theme.Threema.Wizard" />
+            android:theme="@style/Theme.Threema.WithToolbar" />
         <activity
             android:name=".activities.wizard.WizardBaseActivity"
-            android:screenOrientation="sensorPortrait"
-            android:theme="@style/Theme.Threema.Wizard"
+            android:theme="@style/Theme.Threema.WithToolbar"
             android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".activities.wizard.WizardFingerPrintActivity"
-            android:screenOrientation="sensorPortrait"
-            android:theme="@style/Theme.Threema.Wizard" />
+            android:theme="@style/Theme.Threema.WithToolbar" />
         <activity
             android:name=".activities.wizard.WizardIDRestoreActivity"
-            android:screenOrientation="sensorPortrait"
-            android:theme="@style/Theme.Threema.Wizard" />
+            android:theme="@style/Theme.Threema.WithToolbar" />
         <activity
             android:name=".activities.wizard.WizardSafeRestoreActivity"
-            android:screenOrientation="sensorPortrait"
-            android:theme="@style/Theme.Threema.Wizard"
+            android:theme="@style/Theme.Threema.WithToolbar"
             android:windowSoftInputMode="stateAlwaysHidden" />
         <activity
             android:name=".activities.wizard.WizardBackupRestoreActivity"
-            android:screenOrientation="sensorPortrait"
-            android:theme="@style/Theme.Threema.Wizard"
+            android:theme="@style/Theme.Threema.WithToolbar"
             android:windowSoftInputMode="stateAlwaysHidden" />
+
         <activity
             android:name=".identitylinks.SMSVerificationLinkActivity"
             android:exported="true"
@@ -781,7 +780,6 @@
             android:name=".camera.CameraActivity"
             android:autoRemoveFromRecents="true"
             android:clearTaskOnLaunch="true"
-            android:screenOrientation="fullSensor"
             android:theme="@style/Theme.Threema.Camera">
             <!-- Declare Huawei notch support -->
             <meta-data
@@ -903,8 +901,7 @@
                     android:path="/debug"
                     android:scheme="https" />
             </intent-filter>
-            <intent-filter
-                android:label="@string/app_name">
+            <intent-filter android:label="@string/app_name">
                 <action android:name="android.intent.action.VIEW" />
 
                 <category android:name="android.intent.category.DEFAULT" />
@@ -1097,9 +1094,6 @@
                 <action android:name="android.os.action.POWER_SAVE_MODE_CHANGED" />
             </intent-filter>
         </receiver>
-        <receiver
-            android:name=".receivers.SendTextToContactBroadcastReceiver"
-            android:exported="false" />
 
         <!-- content providers -->
         <provider

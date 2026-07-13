@@ -2,8 +2,8 @@ package ch.threema.app.apptaskexecutor
 
 import ch.threema.app.apptaskexecutor.tasks.AppTask
 import ch.threema.app.apptaskexecutor.tasks.PersistableAppTask
-import ch.threema.app.test.testDispatcherProvider
 import ch.threema.testhelpers.assertSuspendsForever
+import ch.threema.testhelpers.testDispatcherProvider
 import ch.threema.testhelpers.willThrow
 import io.mockk.Runs
 import io.mockk.coEvery
@@ -39,7 +39,7 @@ class AppTaskExecutorTest {
         appTaskExecutor.scheduleTask(appTask)
 
         backgroundScope.launch {
-            appTaskExecutor.start()
+            appTaskExecutor.run()
         }
 
         // Assert that the deferred is completed
@@ -58,7 +58,7 @@ class AppTaskExecutorTest {
         )
 
         backgroundScope.launch {
-            appTaskExecutor.start()
+            appTaskExecutor.run()
         }
 
         appTaskExecutor.scheduleTask(appTask)
@@ -79,7 +79,7 @@ class AppTaskExecutorTest {
         )
 
         backgroundScope.launch {
-            appTaskExecutor.start()
+            appTaskExecutor.run()
         }
 
         appTasks.map(appTaskExecutor::scheduleTask).forEach { it.await() }
@@ -106,7 +106,7 @@ class AppTaskExecutorTest {
         )
 
         backgroundScope.launch {
-            appTaskExecutor.start()
+            appTaskExecutor.run()
         }
 
         // First schedule app task B and then A
@@ -140,7 +140,7 @@ class AppTaskExecutorTest {
         )
 
         backgroundScope.launch {
-            appTaskExecutor.start()
+            appTaskExecutor.run()
         }
 
         advanceUntilIdle()
@@ -164,7 +164,7 @@ class AppTaskExecutorTest {
         )
 
         backgroundScope.launch {
-            appTaskExecutor.start()
+            appTaskExecutor.run()
         }
 
         assertSuspendsForever {
@@ -182,7 +182,7 @@ class AppTaskExecutorTest {
         )
 
         backgroundScope.launch {
-            appTaskExecutor.start()
+            appTaskExecutor.run()
         }
 
         // Assert that an exception throwing task will result in an exceptionally completed deferred

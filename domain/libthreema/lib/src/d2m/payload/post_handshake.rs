@@ -7,7 +7,7 @@ use libthreema_macros::{DebugVariantNames, Name, VariantNames};
 use crate::{
     common::D2xDeviceId,
     d2m::{
-        D2mProtocolError, InternalEncodingErrorCause, InternalErrorCause,
+        D2mProtocolError, D2mProtocolInternalEncodingErrorCause, D2mProtocolInternalErrorCause,
         payload::{PayloadDecoder, PayloadEncoder, ReflectFlags},
     },
     protobuf::d2m as protobuf,
@@ -487,9 +487,9 @@ impl Reflect {
                 writer.write(&self.envelope)
             })
             .map_err(|error| {
-                D2mProtocolError::InternalError(InternalErrorCause::EncodingFailed {
+                D2mProtocolError::InternalError(D2mProtocolInternalErrorCause::EncodingFailed {
                     name: Self::NAME,
-                    source: InternalEncodingErrorCause::ByteWriterError(error),
+                    source: D2mProtocolInternalEncodingErrorCause::ByteWriterError(error),
                 })
             })
     }
@@ -514,9 +514,9 @@ impl ReflectedAck {
                 writer.write_u32_le(self.reflect_id)
             })
             .map_err(|error| {
-                D2mProtocolError::InternalError(InternalErrorCause::EncodingFailed {
+                D2mProtocolError::InternalError(D2mProtocolInternalErrorCause::EncodingFailed {
                     name: Self::NAME,
-                    source: InternalEncodingErrorCause::ByteWriterError(error),
+                    source: D2mProtocolInternalEncodingErrorCause::ByteWriterError(error),
                 })
             })
     }
@@ -571,9 +571,9 @@ impl PayloadEncoder for OutgoingPayload {
         let name = self.variant_name();
         match self {
             OutgoingPayload::Proxy(data) => writer.write(&data).map_err(|error| {
-                D2mProtocolError::InternalError(InternalErrorCause::EncodingFailed {
+                D2mProtocolError::InternalError(D2mProtocolInternalErrorCause::EncodingFailed {
                     name,
-                    source: InternalEncodingErrorCause::ByteWriterError(error),
+                    source: D2mProtocolInternalEncodingErrorCause::ByteWriterError(error),
                 })
             }),
 

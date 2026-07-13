@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="contact_detail_avatar_height">350dp</dimen>
+    <dimen name="media_viewer_caption_max_height">100dp</dimen>
 </resources>

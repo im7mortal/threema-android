@@ -14,6 +14,7 @@ import android.widget.LinearLayout
 import android.widget.LinearLayout.LayoutParams
 import android.widget.Space
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.app.ActivityCompat
@@ -158,6 +159,19 @@ class PermissionRequestActivity : ThreemaActivity() {
         logPermissionStates()
 
         handleDeviceInsets()
+
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    if (getFirstPendingPermissionStatePosition() == null) {
+                        finishWithSuccess()
+                    } else {
+                        finishWithoutSuccess()
+                    }
+                }
+            },
+        )
     }
 
     fun handleDeviceInsets() {
@@ -172,15 +186,6 @@ class PermissionRequestActivity : ThreemaActivity() {
         updatePermissionStates()
         if (updateCurrentPositionOrLeave()) {
             updateView(false)
-        }
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (getFirstPendingPermissionStatePosition() == null) {
-            finishWithSuccess()
-        } else {
-            finishWithoutSuccess()
         }
     }
 
@@ -369,7 +374,7 @@ class PermissionRequestActivity : ThreemaActivity() {
     private fun finishWithoutSuccess() {
         logger.info("Some required permissions are not granted")
         logPermissionStates()
-        setResult(RESULT_CANCELED)
+        setResult(RESULT_CANCELED_BY_USER)
         finish()
     }
 
@@ -447,6 +452,8 @@ class PermissionRequestActivity : ThreemaActivity() {
     }
 
     companion object {
+        const val RESULT_CANCELED_BY_USER = 2
+
         private const val INTENT_PERMISSION_REQUESTS = "permission_requests_extra"
 
         fun createIntent(context: Context, requests: ArrayList<PermissionRequest>) = buildActivityIntent<PermissionRequestActivity>(context) {

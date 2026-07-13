@@ -2,7 +2,6 @@ package ch.threema.app.dialogs;
 
 import android.app.Activity;
 import android.content.DialogInterface;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.telephony.PhoneNumberFormattingTextWatcher;
 import android.view.View;
@@ -18,16 +17,22 @@ import java.util.ArrayList;
 import java.util.Optional;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatDialog;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.LifecycleOwner;
+
+import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
-import ch.threema.app.activities.wizard.components.WizardButtonXml;
+import ch.threema.app.emojis.EmojiEditText;
+import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.LocaleService;
 import ch.threema.app.threemasafe.ThreemaSafeService;
 import ch.threema.app.ui.SelectorDialogItem;
+import ch.threema.app.ui.interop.TextButtonPrimaryXml;
 import ch.threema.app.utils.DialogUtil;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
@@ -95,18 +100,21 @@ public class WizardSafeSearchPhoneDialog extends DialogFragment implements Selec
         phoneEditText = dialogView.findViewById(R.id.safe_phone);
         emailEditText = dialogView.findViewById(R.id.safe_email);
 
-        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireActivity(), R.style.Threema_Dialog_Wizard);
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireActivity());
         builder.setView(dialogView);
 
         try {
-            threemaSafeService = ThreemaApplication.getServiceManager().getThreemaSafeService();
-            localeService = ThreemaApplication.getServiceManager().getLocaleService();
+            var serviceManager = ServiceManager.require();
+            threemaSafeService = serviceManager.getThreemaSafeService();
+            localeService = serviceManager.getLocaleService();
         } catch (Exception e) {
             dismiss();
         }
 
-        final @NonNull WizardButtonXml positiveButtonCompose = dialogView.findViewById(R.id.ok_compose);
-        final @NonNull WizardButtonXml negativeButtonCompose = dialogView.findViewById(R.id.cancel_compose);
+        final @NonNull TextButtonPrimaryXml positiveButtonCompose = dialogView.findViewById(R.id.ok_compose);
+        final @NonNull TextButtonPrimaryXml negativeButtonCompose = dialogView.findViewById(R.id.cancel_compose);
+
+        final AlertDialog dialog = builder.create();
 
         positiveButtonCompose.setOnClickListener(v -> {
             String phone = null, email = null;
@@ -117,7 +125,7 @@ public class WizardSafeSearchPhoneDialog extends DialogFragment implements Selec
                 email = emailEditText.getText().toString();
             }
             if (phone != null || email != null) {
-                searchID(phone, email);
+                searchID(dialog, phone, email);
             } else {
                 dismiss();
                 callback.onYes(tag, null);
@@ -133,19 +141,19 @@ public class WizardSafeSearchPhoneDialog extends DialogFragment implements Selec
 
         setCancelable(false);
 
-        return builder.create();
+        return dialog;
     }
 
-    private void searchID(String phone, String email) {
-        new SearchIdTask(this).execute(phone, email);
+    private void searchID(LifecycleOwner lifecycleOwner, String phone, String email) {
+        new SearchIdTask(this).execute(lifecycleOwner, new String[]{phone, email});
     }
 
     @Override
-    public void onCancel(DialogInterface dialogInterface) {
+    public void onCancel(@NonNull DialogInterface dialogInterface) {
         callback.onNo(this.getTag());
     }
 
-    private static class SearchIdTask extends AsyncTask<String, Void, ArrayList<String>> {
+    private static class SearchIdTask extends LifecycleAwareAsyncTask<String[], ArrayList<String>> {
         private final WeakReference<WizardSafeSearchPhoneDialog> dialogReference;
 
         SearchIdTask(WizardSafeSearchPhoneDialog dialog) {
@@ -161,7 +169,7 @@ public class WizardSafeSearchPhoneDialog extends DialogFragment implements Selec
         }
 
         @Override
-        protected ArrayList<String> doInBackground(String... params) {
+        protected ArrayList<String> doInBackground(String[] params) {
             return dialogReference.get().threemaSafeService.searchID(params[0], params[1]);
         }
 
@@ -183,7 +191,12 @@ public class WizardSafeSearchPhoneDialog extends DialogFragment implements Selec
                     dialog.callback.onYes(dialog.getTag(), ids.get(0));
                     dialog.dismiss();
                 } else {
-                    SelectorDialog selectorDialog = SelectorDialog.newInstance(dialog.getString(R.string.safe_select_id), selectorItems, null);
+                    SelectorDialog selectorDialog = SelectorDialog.newInstance(
+                        dialog.getString(R.string.safe_select_id),
+                        selectorItems,
+                        null,
+                        (String) null
+                    );
                     selectorDialog.setTargetFragment(dialog, 0);
                     selectorDialog.show(dialog.getFragmentManager(), DIALOG_TAG_SELECT_ID);
                 }

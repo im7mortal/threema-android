@@ -6,7 +6,8 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlin.test.Test
-import kotlin.test.assertTrue
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlinx.coroutines.test.runTest
 
 class DatabaseAppTaskPersistenceTest {
@@ -47,7 +48,7 @@ class DatabaseAppTaskPersistenceTest {
 
         val databaseAppTaskPersistence = DatabaseAppTaskPersistence(appTaskPersistenceFactoryMock)
         val persistedTasks = databaseAppTaskPersistence.loadAllPersistedTasks()
-        assertTrue { persistedTasks.size == 1 }
-        assertTrue { persistedTasks.first() is RemoteSecretDeleteStepsTask }
+        assertEquals(1, persistedTasks.size)
+        assertIs<RemoteSecretDeleteStepsTask>(persistedTasks.first())
     }
 }

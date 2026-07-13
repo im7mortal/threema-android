@@ -1,5 +1,7 @@
 package ch.threema.domain.protocol.csp.messages.file;
 
+import static ch.threema.common.ByteArrayExtensionsKt.toHexString;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -8,7 +10,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import androidx.annotation.NonNull;
-import ch.threema.base.utils.Utils;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
 import ch.threema.domain.protocol.csp.messages.BadMessageException;
 
@@ -26,9 +27,9 @@ public class FileDataTest {
         fillByteArray(blobIdBytes2, (byte) 32);
         fillByteArray(encryptionKeyBytes, (byte) 0);
 
-        blobIdHex1 = Utils.byteArrayToHexString(blobIdBytes1);
-        blobIdHex2 = Utils.byteArrayToHexString(blobIdBytes2);
-        encryptionKeyHex = Utils.byteArrayToHexString(encryptionKeyBytes);
+        blobIdHex1 = toHexString(blobIdBytes1);
+        blobIdHex2 = toHexString(blobIdBytes2);
+        encryptionKeyHex = toHexString(encryptionKeyBytes);
     }
 
     private static void fillByteArray(@NonNull byte[] array, byte offset) {

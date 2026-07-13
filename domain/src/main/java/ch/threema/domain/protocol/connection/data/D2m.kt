@@ -25,12 +25,8 @@ class D2mProtocolException(msg: String) : ServerConnectionException(msg)
 @JvmInline
 value class DeviceId(val id: ULong)
 
-fun DeviceId.leBytes(): ByteArray {
-    return ByteBuffer.wrap(ByteArray(ULong.SIZE_BYTES))
-        .order(ByteOrder.LITTLE_ENDIAN)
-        .putLong(id.toLong())
-        .array()
-}
+fun DeviceId.leBytes(): ByteArray =
+    id.toLong().toByteArray(order = ByteOrder.LITTLE_ENDIAN)
 
 enum class DeviceSlotExpirationPolicy(val value: Int) {
     VOLATILE(0),
@@ -230,7 +226,7 @@ sealed class InboundD2mMessage(override val payloadType: UByte) :
                 D2mPayloadType.TRANSACTION_ENDED -> TransactionEnded.decodeContainer(container)
                 D2mPayloadType.REFLECTED -> Reflected.decodeContainer(container)
                 D2mPayloadType.REFLECT_ACK -> ReflectAck.decodeContainer(container)
-                else -> throw D2mProtocolException("Unsupported payload type `${container.payloadType.toHex()}`")
+                else -> throw D2mProtocolException("Unsupported payload type `${container.payloadType.toHexString()}`")
             }
         }
     }

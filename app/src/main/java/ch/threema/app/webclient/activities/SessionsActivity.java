@@ -35,7 +35,6 @@ import org.saltyrtc.client.crypto.CryptoException;
 import org.saltyrtc.client.exceptions.InvalidKeyException;
 import org.slf4j.Logger;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -64,7 +63,6 @@ import ch.threema.app.utils.DialogUtil;
 import ch.threema.app.utils.IntentDataUtil;
 import ch.threema.app.utils.PowermanagerUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.webclient.Protocol;
 import ch.threema.app.webclient.adapters.SessionListAdapter;
 import ch.threema.app.webclient.exceptions.HandshakeException;
@@ -77,15 +75,18 @@ import ch.threema.app.webclient.services.instance.DisconnectContext;
 import ch.threema.app.webclient.services.instance.SessionInstanceService;
 import ch.threema.app.webclient.state.WebClientSessionState;
 import ch.threema.base.ThreemaException;
-import ch.threema.base.utils.Base64;
 
 import static ch.threema.android.ToastKt.showToast;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
+import ch.threema.common.Base64;
 import ch.threema.storage.models.WebClientSessionModel;
 import kotlin.Unit;
 
 import static ch.threema.app.startup.AppStartupUtilKt.finishAndRestartLaterIfNotReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
+import static ch.threema.base.TestUtilKt.isInDeviceTest;
 
 @UiThread
 public class SessionsActivity extends ThreemaToolbarActivity implements
@@ -454,7 +455,7 @@ public class SessionsActivity extends ThreemaToolbarActivity implements
             byte[] intentPayload = IntentDataUtil.getPayload(this.getIntent());
             if (intentPayload != null) {
                 // Ask first
-                if (TestUtil.isInDeviceTest()) {
+                if (isInDeviceTest()) {
                     // Add directly
                     this.processPayload(intentPayload);
                 } else {
@@ -524,7 +525,7 @@ public class SessionsActivity extends ThreemaToolbarActivity implements
             ArrayList<SelectorDialogItem> items = new ArrayList<>();
             ArrayList<Integer> values = new ArrayList<>();
 
-            items.add(new SelectorDialogItem(this.getString(R.string.webclient_session_rename), R.drawable.ic_pencil_outline));
+            items.add(new SelectorDialogItem(this.getString(R.string.webclient_session_rename), R.drawable.ic_pencil));
             values.add(MENU_POS_RENAME);
 
             if (model.getState() != WebClientSessionModel.State.INITIALIZING) {
@@ -537,7 +538,7 @@ public class SessionsActivity extends ThreemaToolbarActivity implements
             items.add(new SelectorDialogItem(this.getString(R.string.webclient_session_remove), R.drawable.ic_delete_outline));
             values.add(MENU_POS_REMOVE);
 
-            SelectorDialog selectorDialog = SelectorDialog.newInstance(null, items, values, null);
+            SelectorDialog selectorDialog = SelectorDialog.newInstance(null, items, values, null, null);
             selectorDialog.setData(model);
             selectorDialog.show(getSupportFragmentManager(), DIALOG_TAG_ITEM_MENU);
         }
@@ -736,7 +737,7 @@ public class SessionsActivity extends ThreemaToolbarActivity implements
                             final byte[] pl = Base64.decode(payload);
                             final WebSessionQRCodeParser.Result qrResult = webSessionQrCodeParser.parse(pl);
                             this.startByQrResult(qrResult);
-                        } catch (WebSessionQRCodeParser.InvalidQrCodeException | IOException e) {
+                        } catch (WebSessionQRCodeParser.InvalidQrCodeException | IllegalArgumentException e) {
                             logger.error("Could not initiate new web client session", e);
                             final boolean isMdJoinOfferQrCode = payload.startsWith(MultiDeviceManager.DEVICE_JOIN_OFFER_URI_PREFIX);
                             GenericAlertDialog.newInstance(
@@ -871,7 +872,7 @@ public class SessionsActivity extends ThreemaToolbarActivity implements
             String saltyRtcHost = qrCodeResult.saltyRtcHost;
             int saltyRtcPort = qrCodeResult.saltyRtcPort;
             var serverAddressProvider = dependencies.getServerAddressProviderService().getServerAddressProvider();
-            if (!TestUtil.isEmptyOrNull(serverAddressProvider.getWebOverrideSaltyRtcHost())) {
+            if (!isNullOrEmpty(serverAddressProvider.getWebOverrideSaltyRtcHost())) {
                 saltyRtcHost = serverAddressProvider.getWebOverrideSaltyRtcHost();
             }
             if (serverAddressProvider.getWebOverrideSaltyRtcPort() != 0) {
@@ -983,7 +984,7 @@ public class SessionsActivity extends ThreemaToolbarActivity implements
 
             // Ignore sessions that have been created in the last 24h.
             if (model.getCreated() != null) {
-                final long secondsAgo = now - (model.getCreated().getTime() / 1000);
+                final long secondsAgo = now - (model.getCreated().getEpochSecond());
                 if (secondsAgo < secondsAgoThreshold) {
                     remove = false;
                 }
@@ -991,7 +992,7 @@ public class SessionsActivity extends ThreemaToolbarActivity implements
 
             // Ignore sessions that have been active in the last 24h.
             if (model.getLastConnection() != null) {
-                final long secondsAgo = now - (model.getLastConnection().getTime() / 1000);
+                final long secondsAgo = now - (model.getLastConnection().getEpochSecond());
                 if (secondsAgo < secondsAgoThreshold) {
                     remove = false;
                 }

@@ -32,7 +32,8 @@ pub(crate) mod subtle {
 
 /// Minimal abstract interface for AEAD ciphers.
 pub(crate) mod aead {
-    pub(crate) use aead::{AeadInPlace, Buffer, Error};
+    #[expect(unused_imports, reason = "Used by tests")]
+    pub(crate) use aead::{Aead, AeadInPlace, Buffer, Error};
     use aead::{Nonce, Payload, Result};
 
     use super::cipher::Unsigned as _;
@@ -278,19 +279,102 @@ pub(crate) mod ed25519 {
 /// montgomery point as used by many Threema protocols to derive further keys from.
 pub(crate) mod x25519 {
     use aead::consts::U10;
+    use duplicate::duplicate_item;
+    use rand;
     use salsa20::hsalsa;
-    pub(crate) use x25519_dalek::{EphemeralSecret, PublicKey, SharedSecret, StaticSecret};
+    use x25519_dalek::StaticSecret as UnsafeStaticSecret;
+    pub(crate) use x25519_dalek::{PublicKey, SharedSecret};
     use zeroize::ZeroizeOnDrop;
 
     use super::generic_array::GenericArray;
 
     pub(crate) const KEY_LENGTH: usize = 32;
 
-    /// A uniformly distributed [`SharedSecret`], compatible with classic NaCl shared secret
-    /// derivation.
+    /// A short-lived Diffie-Hellman secret key that can only be used to compute a single [`SharedSecret`].
+    ///
+    /// This type is identical to the [`StaticSecret`] type, except that the
+    /// [`EphemeralSecret::diffie_hellman`] method consumes and then wipes the secret key, and there are no
+    /// serialization methods defined. This means that [`EphemeralSecret`]s can only be generated from fresh
+    /// randomness where the compiler statically checks that the resulting secret is used at most once.
+    #[derive(ZeroizeOnDrop)]
+    pub(crate) struct EphemeralSecret(UnsafeStaticSecret);
+    impl EphemeralSecret {
+        /// Perform a Diffie-Hellman key agreement between `self` and `public_key` key to produce a
+        /// [`SharedSecret`].
+        ///
+        /// [`None`] is returned if the result is from a non-contributory key and should be rejected.
+        #[inline]
+        pub(crate) fn diffie_hellman(self, public_key: &PublicKey) -> Option<SharedSecret> {
+            let shared_secret = self.0.diffie_hellman(public_key);
+            if shared_secret.was_contributory() {
+                Some(shared_secret)
+            } else {
+                None
+            }
+        }
+
+        /// Generate a new [`EphemeralSecret`].
+        #[inline]
+        pub(crate) fn random() -> Self {
+            Self(UnsafeStaticSecret::random_from_rng(rand::thread_rng()))
+        }
+    }
+
+    #[derive(ZeroizeOnDrop, Clone)]
+    pub(crate) struct StaticSecret(UnsafeStaticSecret);
+    impl StaticSecret {
+        /// Perform a Diffie-Hellman key agreement between `self` and a `public_key` to produce a
+        /// [`SharedSecret`].
+        ///
+        /// [`None`] is returned if the result is from a non-contributory key and should be rejected.
+        #[inline]
+        pub(crate) fn diffie_hellman(&self, public_key: &PublicKey) -> Option<SharedSecret> {
+            let shared_secret = self.0.diffie_hellman(public_key);
+            if shared_secret.was_contributory() {
+                Some(shared_secret)
+            } else {
+                None
+            }
+        }
+
+        /// View this key as a byte array.
+        #[inline]
+        pub(crate) fn as_bytes(&self) -> &[u8; KEY_LENGTH] {
+            self.0.as_bytes()
+        }
+
+        /// Generate a new [`StaticSecret`].
+        #[inline]
+        pub(crate) fn random() -> Self {
+            Self(UnsafeStaticSecret::random_from_rng(rand::thread_rng()))
+        }
+    }
+    impl From<[u8; KEY_LENGTH]> for StaticSecret {
+        fn from(bytes: [u8; KEY_LENGTH]) -> StaticSecret {
+            StaticSecret(UnsafeStaticSecret::from(bytes))
+        }
+    }
+    impl AsRef<[u8]> for StaticSecret {
+        #[inline]
+        fn as_ref(&self) -> &[u8] {
+            self.as_bytes()
+        }
+    }
+
+    #[duplicate_item(
+        secret_name;
+        [EphemeralSecret];
+        [StaticSecret];
+    )]
+    impl<'secret> From<&'secret secret_name> for PublicKey {
+        fn from(secret: &'secret secret_name) -> PublicKey {
+            PublicKey::from(&secret.0)
+        }
+    }
+
+    /// A uniformly distributed [`SharedSecret`], compatible with classic NaCl shared secret derivation.
     #[derive(ZeroizeOnDrop)]
     pub(crate) struct SharedSecretHSalsa20([u8; Self::LENGTH]);
-
     impl SharedSecretHSalsa20 {
         /// The byte length.
         pub(crate) const LENGTH: usize = KEY_LENGTH;
@@ -309,7 +393,6 @@ pub(crate) mod x25519 {
             &self.0
         }
     }
-
     impl From<SharedSecret> for SharedSecretHSalsa20 {
         fn from(secret: SharedSecret) -> Self {
             // Use HSalsa20 to create a uniformly random key from the shared secret
@@ -327,7 +410,6 @@ pub(crate) mod x25519 {
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
-    use rand::rngs::OsRng;
     use rstest::rstest;
 
     use crate::crypto::{
@@ -335,6 +417,7 @@ mod tests {
         chacha20::{ChaCha20Poly1305, XChaCha20Poly1305},
         cipher::{KeyInit as _, Unsigned as _},
         salsa20::XSalsa20Poly1305,
+        x25519,
     };
 
     #[rstest]
@@ -536,7 +619,7 @@ mod tests {
         #[case] cipher: TCipher,
     ) -> anyhow::Result<()> {
         let mut buffer = vec![1_u8; 300];
-        let nonce = TCipher::generate_nonce(&mut OsRng);
+        let nonce = TCipher::generate_nonce(&mut rand::thread_rng());
         let data = buffer.clone();
         cipher.encrypt_in_place(&nonce, b"", &mut buffer)?;
 
@@ -549,5 +632,25 @@ mod tests {
         assert_eq!(extracted_nonce, nonce);
 
         Ok(())
+    }
+
+    #[test]
+    fn static_secret_diffie_hellman_non_contributory() {
+        let secret = x25519::StaticSecret::random();
+        assert!(
+            secret
+                .diffie_hellman(&x25519::PublicKey::from([0; x25519::KEY_LENGTH]))
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn ephemeral_diffie_hellman_non_contributory() {
+        let secret = x25519::EphemeralSecret::random();
+        assert!(
+            secret
+                .diffie_hellman(&x25519::PublicKey::from([0; x25519::KEY_LENGTH]))
+                .is_none()
+        );
     }
 }

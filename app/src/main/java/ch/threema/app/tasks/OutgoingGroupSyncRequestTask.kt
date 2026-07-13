@@ -1,14 +1,13 @@
 package ch.threema.app.tasks
 
-import android.text.format.DateUtils
 import ch.threema.app.utils.OutgoingCspGroupMessageCreator
 import ch.threema.app.utils.OutgoingCspMessageHandle
 import ch.threema.app.utils.OutgoingCspMessageServices
 import ch.threema.app.utils.runBundledMessagesSendSteps
 import ch.threema.app.utils.toBasicContact
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.common.now
-import ch.threema.data.models.GroupIdentity
+import ch.threema.common.minus
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.domain.models.GroupId
 import ch.threema.domain.models.MessageId
 import ch.threema.domain.protocol.csp.messages.GroupSyncRequestMessage
@@ -16,7 +15,8 @@ import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.types.IdentityString
-import java.util.Date
+import java.time.Instant
+import kotlin.time.Duration.Companion.hours
 import kotlinx.serialization.Serializable
 
 private val logger = getThreemaLogger("OutgoingGroupSyncRequestTask")
@@ -51,9 +51,9 @@ class OutgoingGroupSyncRequestTask(
 
         // Only send a group sync request once in an hour for a specific group
         val groupSyncRequestLogModel = databaseService.outgoingGroupSyncRequestLogModelFactory[groupIdentity]
-        val oneHourAgo = Date(System.currentTimeMillis() - DateUtils.HOUR_IN_MILLIS)
-        val lastSyncRequest = groupSyncRequestLogModel?.lastRequest ?: Date(0)
-        if (lastSyncRequest.after(oneHourAgo)) {
+        val oneHourAgo = Instant.now() - 1.hours
+        val lastSyncRequest = groupSyncRequestLogModel?.lastRequest ?: Instant.EPOCH
+        if (lastSyncRequest.isAfter(oneHourAgo)) {
             logger.info(
                 "Do not send request sync to group creator {}: last sync request was at {}",
                 creatorIdentity,
@@ -68,7 +68,7 @@ class OutgoingGroupSyncRequestTask(
             apiConnector = apiConnector,
         )
 
-        val createdAt = now()
+        val createdAt = Instant.now()
 
         val messageCreator = OutgoingCspGroupMessageCreator(
             messageId,

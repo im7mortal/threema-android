@@ -2,7 +2,8 @@ package ch.threema.app.ui
 
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.coroutineScope
-import ch.threema.app.utils.DispatcherProvider
+import ch.threema.android.textwatchers.SimpleTextWatcher
+import ch.threema.common.DispatcherProvider
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel

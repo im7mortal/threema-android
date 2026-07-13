@@ -8,30 +8,28 @@ import com.bumptech.glide.RequestManager;
 
 import org.slf4j.Logger;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import ch.threema.app.ThreemaApplication;
+import ch.threema.app.eventbus.GlobalEventBuses;
+import ch.threema.app.eventbus.events.DistributionListEvent;
 import ch.threema.app.glide.AvatarOptions;
-import ch.threema.app.managers.ListenerManager;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.messagereceiver.DistributionListMessageReceiver;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.services.avatarcache.AvatarCacheService;
-import ch.threema.app.utils.ConversationUtil;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.app.utils.ShortcutUtil;
-import ch.threema.base.ThreemaException;
-import ch.threema.base.utils.Base32;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
+import ch.threema.data.datatypes.ContactNameFormat;
+import ch.threema.data.datatypes.ConversationVisibility;
+import ch.threema.data.datatypes.DistributionListConversationId;
 import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.storage.DatabaseService;
 import ch.threema.storage.models.ContactModel;
@@ -41,7 +39,6 @@ import ch.threema.data.datatypes.IdColor;
 
 public class DistributionListServiceImpl implements DistributionListService {
     private static final Logger logger = getThreemaLogger("DistributionListServiceImpl");
-    private static final String DISTRIBUTION_LIST_UID_PREFIX = "d-";
 
     private final Context context;
     private final AvatarCacheService avatarCacheService;
@@ -49,6 +46,7 @@ public class DistributionListServiceImpl implements DistributionListService {
     private final ContactService contactService;
     private final @NonNull ConversationTagService conversationTagService;
     private final @NonNull PreferenceService preferenceService;
+    private final @NonNull GlobalEventBuses globalEventBuses;
 
     public DistributionListServiceImpl(
         Context context,
@@ -56,7 +54,8 @@ public class DistributionListServiceImpl implements DistributionListService {
         DatabaseService databaseService,
         ContactService contactService,
         @NonNull ConversationTagService conversationTagService,
-        @NonNull PreferenceService preferenceService
+        @NonNull PreferenceService preferenceService,
+        @NonNull GlobalEventBuses globalEventBuses
     ) {
         this.context = context;
         this.avatarCacheService = avatarCacheService;
@@ -64,6 +63,7 @@ public class DistributionListServiceImpl implements DistributionListService {
         this.contactService = contactService;
         this.conversationTagService = conversationTagService;
         this.preferenceService = preferenceService;
+        this.globalEventBuses = globalEventBuses;
     }
 
     @Override
@@ -92,7 +92,7 @@ public class DistributionListServiceImpl implements DistributionListService {
         boolean isAdHocDistributionList
     ) {
         // Create group model in database
-        final Date now = new Date();
+        final Instant now = Instant.now();
         final DistributionListModel distributionListModel = new DistributionListModel()
             .setName(name)
             .setCreatedAt(now)
@@ -107,8 +107,8 @@ public class DistributionListServiceImpl implements DistributionListService {
             this.addMemberToDistributionList(distributionListModel, identity);
         }
 
-        // Notify listeners
-        ListenerManager.distributionListListeners.handle(listener -> listener.onCreate(distributionListModel));
+        // Notify event bus
+        globalEventBuses.getDistributionLists().emit(new DistributionListEvent.NewDistributionList(distributionListModel));
 
         return distributionListModel;
     }
@@ -128,7 +128,7 @@ public class DistributionListServiceImpl implements DistributionListService {
             }
         }
 
-        ListenerManager.distributionListListeners.handle(listener -> listener.onModify(distributionListModel));
+        globalEventBuses.getDistributionLists().emit(new DistributionListEvent.DistributionListUpdated(distributionListModel));
         return distributionListModel;
     }
 
@@ -191,18 +191,12 @@ public class DistributionListServiceImpl implements DistributionListService {
         // Obtain some services through service manager
         //
         // Note: We cannot put these services in the constructor due to circular dependencies.
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             logger.error("Missing serviceManager, cannot remove distribution list");
             return false;
         }
-        final ConversationService conversationService;
-        try {
-            conversationService = serviceManager.getConversationService();
-        } catch (ThreemaException e) {
-            logger.error("Could not obtain services when removing distribution list", e);
-            return false;
-        }
+        final ConversationService conversationService = serviceManager.getConversationService();
 
         // Remove distribution list members
         if (!this.removeMembers(distributionListModel)) {
@@ -210,23 +204,23 @@ public class DistributionListServiceImpl implements DistributionListService {
         }
 
         // Delete shortcuts
-        ShortcutUtil.deleteShareTargetShortcut(getUniqueIdString(distributionListModel));
-        ShortcutUtil.deletePinnedShortcut(getUniqueIdString(distributionListModel));
+        final @NonNull DistributionListConversationId distributionListConversationId = new DistributionListConversationId(
+            distributionListModel.getId()
+        );
+        ShortcutUtil.deleteShareTargetShortcut(distributionListConversationId);
+        ShortcutUtil.deletePinnedShortcut(distributionListConversationId);
 
         // Remove conversation
         conversationService.removeFromCache(distributionListModel);
 
         // Remove conversation tags
-        conversationTagService.removeAll(
-            ConversationUtil.getDistributionListConversationUid(distributionListModel.getId()),
-            TriggerSource.LOCAL
-        );
+        conversationTagService.removeAll(distributionListConversationId, TriggerSource.LOCAL);
 
         // Delete distribution list fully from database
         this.databaseService.getDistributionListModelFactory().delete(distributionListModel);
 
-        // Notify listeners
-        ListenerManager.distributionListListeners.handle(listener -> listener.onRemove(distributionListModel));
+        // Notify event bus
+        globalEventBuses.getDistributionLists().emit(new DistributionListEvent.DistributionListRemoved(distributionListModel));
 
         return true;
     }
@@ -301,14 +295,22 @@ public class DistributionListServiceImpl implements DistributionListService {
         return contactModels;
     }
 
+    @NonNull
     @Override
-    public String getMembersString(DistributionListModel distributionListModel) {
+    public String getMembersString(@Nullable DistributionListModel distributionListModel) {
         StringBuilder builder = new StringBuilder();
-        for (ContactModel contactModel : this.getMembers(distributionListModel)) {
+        final @NonNull ContactNameFormat contactNameFormat = preferenceService.getContactNameFormat();
+        for (final ContactModel contactModel : getMembers(distributionListModel)) {
             if (builder.length() > 0) {
                 builder.append(", ");
             }
-            builder.append(NameUtil.getContactDisplayNameOrNickname(contactModel, true, preferenceService.getContactNameFormat()));
+            builder.append(
+                NameUtil.getContactDisplayNameOrNickname(
+                    contactModel,
+                    true,
+                    contactNameFormat
+                )
+            );
         }
         return builder.toString();
     }
@@ -336,34 +338,58 @@ public class DistributionListServiceImpl implements DistributionListService {
     }
 
     @Override
-    public String getUniqueIdString(DistributionListModel distributionListModel) {
-        if (distributionListModel != null) {
-            try {
-                MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
-                messageDigest.update((DISTRIBUTION_LIST_UID_PREFIX + distributionListModel.getId()).getBytes());
-                return Base32.encode(messageDigest.digest());
-            } catch (NoSuchAlgorithmException e) {
-                logger.error("getUniqueIdString failed", e);
-            }
+    public void archive(@NonNull DistributionListModel distributionListModel) {
+        if (distributionListModel.isArchived()) {
+            return;
         }
-        return "";
+
+        setConversationVisibility(distributionListModel, ConversationVisibility.ARCHIVED);
     }
 
     @Override
-    public void setIsArchived(DistributionListModel distributionListModel, boolean archived) {
-        if (distributionListModel != null && distributionListModel.isArchived() != archived) {
-            distributionListModel.setArchived(archived);
-            save(distributionListModel);
-
-            ListenerManager.distributionListListeners.handle(listener -> listener.onModify(distributionListModel));
+    public void unarchive(@NonNull DistributionListModel distributionListModel) {
+        if (!distributionListModel.isArchived()) {
+            return;
         }
+
+        setConversationVisibility(distributionListModel, ConversationVisibility.NORMAL);
+    }
+
+    @Override
+    public void pin(@NonNull DistributionListModel distributionListModel) {
+        if (distributionListModel.getConversationVisibility() == ConversationVisibility.PINNED) {
+            return;
+        }
+
+        setConversationVisibility(distributionListModel, ConversationVisibility.PINNED);
+    }
+
+    @Override
+    public void unpin(@NonNull DistributionListModel distributionListModel) {
+        if (distributionListModel.getConversationVisibility() != ConversationVisibility.PINNED) {
+            return;
+        }
+
+        setConversationVisibility(distributionListModel, ConversationVisibility.NORMAL);
+    }
+
+    @Override
+    public void setConversationVisibility(@NonNull DistributionListModel distributionListModel, @NonNull ConversationVisibility conversationVisibility) {
+        if (distributionListModel.getConversationVisibility() == conversationVisibility) {
+            return;
+        }
+
+        distributionListModel.setConversationVisibility(conversationVisibility);
+        save(distributionListModel);
+
+        globalEventBuses.getDistributionLists().emit(new DistributionListEvent.DistributionListUpdated(distributionListModel));
     }
 
     @Override
     public void bumpLastUpdate(@NonNull DistributionListModel distributionListModel) {
-        distributionListModel.setLastUpdate(new Date());
+        distributionListModel.setLastUpdate(Instant.now());
         save(distributionListModel);
-        ListenerManager.distributionListListeners.handle(listener -> listener.onModify(distributionListModel));
+        globalEventBuses.getDistributionLists().emit(new DistributionListEvent.DistributionListUpdated(distributionListModel));
     }
 
     private void save(DistributionListModel distributionListModel) {

@@ -7,6 +7,7 @@ import androidx.lifecycle.lifecycleScope
 import ch.threema.android.ToastDuration
 import ch.threema.android.buildActivityIntent
 import ch.threema.android.disableExitTransition
+import ch.threema.android.getSerializableExtraCompat
 import ch.threema.android.navigateToLauncher
 import ch.threema.android.showToast
 import ch.threema.app.R
@@ -33,8 +34,8 @@ class AppLockActivity : ThreemaAppCompatActivity() {
     private val isCheckOnly by lazy {
         intent.getBooleanExtra(INTENT_DATA_CHECK_ONLY, false)
     }
-    private val authenticationType: String? by lazy {
-        intent.getStringExtra(INTENT_DATA_AUTHENTICATION_TYPE)
+    private val lockMechanism: PreferenceService.LockMechanism by lazy {
+        intent.getSerializableExtraCompat<PreferenceService.LockMechanism>(INTENT_DATA_LOCK_MECHANISM)
             ?: preferenceService.getLockMechanism()
     }
 
@@ -47,15 +48,15 @@ class AppLockActivity : ThreemaAppCompatActivity() {
         setContentView(R.layout.activity_biometric_lock)
         window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
 
-        if (!lockAppService.isLocked() && !isCheckOnly) {
+        if (!lockAppService.isLocked && !isCheckOnly) {
             finish()
             return
         }
 
         lifecycleScope.launch {
-            when (authenticationType) {
-                PreferenceService.LOCKING_MECH_BIOMETRIC -> tryAuthenticateWithBiometrics()
-                PreferenceService.LOCKING_MECH_SYSTEM -> tryAuthenticateWithSystemLock()
+            when (lockMechanism) {
+                PreferenceService.LockMechanism.BIOMETRIC -> tryAuthenticateWithBiometrics()
+                PreferenceService.LockMechanism.SYSTEM -> tryAuthenticateWithSystemLock()
                 else -> finish()
             }
         }
@@ -100,8 +101,8 @@ class AppLockActivity : ThreemaAppCompatActivity() {
                     finishWithoutSuccess()
                 } else {
                     logger.warn("Disabling lock because the device is missing a system lock")
-                    lockAppService.unlock(null)
-                    preferenceService.setLockMechanism(PreferenceService.LOCKING_MECH_NONE)
+                    lockAppService.unlock()
+                    preferenceService.setLockMechanism(PreferenceService.LockMechanism.NONE)
                     preferenceService.setArePrivateChatsHidden(false)
                     finishWithSuccess()
                 }
@@ -123,7 +124,7 @@ class AppLockActivity : ThreemaAppCompatActivity() {
 
     private fun finishWithSuccess() {
         if (!isCheckOnly) {
-            lockAppService.unlock(null)
+            lockAppService.unlock()
         }
         setResult(RESULT_OK)
         finish()
@@ -149,15 +150,15 @@ class AppLockActivity : ThreemaAppCompatActivity() {
         fun createIntent(
             context: Context,
             checkOnly: Boolean = false,
-            authType: String? = null,
+            lockMechanism: PreferenceService.LockMechanism? = null,
         ) = buildActivityIntent<AppLockActivity>(context) {
-            if (authType != null) {
-                putExtra(INTENT_DATA_AUTHENTICATION_TYPE, authType)
+            if (lockMechanism != null) {
+                putExtra(INTENT_DATA_LOCK_MECHANISM, lockMechanism)
             }
             putExtra(INTENT_DATA_CHECK_ONLY, checkOnly)
         }
 
-        private const val INTENT_DATA_AUTHENTICATION_TYPE = "auth_type"
+        private const val INTENT_DATA_LOCK_MECHANISM = "lock_mechanism"
         private const val INTENT_DATA_CHECK_ONLY = "check"
     }
 }

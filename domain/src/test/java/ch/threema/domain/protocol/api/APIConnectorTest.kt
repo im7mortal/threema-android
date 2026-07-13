@@ -1,5 +1,6 @@
 package ch.threema.domain.protocol.api
 
+import ch.threema.common.plus
 import ch.threema.domain.protocol.api.work.WorkDirectoryCategory
 import ch.threema.domain.protocol.api.work.WorkDirectoryFilter
 import ch.threema.domain.stores.IdentityStore
@@ -7,7 +8,7 @@ import io.mockk.every
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.mockk
-import java.util.Date
+import java.time.Instant
 import kotlin.math.absoluteValue
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -19,6 +20,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
+import kotlin.time.Duration.Companion.days
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
@@ -34,12 +36,10 @@ class APIConnectorTest {
     @BeforeTest
     fun setUp() {
         connector = APIConnector(
-            /* ipv6 = */
-            false,
             /* serverAddressProvider = */
             mockk {
-                every { getDirectoryServerUrl(any()) } returns "https://server.url/"
-                every { getWorkServerUrlLegacy(any()) } returns "https://api-work.threema.ch/"
+                every { getDirectoryServerUrl() } returns "https://server.url/"
+                every { getWorkServerUrlLegacy() } returns "https://api-work.threema.ch/"
             },
             /* isWork = */
             false,
@@ -254,7 +254,7 @@ class APIConnectorTest {
         every {
             httpRequester.post("https://server.url/identity/turn_cred", any())
         } answers {
-            HttpRequesterResult.Success("""{"token": "/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==","tokenRespKeyPub": "dummy"}""")
+            HttpRequesterResult.Success("""{"token": "/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==","tokenRespKeyPub": ""}""")
         } andThenAnswer {
             HttpRequesterResult.Success(
                 """{"success": true,"turnUrls": ["turn:foo", "turn:bar"],"turnUrlsDualStack": ["turn:ds-foo", "turn:ds-bar"],
@@ -269,8 +269,8 @@ class APIConnectorTest {
         assertEquals("s00perturnuser", result.turnUsername)
         assertEquals("t0psecret", result.turnPassword)
 
-        val expectedExpirationDate = Date(Date().time + 86400 * 1000)
-        assertTrue((expectedExpirationDate.time - result.expirationDate.time).toDouble().absoluteValue < 10000)
+        val expectedExpirationDate = Instant.now() + 1.days
+        assertTrue((expectedExpirationDate.toEpochMilli() - result.expirationDate.toEpochMilli()).toDouble().absoluteValue < 10000)
     }
 
     @Test
@@ -375,7 +375,7 @@ class APIConnectorTest {
    "contacts": [
       {
          "id": "ECHOECHO",
-         "pk": "base64",
+         "pk": "MTIzNA==",
          "first": "Hans",
          "last": "Nötig",
          "csi": "CSI_NR",

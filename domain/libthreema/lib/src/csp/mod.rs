@@ -2,7 +2,7 @@
 use core::{fmt, mem};
 
 use const_format::formatcp;
-use data_encoding::HEXLOWER;
+use data_encoding::HEXLOWER_PERMISSIVE;
 use educe::Educe;
 use libthreema_macros::{ConstantTimeEq, DebugVariantNames, Name, VariantNames};
 use rand::Rng as _;
@@ -38,7 +38,8 @@ pub mod payload;
 
 /// Cause of an internal error.
 #[derive(Clone, Debug, thiserror::Error)]
-pub enum InternalErrorCause {
+#[cfg_attr(test, derive(PartialEq))]
+pub enum CspProtocolInternalErrorCause {
     /// Exhausted the available sequence numbers to use for sending/receiving payloads. Should never happen.
     ///
     /// Note: Only the post-handshake state should ever be able to produce this.
@@ -65,7 +66,7 @@ pub enum InternalErrorCause {
     #[error("{0}")]
     Other(String),
 }
-impl<T: Into<String>> From<T> for InternalErrorCause {
+impl<T: Into<String>> From<T> for CspProtocolInternalErrorCause {
     fn from(message: T) -> Self {
         Self::Other(message.into())
     }
@@ -93,6 +94,7 @@ impl<T: Into<String>> From<T> for InternalErrorCause {
     ),
     tsify(into_wasm_abi)
 )]
+#[cfg_attr(test, derive(PartialEq))]
 pub enum CspProtocolError {
     /// Invalid parameter provided by the caller.
     #[error("Invalid parameter: {0}")]
@@ -105,7 +107,7 @@ pub enum CspProtocolError {
     /// An internal error happened.
     #[cfg_attr(feature = "wasm", serde(serialize_with = "string::to_string::serialize"))]
     #[error("Internal error: {0}")]
-    InternalError(#[from] InternalErrorCause),
+    InternalError(#[from] CspProtocolInternalErrorCause),
 
     /// Unable to decrypt a handshake message or a payload.
     #[error("Decrypting '{name}' failed")]
@@ -139,7 +141,7 @@ pub enum CspProtocolError {
 }
 impl From<SequenceNumberOverflow> for CspProtocolError {
     fn from(error: SequenceNumberOverflow) -> Self {
-        Self::InternalError(InternalErrorCause::from(error))
+        Self::InternalError(CspProtocolInternalErrorCause::from(error))
     }
 }
 
@@ -260,7 +262,7 @@ impl Cookie {
 }
 impl fmt::Display for Cookie {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&HEXLOWER.encode(&self.0))
+        formatter.write_str(&HEXLOWER_PERMISSIVE.encode(&self.0))
     }
 }
 impl fmt::Debug for Cookie {
@@ -417,7 +419,10 @@ impl State {
                 server_hello.server_cookie,
                 server_sequence_number,
                 server_challenge_response.temporary_server_key,
-            );
+            )
+            .ok_or(CspProtocolError::ServerError(
+                "Non-contributory temporary server key for login cipher",
+            ))?;
 
             // Encode the extensions
             let (extensions, extensions_byte_length) = Extensions::new(context).encode()?;
@@ -427,7 +432,11 @@ impl State {
                 identity: context.identity,
                 extensions_byte_length,
                 repeated_server_cookie: server_hello.server_cookie,
-                vouch: login_cipher.vouch_session(&context.client_key, &selected_permanent_server_key),
+                vouch: login_cipher
+                    .vouch_session(&context.client_key, &selected_permanent_server_key)
+                    .ok_or(CspProtocolError::ServerError(
+                        "Non-contributory permanent server key for vouch session",
+                    ))?,
             };
             trace!(?login_data);
             let login_data = login_data.encode().to_vec();
@@ -606,8 +615,7 @@ impl CspProtocol {
         debug!("Creating CSP protocol");
 
         // Generate the temporary client key (TCK) and the client cookie (CCK)
-        let temporary_client_key =
-            TemporaryClientKey(x25519::StaticSecret::random_from_rng(rand::thread_rng()));
+        let temporary_client_key = TemporaryClientKey(x25519::StaticSecret::random());
         let temporary_client_key_public = PublicKey::from(&temporary_client_key.0);
         let client_cookie = ClientCookie(Cookie::random());
 
@@ -758,5 +766,37 @@ impl CspProtocol {
             outgoing_frame: Some(outgoing_frame),
             incoming_payload: None,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        common::{ClientInfo, keys::PublicKey},
+        csp::{ClientKey, CspProtocolContext, CspProtocolContextInit, ThreemaId},
+    };
+
+    pub(super) struct ContextBuilder(CspProtocolContextInit);
+    impl ContextBuilder {
+        pub(super) fn build(self) -> CspProtocolContext {
+            CspProtocolContext::try_from(self.0).unwrap()
+        }
+
+        pub(super) fn with_permanent_server_keys(mut self, server_keys: Vec<PublicKey>) -> Self {
+            self.0.permanent_server_keys = server_keys;
+            self
+        }
+    }
+    impl Default for ContextBuilder {
+        fn default() -> Self {
+            Self(CspProtocolContextInit {
+                identity: ThreemaId::try_from("12345678").unwrap(),
+                permanent_server_keys: vec![],
+                client_key: ClientKey::from([1; ClientKey::LENGTH]),
+                client_info: ClientInfo::Libthreema,
+                device_cookie: None,
+                csp_device_id: None,
+            })
+        }
     }
 }

@@ -1,12 +1,13 @@
 package ch.threema.data
 
-import ch.threema.app.managers.CoreServiceManager
+import ch.threema.app.eventbus.EventBus
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.GroupEvent
 import ch.threema.app.multidevice.MultiDeviceManager
-import ch.threema.base.crypto.NonceFactory
-import ch.threema.base.crypto.NonceStore
-import ch.threema.common.now
+import ch.threema.data.datatypes.ConversationVisibility
+import ch.threema.data.datatypes.GroupIdentity
+import ch.threema.data.datatypes.GroupState
 import ch.threema.data.datatypes.IdColor
-import ch.threema.data.models.GroupIdentity
 import ch.threema.data.models.GroupModel
 import ch.threema.data.models.GroupModelData
 import ch.threema.data.storage.DatabaseBackend
@@ -15,8 +16,16 @@ import ch.threema.domain.taskmanager.QueueSendCompleteListener
 import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.taskmanager.TaskManager
+import ch.threema.domain.types.Identity
+import ch.threema.domain.types.IdentityString
+import ch.threema.test.TestIdentityProvider
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
+import io.mockk.verify
+import java.time.Instant
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -25,12 +34,16 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 
 class GroupModelTest {
-    private val databaseBackendMock = mockk<DatabaseBackend>()
-    private val multiDeviceManagerMock = mockk<MultiDeviceManager>().also {
-        every { it.isMultiDeviceActive } returns true
+    private val databaseBackendMock = mockk<DatabaseBackend> {
+        every { updateGroup(any()) } just runs
     }
-    private val nonceStoreMock = mockk<NonceStore>()
-    private val nonceFactory = NonceFactory(nonceStoreMock)
+    private val multiDeviceManagerMock = mockk<MultiDeviceManager> {
+        every { isMultiDeviceActive } returns true
+    }
+    private lateinit var groupEventBusMock: EventBus<GroupEvent>
+    private val globalEventBusesMock = mockk<GlobalEventBuses> {
+        every { groups } answers { groupEventBusMock }
+    }
     private val taskManager = object : TaskManager {
         val scheduledTasks = mutableListOf<Task<*, TaskCodec>>()
 
@@ -49,16 +62,18 @@ class GroupModelTest {
             // Nothing to do
         }
     }
-    private val coreServiceManagerMock = mockk<CoreServiceManager>().also {
-        every { it.taskManager } returns taskManager
-        every { it.multiDeviceManager } returns multiDeviceManagerMock
-        every { it.nonceFactory } returns nonceFactory
+    private val identityProvider = TestIdentityProvider(Identity("TESTTEST"))
+
+    @BeforeTest
+    fun setUp() {
+        groupEventBusMock = mockk<EventBus<GroupEvent>>(relaxed = true)
     }
 
-    private fun createTestGroup(): GroupModel {
+    private fun createTestGroup(
+        members: Set<IdentityString> = setOf("AAAAAAAA", "BBBBBBBB"),
+    ): GroupModel {
         val groupIdentity = GroupIdentity("TESTTEST", 42)
-        val members = setOf("AAAAAAAA", "BBBBBBBB")
-        val now = now()
+        val now = Instant.now()
         return GroupModel(
             groupIdentity,
             GroupModelData(
@@ -67,7 +82,7 @@ class GroupModelTest {
                 createdAt = now,
                 synchronizedAt = now,
                 lastUpdate = null,
-                isArchived = false,
+                conversationVisibility = ConversationVisibility.NORMAL,
                 precomputedIdColor = IdColor(0),
                 groupDescription = "Description",
                 groupDescriptionChangedAt = now,
@@ -76,7 +91,10 @@ class GroupModelTest {
                 notificationTriggerPolicyOverride = null,
             ),
             databaseBackendMock,
-            coreServiceManagerMock,
+            identityProvider,
+            multiDeviceManagerMock,
+            taskManager,
+            globalEventBusesMock,
         )
     }
 
@@ -142,47 +160,47 @@ class GroupModelTest {
      */
     @Test
     fun testConstruction() {
-        val now = now()
+        val now = Instant.now()
         val groupIdentity = GroupIdentity("TESTTEST", 42)
         val name = "Group"
-        val createdAt = now
-        val synchronizedAt = now
         val lastUpdate = null
-        val isArchived = false
+        val conversationVisibility = ConversationVisibility.NORMAL
         val idColor = IdColor(0)
         val groupDesc = "Description"
-        val groupDescChangedAt = now
         val members = setOf("AAAAAAAA", "BBBBBBBB")
         val group = GroupModel(
             groupIdentity,
             GroupModelData(
                 groupIdentity = groupIdentity,
                 name = name,
-                createdAt = createdAt,
-                synchronizedAt = synchronizedAt,
+                createdAt = now,
+                synchronizedAt = now,
                 lastUpdate = lastUpdate,
-                isArchived = isArchived,
+                conversationVisibility = conversationVisibility,
                 precomputedIdColor = IdColor(idColor.colorIndex),
                 groupDescription = groupDesc,
-                groupDescriptionChangedAt = groupDescChangedAt,
+                groupDescriptionChangedAt = now,
                 otherMembers = members,
                 userState = UserState.MEMBER,
                 notificationTriggerPolicyOverride = null,
             ),
             databaseBackendMock,
-            coreServiceManagerMock,
+            identityProvider = identityProvider,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManager,
+            globalEventBuses = mockk(relaxed = true),
         )
 
         val value = group.data!!
         assertEquals(groupIdentity, value.groupIdentity)
         assertEquals(name, value.name)
-        assertEquals(createdAt, value.createdAt)
-        assertEquals(synchronizedAt, value.synchronizedAt)
+        assertEquals(now, value.createdAt)
+        assertEquals(now, value.synchronizedAt)
         assertEquals(lastUpdate, value.lastUpdate)
-        assertEquals(isArchived, value.isArchived)
+        assertEquals(conversationVisibility, value.conversationVisibility)
         assertEquals(idColor, value.idColor)
         assertEquals(groupDesc, value.groupDescription)
-        assertEquals(groupDescChangedAt, value.groupDescriptionChangedAt)
+        assertEquals(now, value.groupDescriptionChangedAt)
         assertEquals(members, value.otherMembers)
     }
 
@@ -199,7 +217,10 @@ class GroupModelTest {
             GroupIdentity("AAAAAAAA", 42),
             data,
             databaseBackendMock,
-            coreServiceManagerMock,
+            identityProvider = identityProvider,
+            multiDeviceManager = multiDeviceManagerMock,
+            taskManager = taskManager,
+            globalEventBuses = mockk(relaxed = true),
         )
 
         assertEquals("AAAAAAAA", model.groupIdentity.creatorIdentity)
@@ -219,7 +240,10 @@ class GroupModelTest {
                 data.groupIdentity.copy(creatorIdentity = "BBBBBBBB"),
                 data,
                 databaseBackendMock,
-                coreServiceManagerMock,
+                identityProvider = identityProvider,
+                multiDeviceManager = multiDeviceManagerMock,
+                taskManager = taskManager,
+                globalEventBuses = mockk(relaxed = true),
             )
         }
     }
@@ -237,8 +261,60 @@ class GroupModelTest {
                 data.groupIdentity.copy(groupId = 0),
                 data,
                 databaseBackendMock,
-                coreServiceManagerMock,
+                identityProvider = identityProvider,
+                multiDeviceManager = multiDeviceManagerMock,
+                taskManager = taskManager,
+                globalEventBuses = mockk(relaxed = true),
             )
         }
+    }
+
+    @Test
+    fun `group status event is emitted when the status changes from people group to notes group`() {
+        val group = createTestGroup(
+            members = setOf("AAAAAAAA"),
+        )
+
+        // Last member is removed
+        group.persistMemberChanges(
+            addedMembers = emptySet(),
+            removedMembers = setOf("AAAAAAAA"),
+        )
+
+        verify {
+            groupEventBusMock.emit(GroupEvent.GroupStateChanged(group.groupIdentity, newState = GroupState.NOTES))
+        }
+    }
+
+    @Test
+    fun `group status event is emitted when the status changes from notes group to people group`() {
+        val group = createTestGroup(
+            members = emptySet(),
+        )
+
+        // A new member is added to a previously empty group
+        group.persistMemberChanges(
+            addedMembers = setOf("AAAAAAAA"),
+            removedMembers = emptySet(),
+        )
+
+        verify {
+            groupEventBusMock.emit(GroupEvent.GroupStateChanged(group.groupIdentity, newState = GroupState.PEOPLE))
+        }
+    }
+
+    @Test
+    fun `no group status event is emitted when the status does not change`() {
+        val group = createTestGroup(
+            members = setOf("AAAAAAAA", "BBBBBBBB"),
+        )
+
+        // A member is removed, but there are still other members left afterward
+        group.persistMemberChanges(
+            addedMembers = emptySet(),
+            removedMembers = setOf("AAAAAAAA"),
+        )
+
+        verify(exactly = 0) { groupEventBusMock.emit(match { it is GroupEvent.GroupStateChanged }) }
     }
 }

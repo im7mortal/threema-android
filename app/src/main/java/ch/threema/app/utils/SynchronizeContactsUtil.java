@@ -17,7 +17,6 @@ import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.routines.SynchronizeContactsRoutine;
 import ch.threema.app.services.SynchronizeContactsService;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.localcrypto.exceptions.MasterKeyLockedException;
 
 public class SynchronizeContactsUtil {
     private static final Logger logger = getThreemaLogger("SynchronizeContactsUtil");
@@ -46,19 +45,12 @@ public class SynchronizeContactsUtil {
 
     @Nullable
     private static SynchronizeContactsService getSynchronizeContactsService() {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             logger.error("Cannot get synchronize contacts service as service manager is null");
             return null;
         }
-        try {
-            return serviceManager.getSynchronizeContactsService();
-        } catch (MasterKeyLockedException e) {
-            //do nothing
-            logger.error("Exception", e);
-        }
-
-        return null;
+        return serviceManager.getSynchronizeContactsService();
     }
 
     @Nullable
@@ -68,7 +60,7 @@ public class SynchronizeContactsUtil {
 
     @Nullable
     private static SynchronizeContactsRoutine getSynchronizeContactsRoutine(Set<String> identities) {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             logger.error("Cannot get synchronize contacts routine as service manager is unavailable");
             return null;

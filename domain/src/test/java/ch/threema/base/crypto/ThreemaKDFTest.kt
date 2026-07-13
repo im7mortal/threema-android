@@ -1,6 +1,5 @@
 package ch.threema.base.crypto
 
-import ch.threema.base.utils.Utils
 import ch.threema.common.emptyByteArray
 import ch.threema.libthreema.blake2bMac256
 import kotlin.test.Test
@@ -21,10 +20,10 @@ class ThreemaKDFTest {
     }
 
     class TestVector(secretKey: String, salt: String, personal: String, derived: String) {
-        val secretKey: ByteArray = Utils.hexStringToByteArray(secretKey)
-        val salt: ByteArray = Utils.hexStringToByteArray(salt)
-        val personal: ByteArray = Utils.hexStringToByteArray(personal)
-        val derived: ByteArray = Utils.hexStringToByteArray(derived)
+        val secretKey: ByteArray = secretKey.hexToByteArray()
+        val salt: ByteArray = salt.hexToByteArray()
+        val personal: ByteArray = personal.hexToByteArray()
+        val derived: ByteArray = derived.hexToByteArray()
     }
 
     companion object {

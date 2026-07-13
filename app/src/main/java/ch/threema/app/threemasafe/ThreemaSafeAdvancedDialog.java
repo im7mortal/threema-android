@@ -3,7 +3,6 @@ package ch.threema.app.threemasafe;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.DialogInterface;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
@@ -20,16 +19,18 @@ import com.google.android.material.materialswitch.MaterialSwitch;
 
 import org.slf4j.Logger;
 
+import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
-import ch.threema.app.activities.wizard.components.WizardButtonXml;
 import ch.threema.app.dialogs.GenericProgressDialog;
 import ch.threema.app.dialogs.ThreemaDialogFragment;
-import ch.threema.app.ui.SimpleTextWatcher;
+import ch.threema.app.managers.ServiceManager;
+import ch.threema.android.textwatchers.SimpleTextWatcher;
+import ch.threema.app.ui.interop.TextButtonPrimaryXml;
 import ch.threema.app.utils.AnimationUtil;
 import ch.threema.app.utils.DialogUtil;
 import ch.threema.app.utils.EditTextUtil;
 import ch.threema.base.ThreemaException;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
@@ -51,7 +52,7 @@ public class ThreemaSafeAdvancedDialog extends ThreemaDialogFragment implements 
     private ThreemaSafeServerInfo serverInfo;
 
     private @Nullable Button positiveButtonXml;
-    private @Nullable WizardButtonXml positiveButtonCompose;
+    private @Nullable TextButtonPrimaryXml positiveButtonCompose;
     private EditText serverUrlEditText, usernameEditText, passwordEditText;
     private LinearLayout serverContainer;
     private MaterialSwitch defaultServerSwitch;
@@ -111,7 +112,12 @@ public class ThreemaSafeAdvancedDialog extends ThreemaDialogFragment implements 
         serverInfo.setServerPassword(getArguments().getString(ARG_SERVER_PASSWORD));
         boolean plainStyle = getArguments().getBoolean(ARG_PLAIN_STYLE);
 
-        final View dialogView = activity.getLayoutInflater().inflate(plainStyle ? R.layout.dialog_safe_advanced : R.layout.dialog_wizard_safe_advanced, null);
+        final View dialogView = activity.getLayoutInflater().inflate(
+            plainStyle
+                ? R.layout.dialog_safe_advanced
+                : R.layout.dialog_wizard_safe_advanced,
+            null
+        );
 
         if (!plainStyle) {
             dialogView.findViewById(R.id.cancel_compose).setOnClickListener(v -> onCancel(null));
@@ -125,11 +131,11 @@ public class ThreemaSafeAdvancedDialog extends ThreemaDialogFragment implements 
         passwordEditText = dialogView.findViewById(R.id.safe_edit_server_password);
         defaultServerSwitch = dialogView.findViewById(R.id.safe_switch_server);
 
-        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireActivity(), plainStyle ? getTheme() : R.style.Threema_Dialog_Wizard);
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireActivity(), getTheme());
         builder.setView(dialogView);
 
         try {
-            threemaSafeService = ThreemaApplication.getServiceManager().getThreemaSafeService();
+            threemaSafeService = ServiceManager.require().getThreemaSafeService();
         } catch (Exception e) {
             //
         }
@@ -181,8 +187,8 @@ public class ThreemaSafeAdvancedDialog extends ThreemaDialogFragment implements 
             alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v -> onCancel(null));
             updatePositiveButtonEnabledState();
         } else {
-            final @Nullable WizardButtonXml dialogPositiveButtonCompose = alertDialog.findViewById(R.id.ok_compose);
-            final @Nullable WizardButtonXml dialogNegativeButtonCompose = alertDialog.findViewById(R.id.cancel_compose);
+            final @Nullable TextButtonPrimaryXml dialogPositiveButtonCompose = alertDialog.findViewById(R.id.ok_compose);
+            final @Nullable TextButtonPrimaryXml dialogNegativeButtonCompose = alertDialog.findViewById(R.id.cancel_compose);
             if (dialogPositiveButtonCompose != null) {
                 this.positiveButtonCompose = dialogPositiveButtonCompose;
                 positiveButtonCompose.setOnClickListener(v -> customOnClickedYes());
@@ -227,7 +233,7 @@ public class ThreemaSafeAdvancedDialog extends ThreemaDialogFragment implements 
 
     @SuppressLint("StaticFieldLeak")
     private void testServer() {
-        new AsyncTask<Void, Void, String>() {
+        new LifecycleAwareAsyncTask<Void, String>() {
             @Override
             protected void onPreExecute() {
                 if (serverUrlEditText != null) {
@@ -237,7 +243,7 @@ public class ThreemaSafeAdvancedDialog extends ThreemaDialogFragment implements 
             }
 
             @Override
-            protected String doInBackground(Void... voids) {
+            protected String doInBackground(Void params) {
                 try {
                     threemaSafeService.testServer(serverInfo);
                     return null;
@@ -261,7 +267,7 @@ public class ThreemaSafeAdvancedDialog extends ThreemaDialogFragment implements 
 
                 updateUI();
             }
-        }.execute();
+        }.execute(this, null);
     }
 
     private void onYes() {

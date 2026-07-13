@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/item_container"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/messagelist_item_height"
+    android:background="@drawable/listitem_background_selector"
+    android:orientation="vertical"
+    android:paddingLeft="@dimen/tablet_additional_padding_horizontal"
+    android:paddingRight="@dimen/tablet_additional_padding_horizontal">
+
+    <ch.threema.app.ui.AvatarView
+        android:id="@+id/avatar_view"
+        android:layout_width="@dimen/avatar_size_small"
+        android:layout_height="@dimen/avatar_size_small"
+        android:layout_centerVertical="true"
+        android:layout_marginLeft="@dimen/grid_unit_x2"
+        android:contentDescription="@string/show_contact"
+        android:foreground="@drawable/selector_avatar"
+        tools:background="@drawable/ic_profile" />
+
+    <RelativeLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_toRightOf="@id/avatar_view"
+        android:paddingLeft="@dimen/listitem_standard_margin_left_right"
+        android:paddingRight="@dimen/listitem_standard_margin_left_right">
+
+        <ch.threema.app.emojis.EmojiConversationTextView
+            android:id="@+id/poll_name"
+            style="@style/Threema.TextAppearance.List.FirstLine"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignWithParentIfMissing="true"
+            android:layout_alignParentLeft="true"
+            android:layout_marginRight="5dip"
+            android:layout_toLeftOf="@+id/poll_state"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:textColor="?attr/colorOnBackground"
+            tools:text="Poll Title" />
+
+        <TextView
+            android:id="@+id/poll_state"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignBaseline="@id/poll_name"
+            android:layout_alignParentRight="true"
+            android:ellipsize="none"
+            android:fontFamily="sans-serif-light"
+            android:singleLine="true"
+            android:textAppearance="?android:attr/textAppearanceSmall"
+            android:textColor="?attr/colorOnSurface"
+            tools:text="open" />
+
+        <TextView
+            android:id="@+id/poll_creator"
+            style="@style/Threema.TextAppearance.List.SecondLine"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignWithParentIfMissing="true"
+            android:layout_below="@id/poll_name"
+            android:layout_alignParentLeft="true"
+            android:ellipsize="end"
+            android:singleLine="true"
+            tools:text="~ECHOECHO" />
+
+        <TextView
+            android:id="@+id/poll_creator_spacer"
+            style="@style/Threema.TextAppearance.List.SecondLine"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignBaseline="@id/poll_creator"
+            android:layout_marginHorizontal="5dip"
+            android:layout_toRightOf="@id/poll_creator"
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:text="-" />
+
+        <TextView
+            android:id="@+id/poll_creation_date"
+            style="@style/Threema.TextAppearance.List.SecondLine"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignBaseline="@id/poll_creator"
+            android:layout_toLeftOf="@+id/poll_updates"
+            android:layout_toRightOf="@id/poll_creator_spacer"
+            android:ellipsize="end"
+            android:singleLine="true"
+            tools:text="12.12.1212" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/poll_updates"
+            style="@style/Threema.MaterialButton.CountView"
+            android:layout_width="wrap_content"
+            android:layout_height="20dp"
+            android:layout_alignBaseline="@+id/poll_creator"
+            android:layout_alignParentRight="true"
+            android:textColor="?attr/colorOnPrimary"
+            app:backgroundTint="?attr/colorPrimary"
+            tools:text="10" />
+
+    </RelativeLayout>
+</RelativeLayout>

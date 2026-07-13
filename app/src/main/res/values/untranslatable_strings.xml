@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="about_copyright" translatable="false">Copyright © Threema GmbH</string>
+    <string name="about_copyright" translatable="false">Copyright © Threema AG</string>
     <string name="enter_serial_hint" translatable="false">XXXXX-XXXXX</string>
     <string name="threema_channel" translatable="false">Threema Channel</string>
     <string name="default_notification_sound" translatable="false">content://settings/system/notification_sound</string>
@@ -14,6 +14,7 @@
     <!-- The marketing name of the remote secret feature -->
     <string name="remote_secret" translatable="false">DualLock</string>
     <string name="remote_secret_learn_more_url" translatable="false">https://threema.com/faq/duallock</string>
+    <string name="error_reporting_learn_more_url" translatable="false">https://threema.com/faq/error-report</string>
     <string name="threema_safe" translatable="false">${app_name_short} Safe</string>
     <string name="safe_enter_server_address_explain" translatable="false">server.example.com</string>
     <string name="lp_map_copyright" translatable="false">© Threema © MapTiler © OpenStreetMap contributors</string>

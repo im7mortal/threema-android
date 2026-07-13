@@ -190,7 +190,7 @@ public class ContactDetailAdapter extends RecyclerView.Adapter<RecyclerView.View
                         }
 
                         try {
-                            ThreemaApplication.requireServiceManager()
+                            ServiceManager.require()
                                 .getTaskCreator()
                                 .scheduleDeleteAndTerminateFSSessionsTaskAsync(
                                     contactModel,
@@ -243,7 +243,7 @@ public class ContactDetailAdapter extends RecyclerView.Adapter<RecyclerView.View
         this.emojiStyle = emojiStyle;
         this.requestManager = requestManager;
 
-        ServiceManager serviceManager = ThreemaApplication.requireServiceManager();
+        ServiceManager serviceManager = ServiceManager.require();
         this.excludedSyncIdentitiesService = serviceManager.getExcludedSyncIdentitiesService();
         this.blockedIdentitiesService = serviceManager.getBlockedIdentitiesService();
         this.synchronizedSettingsService = serviceManager.getSynchronizedSettingsService();

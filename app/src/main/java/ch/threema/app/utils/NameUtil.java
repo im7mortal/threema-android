@@ -23,6 +23,8 @@ import ch.threema.storage.models.group.GroupModelOld;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
+
 public class NameUtil {
 
     private NameUtil() {
@@ -223,8 +225,8 @@ public class NameUtil {
         if (contactModel == null) {
             return null;
         }
-        if (TestUtil.isEmptyOrNull(contactModel.getFirstName())) {
-            if (TestUtil.isEmptyOrNull(contactModel.getLastName())) {
+        if (isNullOrEmpty(contactModel.getFirstName())) {
+            if (isNullOrEmpty(contactModel.getLastName())) {
                 return getFallbackName(contactModel);
             } else {
                 return getContactDisplayName(contactModel, contactNameFormat);
@@ -251,7 +253,7 @@ public class NameUtil {
 
     @NonNull
     private static String getFallbackName(@NonNull ContactModel model) {
-        if (!TestUtil.isEmptyOrNull(model.getPublicNickName()) && !model.getPublicNickName().equals(model.getIdentity())) {
+        if (!isNullOrEmpty(model.getPublicNickName()) && !model.getPublicNickName().equals(model.getIdentity())) {
             return "~" + model.getPublicNickName();
         } else {
             return model.getIdentity();
@@ -392,7 +394,7 @@ public class NameUtil {
         // return the nickname.
         if (userService.isMe(contactModel.getIdentity())) {
             final String myNickname = userService.getPublicNickname();
-            if (!TestUtil.isEmptyOrNull(myNickname) && !myNickname.equals(userService.getIdentity())) {
+            if (!isNullOrEmpty(myNickname) && !myNickname.equals(userService.getIdentity())) {
                 return myNickname;
             }
         }

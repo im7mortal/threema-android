@@ -9,15 +9,15 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.content.LocusIdCompat
+import ch.threema.android.buildNotification
 import ch.threema.app.R
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.NotificationPreferenceService
 import ch.threema.app.usecases.contacts.GetPersonUseCase
 import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.ContactUtil
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.common.now
+import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.models.ContactModelData
 import ch.threema.domain.types.IdentityString
 
@@ -77,11 +77,11 @@ class CallNotificationManagerImpl(
         rejectIntent: PendingIntent,
         person: Person,
         publicNotification: Notification,
-    ): Notification = with(NotificationCompat.Builder(appContext, NotificationChannels.NOTIFICATION_CHANNEL_INCOMING_CALLS)) {
+    ): Notification = buildNotification(appContext, NotificationChannels.NOTIFICATION_CHANNEL_INCOMING_CALLS) {
         setContentTitle(appContext.getString(R.string.voip_notification_title))
         setContentText(appContext.getString(R.string.voip_notification_text, contactName))
         setOngoing(true)
-        setWhen(now().time)
+        setWhen(System.currentTimeMillis())
         setAutoCancel(false)
         setShowWhen(true)
         setGroup(NotificationGroups.CALLS)
@@ -114,7 +114,11 @@ class CallNotificationManagerImpl(
         setPublicVersion(publicNotification)
 
         // Caller information
-        setLocusId(LocusIdCompat(ContactUtil.getUniqueIdString(callerIdentity)))
+        setLocusId(
+            LocusIdCompat(
+                ContactConversationId(callerIdentity).obfuscated.value,
+            ),
+        )
         addPerson(person)
         setStyle(
             NotificationCompat.CallStyle.forIncomingCall(
@@ -123,23 +127,18 @@ class CallNotificationManagerImpl(
                 acceptIntent,
             ),
         )
-
-        build()
     }.apply {
-        // Set flags
         flags = flags or (NotificationCompat.FLAG_INSISTENT or NotificationCompat.FLAG_NO_CLEAR or NotificationCompat.FLAG_ONGOING_EVENT)
     }
 
-    private fun getPublicNotification(): Notification =
-        with(NotificationCompat.Builder(appContext, NotificationChannels.NOTIFICATION_CHANNEL_INCOMING_CALLS)) {
-            setContentTitle(appContext.getString(R.string.voip_notification_title))
-            setContentText(appContext.getString(R.string.notification_hidden_text))
-            setSmallIcon(R.drawable.ic_phone_locked_white_24dp)
-            setGroup(NotificationGroups.CALLS)
-            setGroupSummary(false)
-            setCategory(NotificationCompat.CATEGORY_CALL)
-            build()
-        }
+    private fun getPublicNotification() = buildNotification(appContext, NotificationChannels.NOTIFICATION_CHANNEL_INCOMING_CALLS) {
+        setContentTitle(appContext.getString(R.string.voip_notification_title))
+        setContentText(appContext.getString(R.string.notification_hidden_text))
+        setSmallIcon(R.drawable.ic_phone_locked_white_24dp)
+        setGroup(NotificationGroups.CALLS)
+        setGroupSummary(false)
+        setCategory(NotificationCompat.CATEGORY_CALL)
+    }
 
     private fun areIncomingCallNotificationsEnabled(): Boolean {
         if (!notificationManager.areNotificationsEnabled()) {

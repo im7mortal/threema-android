@@ -5,6 +5,7 @@ import static ch.threema.android.BitmapExtensionsKt.calculateBrightness;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.ContextWrapper;
@@ -13,8 +14,8 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.PorterDuff;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Build;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
@@ -39,29 +40,34 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.lifecycle.DefaultLifecycleObserver;
+import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleOwner;
 
 import org.koin.android.compat.ViewModelCompat;
+import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.ref.WeakReference;
 import java.util.Set;
 
+import ch.threema.android.FlowJavaCompat;
+import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.activities.CropImageActivity;
+import ch.threema.app.camera.CameraActivity;
 import ch.threema.app.dialogs.GenericAlertDialog;
+import ch.threema.app.eventbus.GlobalEventFlows;
+import ch.threema.app.eventbus.events.ContactEvent;
+import ch.threema.app.eventbus.events.ProfileEvent;
 import ch.threema.app.glide.AvatarOptions;
 import ch.threema.app.groupflows.GroupChanges;
 import ch.threema.app.groupflows.GroupChanges.ProfilePictureChange;
-import ch.threema.app.listeners.ContactListener;
-import ch.threema.app.listeners.ProfileListener;
-import ch.threema.app.managers.ListenerManager;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.profilepicture.CheckedProfilePicture;
 import ch.threema.app.services.ContactService;
@@ -74,10 +80,10 @@ import ch.threema.app.utils.AvatarConverterUtil;
 import ch.threema.app.utils.BitmapUtil;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.ContactUtil;
+import ch.threema.app.utils.FileProviderUtil;
 import ch.threema.app.utils.FileUtil;
 import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.copyStream;
 
@@ -95,6 +101,10 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
     private static final int REQUEST_CODE_CAMERA = 43322;
     private static final int REQUEST_CODE_CROP = 43323;
     private static final String DIALOG_TAG_SAMSUNG_FIX = "samsung_fix";
+
+    @NonNull
+    private final GlobalEventFlows globalEventFlows = KoinJavaComponent.get(GlobalEventFlows.class);
+
     private UserService userService;
     private ContactService contactService;
     private GroupService groupService;
@@ -109,6 +119,9 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
     // the hosting fragment
     private WeakReference<Fragment> fragmentRef = new WeakReference<>(null);
     private WeakReference<AppCompatActivity> activityRef = new WeakReference<>(null);
+
+    @Nullable
+    private LifecycleOwner lifecycleOwner;
 
     private AvatarEditViewModel viewModel;
 
@@ -142,7 +155,7 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
         viewModel = ViewModelCompat.getViewModel(getActivity(), AvatarEditViewModel.class);
 
         try {
-            ServiceManager serviceManager = ThreemaApplication.requireServiceManager();
+            ServiceManager serviceManager = ServiceManager.require();
             contactService = serviceManager.getContactService();
             userService = serviceManager.getUserService();
             groupService = serviceManager.getGroupService();
@@ -170,36 +183,25 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
         this.isEditable = true;
     }
 
-    private final ContactListener contactListener = new ContactListener() {
-        @Override
-        public void onAvatarChanged(final @NonNull String identity) {
-            if (this.shouldHandleChange(identity)) {
-                RuntimeUtil.runOnUiThread(() -> loadAvatarForContact(identity));
-            }
+    @UiThread
+    private void handleContactEvent(@NonNull ContactEvent event) {
+        if (event instanceof ContactEvent.ContactProfilePictureUpdated && shouldHandleChange(event.getIdentityString())) {
+            loadAvatarForContact(event.getIdentityString());
         }
+    }
 
-        @Override
-        public void onRemoved(@NonNull final String identity) {
+    private boolean shouldHandleChange(@NonNull String identity) {
+        if (viewModel != null && viewModel.getContactIdentity() != null) {
+            return identity.equals(viewModel.getContactIdentity());
         }
+        return false;
+    }
 
-        private boolean shouldHandleChange(String identity) {
-            if (viewModel != null && viewModel.getContactIdentity() != null) {
-                return TestUtil.compare(viewModel.getContactIdentity(), identity);
-            }
-            return false;
-        }
-    };
-
-    private final ProfileListener profileListener = new ProfileListener() {
-        @Override
-        public void onAvatarChanged(@NonNull TriggerSource triggerSource) {
+    private void handleProfileEvent(@NonNull ProfileEvent event) {
+        if (event instanceof ProfileEvent.ProfilePictureUpdated) {
             reloadProfilePicture();
         }
-
-        @Override
-        public void onNicknameChanged(String newNickname) {
-        }
-    };
+    }
 
     private void reloadProfilePicture() {
         if (viewModel != null && userService.isMe(viewModel.getContactIdentity())) {
@@ -395,10 +397,12 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
     @Override
     public boolean onLongClick(View v) {
         View parent = getRootView();
-
-        new AsyncTask<Void, Void, Bitmap>() {
+        if (lifecycleOwner == null) {
+            return false;
+        }
+        new LifecycleAwareAsyncTask<Void, Bitmap>() {
             @Override
-            protected Bitmap doInBackground(Void... voids) {
+            protected Bitmap doInBackground(Void params) {
                 return getCurrentAvatarBitmap(true);
             }
 
@@ -407,7 +411,7 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
                 ImagePopup detailPopup = new ImagePopup(getContext(), parent);
                 detailPopup.show(AvatarEditView.this, bitmap);
             }
-        }.execute();
+        }.execute(lifecycleOwner, null);
 
         return false;
     }
@@ -420,9 +424,12 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
         if (listenerRef.get() != null) {
             listenerRef.get().onAvatarRemoved();
         } else {
-            new AsyncTask<Void, Void, Void>() {
+            if (lifecycleOwner == null) {
+                return;
+            }
+            new LifecycleAwareAsyncTask<Void, Void>() {
                 @Override
-                protected Void doInBackground(Void... voids) {
+                protected Void doInBackground(Void params) {
                     String identity = viewModel.getContactIdentity();
                     if (identity != null) {
                         if (userService.isMe(identity)) {
@@ -446,7 +453,7 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
                         loadAvatarForGroupModel(viewModel.getGroupModel());
                     }
                 }
-            }.execute();
+            }.execute(lifecycleOwner, null);
         }
     }
 
@@ -499,16 +506,26 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
 
     private void openCamera() {
         try {
-            viewModel.setCameraFile(fileService.createTempFile(".camera", ".jpg"));
-            FileUtil.getCameraFile(getActivity(), getFragment(), viewModel.getCameraFile(), REQUEST_CODE_CAMERA, fileService, true);
+            viewModel.setCameraFile(fileService.createShareableTempFile(".camera", ".jpg"));
+            getCameraFile(getActivity(), getFragment(), viewModel.getCameraFile());
         } catch (Exception e) {
-            logger.error("Exception", e);
+            logger.error("Failed to open camera", e);
+        }
+    }
+
+    private static void getCameraFile(Activity activity, Fragment fragment, File cameraFile) throws IOException {
+        var context = fragment != null ? fragment.getActivity() : activity;
+        Intent cameraIntent = CameraActivity.createIntent(context, cameraFile.getCanonicalPath(), null);
+        if (fragment != null) {
+            fragment.startActivityForResult(cameraIntent, REQUEST_CODE_CAMERA);
+        } else {
+            activity.startActivityForResult(cameraIntent, REQUEST_CODE_CAMERA);
         }
     }
 
     private void doCrop(File srcFile) {
         try {
-            viewModel.setCroppedFile(fileService.createTempFile(".avatar", ".jpg"));
+            viewModel.setCroppedFile(fileService.createShareableTempFile(".avatar", ".jpg"));
         } catch (Exception e) {
             logger.error("Exception", e);
         }
@@ -517,7 +534,7 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
             getContext(),
             CropImageActivity.CropImageParameters.getProfilePictureParameters(
                 Uri.fromFile(srcFile),
-                Uri.fromFile(viewModel.getCroppedFile())
+                FileProviderUtil.getUriForFile(getContext(), viewModel.getCroppedFile())
             )
         );
 
@@ -607,10 +624,13 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
                                         logger.error("Exception", e);
                                     }
                                 } else if (viewModel.getGroupModel() != null) {
-                                    new AsyncTask<Bitmap, Void, Void>() {
+                                    if (lifecycleOwner == null) {
+                                        return;
+                                    }
+                                    new LifecycleAwareAsyncTask<Bitmap, Void>() {
                                         @Override
-                                        protected Void doInBackground(Bitmap... bitmaps) {
-                                            saveGroupAvatar(bitmaps[0]);
+                                        protected Void doInBackground(Bitmap bitmap) {
+                                            saveGroupAvatar(bitmap);
                                             return null;
                                         }
 
@@ -618,16 +638,19 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
                                         protected void onPostExecute(Void aVoid) {
                                             loadAvatarForGroupModel(viewModel.getGroupModel());
                                         }
-                                    }.execute(bitmap);
+                                    }.execute(lifecycleOwner, bitmap);
                                 }
                             }
                         }
                     }
 
                     if (bitmap == null) {
-                        new AsyncTask<Void, Void, Bitmap>() {
+                        if (lifecycleOwner == null) {
+                            return;
+                        }
+                        new LifecycleAwareAsyncTask<Void, Bitmap>() {
                             @Override
-                            protected Bitmap doInBackground(Void... voids) {
+                            protected Bitmap doInBackground(Void params) {
                                 return getCurrentAvatarBitmap(false);
                             }
 
@@ -635,7 +658,7 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
                             protected void onPostExecute(Bitmap bitmap) {
                                 setAvatarBitmap(bitmap);
                             }
-                        }.execute();
+                        }.execute(lifecycleOwner, null);
                     } else {
                         setAvatarBitmap(bitmap);
                     }
@@ -869,14 +892,14 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
 
     @Override
     public void onCreate(@NonNull LifecycleOwner owner) {
-        ListenerManager.contactListeners.add(this.contactListener);
-        ListenerManager.profileListeners.add(this.profileListener);
+        this.lifecycleOwner = owner;
+        FlowJavaCompat.collect(owner, Lifecycle.State.CREATED, globalEventFlows.getContacts(), this::handleContactEvent);
+        FlowJavaCompat.collect(owner, Lifecycle.State.CREATED, globalEventFlows.getProfiles(), this::handleProfileEvent);
     }
 
     @Override
     public void onDestroy(@NonNull LifecycleOwner owner) {
-        ListenerManager.contactListeners.remove(this.contactListener);
-        ListenerManager.profileListeners.remove(this.profileListener);
+        lifecycleOwner = null;
     }
 
     public interface AvatarEditListener {

@@ -1,10 +1,8 @@
 package ch.threema.storage.models;
 
-import java.util.Date;
+import java.time.Instant;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import ch.threema.domain.models.ReceiverIdentifier;
 
 /**
  * Base interface for ContactModel, GroupModel and DistributionListModel.
@@ -16,13 +14,13 @@ public interface ReceiverModel {
      * If the value is set to `null`, then the conversation will disappear
      * from the conversation list.
      */
-    ReceiverModel setLastUpdate(@Nullable Date lastUpdate);
+    ReceiverModel setLastUpdate(@Nullable Instant lastUpdate);
 
     /**
      * Return the `lastUpdate` timestamp for this receiver.
      */
     @Nullable
-    Date getLastUpdate();
+    Instant getLastUpdate();
 
     /**
      * Return whether or not the conversation with this receiver is archived.
@@ -37,10 +35,4 @@ public interface ReceiverModel {
      * distribution lists.
      */
     boolean isHidden();
-
-    /**
-     * Returns the corresponding {@code ReceiverIdentifier} for this receiver. It can be used to clearly identify the model.
-     */
-    @NonNull
-    ReceiverIdentifier getIdentifier();
 }

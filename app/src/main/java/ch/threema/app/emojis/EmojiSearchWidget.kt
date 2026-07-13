@@ -15,8 +15,8 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import ch.threema.android.getCurrentInsets
+import ch.threema.android.textwatchers.SimpleTextWatcher
 import ch.threema.app.R
-import ch.threema.app.ui.SimpleTextWatcher
 import ch.threema.app.utils.EditTextUtil
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope

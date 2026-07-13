@@ -1,5 +1,6 @@
 package ch.threema.app.location;
 
+import static org.koin.java.KoinJavaComponent.inject;
 import static ch.threema.app.location.LocationExtensionsKt.toCoordinates;
 import static ch.threema.app.location.LocationExtensionsKt.toLatLng;
 import static ch.threema.app.utils.IntentDataUtil.INTENT_DATA_LOCATION_LAT;
@@ -14,7 +15,6 @@ import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.location.Location;
 import android.location.LocationManager;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Menu;
@@ -71,8 +71,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.activities.ThreemaActivity;
 import ch.threema.app.dialogs.GenericAlertDialog;
 import ch.threema.app.managers.ServiceManager;
@@ -83,6 +83,8 @@ import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.IntentDataUtil;
 import ch.threema.app.utils.LocationUtil;
 import ch.threema.app.utils.RuntimeUtil;
+import kotlin.Lazy;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 public class LocationPickerActivity extends ThreemaActivity implements
@@ -93,13 +95,14 @@ public class LocationPickerActivity extends ThreemaActivity implements
     private static final String DIALOG_TAG_ENABLE_LOCATION_SERVICES = "lss";
     private static final String DIALOG_TAG_CONFIRM_PLACE = "conf";
 
+    private final Lazy<MapLibreInitializer> mapLibreInitializerLazy = inject(MapLibreInitializer.class);
+
     private boolean firstLocationZoom = true;
 
     private static final int REQUEST_CODE_PLACES = 22228;
 
     private static final int APPBAR_HEIGHT_PERCENT = 68;
 
-    public static final int POI_RADIUS = 750; // meters
     private static final int MAX_POI_COUNT = 30;
 
     private MapView mapView;
@@ -124,7 +127,7 @@ public class LocationPickerActivity extends ThreemaActivity implements
      * Launcher to request location permissions. When the location permission is given, it zooms to the current position (or asks to enable location services).
      */
     private final ActivityResultLauncher<String[]> locationPermissionRequest = registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
-        if (result.get(Manifest.permission.ACCESS_FINE_LOCATION) || result.get(Manifest.permission.ACCESS_COARSE_LOCATION)) {
+        if (containsGrantedPermission(result, Manifest.permission.ACCESS_FINE_LOCATION) || containsGrantedPermission(result, Manifest.permission.ACCESS_COARSE_LOCATION)) {
             zoomToCurrentLocationWithPermission();
         } else {
             if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
@@ -134,6 +137,10 @@ public class LocationPickerActivity extends ThreemaActivity implements
         }
         firstLocationZoom = false;
     });
+
+    private boolean containsGrantedPermission(@NonNull Map<String, Boolean> permissions, @NonNull String key) {
+        return Boolean.TRUE.equals(permissions.get(key));
+    }
 
     /**
      * Launcher to request location services. When the location services are enabled, it zooms to the current position.
@@ -146,7 +153,7 @@ public class LocationPickerActivity extends ThreemaActivity implements
     });
 
     @SuppressLint("StaticFieldLeak")
-    private class NearbyPOITask extends AsyncTask<LatLng, Void, List<NearbyPoi>> {
+    private class NearbyPOITask extends LifecycleAwareAsyncTask<LatLng, List<NearbyPoi>> {
         @Override
         protected void onPreExecute() {
             loadingProgressBar.setVisibility(View.VISIBLE);
@@ -154,12 +161,10 @@ public class LocationPickerActivity extends ThreemaActivity implements
 
         @NonNull
         @Override
-        protected List<NearbyPoi> doInBackground(@NonNull LatLng... latLngs) {
-            LatLng latLng = latLngs[0];
-
+        protected List<NearbyPoi> doInBackground(@NonNull LatLng latLng) {
             logger.debug("NearbyPoiTask: get POIs for {}", latLng);
 
-            var serverAddressProvider = ThreemaApplication.requireServiceManager().getServerAddressProviderService().getServerAddressProvider();
+            var serverAddressProvider = ServiceManager.require().getServerAddressProviderService().getServerAddressProvider();
             List<NearbyPoi> pois = NearbyPoiUtil.getPOIs(latLng, MAX_POI_COUNT, serverAddressProvider);
             return pois != null ? pois : Collections.emptyList();
         }
@@ -194,7 +199,7 @@ public class LocationPickerActivity extends ThreemaActivity implements
         super.onCreate(savedInstanceState);
         logScreenVisibility(this, logger);
 
-        ConfigUtils.getMapLibreInstance();
+        mapLibreInitializerLazy.getValue().initialize();
 
         setContentView(R.layout.activity_location_picker);
 
@@ -213,7 +218,7 @@ public class LocationPickerActivity extends ThreemaActivity implements
         actionBar.setDisplayHomeAsUpEnabled(true);
 
         // Get Threema services
-        final ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        final ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             logger.error("Could not obtain service manager");
             finish();
@@ -384,7 +389,7 @@ public class LocationPickerActivity extends ThreemaActivity implements
     private void initMap() {
         String mapStyleUrl;
         try {
-            var serviceManager = ThreemaApplication.requireServiceManager();
+            var serviceManager = ServiceManager.require();
             mapStyleUrl = serviceManager.getServerAddressProviderService().getServerAddressProvider().getMapStyleUrl();
             if (mapStyleUrl == null) {
                 finish();
@@ -465,21 +470,17 @@ public class LocationPickerActivity extends ThreemaActivity implements
         }
         locationPickerAdapter.setPois(newPois);
 
-        new AsyncTask<Void, Void, List<MarkerOptions>>() {
+        new LifecycleAwareAsyncTask<Void, List<MarkerOptions>>() {
             HashMap<Long, Marker> poiMarkerMap = new HashMap<>();
             List<Marker> markerList;
-            long startTime;
 
             @Override
             protected void onPreExecute() {
-                startTime = System.currentTimeMillis();
-
                 markerList = MapLibreMap.getMarkers();
             }
 
             @Override
-            protected List<MarkerOptions> doInBackground(Void... voids) {
-                startTime = System.currentTimeMillis();
+            protected List<MarkerOptions> doInBackground(Void params) {
                 for (Marker marker : markerList) {
                     poiMarkerMap.put(Long.valueOf(marker.getSnippet()), marker);
                 }
@@ -498,22 +499,18 @@ public class LocationPickerActivity extends ThreemaActivity implements
                         poiMarkerMap.remove(poi.getId());
                     }
                 }
-                startTime = System.currentTimeMillis();
                 return markerOptions;
             }
 
-
             @Override
             protected void onPostExecute(List<MarkerOptions> markerOptionsList) {
-                startTime = System.currentTimeMillis();
                 for (Map.Entry<Long, Marker> marker : poiMarkerMap.entrySet()) {
                     logger.debug("Remove marker {}", marker.getValue().getTitle());
                     MapLibreMap.removeMarker(marker.getValue());
                 }
-                startTime = System.currentTimeMillis();
                 MapLibreMap.addMarkers(markerOptionsList);
             }
-        }.execute();
+        }.execute(this, null);
     }
 
     @Override
@@ -624,10 +621,10 @@ public class LocationPickerActivity extends ThreemaActivity implements
             lastPosition = latLng;
 
             if (nearbyPOITask != null) {
-                nearbyPOITask.cancel(true);
+                nearbyPOITask.cancel();
             }
             nearbyPOITask = new NearbyPOITask();
-            nearbyPOITask.execute(latLng);
+            nearbyPOITask.execute(this, latLng);
         } else {
             logger.debug("...no update necessary");
         }

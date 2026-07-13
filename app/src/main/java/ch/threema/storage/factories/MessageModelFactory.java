@@ -5,8 +5,6 @@ import static ch.threema.storage.models.data.DisplayTag.DISPLAY_TAG_STARRED;
 import android.content.ContentValues;
 import android.database.Cursor;
 
-import org.jetbrains.annotations.NotNull;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -14,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import ch.threema.app.services.MessageService;
+import ch.threema.data.datatypes.ConversationVisibility;
 import ch.threema.domain.models.MessageId;
 import ch.threema.storage.ChunkedSequence;
 import ch.threema.storage.CursorHelper;
@@ -83,7 +82,7 @@ public class MessageModelFactory extends AbstractMessageModelFactory {
     public List<AbstractMessageModel> getMessagesByText(@Nullable String text, boolean includeArchived, boolean starredOnly, boolean sortAscending) {
         String displayClause, sortClause;
         if (starredOnly) {
-            displayClause = " AND (displayTags & " + DISPLAY_TAG_STARRED + ") > 0 ";
+            displayClause = " AND (" + MessageModel.COLUMN_DISPLAY_TAGS + " & " + DISPLAY_TAG_STARRED + ") > 0 ";
         } else {
             displayClause = "";
         }
@@ -98,27 +97,26 @@ public class MessageModelFactory extends AbstractMessageModelFactory {
             if (text == null) {
                 return convertAbstractList(getReadableDatabase().rawQuery(
                     "SELECT * FROM " + MessageModel.TABLE +
-                        " WHERE isStatusMessage = 0" +
+                        " WHERE " + MessageModel.COLUMN_IS_STATUS_MESSAGE + " = 0" +
                         displayClause +
-                        " ORDER BY createdAtUtc" + sortClause +
+                        " ORDER BY " + MessageModel.COLUMN_CREATED_AT + sortClause +
                         "LIMIT 200",
                     new String[]{}));
             }
 
             return convertAbstractList(getReadableDatabase().rawQuery(
                 "SELECT * FROM " + MessageModel.TABLE +
-                    " WHERE ( ( body LIKE ? " +
-                    " AND type IN (" +
-                    MessageType.TEXT.ordinal() + "," +
-                    MessageType.LOCATION.ordinal() + "," +
-                    MessageType.BALLOT.ordinal() + ") )" +
-                    " OR ( caption LIKE ? " +
-                    " AND type IN (" +
-                    MessageType.IMAGE.ordinal() + "," +
-                    MessageType.FILE.ordinal() + ") ) )" +
-                    " AND isStatusMessage = 0" +
+                    " WHERE ( ( " + MessageModel.COLUMN_BODY + " LIKE ? " +
+                    " AND " + MessageModel.COLUMN_TYPE + " IN (" +
+                    MessageType.TEXT.serializedValue + "," +
+                    MessageType.LOCATION.serializedValue + "," +
+                    MessageType.POLL.serializedValue + ") )" +
+                    " OR ( " + MessageModel.COLUMN_CAPTION + " LIKE ? " +
+                    " AND " + MessageModel.COLUMN_TYPE + " = " +
+                    MessageType.FILE.serializedValue + " ) )" +
+                    " AND " + MessageModel.COLUMN_IS_STATUS_MESSAGE + " = 0" +
                     displayClause +
-                    " ORDER BY createdAtUtc" + sortClause +
+                    " ORDER BY " + MessageModel.COLUMN_CREATED_AT + sortClause +
                     "LIMIT 200",
                 new String[]{
                     "%" + text + "%",
@@ -128,30 +126,29 @@ public class MessageModelFactory extends AbstractMessageModelFactory {
             if (text == null) {
                 return convertAbstractList(getReadableDatabase().rawQuery(
                     "SELECT * FROM " + MessageModel.TABLE + " m" +
-                        " INNER JOIN " + ContactModel.TABLE + " c ON c.identity = m.identity" +
-                        " WHERE c.isArchived = 0" +
-                        " AND m.isStatusMessage = 0" +
+                        " INNER JOIN " + ContactModel.TABLE + " c ON c." + ContactModel.COLUMN_IDENTITY + " = m." + MessageModel.COLUMN_IDENTITY +
+                        " WHERE c." + ContactModel.COLUMN_CONVERSATION_VISIBILITY + " != " + ConversationVisibility.ARCHIVED.getSerializedValue() +
+                        " AND m." + MessageModel.COLUMN_IS_STATUS_MESSAGE + " = 0" +
                         displayClause +
-                        " ORDER BY m.createdAtUtc" + sortClause +
+                        " ORDER BY m." + MessageModel.COLUMN_CREATED_AT + sortClause +
                         "LIMIT 200",
                     new String[]{}));
             }
             return convertAbstractList(getReadableDatabase().rawQuery(
                 "SELECT * FROM " + MessageModel.TABLE + " m" +
-                    " INNER JOIN " + ContactModel.TABLE + " c ON c.identity = m.identity" +
-                    " WHERE c.isArchived = 0" +
-                    " AND ( ( m.body LIKE ? " +
-                    " AND m.type IN (" +
-                    MessageType.TEXT.ordinal() + "," +
-                    MessageType.LOCATION.ordinal() + "," +
-                    MessageType.BALLOT.ordinal() + ") )" +
-                    " OR ( m.caption LIKE ? " +
-                    " AND m.type IN (" +
-                    MessageType.IMAGE.ordinal() + "," +
-                    MessageType.FILE.ordinal() + ") ) )" +
-                    " AND m.isStatusMessage = 0" +
+                    " INNER JOIN " + ContactModel.TABLE + " c ON c." + ContactModel.COLUMN_IDENTITY + " = m." + MessageModel.COLUMN_IDENTITY +
+                    " WHERE c." + ContactModel.COLUMN_CONVERSATION_VISIBILITY + " != " + ConversationVisibility.ARCHIVED.getSerializedValue() +
+                    " AND ( ( m." + MessageModel.COLUMN_BODY + " LIKE ? " +
+                    " AND m." + MessageModel.COLUMN_TYPE + " IN (" +
+                    MessageType.TEXT.serializedValue + "," +
+                    MessageType.LOCATION.serializedValue + "," +
+                    MessageType.POLL.serializedValue + ") )" +
+                    " OR ( m." + MessageModel.COLUMN_CAPTION + " LIKE ? " +
+                    " AND m." + MessageModel.COLUMN_TYPE + " = " +
+                    MessageType.FILE.serializedValue + " ) )" +
+                    " AND m." + MessageModel.COLUMN_IS_STATUS_MESSAGE + " = 0" +
                     displayClause +
-                    " ORDER BY m.createdAtUtc" + sortClause +
+                    " ORDER BY m." + MessageModel.COLUMN_CREATED_AT + sortClause +
                     "LIMIT 200",
                 new String[]{
                     "%" + text + "%",
@@ -272,7 +269,7 @@ public class MessageModelFactory extends AbstractMessageModelFactory {
     public long countByTypes(MessageType[] messageTypes) {
         String[] args = new String[messageTypes.length];
         for (int n = 0; n < messageTypes.length; n++) {
-            args[n] = String.valueOf(messageTypes[n].ordinal());
+            args[n] = String.valueOf(messageTypes[n].serializedValue);
         }
         Cursor c = getReadableDatabase().rawQuery(
             "SELECT COUNT(*) FROM " + this.getTableName()
@@ -390,7 +387,7 @@ public class MessageModelFactory extends AbstractMessageModelFactory {
         Cursor cursor = queryBuilder.query(getReadableDatabase(),
             null,
             null,
-            new String[]{identity, String.valueOf(MessageType.VOIP_STATUS.ordinal())},
+            new String[]{identity, String.valueOf(MessageType.VOIP_STATUS.serializedValue)},
             null,
             null,
             orderBy,

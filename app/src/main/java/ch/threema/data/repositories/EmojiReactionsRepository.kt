@@ -2,24 +2,26 @@ package ch.threema.data.repositories
 
 import android.database.sqlite.SQLiteException
 import ch.threema.app.emojis.EmojiUtil
-import ch.threema.app.managers.CoreServiceManager
+import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.services.MessageService
 import ch.threema.app.utils.ThrowingConsumer
 import ch.threema.base.SessionScoped
 import ch.threema.base.ThreemaException
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.common.now
+import ch.threema.data.IdentityProvider
 import ch.threema.data.ModelTypeCache
 import ch.threema.data.models.EmojiReactionData
 import ch.threema.data.models.EmojiReactionsModel
 import ch.threema.data.models.toDataType
 import ch.threema.data.storage.DbEmojiReaction
 import ch.threema.data.storage.EmojiReactionsDao
+import ch.threema.domain.taskmanager.TaskManager
 import ch.threema.domain.types.IdentityString
 import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageState
 import ch.threema.storage.models.group.GroupMessageModel
+import java.time.Instant
 import org.koin.mp.KoinPlatform
 
 private val logger = getThreemaLogger("EmojiReactionsRepository")
@@ -28,9 +30,11 @@ private val logger = getThreemaLogger("EmojiReactionsRepository")
 class EmojiReactionsRepository(
     private val cache: ModelTypeCache<ReactionMessageIdentifier, EmojiReactionsModel>,
     private val emojiReactionDao: EmojiReactionsDao,
-    private val coreServiceManager: CoreServiceManager,
+    private val identityProvider: IdentityProvider,
+    private val multiDeviceManager: MultiDeviceManager,
+    private val taskManager: TaskManager,
 ) {
-    private val myIdentity by lazy { coreServiceManager.identityStore.getIdentityString()!! }
+    private val myIdentity by lazy { identityProvider.getIdentityString()!! }
 
     // TODO(ANDR-3325): Remove message service
     private val messageService: MessageService by KoinPlatform.getKoin().inject()
@@ -47,7 +51,7 @@ class EmojiReactionsRepository(
                 val dbReactions = emojiReactionDao.findAllByMessage(messageModel)
                     .map(DbEmojiReaction::toDataType)
                 val allReactions = addAckDecReactions(messageModel, dbReactions.toMutableList())
-                EmojiReactionsModel(allReactions, coreServiceManager)
+                EmojiReactionsModel(allReactions, multiDeviceManager, taskManager)
             }
         }
     }
@@ -160,7 +164,7 @@ class EmojiReactionsRepository(
             messageModel.id,
             senderIdentity,
             emojiSequence,
-            messageModel.createdAt!!.toInstant(),
+            messageModel.createdAt!!,
         )
     }
 
@@ -180,6 +184,7 @@ class EmojiReactionsRepository(
         targetMessage: AbstractMessageModel,
         senderIdentity: IdentityString,
         emojiSequence: String,
+        reactedAt: Instant,
     ) {
         synchronized(cache) {
             try {
@@ -187,7 +192,7 @@ class EmojiReactionsRepository(
                     messageId = targetMessage.id,
                     senderIdentity = senderIdentity,
                     emojiSequence = emojiSequence,
-                    reactedAt = now(),
+                    reactedAt = reactedAt,
                 )
                 emojiReactionDao.create(reactionEntry, targetMessage)
                 ReactionMessageIdentifier.fromMessageModel(targetMessage)
@@ -234,7 +239,7 @@ class EmojiReactionsRepository(
                     messageId = targetMessage.id,
                     senderIdentity = senderIdentity,
                     emojiSequence = emojiSequence,
-                    reactedAt = now(),
+                    reactedAt = Instant.now(),
                 )
 
                 emojiReactionDao.remove(reactionEntry, targetMessage)

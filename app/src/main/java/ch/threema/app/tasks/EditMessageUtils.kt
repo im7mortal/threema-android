@@ -6,14 +6,14 @@ import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.models.MessageId
 import ch.threema.domain.types.IdentityString
 import ch.threema.storage.models.AbstractMessageModel
-import java.util.Date
+import java.time.Instant
 
 private val logger = getThreemaLogger("EditMessageUtils")
 
 fun runCommonEditMessageReceiveSteps(
     myIdentity: IdentityString,
     editMessageSenderIdentity: IdentityString,
-    editMessageCreatedAt: Date,
+    editMessageCreatedAt: Instant,
     messageId: Long,
     receiver: MessageReceiver<*>,
     messageService: MessageService,

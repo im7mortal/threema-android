@@ -15,8 +15,8 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.ViewCompat
 import ch.threema.android.buildActivityIntent
 import ch.threema.android.getIntOrNull
-import ch.threema.android.getParcelable
-import ch.threema.android.getSerializable
+import ch.threema.android.getParcelableExtraCompat
+import ch.threema.android.getSerializableExtraCompat
 import ch.threema.app.R
 import ch.threema.app.ui.InsetSides.Companion.lbr
 import ch.threema.app.ui.applyDeviceInsetsAsPadding
@@ -228,7 +228,7 @@ class CropImageActivity : ThreemaToolbarActivity() {
         private fun Intent.toCropImageParameters(): CropImageParameters {
             val sourceUri = data
             check(sourceUri != null)
-            val saveUri = getParcelable<Uri>(MediaStore.EXTRA_OUTPUT)
+            val saveUri = getParcelableExtraCompat<Uri>(MediaStore.EXTRA_OUTPUT)
             check(saveUri != null)
 
             return CropImageParameters(
@@ -241,7 +241,7 @@ class CropImageActivity : ThreemaToolbarActivity() {
                 additionalFlip = getIntExtra(EXTRA_ADDITIONAL_FLIP, BitmapUtil.FLIP_NONE),
                 additionalRotation = getIntExtra(EXTRA_ADDITIONAL_ROTATION, 0),
                 compressFormat = getCompressFormat(),
-                shape = getSerializable<Shape>(EXTRA_SHAPE) as? Shape? ?: Shape.RECTANGLE,
+                shape = getSerializableExtraCompat<Shape>(EXTRA_SHAPE) ?: Shape.RECTANGLE,
                 sourceUri = sourceUri,
                 saveUri = saveUri,
             )

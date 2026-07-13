@@ -26,12 +26,13 @@ import ch.threema.app.services.ContactService;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.services.UserService;
 import ch.threema.app.ui.InitialAvatarView;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.data.datatypes.AvailabilityStatus;
 import ch.threema.data.datatypes.ContactNameFormat;
 import ch.threema.domain.protocol.api.work.WorkDirectoryCategory;
 import ch.threema.domain.protocol.api.work.WorkDirectoryContact;
 import ch.threema.domain.protocol.api.work.WorkOrganization;
+
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class DirectoryAdapter extends PagedListAdapter<WorkDirectoryContact, RecyclerView.ViewHolder> {
     @NonNull
@@ -147,7 +148,7 @@ public class DirectoryAdapter extends PagedListAdapter<WorkDirectoryContact, Rec
             name = (workDirectoryContact.lastName != null ? workDirectoryContact.lastName + " " : "") +
                 (workDirectoryContact.firstName != null ? workDirectoryContact.firstName : "");
         }
-        if (!TestUtil.isEmptyOrNull(workDirectoryContact.csi)) {
+        if (!isNullOrEmpty(workDirectoryContact.csi)) {
             name += " " + workDirectoryContact.csi;
         }
 
@@ -185,7 +186,7 @@ public class DirectoryAdapter extends PagedListAdapter<WorkDirectoryContact, Rec
         directoryHolder.statusImageView.setImageResource(
             isMe
                 ? R.drawable.ic_person_outline
-                : (isAddedContact ? R.drawable.ic_keyboard_arrow_right_black_24dp : R.drawable.ic_add_circle_outline_black_24dp)
+                : (isAddedContact ? R.drawable.ic_keyboard_arrow_right_black_24dp : R.drawable.ic_add_circle_outline)
         );
         directoryHolder.statusImageView.setContentDescription(
             context.getString(

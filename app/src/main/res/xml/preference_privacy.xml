@@ -15,7 +15,7 @@
             android:summaryOff="@string/prefs_sum_sync_contacts_off"
             android:summaryOn="@string/prefs_sum_sync_contacts_on"
             android:title="@string/prefs_title_sync_contacts"
-            android:icon="@drawable/ic_sync_outline"
+            android:icon="@drawable/ic_sync"
             android:widgetLayout="@layout/preference_switch_layout" />
 
         <ch.threema.app.preference.SynchronizedCheckBoxPreference

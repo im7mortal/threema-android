@@ -1,6 +1,6 @@
 package ch.threema.storage.models;
 
-import java.util.Date;
+import java.time.Instant;
 
 /**
  * Dummy model for date separator in ComposeMessageAdapter
@@ -58,12 +58,12 @@ public class DateSeparatorMessageModel extends AbstractMessageModel {
     }
 
     @Override
-    public Date getModifiedAt() {
+    public Instant getModifiedAt() {
         return null;
     }
 
     @Override
-    public Date getPostedAt() {
+    public Instant getPostedAt() {
         return null;
     }
 

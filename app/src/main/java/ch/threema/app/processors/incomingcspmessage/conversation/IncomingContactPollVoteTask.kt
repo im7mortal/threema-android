@@ -3,8 +3,8 @@ package ch.threema.app.processors.incomingcspmessage.conversation
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.processors.incomingcspmessage.IncomingCspMessageSubTask
 import ch.threema.app.processors.incomingcspmessage.ReceiveStepsResult
-import ch.threema.app.services.ballot.BallotVoteResult
-import ch.threema.domain.protocol.csp.messages.ballot.PollVoteMessage
+import ch.threema.app.services.poll.PollVoteResult
+import ch.threema.domain.protocol.csp.messages.poll.PollVoteMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.TriggerSource
 
@@ -13,7 +13,7 @@ class IncomingContactPollVoteTask(
     triggerSource: TriggerSource,
     serviceManager: ServiceManager,
 ) : IncomingCspMessageSubTask<Nothing?>(null, triggerSource, serviceManager) {
-    private val ballotService = serviceManager.ballotService
+    private val pollService = serviceManager.pollService
 
     override suspend fun executeMessageStepsFromRemote(handle: ActiveTaskCodec): ReceiveStepsResult =
         processPollVoteMessage()
@@ -22,8 +22,8 @@ class IncomingContactPollVoteTask(
         processPollVoteMessage()
 
     private fun processPollVoteMessage(): ReceiveStepsResult {
-        val ballotVoteResult: BallotVoteResult? = this.ballotService.vote(pollVoteMessage)
-        return if (ballotVoteResult?.isSuccess == true) {
+        val pollVoteResult: PollVoteResult? = this.pollService.vote(pollVoteMessage)
+        return if (pollVoteResult?.isSuccess == true) {
             ReceiveStepsResult.SUCCESS
         } else {
             ReceiveStepsResult.DISCARD

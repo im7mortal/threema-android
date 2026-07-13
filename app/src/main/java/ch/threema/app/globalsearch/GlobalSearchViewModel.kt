@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ch.threema.app.services.MessageService
 import ch.threema.app.services.MessageService.MessageFilterFlags
-import ch.threema.app.utils.DispatcherProvider
+import ch.threema.common.DispatcherProvider
 import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.group.GroupMessageModel
 import kotlinx.coroutines.Job

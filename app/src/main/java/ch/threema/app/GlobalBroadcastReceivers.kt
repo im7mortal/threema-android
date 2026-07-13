@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.PowerManager
 import androidx.core.content.getSystemService
 import ch.threema.app.backuprestore.csv.BackupService
+import ch.threema.app.di.injectNullableNonBinding
 import ch.threema.app.receivers.ConnectivityChangeReceiver
 import ch.threema.app.restrictions.AppRestrictionService
 import ch.threema.app.services.LifetimeService
@@ -18,14 +19,17 @@ import ch.threema.base.utils.getThreemaLogger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("GlobalBroadcastReceivers")
 
-object GlobalBroadcastReceivers {
+object GlobalBroadcastReceivers : KoinComponent {
 
+    private val globalAppState: GlobalAppState by inject()
+    private val appRestrictionService: AppRestrictionService by inject()
     private val coroutineScope = CoroutineScope(Dispatchers.IO)
-    private val lifetimeService: LifetimeService?
-        get() = ThreemaApplication.getServiceManager()?.lifetimeService
+    private val lifetimeService: LifetimeService? by injectNullableNonBinding()
 
     @JvmStatic
     fun registerBroadcastReceivers(context: Context) {
@@ -53,7 +57,7 @@ object GlobalBroadcastReceivers {
                     if (powerManager.isDeviceIdleMode) {
                         logger.info("*** Device going to deep sleep")
 
-                        GlobalAppState.isDeviceIdle = true
+                        globalAppState.isDeviceIdle = true
 
                         coroutineScope.launch {
                             try {
@@ -76,7 +80,7 @@ object GlobalBroadcastReceivers {
                                 logger.error("Exception while unpausing connection", e)
                             }
                         }
-                        GlobalAppState.isDeviceIdle = false
+                        globalAppState.isDeviceIdle = false
                     }
                 }
             },
@@ -116,7 +120,7 @@ object GlobalBroadcastReceivers {
                 object : BroadcastReceiver() {
                     override fun onReceive(context: Context, intent: Intent) {
                         logger.info("Restrictions have changed. Updating restrictions")
-                        AppRestrictionService.getInstance().reload()
+                        appRestrictionService.reload()
                     }
                 },
                 IntentFilter(Intent.ACTION_APPLICATION_RESTRICTIONS_CHANGED),

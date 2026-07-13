@@ -13,11 +13,11 @@
 )]
 
 use core::cell::RefCell;
-use std::{io, rc::Rc};
+use std::{io, sync::Arc};
 
 use anyhow::bail;
 use clap::Parser;
-use data_encoding::HEXLOWER;
+use data_encoding::HEXLOWER_PERMISSIVE;
 use libthreema::{
     cli::{FullIdentityConfig, FullIdentityConfigOptions},
     common::ClientInfo,
@@ -374,7 +374,10 @@ impl CspE2eProtocolRunner {
             let Some(task) = &mut pending_task else {
                 match queues.incoming.recv().await {
                     Some(IncomingPayloadForCspE2e::Message(message)) => {
-                        trace!(message = HEXLOWER.encode(&message.bytes), "Raw incoming message");
+                        trace!(
+                            message = HEXLOWER_PERMISSIVE.encode(&message.bytes),
+                            "Raw incoming message"
+                        );
                         info!(?message, "Incoming message");
                         pending_task = Some(self.protocol.handle_incoming_message(message));
                     },
@@ -543,7 +546,7 @@ async fn main() -> anyhow::Result<()> {
     });
     let csp_e2e_context = CspE2eProtocolContextInit {
         client_info: ClientInfo::Libthreema,
-        config: Rc::clone(&config.minimal.common.config),
+        config: Arc::clone(&config.minimal.common.config),
         csp_e2e: config.csp_e2e_context_init(Box::new(RefCell::new(database.csp_e2e_nonce_provider()))),
         d2x: config.d2x_context_init(Box::new(RefCell::new(database.d2d_nonce_provider()))),
         shortcut: Box::new(DefaultShortcutProvider),

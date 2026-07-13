@@ -33,9 +33,9 @@ interface IdentityStore {
      * and the public key passed as a parameter.
      *
      * @param publicKey public key of other party
-     * @return shared secret
+     * @return shared secret, or null if calculation of shared secret failed
      */
-    fun calcSharedSecret(publicKey: ByteArray): ByteArray
+    fun calcSharedSecret(publicKey: ByteArray): ByteArray?
 
     fun getIdentity(): Identity? = getIdentityString()?.toIdentityOrNull()
 

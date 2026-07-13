@@ -1,6 +1,7 @@
 package ch.threema.app.processors.reflectedoutgoingmessage
 
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.managers.ServiceManager
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.protocol.csp.messages.location.LocationMessage
@@ -10,6 +11,8 @@ import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.LocationDataModel
 import ch.threema.storage.models.data.MessageContentsType
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("ReflectedOutgoingLocationTask")
 
@@ -21,7 +24,9 @@ internal class ReflectedOutgoingLocationTask(
     message = LocationMessage.fromReflected(outgoingMessage),
     type = CspE2eMessageType.LOCATION,
     serviceManager = serviceManager,
-) {
+),
+    KoinComponent {
+    private val globalEventBuses: GlobalEventBuses by inject()
     private val messageService by lazy { serviceManager.messageService }
 
     override fun processOutgoingMessage() {
@@ -42,6 +47,6 @@ internal class ReflectedOutgoingLocationTask(
             poi = message.poi,
         )
         messageService.save(messageModel)
-        ListenerManager.messageListeners.handle { it.onNew(messageModel) }
+        globalEventBuses.messages.emit(MessageEvent.NewMessage(messageModel))
     }
 }

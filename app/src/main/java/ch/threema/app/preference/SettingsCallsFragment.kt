@@ -7,7 +7,8 @@ import android.view.View
 import androidx.preference.CheckBoxPreference
 import androidx.preference.DropDownPreference
 import ch.threema.app.R
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.ConversationEvent
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.preference.service.SynchronizedSettingsService
 import ch.threema.app.restrictions.AppRestrictions
@@ -32,6 +33,7 @@ class SettingsCallsFragment : ThreemaPreferenceFragment() {
     private val preferenceService: PreferenceService by inject()
     private val synchronizedSettingsService: SynchronizedSettingsService by inject()
     private val appRestrictions: AppRestrictions by inject()
+    private val globalEventBuses: GlobalEventBuses by inject()
 
     private var fragmentView: View? = null
     private var enableCallReject: CheckBoxPreference? = null
@@ -62,7 +64,7 @@ class SettingsCallsFragment : ThreemaPreferenceFragment() {
             if (!enabled) {
                 groupCallManager.abortCurrentCall()
             }
-            ListenerManager.conversationListeners.handle { it.onModifiedAll() }
+            globalEventBuses.conversations.emit(ConversationEvent.AllConversationsUpdated)
         }
     }
 

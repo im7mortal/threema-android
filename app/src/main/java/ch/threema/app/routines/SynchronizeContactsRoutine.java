@@ -8,6 +8,7 @@ import android.database.Cursor;
 import android.provider.ContactsContract;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.OptIn;
 import androidx.annotation.RequiresPermission;
 
 import com.google.common.collect.ListMultimap;
@@ -18,7 +19,6 @@ import java.math.BigInteger;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,15 +41,17 @@ import ch.threema.app.stores.MatchTokenStore;
 import ch.threema.app.utils.AndroidContactUtil;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.ContactUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.base.ThreemaException;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 import ch.threema.data.datatypes.AvailabilityStatus;
+import ch.threema.data.datatypes.ConversationVisibility;
 import ch.threema.data.models.ContactModel;
 import ch.threema.data.models.ContactModelData;
 import ch.threema.data.repositories.ContactModelRepository;
+import ch.threema.domain.models.AcquaintanceLevel;
 import ch.threema.domain.models.ContactSyncState;
 import ch.threema.domain.models.IdentityState;
 import ch.threema.domain.models.IdentityType;
@@ -59,9 +61,9 @@ import ch.threema.domain.models.VerificationLevel;
 import ch.threema.domain.models.WorkVerificationLevel;
 import ch.threema.domain.protocol.api.APIConnector;
 import ch.threema.domain.stores.IdentityStore;
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel;
 import ch.threema.data.datatypes.IdColor;
 import kotlin.Unit;
+import kotlinx.coroutines.DelicateCoroutinesApi;
 
 public class SynchronizeContactsRoutine implements Runnable {
     private static final Logger logger = getThreemaLogger("SynchronizeContactsRoutine");
@@ -153,6 +155,7 @@ public class SynchronizeContactsRoutine implements Runnable {
         return this.processingIdentities.isEmpty();
     }
 
+    @OptIn(markerClass = DelicateCoroutinesApi.class)
     @Override
     @RequiresPermission(allOf = {Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS})
     public void run() {
@@ -282,21 +285,22 @@ public class SynchronizeContactsRoutine implements Runnable {
                     ContactModelData contactModelData = ContactModelData.javaCreate(
                         identity,
                         result.publicKey,
-                        new Date(),
+                        Instant.now(),
+                        null,
                         "",
                         "",
                         null,
                         IdColor.ofIdentity(identity),
                         VerificationLevel.SERVER_VERIFIED,
                         WorkVerificationLevel.NONE,
-                        IdentityType.NORMAL,   // TODO(ANDR-3044): Fetch identity type
+                        IdentityType.REGULAR,   // TODO(ANDR-3044): Fetch identity type
                         AcquaintanceLevel.DIRECT,
                         IdentityState.ACTIVE,  // TODO(ANDR-3044): Fetch identity state
                         BigInteger.valueOf(0), // TODO(ANDR-3044): Fetch feature mask
                         ContactSyncState.IMPORTED,
                         ReadReceiptPolicy.DEFAULT,
                         TypingIndicatorPolicy.DEFAULT,
-                        false,
+                        ConversationVisibility.NORMAL,
                         null,
                         null,
                         false,
@@ -471,7 +475,7 @@ public class SynchronizeContactsRoutine implements Runnable {
                     String lookupKey = phonesCursor.getString(lookupKeyColumnIndex);
                     String phoneNumber = phonesCursor.getString(phoneNumberIndex);
 
-                    if (rawContactId > 0L && contactId > 0L && lookupKey != null && !TestUtil.isEmptyOrNull(phoneNumber)) {
+                    if (rawContactId > 0L && contactId > 0L && lookupKey != null && !isNullOrEmpty(phoneNumber)) {
                         ContactMatchKeyPhone matchKey = new ContactMatchKeyPhone();
                         matchKey.contactId = contactId;
                         matchKey.lookupKey = lookupKey;
@@ -515,7 +519,7 @@ public class SynchronizeContactsRoutine implements Runnable {
                     String lookupKey = emailsCursor.getString(lookupKeyColumnIndex);
                     String email = emailsCursor.getString(emailIndex);
 
-                    if (rawContactId > 0L && contactId > 0L && lookupKey != null && !TestUtil.isEmptyOrNull(email)) {
+                    if (rawContactId > 0L && contactId > 0L && lookupKey != null && !isNullOrEmpty(email)) {
                         ContactMatchKeyEmail matchKey = new ContactMatchKeyEmail();
                         matchKey.contactId = contactId;
                         matchKey.lookupKey = lookupKey;

@@ -21,7 +21,7 @@
         tools:srcCompat="@drawable/ic_profile_filled" />
 
     <ImageView
-        android:id="@+id/avatar_badge_work"
+        android:id="@+id/avatar_badge_identity_type"
         android:layout_width="18dp"
         android:layout_height="18dp"
         android:layout_gravity="left|bottom"

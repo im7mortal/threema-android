@@ -18,6 +18,7 @@ import androidx.core.view.ViewCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.window.layout.WindowMetricsCalculator
+import ch.threema.android.textwatchers.SimpleTextWatcher
 import ch.threema.app.R
 import ch.threema.app.adapters.MentionSelectorAdapter
 import ch.threema.app.preference.service.PreferenceService

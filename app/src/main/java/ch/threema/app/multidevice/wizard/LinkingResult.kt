@@ -12,7 +12,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextDecoration
 import ch.threema.app.BuildFlavor
 import ch.threema.app.R
-import ch.threema.app.compose.common.linkifyWeb
+import ch.threema.app.compose.common.text.linkifyWeb
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.domain.types.IdentityString
 

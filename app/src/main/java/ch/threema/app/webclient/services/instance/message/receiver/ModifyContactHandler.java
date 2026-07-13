@@ -30,9 +30,9 @@ import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.data.models.ContactModel;
 import ch.threema.data.models.ContactModelData;
 import ch.threema.data.repositories.ContactModelRepository;
+import ch.threema.domain.models.AcquaintanceLevel;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
 import ch.threema.domain.taskmanager.TriggerSource;
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 

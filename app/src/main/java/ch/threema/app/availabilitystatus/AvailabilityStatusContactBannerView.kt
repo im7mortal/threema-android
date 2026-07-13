@@ -29,8 +29,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ch.threema.app.R
-import ch.threema.app.compose.common.SpacerHorizontal
 import ch.threema.app.compose.common.extensions.get
+import ch.threema.app.compose.common.spacer.SpacerHorizontal
 import ch.threema.app.compose.common.text.conversation.ConversationText
 import ch.threema.app.compose.common.text.conversation.EmojiSettings
 import ch.threema.app.compose.common.text.conversation.MentionFeature

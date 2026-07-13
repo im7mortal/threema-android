@@ -65,19 +65,19 @@
     </group>
 
     <group
-        android:id="@+id/group_ballot"
+        android:id="@+id/group_poll"
         android:checkableBehavior="none">
 
         <item
-            android:id="@+id/menu_ballot_window_show"
-            android:icon="@drawable/ic_outline_visibility"
+            android:id="@+id/menu_poll_window_show"
+            android:icon="@drawable/ic_visibility"
             android:orderInCategory="80"
             android:title="@string/ballot_window_show"
             app:iconTint="?attr/colorOnSurface"
             app:showAsAction="never" />
 
         <item
-            android:id="@+id/menu_ballot_show_all"
+            android:id="@+id/menu_poll_show_all"
             android:icon="@drawable/ic_outline_rule"
             android:orderInCategory="85"
             android:title="@string/ballot_overview"

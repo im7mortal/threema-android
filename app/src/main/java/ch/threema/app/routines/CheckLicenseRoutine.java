@@ -19,6 +19,8 @@ import ch.threema.app.services.license.LicenseService;
 import ch.threema.app.services.license.LicenseServiceThreema;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.IntentDataUtil;
+
+import static ch.threema.logging.ErrorReportingKt.logAndReportError;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.domain.protocol.api.APIConnector;
@@ -74,8 +76,7 @@ public class CheckLicenseRoutine implements Runnable {
     public void run() {
         Activity activity = activityWeakReference.get();
         if (activity == null) {
-            // TODO(ANDR-4545): Report this to sentry
-            logger.error("Could not check license");
+            logAndReportError(logger, "Could not check license");
             return;
         }
         switch (BuildFlavor.getCurrent().getLicenseType()) {

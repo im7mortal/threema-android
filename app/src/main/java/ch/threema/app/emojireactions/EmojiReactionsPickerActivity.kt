@@ -29,6 +29,7 @@ import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.models.EmojiReactionData
 import ch.threema.data.models.EmojiReactionsModel
 import ch.threema.data.repositories.EmojiReactionsRepository
+import ch.threema.logging.logAndReportError
 import ch.threema.storage.models.AbstractMessageModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -180,12 +181,16 @@ class EmojiReactionsPickerActivity : ThreemaToolbarActivity(), EmojiPicker.Emoji
 
         // add selected reaction
         CoroutineScope(Dispatchers.Default).launch {
-            messageService.sendEmojiReaction(
-                messageModel as AbstractMessageModel,
-                emojiCodeString,
-                messageReceiver,
-                false,
-            )
+            runCatching {
+                messageService.sendEmojiReaction(
+                    messageModel as AbstractMessageModel,
+                    emojiCodeString,
+                    messageReceiver,
+                    false,
+                )
+            }.onFailure { throwable ->
+                logger.logAndReportError("Could not send emoji reaction", throwable)
+            }
         }
 
         this.finish()

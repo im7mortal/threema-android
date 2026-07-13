@@ -4,8 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.annotation.AnyThread
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import java.lang.ref.SoftReference
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock

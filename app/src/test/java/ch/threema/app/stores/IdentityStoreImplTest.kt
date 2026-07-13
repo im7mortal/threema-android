@@ -1,5 +1,7 @@
 package ch.threema.app.stores
 
+import ch.threema.app.eventbus.EventBus
+import ch.threema.app.eventbus.events.ProfileEvent
 import ch.threema.common.emptyByteArray
 import ch.threema.domain.types.Identity
 import io.mockk.every
@@ -24,7 +26,7 @@ class IdentityStoreImplTest {
             identityProvider = identityProviderMock,
             preferenceStore = preferenceStoreMock,
             encryptedPreferenceStore = encryptedPreferenceStoreMock,
-            onNicknameChanged = {},
+            globalEventBuses = mockk(),
         )
 
         assertNull(identityStore.getIdentityString())
@@ -52,7 +54,7 @@ class IdentityStoreImplTest {
             identityProvider = identityProviderMock,
             preferenceStore = preferenceStoreMock,
             encryptedPreferenceStore = encryptedPreferenceStoreMock,
-            onNicknameChanged = {},
+            globalEventBuses = mockk(),
         )
 
         assertEquals("01234567", identityStore.getIdentityString())
@@ -80,7 +82,7 @@ class IdentityStoreImplTest {
             identityProvider = identityProviderMock,
             preferenceStore = preferenceStoreMock,
             encryptedPreferenceStore = encryptedPreferenceStoreMock,
-            onNicknameChanged = {},
+            globalEventBuses = mockk(),
         )
 
         assertNull(identityStore.getPrivateKey())
@@ -105,7 +107,7 @@ class IdentityStoreImplTest {
                 identityProvider = identityProviderMock,
                 preferenceStore = preferenceStoreMock,
                 encryptedPreferenceStore = encryptedPreferenceStoreMock,
-                onNicknameChanged = {},
+                globalEventBuses = mockk(),
             )
         }
     }
@@ -117,14 +119,14 @@ class IdentityStoreImplTest {
         }
         val preferenceStoreMock = mockk<PreferenceStore>(relaxed = true)
         val encryptedPreferenceStoreMock = mockk<EncryptedPreferenceStore>(relaxed = true)
-        var onNickNameChangedCalledWith: String? = null
+        val profileEventBusMock = mockk<EventBus<ProfileEvent>>(relaxed = true)
         val identityStore = IdentityStoreImpl(
             identityProvider = identityProviderMock,
             preferenceStore = preferenceStoreMock,
             encryptedPreferenceStore = encryptedPreferenceStoreMock,
             derivePublicKey = { PUBLIC_KEY },
-            onNicknameChanged = { newNickName ->
-                onNickNameChangedCalledWith = newNickName
+            globalEventBuses = mockk {
+                every { profiles } returns profileEventBusMock
             },
         )
 
@@ -144,7 +146,7 @@ class IdentityStoreImplTest {
         assertContentEquals(PRIVATE_KEY, identityStore.getPrivateKey())
         assertEquals("foobar", identityStore.getServerGroup())
         assertEquals("01234567", identityStore.getPublicNickname())
-        assertEquals("01234567", onNickNameChangedCalledWith)
+        verify(exactly = 1) { profileEventBusMock.emit(ProfileEvent.NicknameUpdated("01234567")) }
     }
 
     @Test
@@ -154,20 +156,20 @@ class IdentityStoreImplTest {
         }
         val preferenceStoreMock = mockk<PreferenceStore>(relaxed = true)
         val encryptedPreferenceStoreMock = mockk<EncryptedPreferenceStore>()
-        var onNickNameChangedCalledWith: String? = null
+        val profileEventBusMock = mockk<EventBus<ProfileEvent>>(relaxed = true)
         val identityStore = IdentityStoreImpl(
             identityProvider = identityProviderMock,
             preferenceStore = preferenceStoreMock,
             encryptedPreferenceStore = encryptedPreferenceStoreMock,
-            onNicknameChanged = { newNickName ->
-                onNickNameChangedCalledWith = newNickName
+            globalEventBuses = mockk {
+                every { profiles } returns profileEventBusMock
             },
         )
 
         identityStore.setPublicNickname("Nicolas")
 
         assertEquals("Nicolas", identityStore.getPublicNickname())
-        assertEquals("Nicolas", onNickNameChangedCalledWith)
+        verify(exactly = 1) { profileEventBusMock.emit(ProfileEvent.NicknameUpdated("Nicolas")) }
         verify { preferenceStoreMock.save("nickname", "Nicolas") }
     }
 
@@ -188,7 +190,7 @@ class IdentityStoreImplTest {
             identityProvider = identityProviderMock,
             preferenceStore = preferenceStoreMock,
             encryptedPreferenceStore = encryptedPreferenceStoreMock,
-            onNicknameChanged = {},
+            globalEventBuses = mockk(),
         )
 
         identityStore.clear()

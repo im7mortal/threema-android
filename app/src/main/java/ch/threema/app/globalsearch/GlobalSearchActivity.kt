@@ -1,12 +1,12 @@
 package ch.threema.app.globalsearch
 
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Menu
-import android.view.ViewGroup
 import android.widget.CompoundButton
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,8 +19,8 @@ import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
 import ch.threema.android.buildActivityIntent
 import ch.threema.app.R
+import ch.threema.app.activities.ComposeMessageActivity
 import ch.threema.app.activities.ThreemaToolbarActivity
-import ch.threema.app.fragments.composemessage.ComposeMessageFragment.EXTRA_OVERRIDE_BACK_TO_HOME_BEHAVIOR
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.ConversationCategoryService
@@ -30,7 +30,7 @@ import ch.threema.app.services.MessageServiceImpl.FILTER_CHATS
 import ch.threema.app.services.MessageServiceImpl.FILTER_GROUPS
 import ch.threema.app.services.MessageServiceImpl.FILTER_INCLUDE_ARCHIVED
 import ch.threema.app.services.UserService
-import ch.threema.app.services.ballot.BallotService
+import ch.threema.app.services.poll.PollService
 import ch.threema.app.ui.EmptyRecyclerView
 import ch.threema.app.ui.EmptyView
 import ch.threema.app.ui.InsetSides
@@ -38,11 +38,11 @@ import ch.threema.app.ui.SpacingValues
 import ch.threema.app.ui.ThreemaSearchView
 import ch.threema.app.ui.applyDeviceInsetsAsPadding
 import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.ContactUtil
-import ch.threema.app.utils.GroupUtil
-import ch.threema.app.utils.IntentDataUtil
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationId
+import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.group.GroupMessageModel
 import com.bumptech.glide.Glide
@@ -63,7 +63,7 @@ class GlobalSearchActivity : ThreemaToolbarActivity(), SearchView.OnQueryTextLis
     private val userService: UserService by inject()
     private val groupService: GroupService by inject()
     private val conversationCategoryService: ConversationCategoryService by inject()
-    private val ballotService: BallotService by inject()
+    private val pollService: PollService by inject()
     private val preferenceService: PreferenceService by inject()
     private val globalSearchViewModel: GlobalSearchViewModel by viewModel()
 
@@ -147,7 +147,7 @@ class GlobalSearchActivity : ThreemaToolbarActivity(), SearchView.OnQueryTextLis
             groupService,
             contactService,
             userService,
-            ballotService,
+            pollService,
             conversationCategoryService,
             preferenceService,
         )
@@ -163,12 +163,11 @@ class GlobalSearchActivity : ThreemaToolbarActivity(), SearchView.OnQueryTextLis
         val recyclerView = this.findViewById<EmptyRecyclerView>(R.id.recycler_chats)
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.itemAnimator = DefaultItemAnimator()
-        val emptyView = EmptyView(this, ConfigUtils.getActionBarSize(this))
+        val emptyView = findViewById<EmptyView>(R.id.empty_view)
         emptyView.setup(
             R.string.global_search_empty_view_text,
             R.drawable.ic_search_outline,
         )
-        (recyclerView.parent.parent as ViewGroup).addView(emptyView)
         recyclerView.emptyView = emptyView
         emptyView.setLoading(true)
         recyclerView.adapter = chatsAdapter
@@ -184,13 +183,16 @@ class GlobalSearchActivity : ThreemaToolbarActivity(), SearchView.OnQueryTextLis
         lifecycleScope.launch {
             globalSearchViewModel.messageModels.collect { messageModels ->
                 val messageModelsWithoutPrivateChats = messageModels.filterNot { messageModel ->
-                    val uniqueIdString: String =
+                    val conversationId: ConversationId? =
                         if (messageModel is GroupMessageModel) {
-                            GroupUtil.getUniqueIdString(messageModel.groupId.toLong())
+                            GroupConversationId(groupDatabaseId = messageModel.groupId.toLong())
                         } else {
-                            ContactUtil.getUniqueIdString(messageModel.identity)
+                            messageModel.identity?.let(::ContactConversationId)
                         }
-                    conversationCategoryService.isPrivateChat(uniqueIdString)
+                    if (conversationId == null) {
+                        return@filterNot false
+                    }
+                    conversationCategoryService.isMarkedAsPrivate(conversationId)
                 }
 
                 chatsAdapter?.setMessageModels(messageModelsWithoutPrivateChats)
@@ -265,8 +267,12 @@ class GlobalSearchActivity : ThreemaToolbarActivity(), SearchView.OnQueryTextLis
             return
         }
         hideKeyboard()
-        val intent = IntentDataUtil.getJumpToMessageIntent(this, messageModel)
-        intent.putExtra(EXTRA_OVERRIDE_BACK_TO_HOME_BEHAVIOR, true)
+        val intent = ComposeMessageActivity.createIntentJumpToMessage(
+            context = this,
+            message = messageModel,
+            overrideBackToHomeBehavior = true,
+        )
+        intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         showMessageLauncher.launch(intent)
     }
 

@@ -36,32 +36,33 @@ import ch.threema.app.services.ContactService;
 import ch.threema.app.services.ConversationCategoryService;
 import ch.threema.app.services.GroupService;
 import ch.threema.app.services.UserService;
-import ch.threema.app.services.ballot.BallotService;
+import ch.threema.app.services.poll.PollService;
 import ch.threema.app.ui.AvatarListItemUtil;
 import ch.threema.app.ui.AvatarView;
 import ch.threema.app.ui.listitemholder.AvatarListItemHolder;
 import ch.threema.app.utils.ConfigUtils;
-import ch.threema.app.utils.ContactUtil;
-import ch.threema.app.utils.GroupUtil;
 import ch.threema.app.utils.IconUtil;
 import ch.threema.app.utils.LocaleUtil;
 import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.NameUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.utils.TextExtensionsKt;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
+import ch.threema.data.datatypes.ContactConversationId;
 import ch.threema.data.datatypes.ContactNameFormat;
+import ch.threema.data.datatypes.ConversationId;
+import ch.threema.data.datatypes.GroupConversationId;
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.group.GroupMessageModel;
 import ch.threema.storage.models.group.GroupModelOld;
 import ch.threema.storage.models.MessageType;
-import ch.threema.storage.models.ballot.BallotModel;
+import ch.threema.storage.models.poll.PollModel;
 import ch.threema.storage.models.data.LocationDataModel;
 import ch.threema.storage.models.data.MessageContentsType;
-import ch.threema.storage.models.data.media.BallotDataModel;
+import ch.threema.storage.models.data.media.PollDataModel;
 
 public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private static final Logger logger = getThreemaLogger("GlobalSearchAdapter");
@@ -74,7 +75,7 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
     @NonNull
     private final UserService userService;
     @NonNull
-    private final BallotService ballotService;
+    private final PollService pollService;
     @NonNull
     private final ConversationCategoryService conversationCategoryService;
     @NonNull
@@ -115,7 +116,7 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         @NonNull GroupService groupService,
         @NonNull ContactService contactService,
         @NonNull UserService userService,
-        @NonNull BallotService ballotService,
+        @NonNull PollService pollService,
         @NonNull ConversationCategoryService conversationCategoryService,
         @NonNull PreferenceService preferenceService
     ) {
@@ -126,7 +127,7 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         this.groupService = groupService;
         this.contactService = contactService;
         this.userService = userService;
-        this.ballotService = ballotService;
+        this.pollService = pollService;
         this.conversationCategoryService = conversationCategoryService;
         this.preferenceService = preferenceService;
     }
@@ -146,16 +147,26 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         if (messageModels != null) {
             AbstractMessageModel messageModel = getItem(position);
             viewHolder.snippetView.setVisibility(View.VISIBLE);
-            final @NonNull String uid = messageModel instanceof GroupMessageModel
-                ? GroupUtil.getUniqueIdString(((GroupMessageModel) messageModel).getGroupId())
-                : ContactUtil.getUniqueIdString(messageModel.getIdentity());
-            if (conversationCategoryService.isPrivateChat(uid)) {
+
+            final @Nullable ConversationId conversationId;
+            if (messageModel instanceof GroupMessageModel) {
+                conversationId = new GroupConversationId(
+                    ((GroupMessageModel) messageModel).getGroupId()
+                );
+            } else {
+                final @Nullable String identity = messageModel.getIdentity();
+                conversationId = identity != null
+                    ? new ContactConversationId(identity)
+                    : null;
+            }
+            final boolean isPrivateChat = conversationId != null && conversationCategoryService.isMarkedAsPrivate(conversationId);
+            if (isPrivateChat) {
                 viewHolder.dateView.setText("");
                 viewHolder.thumbnailView.setVisibility(View.GONE);
                 viewHolder.titleView.setText("");
                 viewHolder.snippetView.setText(R.string.private_chat_subject);
                 viewHolder.avatarListItemHolder.avatarView.setVisibility(View.INVISIBLE);
-                viewHolder.avatarListItemHolder.avatarView.setWorkBadgeVisible(false);
+                viewHolder.avatarListItemHolder.avatarView.setIdentityTypeBadgeVisible(false);
             } else if (messageModel.isDeleted()) {
                 initDeletedViewHolder(viewHolder, messageModel);
             } else {
@@ -180,12 +191,12 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
                     final ContactModel contactModel = this.contactService.getByIdentity(messageModel.getIdentity());
                     viewHolder.titleView.setText(getTitle(messageModel, contactModel));
                 }
-                viewHolder.dateView.setText(LocaleUtil.formatDateRelative(messageModel.getCreatedAt().getTime()));
+                viewHolder.dateView.setText(LocaleUtil.formatDateRelative(messageModel.getCreatedAt()));
 
                 if (messageModel.getType() == MessageType.FILE && messageModel.getFileData().isDownloaded()) {
                     loadThumbnail(messageModel, viewHolder);
                     viewHolder.thumbnailView.setVisibility(View.VISIBLE);
-                } else if (messageModel.getType() == MessageType.BALLOT) {
+                } else if (messageModel.getType() == MessageType.POLL) {
                     viewHolder.thumbnailView.setImageResource(R.drawable.ic_outline_rule);
                     viewHolder.thumbnailView.setVisibility(View.VISIBLE);
                     setupPlaceholder(viewHolder);
@@ -198,7 +209,7 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
                 if (viewHolder.snippetView.getText() == null || viewHolder.snippetView.getText().length() == 0) {
                     if (messageModel.getType() == MessageType.FILE) {
                         String mimeString = messageModel.getFileData().getMimeType();
-                        if (!TestUtil.isEmptyOrNull(mimeString)) {
+                        if (!isNullOrEmpty(mimeString)) {
                             viewHolder.snippetView.setText(MimeUtil.getMimeDescription(context, messageModel.getFileData().getMimeType()));
                         } else {
                             viewHolder.snippetView.setText("");
@@ -223,7 +234,7 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
     private void initDeletedViewHolder(@NonNull ViewHolder viewHolder, @NonNull AbstractMessageModel message) {
         viewHolder.snippetView.setVisibility(View.INVISIBLE);
         viewHolder.snippetView.setText("");
-        viewHolder.dateView.setText(LocaleUtil.formatDateRelative(message.getCreatedAt().getTime()));
+        viewHolder.dateView.setText(LocaleUtil.formatDateRelative(message.getCreatedAt()));
 
         if (message instanceof GroupMessageModel) {
             final GroupModelOld groupModel = groupService.getById(((GroupMessageModel) message).getGroupId());
@@ -267,7 +278,7 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         @DrawableRes int placeholderIcon;
 
         if (messageModel.getMessageContentsType() == MessageContentsType.VOICE_MESSAGE) {
-            placeholderIcon = R.drawable.ic_keyboard_voice_outline;
+            placeholderIcon = R.drawable.ic_microphone_outline;
         } else if (messageModel.getType() == MessageType.FILE) {
             placeholderIcon = IconUtil.getMimeIcon(messageModel.getFileData().getMimeType());
         } else {
@@ -325,7 +336,7 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
      */
     @NonNull
     private CharSequence getSnippet(@NonNull String fullText, @Nullable String needle, ViewHolder viewHolder) {
-        if (!TestUtil.isEmptyOrNull(needle)) {
+        if (!isNullOrEmpty(needle)) {
             int firstMatch = fullText.toLowerCase().indexOf(needle);
             if (firstMatch > snippetThreshold) {
                 int snippetStart = firstMatch > (snippetThreshold + 3) ? firstMatch - (snippetThreshold + 3) : 0;
@@ -364,24 +375,22 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         }
         switch (type) {
             case FILE:
-                // fallthrough
-            case IMAGE:
-                if (!TestUtil.isEmptyOrNull(messageModel.getCaption())) {
+                if (!isNullOrEmpty(messageModel.getCaption())) {
                     snippetText = getSnippet(messageModel.getCaption(), this.queryString, viewHolder);
                 }
                 break;
             case TEXT:
-                if (!TestUtil.isEmptyOrNull(messageModel.getBody())) {
+                if (!isNullOrEmpty(messageModel.getBody())) {
                     snippetText = getSnippet(messageModel.getBody(), this.queryString, viewHolder);
                 }
                 break;
-            case BALLOT:
+            case POLL:
                 snippetText = context.getString(R.string.attach_ballot);
-                if (!TestUtil.isEmptyOrNull(messageModel.getBody())) {
-                    BallotDataModel ballotData = messageModel.getBallotData();
-                    final BallotModel ballotModel = ballotService.get(ballotData.getBallotId());
-                    if (ballotModel != null) {
-                        snippetText = getSnippet(ballotModel.getName(), this.queryString, viewHolder);
+                if (!isNullOrEmpty(messageModel.getBody())) {
+                    PollDataModel pollData = messageModel.getPollData();
+                    final PollModel pollModel = pollService.get(pollData.getPollId());
+                    if (pollModel != null) {
+                        snippetText = getSnippet(pollModel.getName(), this.queryString, viewHolder);
                     }
                 }
                 break;

@@ -8,7 +8,7 @@ import ch.threema.app.utils.OutgoingCspMessageServices
 import ch.threema.app.utils.runBundledMessagesSendSteps
 import ch.threema.app.utils.toBasicContacts
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.repositories.GroupModelRepository
 import ch.threema.domain.models.MessageId
 import ch.threema.domain.models.UserState
@@ -21,7 +21,7 @@ import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.taskmanager.TransactionScope
 import ch.threema.domain.taskmanager.createTransaction
-import java.util.Date
+import java.time.Instant
 import kotlinx.serialization.Serializable
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -98,7 +98,7 @@ class OutgoingGroupDisbandTask(
                 receivers,
                 OutgoingCspGroupMessageCreator(
                     messageId,
-                    Date(),
+                    Instant.now(),
                     groupIdentity,
                 ) {
                     GroupSetupMessage().also {

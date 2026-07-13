@@ -4,7 +4,7 @@ import ch.threema.app.managers.ServiceManager
 import ch.threema.app.processors.incomingcspmessage.groupcontrol.handleIncomingGroupSyncRequest
 import ch.threema.app.processors.incomingcspmessage.groupcontrol.runCommonGroupReceiveSteps
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.GroupModel
 import ch.threema.domain.models.BasicContact
 import ch.threema.domain.models.Contact
@@ -17,7 +17,7 @@ import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageState
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.group.GroupMessageModel
-import java.util.Date
+import java.time.Instant
 
 private val logger = getThreemaLogger("IncomingForwardSecurityRejectTask")
 
@@ -168,14 +168,14 @@ class IncomingForwardSecurityRejectTask(
             MessageType.TEXT,
             MessageType.LOCATION,
             MessageType.FILE,
-            MessageType.BALLOT,
+            MessageType.POLL,
             -> {
                 // Mark the message with 're-send requested'. Note that we use the fs key mismatch
                 // state to represent the 're-send requested'-mark.
                 messageService.updateOutgoingMessageState(
                     messageModel,
                     MessageState.FS_KEY_MISMATCH,
-                    Date(),
+                    Instant.now(),
                 )
 
                 // Show a notification that a reject was received (if the contact is known)
@@ -184,12 +184,6 @@ class IncomingForwardSecurityRejectTask(
                         notificationService.showForwardSecurityMessageRejectedNotification(receiver)
                     }
             }
-
-            MessageType.IMAGE,
-            MessageType.VIDEO,
-            MessageType.VOICEMESSAGE,
-            MessageType.CONTACT,
-            -> logger.warn("Received a reject for a deprecated message")
 
             MessageType.STATUS,
             MessageType.VOIP_STATUS,
@@ -207,14 +201,14 @@ class IncomingForwardSecurityRejectTask(
             MessageType.TEXT,
             MessageType.LOCATION,
             MessageType.FILE,
-            MessageType.BALLOT,
+            MessageType.POLL,
             -> {
                 // Mark the message with 're-send requested'. Note that we use the fs key mismatch
                 // state to represent the 're-send requested'-mark.
                 messageService.updateOutgoingMessageState(
                     messageModel,
                     MessageState.FS_KEY_MISMATCH,
-                    Date(),
+                    Instant.now(),
                 )
 
                 // Add the sender to the list of recipients requesting a re-send
@@ -229,12 +223,6 @@ class IncomingForwardSecurityRejectTask(
                     notificationService.showForwardSecurityMessageRejectedNotification(it)
                 }
             }
-
-            MessageType.IMAGE,
-            MessageType.VIDEO,
-            MessageType.VOICEMESSAGE,
-            MessageType.CONTACT,
-            -> logger.warn("Received a reject for a deprecated message")
 
             MessageType.STATUS,
             MessageType.VOIP_STATUS,

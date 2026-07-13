@@ -20,7 +20,9 @@ import ch.threema.app.webclient.exceptions.ConversionException;
 import ch.threema.app.webclient.filters.MessageFilter;
 import ch.threema.app.webclient.services.instance.MessageDispatcher;
 import ch.threema.app.webclient.services.instance.MessageReceiver;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
 import ch.threema.storage.models.AbstractMessageModel;
 
 /**
@@ -75,7 +77,7 @@ public class MessageRequestHandler extends MessageReceiver {
         try {
             ch.threema.app.messagereceiver.MessageReceiver<?> receiver = this.getReceiver(args);
 
-            if (this.conversationCategoryService.isPrivateChat(receiver.getUniqueIdString())) {
+            if (this.conversationCategoryService.isMarkedAsPrivate(receiver.getConversationId())) {
                 //ignore it
                 logger.debug("do not reply with messages on private chat");
                 return;

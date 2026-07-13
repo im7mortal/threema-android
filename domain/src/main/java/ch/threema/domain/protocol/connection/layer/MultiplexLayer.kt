@@ -16,7 +16,6 @@ import ch.threema.domain.protocol.connection.data.InboundL2Message
 import ch.threema.domain.protocol.connection.data.OutboundD2mMessage
 import ch.threema.domain.protocol.connection.data.OutboundL2Message
 import ch.threema.domain.protocol.connection.data.OutboundL3Message
-import ch.threema.domain.protocol.connection.data.toHex
 import ch.threema.domain.protocol.connection.socket.ServerSocketCloseReason
 import ch.threema.domain.protocol.connection.util.ConnectionLoggingUtil
 import ch.threema.domain.protocol.connection.util.MdServerConnectionController
@@ -70,7 +69,7 @@ internal class MultiplexLayer(private val controller: ServerConnectionController
         }
         logger.info(
             "Handle inbound D2mContainer with payloadType={}",
-            container.payloadType.toHex(),
+            container.payloadType.toHexString(),
         )
         if (container.payloadType == D2mPayloadType.PROXY) {
             handleInboundCspMessage(getCspDataFromD2mProxyMessage(container))

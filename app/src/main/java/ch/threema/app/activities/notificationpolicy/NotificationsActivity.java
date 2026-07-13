@@ -29,6 +29,8 @@ import com.google.android.material.materialswitch.MaterialSwitch;
 import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
+import java.time.Instant;
+
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.OutOfQuotaPolicy;
 import androidx.work.WorkManager;
@@ -47,13 +49,17 @@ import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.utils.AnimationUtil;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.RingtoneUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.workers.ShareTargetUpdateWorker;
+import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverride;
+import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverridePolicy;
+import ch.threema.data.datatypes.ConversationId;
+import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverride;
+import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverridePolicy;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
-import static ch.threema.app.services.DeadlineListService.DEADLINE_INDEFINITE;
-import static ch.threema.app.services.DeadlineListService.DEADLINE_INDEFINITE_EXCEPT_MENTIONS;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public abstract class NotificationsActivity extends ThreemaActivity implements ShowOnceDialog.ShowOnceDialogClickListener, RingtoneSelectorDialog.RingtoneSelectorDialogClickListener {
 
@@ -84,14 +90,17 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
     protected int mutedTimerIndex;
     protected static final int[] muteTimerValuesInHours = {1, 2, 4, 8, 24, 144};
     private int[] animCenterLocation = {0, 0};
-    protected String uid, chatName;
+    protected ConversationId conversationId;
+    protected String chatName;
 
     private final ActivityResultLauncher<Intent> ringtonePickerLauncher = registerForActivityResult(
         new ActivityResultContracts.StartActivityForResult(),
         result -> {
             if (result.getResultCode() == Activity.RESULT_OK && result.getData() != null) {
-                Uri uri = result.getData().getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI);
-                onRingtoneSelected(DIALOG_TAG_RINGTONE_SELECTOR, uri);
+                final @Nullable Uri uri = result.getData().getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI);
+                if (uri != null) {
+                    onRingtoneSelected(DIALOG_TAG_RINGTONE_SELECTOR, uri);
+                }
             }
         }
     );
@@ -195,8 +204,8 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
         if (!ConfigUtils.supportsNotificationChannels()) {
             return;
         }
-        boolean isGroupChat = this instanceof GroupNotificationsActivity;
-        @NonNull Intent intent = NotificationChannels.INSTANCE.getPerConversationChannelSettingsIntent(this, chatName, uid, isGroupChat);
+        final boolean isGroupChat = this instanceof GroupNotificationsActivity;
+        final @NonNull Intent intent = NotificationChannels.getPerConversationChannelSettingsIntent(this, chatName, conversationId, isGroupChat);
         try {
             channelSettingsLauncher.launch(intent);
         } catch (ActivityNotFoundException e) {
@@ -205,12 +214,16 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
     }
 
     private void deleteIndividualSettings() {
-        NotificationChannels.INSTANCE.deletePerConversationChannel(this, uid);
+        NotificationChannels.deletePerConversationChannel(this, conversationId);
     }
 
     @Override
     public void onDestroy() {
-        ListenerManager.contactSettingsListeners.handle(listener -> listener.onNotificationSettingChanged(uid));
+        if (conversationId != null) {
+            ListenerManager.contactSettingsListeners.handle(
+                listener -> listener.onNotificationSettingChanged(conversationId)
+            );
+        }
         super.onDestroy();
     }
 
@@ -224,10 +237,10 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
     }
 
     protected void refreshSettings() {
-        if (isMutedRightNow()) {
-            final @Nullable Long muteOverrideUntilValue = getNotificationTriggerPolicyOverrideValue();
-            if (muteOverrideUntilValue != null && muteOverrideUntilValue != DEADLINE_INDEFINITE && muteOverrideUntilValue != DEADLINE_INDEFINITE_EXCEPT_MENTIONS) {
-                double hours = ((double) muteOverrideUntilValue - System.currentTimeMillis()) / DateUtils.HOUR_IN_MILLIS;
+        if (isMutedRightNow() && !isMutedExceptMentions()) {
+            final @Nullable Instant muteOverrideUntilValue = getExpiresAt();
+            if (muteOverrideUntilValue != null) {
+                double hours = ((double) muteOverrideUntilValue.toEpochMilli() - System.currentTimeMillis()) / DateUtils.HOUR_IN_MILLIS;
                 mutedTimerIndex = findNextHigherMuteIndex(hours);
             } else {
                 mutedTimerIndex = MUTE_INDEX_INDEFINITE;
@@ -245,7 +258,7 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
 
     @UiThread
     protected void updateUI() {
-        if (backupSoundCustom != null && !TestUtil.isEmptyOrNull(RingtoneUtil.getRingtoneNameFromUri(this, backupSoundCustom))) {
+        if (backupSoundCustom != null && !isNullOrEmpty(RingtoneUtil.getRingtoneNameFromUri(this, backupSoundCustom))) {
             textSoundCustom.setText(RingtoneUtil.getRingtoneNameFromUri(this, backupSoundCustom));
         } else {
             textSoundCustom.setText("");
@@ -257,13 +270,13 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
         // DND
         if (isMutedRightNow()) {
             if (!isMutedExceptMentions()) {
-                final @Nullable Long muteOverrideUntilValue = getNotificationTriggerPolicyOverrideValue();
+                final @Nullable Instant muteOverrideUntilValue = getExpiresAt();
 
                 String deadlineString = "";
-                if (muteOverrideUntilValue != null && muteOverrideUntilValue != DEADLINE_INDEFINITE && muteOverrideUntilValue != DEADLINE_INDEFINITE_EXCEPT_MENTIONS) {
+                if (muteOverrideUntilValue != null) {
                     deadlineString = "\n" + String.format(
                         getString(R.string.notifications_until),
-                        DateUtils.formatDateTime(this, muteOverrideUntilValue,
+                        DateUtils.formatDateTime(this, muteOverrideUntilValue.toEpochMilli(),
                             mutedTimerIndex < 4 ?
                                 DateUtils.FORMAT_SHOW_TIME :
                                 DateUtils.FORMAT_SHOW_DATE | DateUtils.FORMAT_SHOW_TIME
@@ -271,18 +284,22 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
                     );
                 }
 
+                String mutedForText;
                 if (mutedTimerIndex >= 0) {
                     enablePlusMinus(true);
                     radioSilentLimited.setChecked(true);
                     if (mutedTimerIndex >= 5) {
-                        radioSilentLimited.setText(getString(R.string.one_week) + deadlineString);
+                        mutedForText = getString(R.string.notifications_for_one_week);
                     } else {
-                        radioSilentLimited.setText(ConfigUtils.getSafeQuantityString(this, R.plurals.notifications_for_x_hours, muteTimerValuesInHours[mutedTimerIndex], muteTimerValuesInHours[mutedTimerIndex], muteTimerValuesInHours[mutedTimerIndex]) + deadlineString);
+                        int hours = muteTimerValuesInHours[mutedTimerIndex];
+                        mutedForText = getResources().getQuantityString(R.plurals.notifications_for_x_hours, hours, hours);
                     }
                 } else {
                     radioSilentUnlimited.setChecked(true);
-                    radioSilentLimited.setText((ConfigUtils.getSafeQuantityString(this, R.plurals.notifications_for_x_hours, muteTimerValuesInHours[0], muteTimerValuesInHours[0]) + deadlineString));
+                    int hours = muteTimerValuesInHours[0];
+                    mutedForText = getResources().getQuantityString(R.plurals.notifications_for_x_hours, hours, hours);
                 }
+                radioSilentLimited.setText(mutedForText + deadlineString);
             } else if (isMutedExceptMentions()) {
                 // mentions only
                 radioSilentExceptMentions.setChecked(true);
@@ -292,7 +309,7 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
         }
 
         // SOUND
-        if (dependencies.getRingtoneService().hasCustomRingtone(uid)) {
+        if (dependencies.getRingtoneService().hasCustomRingtone(conversationId)) {
             if (selectedRingtone == null || selectedRingtone.toString().equals(ServicesConstants.PREFERENCES_NULL)) {
                 // silent ringtone selected
                 radioSoundNone.setChecked(true);
@@ -312,8 +329,9 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
         }
 
         if (ConfigUtils.supportsNotificationChannels()) {
+            final @NonNull String channelId = conversationId.getObfuscated().value;
             NotificationManagerCompat notificationManagerCompat = NotificationManagerCompat.from(this);
-            NotificationChannelCompat notificationChannelCompat = notificationManagerCompat.getNotificationChannelCompat(uid);
+            NotificationChannelCompat notificationChannelCompat = notificationManagerCompat.getNotificationChannelCompat(channelId);
 
             notificationSettingsSwitch.setOnCheckedChangeListener(null);
             notificationSettingsSwitch.setChecked(notificationChannelCompat != null);
@@ -324,7 +342,10 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
                     if (dependencies.getPreferenceService().isOneTimeDialogShown(DIALOG_TAG_INDIVIDUAL_CONFIRM)) {
                         onYes(DIALOG_TAG_INDIVIDUAL_CONFIRM);
                     } else {
-                        ShowOnceDialog showOnceDialog = ShowOnceDialog.newInstance(R.string.individual_notification_settings, R.string.individual_notification_settings_warn);
+                        ShowOnceDialog showOnceDialog = ShowOnceDialog.newInstance(
+                            R.string.individual_notification_settings,
+                            R.string.individual_notification_settings_warn
+                        );
                         showOnceDialog.show(getSupportFragmentManager(), DIALOG_TAG_INDIVIDUAL_CONFIRM);
                     }
                 } else {
@@ -336,34 +357,45 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
     }
 
     public void setClickListeners() {
-
         parentLayout.findViewById(R.id.radio_sound_default).setOnClickListener(v -> {
-            dependencies.getRingtoneService().removeCustomRingtone(this.uid);
+            dependencies.getRingtoneService().removeCustomRingtone(this.conversationId);
             refreshSettings();
         });
 
         parentLayout.findViewById(R.id.radio_sound_custom).setOnClickListener(v -> {
-            pickRingtone(this.uid);
+            pickRingtone(this.conversationId);
             refreshSettings();
         });
 
         parentLayout.findViewById(R.id.text_sound).setOnClickListener(v -> {
-            pickRingtone(this.uid);
+            pickRingtone(this.conversationId);
             refreshSettings();
         });
 
         parentLayout.findViewById(R.id.radio_sound_none).setOnClickListener(v -> {
-            dependencies.getRingtoneService().setRingtone(this.uid, null);
+            dependencies.getRingtoneService().setRingtone(this.conversationId, null);
             refreshSettings();
         });
 
         parentLayout.findViewById(R.id.radio_silent_off).setOnClickListener(v -> {
-            onSettingChanged(null);
+            onContactNotificationTriggerPolicyOverrideChanged(null);
+            onGroupNotificationTriggerPolicyOverrideChanged(null);
             refreshSettings();
         });
 
         parentLayout.findViewById(R.id.radio_silent_unlimited).setOnClickListener(v -> {
-            onSettingChanged(DEADLINE_INDEFINITE);
+            onContactNotificationTriggerPolicyOverrideChanged(
+                new ContactNotificationTriggerPolicyOverride(
+                    ContactNotificationTriggerPolicyOverridePolicy.NEVER,
+                    null
+                )
+            );
+            onGroupNotificationTriggerPolicyOverrideChanged(
+                new GroupNotificationTriggerPolicyOverride(
+                    GroupNotificationTriggerPolicyOverridePolicy.NEVER,
+                    null
+                )
+            );
             refreshSettings();
         });
 
@@ -371,27 +403,65 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
             if (mutedTimerIndex < 0) {
                 mutedTimerIndex = 0;
             }
-            final @NonNull Long muteUntilUtcMillis = muteTimerValuesInHours[mutedTimerIndex] * DateUtils.HOUR_IN_MILLIS + System.currentTimeMillis();
-            onSettingChanged(muteUntilUtcMillis);
+            final long expiresAt = muteTimerValuesInHours[mutedTimerIndex] * DateUtils.HOUR_IN_MILLIS + System.currentTimeMillis();
+            onContactNotificationTriggerPolicyOverrideChanged(
+                new ContactNotificationTriggerPolicyOverride(
+                    ContactNotificationTriggerPolicyOverridePolicy.NEVER,
+                    Instant.ofEpochMilli(expiresAt)
+                )
+            );
+            onGroupNotificationTriggerPolicyOverrideChanged(
+                new GroupNotificationTriggerPolicyOverride(
+                    GroupNotificationTriggerPolicyOverridePolicy.NEVER,
+                    Instant.ofEpochMilli(expiresAt)
+                )
+            );
             refreshSettings();
         });
 
         parentLayout.findViewById(R.id.radio_silent_except_mentions).setOnClickListener(v -> {
-            onSettingChanged(DEADLINE_INDEFINITE_EXCEPT_MENTIONS);
+            onGroupNotificationTriggerPolicyOverrideChanged(
+                new GroupNotificationTriggerPolicyOverride(
+                    GroupNotificationTriggerPolicyOverridePolicy.MENTIONED,
+                    null
+                )
+            );
             refreshSettings();
         });
 
         parentLayout.findViewById(R.id.duration_plus).setOnClickListener(v -> {
             mutedTimerIndex = Math.min(mutedTimerIndex + 1, muteTimerValuesInHours.length - 1);
-            final @NonNull Long muteUntilUtcMillis = muteTimerValuesInHours[mutedTimerIndex] * DateUtils.HOUR_IN_MILLIS + System.currentTimeMillis();
-            onSettingChanged(muteUntilUtcMillis);
+            final long expiresAt = muteTimerValuesInHours[mutedTimerIndex] * DateUtils.HOUR_IN_MILLIS + System.currentTimeMillis();
+            onContactNotificationTriggerPolicyOverrideChanged(
+                new ContactNotificationTriggerPolicyOverride(
+                    ContactNotificationTriggerPolicyOverridePolicy.NEVER,
+                    Instant.ofEpochMilli(expiresAt)
+                )
+            );
+            onGroupNotificationTriggerPolicyOverrideChanged(
+                new GroupNotificationTriggerPolicyOverride(
+                    GroupNotificationTriggerPolicyOverridePolicy.NEVER,
+                    Instant.ofEpochMilli(expiresAt)
+                )
+            );
             refreshSettings();
         });
 
         parentLayout.findViewById(R.id.duration_minus).setOnClickListener(v -> {
             mutedTimerIndex = Math.max(mutedTimerIndex - 1, 0);
-            final @NonNull Long muteUntilUtcMillis = muteTimerValuesInHours[mutedTimerIndex] * DateUtils.HOUR_IN_MILLIS + System.currentTimeMillis();
-            onSettingChanged(muteUntilUtcMillis);
+            final long expiresAt = muteTimerValuesInHours[mutedTimerIndex] * DateUtils.HOUR_IN_MILLIS + System.currentTimeMillis();
+            onContactNotificationTriggerPolicyOverrideChanged(
+                new ContactNotificationTriggerPolicyOverride(
+                    ContactNotificationTriggerPolicyOverridePolicy.NEVER,
+                    Instant.ofEpochMilli(expiresAt)
+                )
+            );
+            onGroupNotificationTriggerPolicyOverrideChanged(
+                new GroupNotificationTriggerPolicyOverride(
+                    GroupNotificationTriggerPolicyOverridePolicy.NEVER,
+                    Instant.ofEpochMilli(expiresAt)
+                )
+            );
             refreshSettings();
         });
 
@@ -412,12 +482,13 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
         radioSilentUnlimited = this.findViewById(R.id.radio_silent_unlimited);
         radioSilentLimited = this.findViewById(R.id.radio_silent_limited);
         radioSilentLimited = this.findViewById(R.id.radio_silent_limited);
-        radioSilentLimited.setText(ConfigUtils.getSafeQuantityString(this, R.plurals.notifications_for_x_hours, muteTimerValuesInHours[0], muteTimerValuesInHours[0]));
+        int hours = muteTimerValuesInHours[0];
+        radioSilentLimited.setText(getResources().getQuantityString(R.plurals.notifications_for_x_hours, hours, hours));
         radioSilentExceptMentions = this.findViewById(R.id.radio_silent_except_mentions);
     }
 
-    protected void pickRingtone(String uniqueId) {
-        Uri existingUri = dependencies.getRingtoneService().getRingtoneFromUniqueId(uniqueId);
+    protected void pickRingtone(@NonNull ConversationId conversationId) {
+        Uri existingUri = dependencies.getRingtoneService().getRingtoneByConversationId(conversationId);
         if (existingUri != null && existingUri.getPath() != null && existingUri.getPath().equals(ServicesConstants.PREFERENCES_NULL)) {
             existingUri = null;
         }
@@ -463,7 +534,7 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
 
     @Override
     public void onRingtoneSelected(String tag, @NonNull Uri ringtone) {
-        dependencies.getRingtoneService().setRingtone(uid, ringtone);
+        dependencies.getRingtoneService().setRingtone(conversationId, ringtone);
         backupSoundCustom = ringtone;
         refreshSettings();
     }
@@ -491,7 +562,13 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
         }
     }
 
-    protected abstract void onSettingChanged(@Nullable final Long mutedOverrideUntil);
+    protected abstract void onContactNotificationTriggerPolicyOverrideChanged(
+        @Nullable final ContactNotificationTriggerPolicyOverride notificationTriggerPolicyOverride
+    );
+
+    protected abstract void onGroupNotificationTriggerPolicyOverrideChanged(
+        @Nullable final GroupNotificationTriggerPolicyOverride notificationTriggerPolicyOverride
+    );
 
     // Also respects current system time
     protected abstract boolean isMutedRightNow();
@@ -499,5 +576,5 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
     protected abstract boolean isMutedExceptMentions();
 
     @Nullable
-    protected abstract Long getNotificationTriggerPolicyOverrideValue();
+    protected abstract Instant getExpiresAt();
 }

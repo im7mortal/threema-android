@@ -1,6 +1,6 @@
 package ch.threema.domain.protocol.csp.messages;
 
-import java.util.Date;
+import java.time.Instant;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -22,12 +22,12 @@ public abstract class AbstractMessage implements MessageTypeProperties, MessageF
     private String toIdentity;
     private MessageId messageId;
     private String nickname;
-    private Date date;
+    private Instant timestamp;
     private int messageFlags;
     private ForwardSecurityMode forwardSecurityMode;
 
     public AbstractMessage() {
-        this.date = new Date();
+        this.timestamp = Instant.now();
         this.messageId = MessageId.random();
         this.forwardSecurityMode = ForwardSecurityMode.NONE;
         this.messageFlags = getMessageTypeDefaultFlags();
@@ -92,12 +92,12 @@ public abstract class AbstractMessage implements MessageTypeProperties, MessageF
         this.nickname = nickname;
     }
 
-    public Date getDate() {
-        return date;
+    public Instant getTimestamp() {
+        return timestamp;
     }
 
-    public void setDate(Date date) {
-        this.date = date;
+    public void setTimestamp(Instant timestamp) {
+        this.timestamp = timestamp;
     }
 
     /**
@@ -158,7 +158,7 @@ public abstract class AbstractMessage implements MessageTypeProperties, MessageF
     public void initializeCommonProperties(@NonNull IncomingMessage message) {
         this.fromIdentity = message.getSenderIdentity();
         this.messageId = new MessageId(message.getMessageId());
-        this.date = new Date(message.getCreatedAt());
+        this.timestamp = Instant.ofEpochMilli(message.getCreatedAt());
     }
 
     /**
@@ -168,6 +168,6 @@ public abstract class AbstractMessage implements MessageTypeProperties, MessageF
      */
     protected void initializeCommonProperties(@NonNull OutgoingMessage message) {
         this.messageId = new MessageId((message.getMessageId()));
-        this.date = new Date(message.getCreatedAt());
+        this.timestamp = Instant.ofEpochMilli(message.getCreatedAt());
     }
 }

@@ -2,17 +2,17 @@ package ch.threema.app.files
 
 import android.content.Context
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import ch.threema.android.buildOneTimeWorkRequest
-import ch.threema.android.setInitialDelay
+import ch.threema.android.buildPeriodicWorkRequest
 import ch.threema.android.setInputData
 import ch.threema.app.workers.WorkerNames.WORKER_TEMP_FILES_CLEANUP
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.TimeProvider
-import ch.threema.common.deleteSecurely
+import ch.threema.common.deleteOrThrow
 import ch.threema.common.isEmptyDirectory
 import ch.threema.common.lastModifiedTime
 import ch.threema.common.minus
@@ -20,8 +20,8 @@ import java.io.File
 import java.io.IOException
 import java.time.Instant
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -55,7 +55,7 @@ class TempFilesCleanupWorker(
                 } else if (file.isFile) {
                     try {
                         logger.info("Deleting temp file {}", file.path)
-                        file.deleteSecurely(applicationContext.filesDir)
+                        file.deleteOrThrow()
                     } catch (e: IOException) {
                         logger.error("Failed to delete temp file", e)
                     }
@@ -72,31 +72,44 @@ class TempFilesCleanupWorker(
             // Don't delete the JNA cache directory
             return false
         }
+        if (file == appDirectoryProvider.shareDirectory) {
+            // Don't delete the "share" directory, as some parts of the app don't expect it to be missing
+            return false
+        }
         return true
     }
 
     private fun getAgeThreshold(): Duration =
         inputData.getLong(EXTRA_AGE_THRESHOLD, 0L).milliseconds
 
+    class Scheduler(
+        private val workManager: WorkManager,
+    ) {
+        fun schedulePeriodicCleanup() {
+            workManager.enqueueUniquePeriodicWork(
+                WORKER_TEMP_FILES_CLEANUP,
+                ExistingPeriodicWorkPolicy.UPDATE,
+                buildPeriodicWorkRequest<TempFilesCleanupWorker>(REPETITION_INTERVAL) {
+                    setInputData {
+                        putLong(EXTRA_AGE_THRESHOLD, FILE_AGE_THRESHOLD.inWholeMilliseconds)
+                    }
+                },
+            )
+        }
+
+        fun scheduleImmediateFullCleanup() {
+            workManager.enqueueUniqueWork(
+                WORKER_TEMP_FILES_CLEANUP,
+                ExistingWorkPolicy.APPEND,
+                buildOneTimeWorkRequest<TempFilesCleanupWorker>(),
+            )
+        }
+    }
+
     companion object {
         private const val EXTRA_AGE_THRESHOLD = "ageThreshold"
 
-        @JvmStatic
-        @JvmOverloads
-        fun enqueue(context: Context, fileAgeThreshold: Duration = Duration.ZERO) {
-            WorkManager.getInstance(context)
-                .enqueueUniqueWork(WORKER_TEMP_FILES_CLEANUP, ExistingWorkPolicy.APPEND, buildWorkRequest(fileAgeThreshold))
-        }
-
-        private fun buildWorkRequest(ageThreshold: Duration): OneTimeWorkRequest =
-            buildOneTimeWorkRequest<TempFilesCleanupWorker> {
-                setInputData {
-                    putLong(EXTRA_AGE_THRESHOLD, ageThreshold.inWholeMilliseconds)
-                }
-                if (ageThreshold != Duration.ZERO) {
-                    // Cleanup doesn't need to happen immediately
-                    setInitialDelay(20.seconds)
-                }
-            }
+        private val REPETITION_INTERVAL = 10.hours
+        private val FILE_AGE_THRESHOLD = 2.hours
     }
 }

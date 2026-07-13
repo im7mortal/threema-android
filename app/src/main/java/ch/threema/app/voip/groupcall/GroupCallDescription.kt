@@ -6,15 +6,13 @@ import androidx.annotation.WorkerThread
 import ch.threema.app.voip.groupcall.sfu.CallId
 import ch.threema.app.voip.groupcall.sfu.GroupCallState
 import ch.threema.base.crypto.NaCl
-import ch.threema.base.utils.Utils
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.generateRandomBytes
-import ch.threema.common.now
 import ch.threema.common.secureRandom
 import ch.threema.common.toHexString
 import ch.threema.data.datatypes.LocalGroupId
 import ch.threema.storage.models.group.GroupCallModel
-import java.util.Date
+import java.time.Instant
 
 private val logger = getThreemaLogger("GroupCallDescription")
 
@@ -53,7 +51,7 @@ data class GroupCallDescription(
     }
 
     @AnyThread
-    fun getStartedAtDate(): Date = Date(startedAt.toLong())
+    fun getStartedAtDate(): Instant = Instant.ofEpochMilli(startedAt.toLong())
 
     /**
      * Get the running time of this call in milliseconds.
@@ -64,7 +62,7 @@ data class GroupCallDescription(
      * @return The time in milliseconds since this call has been started
      */
     fun getRunningSinceStarted(): Long? {
-        val currentTime: Long = now().time
+        val currentTime: Long = System.currentTimeMillis()
         return if (currentTime >= startedAt.toLong()) {
             val durationMs: Long = currentTime - startedAt.toLong()
             SystemClock.elapsedRealtime() - durationMs
@@ -85,7 +83,7 @@ data class GroupCallDescription(
      * @return The time in milliseconds since this call has been processed
      */
     fun getRunningSinceProcessed(): Long {
-        val currentTime: Long = now().time
+        val currentTime: Long = System.currentTimeMillis()
         val durationMs: Long = (currentTime - processedAt.toLong()).coerceAtLeast(0L)
         return SystemClock.elapsedRealtime() - durationMs
     }
@@ -196,13 +194,13 @@ data class GroupCallDescription(
 
 fun GroupCallModel.toGroupCallDescription(): GroupCallDescription {
     return GroupCallDescription(
-        getProtocolVersionUnsigned(),
-        LocalGroupId(groupId),
-        sfuBaseUrl,
-        CallId(Utils.hexStringToByteArray(callId)),
-        Utils.hexStringToByteArray(gck),
-        getStartedAtUnsigned(),
-        getProcessedAtUnsigned(),
-        null,
+        protocolVersion = getProtocolVersionUnsigned(),
+        groupId = LocalGroupId(groupId),
+        sfuBaseUrl = sfuBaseUrl,
+        callId = CallId(callId.hexToByteArray()),
+        gck = gck.hexToByteArray(),
+        startedAt = getStartedAtUnsigned(),
+        processedAt = getProcessedAtUnsigned(),
+        maxParticipants = null,
     )
 }

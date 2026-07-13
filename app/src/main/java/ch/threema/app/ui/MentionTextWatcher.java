@@ -11,6 +11,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import androidx.annotation.NonNull;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
+import ch.threema.android.textwatchers.SimpleTextWatcher;
+
 public class MentionTextWatcher extends SimpleTextWatcher {
     private static final Logger logger = getThreemaLogger("MentionTextWatcher");
 

@@ -49,7 +49,7 @@ public class ForwardSecurityEnvelopeMessage extends AbstractProtobufMessage<Forw
         setFromIdentity(innerMessage.getFromIdentity());
         setToIdentity(innerMessage.getToIdentity());
         setMessageId(innerMessage.getMessageId());
-        setDate(innerMessage.getDate());
+        setTimestamp(innerMessage.getTimestamp());
         setMessageFlags(innerMessage.getMessageFlags());
         setNickname(innerMessage.getNickname());
         setForwardSecurityMode(forwardSecurityMode);

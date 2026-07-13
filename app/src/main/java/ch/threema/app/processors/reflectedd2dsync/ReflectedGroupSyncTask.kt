@@ -1,22 +1,20 @@
 package ch.threema.app.processors.reflectedd2dsync
 
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.GroupEvent
 import ch.threema.app.multidevice.MultiDeviceManager
-import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ConversationCategoryService
-import ch.threema.app.services.ConversationService
-import ch.threema.app.services.DeadlineListService.DEADLINE_INDEFINITE
-import ch.threema.app.services.DeadlineListService.DEADLINE_INDEFINITE_EXCEPT_MENTIONS
 import ch.threema.app.services.FileService
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.UserService
 import ch.threema.app.utils.AppVersionProvider
 import ch.threema.app.utils.ExifInterface
-import ch.threema.app.utils.GroupUtil
-import ch.threema.app.utils.ShortcutUtil
 import ch.threema.base.crypto.SymmetricEncryptionService
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.ConversationVisibility
+import ch.threema.data.datatypes.GroupConversationId
+import ch.threema.data.datatypes.GroupIdentity
+import ch.threema.data.datatypes.GroupState
 import ch.threema.data.models.GroupModel
 import ch.threema.data.models.GroupModelData
 import ch.threema.data.repositories.GroupAlreadyExistsException
@@ -28,17 +26,18 @@ import ch.threema.domain.protocol.blob.BlobScope
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.taskmanager.ProtocolException
 import ch.threema.domain.taskmanager.TriggerSource
+import ch.threema.domain.types.Identity
 import ch.threema.domain.types.IdentityString
+import ch.threema.logging.logAndReportError
 import ch.threema.protobuf.common.Blob
 import ch.threema.protobuf.common.DeltaImage
 import ch.threema.protobuf.d2d.GroupSync
 import ch.threema.protobuf.d2d.sync.ConversationCategory
-import ch.threema.protobuf.d2d.sync.ConversationVisibility
+import ch.threema.protobuf.d2d.sync.ConversationVisibility as ProtocolsConversationVisibility
 import ch.threema.protobuf.d2d.sync.Group
-import ch.threema.storage.models.ConversationModel
-import ch.threema.storage.models.ConversationTag
+import ch.threema.protobuf.toDataType
+import java.time.Instant
 import java.util.Collections
-import java.util.Date
 import okhttp3.OkHttpClient
 
 private val logger = getThreemaLogger("ReflectedGroupSyncTask")
@@ -53,8 +52,7 @@ class ReflectedGroupSyncTask(
     private val symmetricEncryptionService: SymmetricEncryptionService,
     private val multiDeviceManager: MultiDeviceManager,
     private val conversationCategoryService: ConversationCategoryService,
-    private val conversationService: ConversationService,
-    private val preferenceService: PreferenceService,
+    private val globalEventBuses: GlobalEventBuses,
     userService: UserService,
 ) {
     private val myIdentity by lazy { userService.identity }
@@ -141,7 +139,7 @@ class ReflectedGroupSyncTask(
     private fun applyNotificationTriggerPolicyOverride(group: Group, groupModel: GroupModel) {
         if (group.hasNotificationTriggerPolicyOverride()) {
             groupModel.setNotificationTriggerPolicyOverrideFromSync(
-                group.notificationTriggerPolicyOverride.convert(),
+                group.notificationTriggerPolicyOverride.toDataType(),
             )
         }
     }
@@ -150,11 +148,8 @@ class ReflectedGroupSyncTask(
         if (group.hasProfilePicture()) {
             when (group.profilePicture.imageCase) {
                 DeltaImage.ImageCase.REMOVED -> removeGroupAvatar(groupModel)
-
                 DeltaImage.ImageCase.UPDATED -> group.profilePicture.updated.blob.loadGroupProfilePictureAndMarkAsDone(groupModel)
-
                 DeltaImage.ImageCase.IMAGE_NOT_SET -> logger.warn("Profile picture image case not set")
-
                 null -> logger.warn("Profile picture image case is null")
             }
         }
@@ -162,9 +157,11 @@ class ReflectedGroupSyncTask(
 
     private fun applyMembers(
         group: Group,
-        memberStateMap: Map<String, GroupSync.Update.MemberStateChange>,
+        memberStateMap: Map<IdentityString, GroupSync.Update.MemberStateChange>,
         groupModel: GroupModel,
     ) {
+        val previousGroupState = groupModel.getGroupState()
+
         // Abort if the member identities are not set
         if (!group.hasMemberIdentities()) {
             if (memberStateMap.isNotEmpty()) {
@@ -175,12 +172,10 @@ class ReflectedGroupSyncTask(
 
         // Note that the member list should not contain the user and the creator.
         if (group.memberIdentities.identitiesList.contains(myIdentity!!)) {
-            // TODO(ANDR-4545): Log if this happens
-            logger.error("Member identities of a group should not contain the user identity")
+            logger.logAndReportError("Member identities of a group should not contain the user identity")
         }
         if (group.memberIdentities.identitiesList.contains(group.groupIdentity.creatorIdentity)) {
-            // TODO(ANDR-4545): Log if this happens
-            logger.error("Member identities of a group should not contain the group creator")
+            logger.logAndReportError("Member identities of a group should not contain the group creator")
         }
         val updatedMembers = (group.memberIdentities.identitiesList - myIdentity!! - group.groupIdentity.creatorIdentity).toSet()
 
@@ -205,10 +200,9 @@ class ReflectedGroupSyncTask(
                             identity,
                         )
 
-                        else -> notifyDeprecatedOnNewMemberListeners(
-                            groupModel.groupIdentity,
-                            identity,
-                        )
+                        else -> {
+                            globalEventBuses.groups.emit(GroupEvent.NewMember(groupModel.groupIdentity, Identity(identity)))
+                        }
                     }
                 }
 
@@ -224,21 +218,31 @@ class ReflectedGroupSyncTask(
                             identity,
                         )
 
-                        state == GroupSync.Update.MemberStateChange.LEFT -> notifyDeprecatedOnMemberLeaveListeners(
-                            groupModel.groupIdentity,
-                            identity,
-                        )
+                        state == GroupSync.Update.MemberStateChange.LEFT -> {
+                            globalEventBuses.groups.emit(GroupEvent.MemberLeft(groupModel.groupIdentity, Identity(identity)))
+                        }
 
-                        else ->
-                            notifyDeprecatedOnMemberKickedListeners(
-                                groupModel.groupIdentity,
-                                identity,
-                            )
+                        else -> {
+                            globalEventBuses.groups.emit(GroupEvent.MemberKicked(groupModel.groupIdentity, Identity(identity)))
+                        }
                     }
                 }
 
                 GroupSync.Update.MemberStateChange.UNRECOGNIZED -> logger.warn("Member state change unrecognized")
             }
+        }
+
+        if (previousGroupState != null) {
+            notifyGroupStateChangeIfNeeded(groupModel, previousGroupState)
+        }
+    }
+
+    private fun notifyGroupStateChangeIfNeeded(groupModel: GroupModel, previousGroupState: GroupState) {
+        val newGroupState = groupModel.getGroupState() ?: return
+        if (previousGroupState != newGroupState) {
+            globalEventBuses.groups.emit(
+                GroupEvent.GroupStateChanged(groupModel.groupIdentity, newState = newGroupState),
+            )
         }
     }
 
@@ -246,111 +250,26 @@ class ReflectedGroupSyncTask(
         if (!group.hasConversationCategory()) {
             return
         }
-
+        val groupConversationId = GroupConversationId(groupDatabaseId = groupModel.getDatabaseId())
         when (group.conversationCategory) {
-            ConversationCategory.DEFAULT -> conversationCategoryService.persistDefaultChat(GroupUtil.getUniqueIdString(groupModel))
-            ConversationCategory.PROTECTED -> conversationCategoryService.persistPrivateChat(GroupUtil.getUniqueIdString(groupModel))
+            ConversationCategory.DEFAULT -> conversationCategoryService.persistRemovePrivateMark(groupConversationId)
+            ConversationCategory.PROTECTED -> conversationCategoryService.persistAddPrivateMark(groupConversationId)
             ConversationCategory.UNRECOGNIZED -> unrecognizedValue("Group.conversationCategory")
             null -> nullValue("Group.conversationCategory")
         }
     }
 
     private fun applyConversationVisibility(group: Group, groupModel: GroupModel) {
-        if (group.hasConversationVisibility()) {
-            when (group.conversationVisibility) {
-                ConversationVisibility.NORMAL -> {
-                    val archivedConversationModel = getArchivedConversationModel(groupModel.getDatabaseId())
-                    if (archivedConversationModel != null) {
-                        conversationService.unarchive(listOf(archivedConversationModel), TriggerSource.SYNC)
-                    }
-                    val conversationModel = getConversationModel(groupModel.getDatabaseId())
-                    if (conversationModel != null) {
-                        conversationService.untag(conversationModel, ConversationTag.PINNED, TriggerSource.SYNC)
-                    } else {
-                        logger.error("The conversation intended to have normal visibility was not found.")
-                    }
-                }
+        val conversationVisibility = group.getConversationVisibilityOrNull()
+            ?: return
 
-                ConversationVisibility.ARCHIVED -> {
-                    val conversationModel = getConversationModel(groupModel.getDatabaseId())
-                    if (conversationModel != null) {
-                        conversationService.untag(conversationModel, ConversationTag.PINNED, TriggerSource.SYNC)
-                        conversationService.archive(conversationModel, TriggerSource.SYNC)
-                    } else if (getArchivedConversationModel(groupModel.getDatabaseId()) != null) {
-                        logger.warn("Conversation already is archived")
-                    } else {
-                        logger.error("The conversation intended to be archived was not found.")
-                    }
-                }
-
-                ConversationVisibility.PINNED -> {
-                    val archivedConversationModel = getArchivedConversationModel(groupModel.getDatabaseId())
-                    if (archivedConversationModel != null) {
-                        conversationService.unarchive(listOf(archivedConversationModel), TriggerSource.SYNC)
-                    }
-                    val conversationModel = getConversationModel(groupModel.getDatabaseId())
-                    if (conversationModel != null) {
-                        conversationService.tag(conversationModel, ConversationTag.PINNED, TriggerSource.SYNC)
-                    } else {
-                        logger.error("The conversation intended to be pinned was not found.")
-                    }
-                }
-
-                ConversationVisibility.UNRECOGNIZED -> unrecognizedValue("conversation visibility")
-
-                null -> nullValue("conversation visibility")
-            }
-        }
-    }
-
-    private fun getConversationModel(localGroupDatabaseId: Long): ConversationModel? {
-        // We need load the conversations from the database. This is due to a race condition in the conversation service when the user pins an
-        // archived group.
-        return conversationService.getAll(true).find { it.group?.id?.toLong() == localGroupDatabaseId }
-    }
-
-    private fun getArchivedConversationModel(localGroupDatabaseId: Long): ConversationModel? {
-        return conversationService.getArchived().find { it.group?.id?.toLong() == localGroupDatabaseId }
-    }
-
-    /**
-     * Synchronously notify new group member listeners.
-     */
-    private fun notifyDeprecatedOnNewMemberListeners(
-        groupIdentity: GroupIdentity,
-        newIdentity: IdentityString,
-    ) {
-        ListenerManager.groupListeners.handle { it.onNewMember(groupIdentity, newIdentity) }
-    }
-
-    /**
-     * Synchronously notify group member left listeners.
-     */
-    private fun notifyDeprecatedOnMemberLeaveListeners(
-        groupIdentity: GroupIdentity,
-        leftIdentity: IdentityString,
-    ) {
-        ListenerManager.groupListeners.handle { it.onMemberLeave(groupIdentity, leftIdentity) }
-    }
-
-    /**
-     * Synchronously notify group member kicked listeners.
-     */
-    private fun notifyDeprecatedOnMemberKickedListeners(
-        groupIdentity: GroupIdentity,
-        kickedIdentity: IdentityString,
-    ) {
-        ListenerManager.groupListeners.handle { it.onMemberKicked(groupIdentity, kickedIdentity) }
+        groupModel.setConversationVisibilityFromSync(conversationVisibility)
     }
 
     private fun removeGroupAvatar(groupModel: GroupModel) {
-        if (fileService.hasGroupProfilePicture(groupModel)) {
+        if (fileService.hasGroupProfilePicture(groupModel.getDatabaseId())) {
             fileService.removeGroupProfilePicture(groupModel)
-            ListenerManager.groupListeners.handle { it.onUpdatePhoto(groupModel.groupIdentity) }
-            ShortcutUtil.updateShareTargetShortcut(
-                groupService.createReceiver(groupModel),
-                preferenceService.getContactNameFormat(),
-            )
+            globalEventBuses.groups.emit(GroupEvent.GroupProfilePictureUpdated(groupModel.groupIdentity))
         }
     }
 
@@ -372,11 +291,7 @@ class ReflectedGroupSyncTask(
                 }
 
                 fileService.writeGroupProfilePicture(groupModel, blobLoadingResult.blobBytes)
-                ListenerManager.groupListeners.handle { it.onUpdatePhoto(groupModel.groupIdentity) }
-                ShortcutUtil.updateShareTargetShortcut(
-                    groupService.createReceiver(groupModel),
-                    preferenceService.getContactNameFormat(),
-                )
+                globalEventBuses.groups.emit(GroupEvent.GroupProfilePictureUpdated(groupModel.groupIdentity))
             }
 
             is ReflectedBlobDownloader.BlobLoadingResult.BlobMirrorNotAvailable -> {
@@ -402,19 +317,41 @@ class ReflectedGroupSyncTask(
         }
     }
 
-    private fun Group.toNewGroupModelData(): GroupModelData = GroupModelData(
-        groupIdentity = groupIdentity.convert(),
-        name = name,
-        createdAt = Date(createdAt),
-        synchronizedAt = null,
-        lastUpdate = Date(),
-        isArchived = false,
-        groupDescription = null,
-        groupDescriptionChangedAt = null,
-        otherMembers = Collections.unmodifiableSet(getMembers() - groupIdentity.creatorIdentity - myIdentity),
-        userState = userState.convert() ?: UserState.MEMBER,
-        notificationTriggerPolicyOverride = notificationTriggerPolicyOverride.convert(),
-    )
+    private fun Group.toNewGroupModelData(): GroupModelData {
+        val groupNotificationTriggerPolicyOverride = if (hasNotificationTriggerPolicyOverride()) {
+            notificationTriggerPolicyOverride.toDataType()
+        } else {
+            null
+        }
+
+        return GroupModelData(
+            groupIdentity = groupIdentity.convert(),
+            name = name,
+            createdAt = Instant.ofEpochMilli(createdAt),
+            synchronizedAt = null,
+            lastUpdate = Instant.now(),
+            conversationVisibility = getConversationVisibilityOrNull() ?: ConversationVisibility.NORMAL,
+            groupDescription = null,
+            groupDescriptionChangedAt = null,
+            otherMembers = Collections.unmodifiableSet(getMembers() - groupIdentity.creatorIdentity - myIdentity),
+            userState = userState.convert() ?: UserState.MEMBER,
+            notificationTriggerPolicyOverride = groupNotificationTriggerPolicyOverride,
+        )
+    }
+
+    private fun Group.getConversationVisibilityOrNull(): ConversationVisibility? {
+        if (!hasConversationVisibility()) {
+            return null
+        }
+
+        return when (conversationVisibility) {
+            ProtocolsConversationVisibility.NORMAL -> ConversationVisibility.NORMAL
+            ProtocolsConversationVisibility.PINNED -> ConversationVisibility.PINNED
+            ProtocolsConversationVisibility.ARCHIVED -> ConversationVisibility.ARCHIVED
+            ProtocolsConversationVisibility.UNRECOGNIZED -> unrecognizedValue("conversationVisibility")
+            null -> nullValue("conversationVisibility")
+        }
+    }
 
     private fun Group.getMembers(): Set<String> = memberIdentities.identitiesList.toSet()
 
@@ -430,32 +367,6 @@ class ReflectedGroupSyncTask(
         creatorIdentity = creatorIdentity,
         groupId = groupId,
     )
-
-    private fun Group.NotificationTriggerPolicyOverride.convert(): Long? =
-        when (overrideCase) {
-            Group.NotificationTriggerPolicyOverride.OverrideCase.DEFAULT -> null
-            Group.NotificationTriggerPolicyOverride.OverrideCase.POLICY -> {
-                when (policy.policy) {
-                    Group.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.MENTIONED -> DEADLINE_INDEFINITE_EXCEPT_MENTIONS
-                    Group.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.NEVER -> {
-                        if (policy.hasExpiresAt()) {
-                            policy.expiresAt
-                        } else {
-                            DEADLINE_INDEFINITE
-                        }
-                    }
-
-                    Group.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.UNRECOGNIZED -> unrecognizedValue(
-                        "Group.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy",
-                    )
-
-                    null -> nullValue("Group.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy")
-                }
-            }
-
-            Group.NotificationTriggerPolicyOverride.OverrideCase.OVERRIDE_NOT_SET -> null
-            null -> null
-        }
 
     private fun unrecognizedValue(valueName: String): Nothing? {
         logger.warn("Unrecognized {}", valueName)

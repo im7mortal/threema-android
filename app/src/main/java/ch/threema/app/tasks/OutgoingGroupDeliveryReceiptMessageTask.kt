@@ -7,7 +7,7 @@ import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.types.IdentityString
-import java.util.Date
+import java.time.Instant
 import kotlinx.serialization.Serializable
 
 private val logger = getThreemaLogger("OutgoingGroupDeliveryReceiptMessageTask")
@@ -37,7 +37,7 @@ class OutgoingGroupDeliveryReceiptMessageTask(
             group = group,
             recipients = recipientIdentities,
             messageModel = null,
-            createdAt = Date(),
+            createdAt = Instant.now(),
             messageId = messageId,
             createAbstractMessage = {
                 GroupDeliveryReceiptMessage().also {

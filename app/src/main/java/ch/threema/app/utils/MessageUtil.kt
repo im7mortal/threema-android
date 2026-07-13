@@ -5,14 +5,13 @@ import android.content.res.ColorStateList
 import androidx.appcompat.content.res.AppCompatResources
 import ch.threema.app.R
 import ch.threema.common.minus
-import ch.threema.common.now
 import ch.threema.domain.protocol.csp.messages.EditMessage
 import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.FirstUnreadMessageModel
 import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageState
 import ch.threema.storage.models.group.GroupMessageModel
-import java.util.Date
+import java.time.Instant
 
 /**
  * Check whether the user should be able to edit the given message.
@@ -25,8 +24,8 @@ import java.util.Date
 @JvmOverloads
 fun AbstractMessageModel.canBeEdited(
     belongsToNotesGroup: Boolean = false,
-    editTime: Date = now(),
-    getMessageTime: AbstractMessageModel.() -> Date? = AbstractMessageModel::createdAt,
+    editTime: Instant = Instant.now(),
+    getMessageTime: AbstractMessageModel.() -> Instant? = AbstractMessageModel::createdAt,
 ): Boolean =
     type?.canBeEdited == true &&
         !isStatusMessage &&

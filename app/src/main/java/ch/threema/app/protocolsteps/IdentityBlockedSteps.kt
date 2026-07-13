@@ -3,10 +3,10 @@ package ch.threema.app.protocolsteps
 import ch.threema.app.preference.service.SynchronizedSettingsService
 import ch.threema.app.services.BlockedIdentitiesService
 import ch.threema.app.services.GroupService
+import ch.threema.data.datatypes.PredefinedContact
 import ch.threema.data.repositories.ContactModelRepository
-import ch.threema.domain.stores.ContactStore
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel
 
 /**
  * The block state of an identity.
@@ -20,8 +20,8 @@ enum class BlockState(private val isBlocked: Boolean) {
     /**
      * The state of an identity that is unknown.
      *
-     * An identity is considered unknown if it is not stored locally or it has
-     * [AcquaintanceLevel.GROUP] and all common groups are marked as left.
+     * An identity is considered unknown if it is not stored locally, or it has
+     * [AcquaintanceLevel.GROUP_OR_DELETED] and all common groups are marked as left.
      *
      * Note that this state is only used when unknown contacts are blocked.
      */
@@ -41,13 +41,12 @@ enum class BlockState(private val isBlocked: Boolean) {
 
 class IdentityBlockedSteps(
     private val contactModelRepository: ContactModelRepository,
-    private val contactStore: ContactStore,
     private val groupService: GroupService,
     private val blockedIdentitiesService: BlockedIdentitiesService,
     private val synchronizedSettingsService: SynchronizedSettingsService,
 ) {
     fun run(identity: IdentityString): BlockState {
-        if (contactStore.isSpecialContact(identity)) {
+        if (PredefinedContact.isSpecialContact(identity)) {
             return BlockState.NOT_BLOCKED
         }
 

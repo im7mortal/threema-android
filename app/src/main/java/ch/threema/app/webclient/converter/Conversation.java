@@ -6,9 +6,15 @@ import java.util.List;
 import androidx.annotation.AnyThread;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.webclient.exceptions.ConversionException;
+import ch.threema.data.datatypes.ConversationVisibility;
+import ch.threema.data.models.ContactModel;
+import ch.threema.data.models.ContactModelData;
+import ch.threema.data.models.GroupModel;
+import ch.threema.data.models.GroupModelData;
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.ConversationModel;
 import ch.threema.storage.models.ConversationTag;
+import ch.threema.storage.models.DistributionListModel;
 
 @AnyThread
 public class Conversation extends Converter {
@@ -62,14 +68,14 @@ public class Conversation extends Converter {
 
             builder.put(NOTIFICATIONS, NotificationSettings.convert(conversation));
 
-            final boolean isStarred = serviceManager.getConversationTagService()
-                .isTaggedWith(conversation, ConversationTag.PINNED);
-            if (isStarred) {
-                builder.put(IS_STARRED, isStarred);
+            boolean isPinned = isPinned(conversation);
+
+            if (isPinned) {
+                builder.put(IS_STARRED, true);
             }
 
             final boolean isUnread = serviceManager.getConversationTagService()
-                .isTaggedWith(conversation, ConversationTag.MARKED_AS_UNREAD);
+                .isTaggedWith(conversation.getId(), ConversationTag.MARKED_AS_UNREAD);
             builder.put(IS_UNREAD, isUnread);
 
             if (append != null) {
@@ -79,6 +85,23 @@ public class Conversation extends Converter {
             throw new ConversionException(e);
         }
         return builder;
+    }
+
+    private static boolean isPinned(ConversationModel conversation) throws ConversionException {
+        ContactModel contactModel = conversation.getContactModel();
+        GroupModel groupModel = conversation.getGroupModel();
+        DistributionListModel distributionListModel = conversation.getDistributionList();
+        if (contactModel != null) {
+            ContactModelData contactModelData = contactModel.getData();
+            return contactModelData != null && contactModelData.conversationVisibility == ConversationVisibility.PINNED;
+        } else if (groupModel != null) {
+            GroupModelData groupModelData = groupModel.getData();
+            return groupModelData != null && groupModelData.conversationVisibility == ConversationVisibility.PINNED;
+        } else if (distributionListModel != null) {
+            return distributionListModel.getConversationVisibility() == ConversationVisibility.PINNED;
+        } else {
+            throw new ConversionException("Could not determine conversation visibility");
+        }
     }
 
     private static void maybePutLatestMessage(

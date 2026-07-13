@@ -24,9 +24,10 @@ import ch.threema.app.ui.CheckableConstraintLayout;
 import ch.threema.app.ui.listitemholder.AvatarListItemHolder;
 import ch.threema.app.utils.AdapterUtil;
 import ch.threema.app.utils.NameUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.utils.TextExtensionsKt;
 import ch.threema.storage.models.group.GroupModelOld;
+
+import static ch.threema.common.JavaCompat.isNullOrBlank;
 
 public class GroupListAdapter extends FilterableListAdapter {
     private final Context context;
@@ -176,7 +177,7 @@ public class GroupListAdapter extends FilterableListAdapter {
         protected void publishResults(CharSequence constraint, FilterResults results) {
             values = (List<GroupModelOld>) results.values;
             if (filterResultsListener != null) {
-                filterResultsListener.onResultsAvailable(TestUtil.isBlankOrNull(constraint) ? 0 : results.count);
+                filterResultsListener.onResultsAvailable(isNullOrBlank(constraint) ? 0 : results.count);
             }
             notifyDataSetChanged();
         }

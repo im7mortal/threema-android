@@ -92,14 +92,4 @@ public class GenericProgressDialog extends ThreemaDialogFragment {
         alertDialog = builder.create();
         return alertDialog;
     }
-
-    /**
-     * Updates message of progress bar. Do not call this directly, use {@link ch.threema.app.utils.DialogUtil#updateMessage(FragmentManager, String, String)} instead!
-     */
-    @UiThread
-    public void setMessage(String message) {
-        if (alertDialog != null && messageTextView != null) {
-            messageTextView.setText(message);
-        }
-    }
 }

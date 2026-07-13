@@ -14,11 +14,11 @@ import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.MessageService
-import ch.threema.app.stores.IdentityProvider
 import ch.threema.app.ui.AvatarView
 import ch.threema.app.utils.AdapterUtil
 import ch.threema.app.utils.MessageUtil
 import ch.threema.app.utils.NameUtil
+import ch.threema.data.IdentityProvider
 import ch.threema.data.models.EmojiReactionData
 import ch.threema.storage.models.AbstractMessageModel
 
@@ -86,7 +86,7 @@ class EmojiReactionsOverviewListAdapter(
             AdapterUtil.styleContact(contactNameTextView, contactModel)
 
             contactAvatarView.setImageBitmap(avatar)
-            contactAvatarView.setWorkBadgeVisible(contactService.showBadge(contactModel))
+            contactAvatarView.setIdentityTypeBadgeVisible(contactService.showIdentityTypeBadge(contactModel))
 
             removeIconView.setOnClickListener {
                 val position = absoluteAdapterPosition

@@ -8,13 +8,12 @@ import ch.threema.app.protocolsteps.Contact
 import ch.threema.app.protocolsteps.ContactOrInit
 import ch.threema.app.protocolsteps.Init
 import ch.threema.app.protocolsteps.Invalid
+import ch.threema.app.protocolsteps.PredefinedContactPublicKeyMismatch
 import ch.threema.app.protocolsteps.SpecialContact
 import ch.threema.app.protocolsteps.UserContact
 import ch.threema.app.protocolsteps.ValidContactsLookupSteps
 import ch.threema.app.services.ConversationCategoryService
-import ch.threema.app.services.ConversationService
 import ch.threema.app.services.GroupService
-import ch.threema.app.stores.IdentityProvider
 import ch.threema.app.tasks.ReflectGroupSyncUpdateImmediateTask
 import ch.threema.app.tasks.ReflectionResult
 import ch.threema.app.tasks.toFullSyncContact
@@ -23,10 +22,10 @@ import ch.threema.app.voip.groupcall.GroupCallManager
 import ch.threema.base.crypto.NonceFactory
 import ch.threema.base.crypto.NonceScope
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.common.now
+import ch.threema.data.IdentityProvider
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.datatypes.localGroupId
 import ch.threema.data.models.ContactModelData
-import ch.threema.data.models.GroupIdentity
 import ch.threema.data.models.GroupModel
 import ch.threema.data.models.GroupModelData
 import ch.threema.data.repositories.ContactCreateException
@@ -37,6 +36,7 @@ import ch.threema.data.repositories.GroupCreateException
 import ch.threema.data.repositories.GroupModelRepository
 import ch.threema.data.repositories.InvalidContactException
 import ch.threema.data.repositories.UnexpectedContactException
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.UserState
 import ch.threema.domain.protocol.csp.messages.GroupSetupMessage
@@ -53,11 +53,12 @@ import ch.threema.protobuf.common.groupIdentity
 import ch.threema.protobuf.common.identities
 import ch.threema.protobuf.d2d.GroupSync
 import ch.threema.protobuf.d2d.TransactionScope
-import ch.threema.protobuf.d2d.sync.ConversationVisibility
+import ch.threema.protobuf.d2d.sync.ConversationVisibility as ProtocolsConversationVisibility
 import ch.threema.protobuf.d2d.sync.Group
 import ch.threema.protobuf.d2d.sync.group
-import ch.threema.storage.models.ContactModel
+import java.time.Instant
 import java.util.Collections
+import kotlin.getValue
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -74,7 +75,6 @@ class IncomingGroupSetupTask(
     private val groupCallManager: GroupCallManager by inject()
     private val nonceFactory: NonceFactory by inject()
     private val multiDeviceManager: MultiDeviceManager by inject()
-    private val conversationService: ConversationService by inject()
     private val conversationCategoryService: ConversationCategoryService by inject()
 
     // Repositories
@@ -208,6 +208,7 @@ class IncomingGroupSetupTask(
                     is Contact -> contactOrInit.contactModel.data?.activityState != IdentityState.INVALID
                     is Init -> true
                     is SpecialContact -> true
+                    is PredefinedContactPublicKeyMismatch -> false
                 }
             }
 
@@ -219,7 +220,7 @@ class IncomingGroupSetupTask(
             .map { init -> init.contactModelData }
             .map { contactModelData ->
                 contactModelData.copy(
-                    acquaintanceLevel = ContactModel.AcquaintanceLevel.GROUP,
+                    acquaintanceLevel = AcquaintanceLevel.GROUP_OR_DELETED,
                 )
             }
             .toSet()
@@ -234,14 +235,14 @@ class IncomingGroupSetupTask(
         val groupModelData = group?.data
 
         return if (group == null || groupModelData == null) {
-            val now = now()
+            val now = Instant.now()
             val newGroupModelData = GroupModelData(
                 groupIdentity = groupIdentity,
                 name = "",
                 createdAt = now,
                 synchronizedAt = null,
                 lastUpdate = now,
-                isArchived = false,
+                conversationVisibility = ch.threema.data.datatypes.ConversationVisibility.NORMAL,
                 groupDescription = null,
                 groupDescriptionChangedAt = null,
                 otherMembers = Collections.unmodifiableSet(validMembers),
@@ -372,7 +373,6 @@ class IncomingGroupSetupTask(
         newContacts.map { contactModelData ->
             val encryptedEnvelopeResult = getEncryptedContactSyncCreate(
                 contact = contactModelData.toFullSyncContact(
-                    conversationService = conversationService,
                     conversationCategoryService = conversationCategoryService,
                 ),
                 multiDeviceProperties = multiDeviceProperties,
@@ -389,7 +389,7 @@ class IncomingGroupSetupTask(
 
         val groupSync = toGroupSync(
             isPrivateChat = false,
-            conversationVisibility = ConversationVisibility.NORMAL,
+            conversationVisibility = ProtocolsConversationVisibility.NORMAL,
         )
         val encryptedEnvelopeResult = getEncryptedGroupSyncCreate(groupSync, multiDeviceProperties)
         handle.reflectAndAwaitAck(

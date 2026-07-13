@@ -4,7 +4,6 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.res.ColorStateList;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.LayoutInflater;
@@ -28,6 +27,7 @@ import org.slf4j.Logger;
 
 import java.util.Optional;
 
+import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.dialogs.ThreemaDialogFragment;
@@ -35,13 +35,13 @@ import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.DialogUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.base.ThreemaException;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.domain.protocol.ServerAddressProvider;
 import okhttp3.OkHttpClient;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class RateDialog extends ThreemaDialogFragment {
     private static final Logger logger = getThreemaLogger("RateDialog");
@@ -85,7 +85,7 @@ public class RateDialog extends ThreemaDialogFragment {
         super.onCreate(savedInstanceState);
         logScreenVisibility(this, logger);
 
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             dismiss();
             return;
@@ -145,13 +145,13 @@ public class RateDialog extends ThreemaDialogFragment {
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(context, getTheme());
         builder.setView(dialogView);
 
-        if (!TestUtil.isEmptyOrNull(title)) {
+        if (!isNullOrEmpty(title)) {
             builder.setTitle(title);
         }
 
         if (preferenceService != null) {
             String review = preferenceService.getRatingReviewText();
-            if (!TestUtil.isEmptyOrNull(review)) {
+            if (!isNullOrEmpty(review)) {
                 editText.append(review);
             }
         }
@@ -168,7 +168,7 @@ public class RateDialog extends ThreemaDialogFragment {
 
     @SuppressLint("StaticFieldLeak")
     private void sendReview(final String tag, final int rating, final String text) {
-        new AsyncTask<Void, Void, Boolean>() {
+        new LifecycleAwareAsyncTask<Void, Boolean>() {
             @Override
             protected void onPreExecute() {
                 alertDialog.findViewById(R.id.text_input_layout).setVisibility(View.INVISIBLE);
@@ -178,8 +178,8 @@ public class RateDialog extends ThreemaDialogFragment {
             }
 
             @Override
-            protected Boolean doInBackground(Void... params) {
-                if (!TestUtil.isEmptyOrNull(text)) {
+            protected Boolean doInBackground(Void params) {
+                if (!isNullOrEmpty(text)) {
                     preferenceService.setRatingReviewText(text);
                 }
 
@@ -220,7 +220,7 @@ public class RateDialog extends ThreemaDialogFragment {
                     }
                 }
             }
-        }.execute();
+        }.execute(this, null);
     }
 
     private void onStarClick(int currentRating, View feedbackLayout, View dialogView) {

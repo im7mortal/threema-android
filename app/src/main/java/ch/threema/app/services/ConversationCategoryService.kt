@@ -1,59 +1,51 @@
 package ch.threema.app.services
 
-import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.base.SessionScoped
-import ch.threema.data.models.ContactModel
-import ch.threema.domain.types.ConversationUID
-import ch.threema.domain.types.GroupDatabaseId
-import ch.threema.protobuf.d2d.sync.ConversationCategory
+import ch.threema.data.datatypes.ConversationId
 
 /**
- * The conversation category service is used to keep track of private chats. It manages reflection if MD is enabled.
+ *  This service is used to keep track of private conversations.
  *
- * TODO(ANDR-3010): Move the conversation category into the database.
+ *  TODO(ANDR-3010): Move the conversation category into the database.
+ *
+ *  @see ch.threema.protobuf.d2d.sync.ConversationCategory
  */
 @SessionScoped
 interface ConversationCategoryService {
-    /* Contact related methods */
-
-    fun markContactChatAsPrivate(contactModel: ContactModel)
-
-    fun removePrivateMarkFromContactChat(contactModel: ContactModel)
-
-    fun removePrivateMarkFromContactChat(contactModel: ch.threema.storage.models.ContactModel)
-
-    /* Group related methods */
-
-    fun markGroupChatAsPrivate(groupDatabaseId: GroupDatabaseId)
-
-    fun removePrivateMarkFromGroupChat(groupDatabaseId: GroupDatabaseId)
-
-    fun isPrivateGroupChat(groupDatabaseId: GroupDatabaseId): Boolean
-
-    /* General methods */
-
-    fun isPrivateChat(uniqueIdString: ConversationUID): Boolean
-
-    fun getConversationCategory(uniqueIdString: ConversationUID): ConversationCategory
 
     /**
-     * Returns true if the chat has been marked as private. If the chat is already private, then false is returned.
+     *  Mark the given conversation as private and reflect the change if MD is active.
+     *
+     *  @return `true` if the conversation has been marked as private effectively
      */
-    fun markAsPrivate(messageReceiver: MessageReceiver<*>): Boolean
+    fun setPrivateMark(conversationId: ConversationId): Boolean
 
     /**
-     * Returns true if the private mark has been removed and false if there is nothing to do.
+     *  Remove the private mark for the given conversation and reflect the change if MD is active.
+     *
+     *  @return `true` if private mark has been removed effectively for the given conversation
      */
-    fun removePrivateMark(messageReceiver: MessageReceiver<*>): Boolean
+    fun removePrivateMark(conversationId: ConversationId): Boolean
 
-    fun persistPrivateChat(uniqueIdString: ConversationUID)
-
-    fun persistDefaultChat(uniqueIdString: ConversationUID)
-
-    fun hasPrivateChats(): Boolean
+    fun isMarkedAsPrivate(conversationId: ConversationId): Boolean
 
     /**
-     * Invalidates the cache. This is only required if the preferences are modified without using this service.
+     *  Mark the given conversation as private *without* reflecting the change.
+     */
+    fun persistAddPrivateMark(conversationId: ConversationId)
+
+    /**
+     *  Remove the private mark from the given conversation *without* reflecting the change.
+     */
+    fun persistRemovePrivateMark(conversationId: ConversationId)
+
+    /**
+     *  @return `true` if at least one conversation is marked as private
+     */
+    fun hasAnyPrivateMarks(): Boolean
+
+    /**
+     *  Invalidate the cache. This is only required if the preferences are modified without using this service.
      */
     fun invalidateCache()
 }

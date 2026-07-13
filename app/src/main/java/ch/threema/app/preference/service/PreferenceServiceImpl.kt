@@ -9,12 +9,11 @@ import ch.threema.app.AppConstants
 import ch.threema.app.BuildConfig
 import ch.threema.app.BuildFlavor
 import ch.threema.app.R
-import ch.threema.app.listeners.PreferenceListener
-import ch.threema.app.managers.ListenerManager
 import ch.threema.app.mediagallery.MediaGalleryViewModel.Companion.SELECTABLE_CONTENT_TYPES
 import ch.threema.app.preference.service.PreferenceService.EmojiStyle
 import ch.threema.app.preference.service.PreferenceService.ErrorReportingState
 import ch.threema.app.preference.service.PreferenceService.ImageScale
+import ch.threema.app.preference.service.PreferenceService.LockMechanism
 import ch.threema.app.preference.service.PreferenceService.StarredMessagesSortOrder
 import ch.threema.app.services.ContactService.ProfilePictureUploadData
 import ch.threema.app.stores.EncryptedPreferenceStore
@@ -24,23 +23,30 @@ import ch.threema.app.threemasafe.ThreemaSafeServerInfo
 import ch.threema.app.utils.AutoDeleteUtil
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.ConfigUtils.AppThemeSetting
-import ch.threema.base.utils.Base64
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.Base64
+import ch.threema.common.TimeProvider
+import ch.threema.common.booleanOrNull
+import ch.threema.common.decodeFromStringOrNull
 import ch.threema.common.secureContentEquals
 import ch.threema.common.takeUnlessEmpty
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.datatypes.ContactNameFormat
+import ch.threema.data.datatypes.ConversationIdObfuscated
 import ch.threema.domain.protocol.api.work.WorkDirectoryCategory
 import ch.threema.domain.protocol.api.work.WorkOrganization
 import java.time.Instant
-import java.util.Arrays
-import java.util.LinkedList
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonArray
 
 private val logger = getThreemaLogger("PreferenceServiceImpl")
 
@@ -48,6 +54,7 @@ class PreferenceServiceImpl(
     private val appContext: Context,
     private val preferenceStore: PreferenceStore,
     private val encryptedPreferenceStore: EncryptedPreferenceStore,
+    private val timeProvider: TimeProvider,
 ) : PreferenceService {
     override fun isCustomWallpaperEnabled(): Boolean =
         preferenceStore.getBoolean(getKeyName(R.string.preferences__wallpaper_switch))
@@ -119,34 +126,13 @@ class PreferenceServiceImpl(
         preferenceStore.save(getKeyName(R.string.preferences__oppf_url), oppfUrl)
     }
 
-    @Deprecated("")
-    override fun getRecentEmojis(): LinkedList<Int> {
-        val list = LinkedList<Int>()
-        val array = preferenceStore.getJSONArray(getKeyName(R.string.preferences__recent_emojis))
-        for (i in 0..<array.length()) {
-            try {
-                list.add(array.getInt(i))
-            } catch (e: JSONException) {
-                logger.error("Failed to parse recent emoji", e)
-            }
-        }
-        return list
-    }
+    override fun getRecentEmojis(): List<String> =
+        preferenceStore.getStringArray(getKeyName(R.string.preferences__recent_emojis))
+            ?.toList()
+            ?: emptyList()
 
-    override fun getRecentEmojis2(): LinkedList<String> =
-        LinkedList(
-            preferenceStore.getStringArray(getKeyName(R.string.preferences__recent_emojis2))
-                ?.toList()
-                ?: emptyList(),
-        )
-
-    @Deprecated("")
-    override fun setRecentEmojis(list: LinkedList<Int>?) {
-        preferenceStore.save(getKeyName(R.string.preferences__recent_emojis), JSONArray(list))
-    }
-
-    override fun setRecentEmojis2(list: LinkedList<String>) {
-        preferenceStore.save(getKeyName(R.string.preferences__recent_emojis2), list.toTypedArray<String>())
+    override fun setRecentEmojis(list: List<String>) {
+        preferenceStore.save(getKeyName(R.string.preferences__recent_emojis), list.toTypedArray<String>())
     }
 
     override fun getEmojiSearchIndexVersion(): Int =
@@ -185,11 +171,11 @@ class PreferenceServiceImpl(
         return storedCode.toByteArray().secureContentEquals(code.toByteArray())
     }
 
-    override fun getPinLockGraceTime(): Int =
+    override fun getAppLockGraceTime(): Duration? =
         preferenceStore.getString(getKeyName(R.string.preferences__pin_lock_grace_time))
             ?.toIntOrNull()
-            ?.takeIf { it >= 30 || it == -1 }
-            ?: -1
+            ?.takeIf { it >= 30 }
+            ?.seconds
 
     override fun getIDBackupCount(): Int =
         preferenceStore.getInt(getKeyName(R.string.preferences__id_backup_count))
@@ -300,15 +286,11 @@ class PreferenceServiceImpl(
             ?: emptyArray()
 
     override fun setList(listName: String, elements: Array<String>) {
+        preferenceStore.save(listName, elements)
+    }
+
+    override fun setEncryptedList(listName: String, elements: Array<String>) {
         encryptedPreferenceStore.save(listName, elements)
-    }
-
-    override fun setEncryptedListQuietly(listName: String, elements: Array<String>) {
-        encryptedPreferenceStore.saveQuietly(listName, elements)
-    }
-
-    override fun setListQuietly(listName: String, elements: Array<String>) {
-        preferenceStore.saveQuietly(listName, elements)
     }
 
     override fun getStringMap(listName: String): Map<String, String?> =
@@ -328,8 +310,8 @@ class PreferenceServiceImpl(
         preferenceStore.save(getKeyName(R.string.preferences__last_online_status), online)
     }
 
-    override fun isLatestVersion(context: Context): Boolean {
-        val buildNumber = ConfigUtils.getBuildNumber(context)
+    override fun isLatestVersion(): Boolean {
+        val buildNumber = ConfigUtils.getBuildNumber(appContext)
         if (buildNumber != 0) {
             return preferenceStore.getInt(getKeyName(R.string.preferences__latest_version)) >= buildNumber
         }
@@ -339,15 +321,15 @@ class PreferenceServiceImpl(
     override fun getLatestVersion(): Int =
         preferenceStore.getInt(getKeyName(R.string.preferences__latest_version))
 
-    override fun setLatestVersion(context: Context) {
-        val buildNumber = ConfigUtils.getBuildNumber(context)
+    override fun setLatestVersion() {
+        val buildNumber = ConfigUtils.getBuildNumber(appContext)
         if (buildNumber != 0) {
             preferenceStore.save(getKeyName(R.string.preferences__latest_version), buildNumber)
         }
     }
 
-    override fun checkForAppUpdate(context: Context): Boolean {
-        val buildNumber = ConfigUtils.getBuildNumber(context)
+    override fun checkForAppUpdate(): Boolean {
+        val buildNumber = ConfigUtils.getBuildNumber(appContext)
         if (buildNumber == 0) {
             logger.error("Could not check for app update because build number is 0")
             return false
@@ -386,6 +368,13 @@ class PreferenceServiceImpl(
 
     override fun getLockoutDeadline(): Instant? =
         preferenceStore.getInstant(getKeyName(R.string.preferences__lockout_deadline))
+
+    override fun setLockoutTimeoutIndex(index: Int) {
+        preferenceStore.save(getKeyName(R.string.preferences__lockout_timeout_index), index)
+    }
+
+    override fun getLockoutTimeoutIndex(): Int =
+        preferenceStore.getInt(getKeyName(R.string.preferences__lockout_timeout_index), 0)
 
     override fun setLockoutAttempts(numWrongConfirmAttempts: Int) {
         preferenceStore.save(getKeyName(R.string.preferences__lockout_attempts), numWrongConfirmAttempts)
@@ -428,29 +417,36 @@ class PreferenceServiceImpl(
         preferenceStore.getBoolean(getKeyName(R.string.preferences__chats_hidden))
 
     override fun setArePrivateChatsHidden(hidden: Boolean) {
+        logger.info("Set private chats hidden = {}", hidden)
         preferenceStore.save(getKeyName(R.string.preferences__chats_hidden), hidden)
     }
 
     override fun watchArePrivateChatsHidden(): Flow<Boolean> =
-        preferenceStore.watchBoolean(getKeyName(R.string.preferences__chats_hidden), false)
+        preferenceStore.watchBoolean(getKeyName(R.string.preferences__chats_hidden))
 
-    override fun getLockMechanism(): String =
+    override fun watchIsContactSyncEnabled(): Flow<Boolean> =
+        preferenceStore.watchBoolean(getKeyName(R.string.preferences__sync_contacts))
+
+    override fun getLockMechanism(): LockMechanism =
         preferenceStore.getString(getKeyName(R.string.preferences__lock_mechanism))
-            ?: PreferenceService.LOCKING_MECH_NONE
+            ?.let(LockMechanism::deserialize)
+            ?: LockMechanism.NONE
+
+    override fun hasLockMechanism(): Boolean =
+        getLockMechanism() != LockMechanism.NONE
+
+    override fun setLockMechanism(lockMechanism: LockMechanism) {
+        preferenceStore.save(getKeyName(R.string.preferences__lock_mechanism), lockMechanism.serialized)
+    }
 
     override fun isAppLockEnabled(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__app_lock_enabled)) &&
-            getLockMechanism() != PreferenceService.LOCKING_MECH_NONE
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__app_lock_enabled)) && hasLockMechanism()
 
     override fun setAppLockEnabled(enabled: Boolean) {
         preferenceStore.save(
             getKeyName(R.string.preferences__app_lock_enabled),
-            enabled && getLockMechanism() != PreferenceService.LOCKING_MECH_NONE,
+            enabled && hasLockMechanism(),
         )
-    }
-
-    override fun setLockMechanism(lockingMech: String?) {
-        preferenceStore.save(getKeyName(R.string.preferences__lock_mechanism), lockingMech)
     }
 
     override fun isShowImageAttachPreviewsEnabled(): Boolean =
@@ -459,19 +455,39 @@ class PreferenceServiceImpl(
     override fun isDirectShare(): Boolean =
         preferenceStore.getBoolean(getKeyName(R.string.preferences__direct_share))
 
-    override fun setMessageDrafts(messageDrafts: Map<String, String?>?) {
-        encryptedPreferenceStore.save(getKeyName(R.string.preferences__message_drafts), messageDrafts)
+    override fun setMessageDrafts(messageDrafts: Map<ConversationIdObfuscated, String?>?) {
+        encryptedPreferenceStore
+            .save(
+                getKeyName(R.string.preferences__message_drafts),
+                messageDrafts?.mapKeys { entry ->
+                    entry.key.value
+                },
+            )
     }
 
-    override fun getMessageDrafts(): Map<String, String?>? =
-        encryptedPreferenceStore.getMap(getKeyName(R.string.preferences__message_drafts))
+    override fun getMessageDrafts(): Map<ConversationIdObfuscated, String?>? =
+        encryptedPreferenceStore
+            .getMap(getKeyName(R.string.preferences__message_drafts))
+            ?.mapKeys { entry ->
+                ConversationIdObfuscated(entry.key)
+            }
 
-    override fun setQuoteDrafts(quoteDrafts: Map<String, String?>?) {
-        encryptedPreferenceStore.save(getKeyName(R.string.preferences__quote_drafts), quoteDrafts)
+    override fun setQuoteDrafts(quoteDrafts: Map<ConversationIdObfuscated, String?>?) {
+        encryptedPreferenceStore
+            .save(
+                getKeyName(R.string.preferences__quote_drafts),
+                quoteDrafts?.mapKeys { (conversationIdObfuscated, _) ->
+                    conversationIdObfuscated.value
+                },
+            )
     }
 
-    override fun getQuoteDrafts(): Map<String, String?>? =
-        encryptedPreferenceStore.getMap(getKeyName(R.string.preferences__quote_drafts))
+    override fun getQuoteDrafts(): Map<ConversationIdObfuscated, String?>? =
+        encryptedPreferenceStore
+            .getMap(getKeyName(R.string.preferences__quote_drafts))
+            ?.mapKeys { entry ->
+                ConversationIdObfuscated(entry.key)
+            }
 
     override fun setCustomSupportUrl(supportUrl: String?) {
         encryptedPreferenceStore.save(getKeyName(R.string.preferences__custom_support_url), supportUrl)
@@ -508,33 +524,28 @@ class PreferenceServiceImpl(
         preferenceStore.save(getKeyName(R.string.preferences__profile_pic_release), value)
     }
 
+    override fun watchProfilePicRelease(): Flow<Int> =
+        preferenceStore.watchInt(getKeyName(R.string.preferences__profile_pic_release))
+
     override fun getProfilePicUploadTimestamp(): Instant? =
         preferenceStore.getInstant(getKeyName(R.string.preferences__profile_pic_upload_date))
 
+    @Serializable
+    private data class SerializableProfilePictureUploadData(
+        val id: String,
+        val key: String,
+        val size: Int,
+    )
+
     override fun setProfilePicUploadData(result: ProfilePictureUploadData?) {
-        var toStore: JSONObject? = null
-
         if (result != null) {
-            toStore = JSONObject()
-            try {
-                toStore.put(CONTACT_PHOTO_BLOB_ID, Base64.encodeBytes(result.blobId))
-                toStore.put(CONTACT_PHOTO_ENCRYPTION_KEY, Base64.encodeBytes(result.encryptionKey))
-                toStore.put(CONTACT_PHOTO_SIZE, result.size)
-            } catch (e: Exception) {
-                logger.error("Exception", e)
-            }
-        }
+            val data = SerializableProfilePictureUploadData(
+                id = Base64.encode(result.blobId),
+                key = Base64.encode(result.encryptionKey),
+                size = result.size,
+            )
 
-        if (toStore != null) {
-            encryptedPreferenceStore.save(getKeyName(R.string.preferences__profile_pic_upload_data), toStore)
-        } else {
-            // calling the listeners here might not be needed anymore, but we do it to be on the safe side
-            ListenerManager.preferenceListeners.handle { listener: PreferenceListener ->
-                listener.onChanged(
-                    getKeyName(R.string.preferences__profile_pic_upload_data),
-                    null,
-                )
-            }
+            encryptedPreferenceStore.save(getKeyName(R.string.preferences__profile_pic_upload_data), Json.encodeToString(data))
         }
 
         val uploadDate = if (result != null) Instant.ofEpochMilli(result.uploadedAt) else null
@@ -542,16 +553,18 @@ class PreferenceServiceImpl(
     }
 
     override fun getProfilePicUploadData(): ProfilePictureUploadData? {
-        val fromStore = encryptedPreferenceStore.getJSONObject(getKeyName(R.string.preferences__profile_pic_upload_data))
+        val fromStore = encryptedPreferenceStore.getString(getKeyName(R.string.preferences__profile_pic_upload_data))
         if (fromStore != null) {
             try {
-                val data = ProfilePictureUploadData()
-                data.blobId = Base64.decode(fromStore.getString(CONTACT_PHOTO_BLOB_ID))
-                data.encryptionKey = Base64.decode(fromStore.getString(CONTACT_PHOTO_ENCRYPTION_KEY))
-                data.size = fromStore.getInt(CONTACT_PHOTO_SIZE)
-                return data
+                val data = Json.decodeFromString<SerializableProfilePictureUploadData>(fromStore)
+                return ProfilePictureUploadData()
+                    .apply {
+                        this.blobId = Base64.decode(data.id)
+                        this.encryptionKey = Base64.decode(data.key)
+                        this.size = data.size
+                    }
             } catch (e: Exception) {
-                logger.error("Exception", e)
+                logger.error("Failed to decode profile picture upload data", e)
                 return null
             }
         }
@@ -674,6 +687,9 @@ class PreferenceServiceImpl(
     override fun getThreemaSafeEnabled(): Boolean =
         preferenceStore.getBoolean(getKeyName(R.string.preferences__threema_safe_enabled))
 
+    override fun watchThreemaSafeEnabled(): Flow<Boolean> =
+        preferenceStore.watchBoolean(getKeyName(R.string.preferences__threema_safe_enabled))
+
     override fun setThreemaSafeMasterKey(masterKey: ByteArray?) {
         encryptedPreferenceStore.save(getKeyName(R.string.preferences__threema_safe_masterkey), masterKey)
         ThreemaSafeMDMConfig.getInstance().saveConfig(this)
@@ -754,19 +770,25 @@ class PreferenceServiceImpl(
     override fun getThreemaSafeBackupTimestamp(): Instant? =
         preferenceStore.getInstant(getKeyName(R.string.preferences__threema_safe_backup_date))
 
-    override fun setWorkSyncCheckInterval(checkInterval: Int) {
-        preferenceStore.save(getKeyName(R.string.preferences__work_sync_check_interval), checkInterval)
+    override fun setWorkSyncCheckInterval(checkInterval: Duration) {
+        preferenceStore.save(getKeyName(R.string.preferences__work_sync_check_interval), checkInterval.inWholeSeconds.toInt())
     }
 
-    override fun getWorkSyncCheckInterval(): Int =
+    override fun getWorkSyncCheckInterval(): Duration =
         preferenceStore.getInt(getKeyName(R.string.preferences__work_sync_check_interval))
+            .takeUnless { it <= 0 }
+            ?.seconds
+            ?: 1.days
 
-    override fun setIdentityStateSyncInterval(syncIntervalS: Int) {
-        preferenceStore.save(getKeyName(R.string.preferences__identity_states_check_interval), syncIntervalS)
+    override fun setIdentityStateSyncInterval(syncInterval: Duration) {
+        preferenceStore.save(getKeyName(R.string.preferences__identity_states_check_interval), syncInterval.inWholeSeconds.toInt())
     }
 
-    override fun getIdentityStateSyncIntervalS(): Int =
+    override fun getIdentityStateSyncInterval(): Duration =
         preferenceStore.getInt(getKeyName(R.string.preferences__identity_states_check_interval))
+            .takeUnless { it <= 0 }
+            ?.seconds
+            ?: 1.days
 
     override fun getIsExportIdTooltipShown(): Boolean =
         preferenceStore.getBoolean(getKeyName(R.string.preferences__tooltip_export_id_shown))
@@ -786,44 +808,31 @@ class PreferenceServiceImpl(
         preferenceStore.getBoolean(getKeyName(R.string.preferences__work_directory_enabled))
 
     override fun setWorkDirectoryCategories(categories: List<WorkDirectoryCategory>) {
-        val array = JSONArray()
-        for (category in categories) {
-            val categoryObjectString = category.toJSON()
-            if (!categoryObjectString.isNullOrEmpty()) {
-                try {
-                    array.put(JSONObject(categoryObjectString))
-                } catch (e: JSONException) {
-                    logger.error("Failed to encode work directory category", e)
-                }
-            }
-        }
-        encryptedPreferenceStore.save(getKeyName(R.string.preferences__work_directory_categories), array)
+        encryptedPreferenceStore.save(
+            getKeyName(R.string.preferences__work_directory_categories),
+            Json.encodeToString(categories),
+        )
     }
 
-    override fun getWorkDirectoryCategories(): List<WorkDirectoryCategory> {
-        val array = encryptedPreferenceStore.getJSONArray(getKeyName(R.string.preferences__work_directory_categories))
-            ?: return emptyList()
-        val categories = mutableListOf<WorkDirectoryCategory>()
-        for (i in 0..<array.length()) {
-            try {
-                val jsonObject = array.optJSONObject(i)
-                if (jsonObject != null) {
-                    categories.add(WorkDirectoryCategory(jsonObject))
-                }
-            } catch (e: Exception) {
-                logger.error("Failed to parse work directory category", e)
+    override fun getWorkDirectoryCategories(): List<WorkDirectoryCategory> =
+        encryptedPreferenceStore.getString(getKeyName(R.string.preferences__work_directory_categories))
+            ?.let { jsonString ->
+                Json.decodeFromStringOrNull<List<WorkDirectoryCategory>>(jsonString)
             }
-        }
-        return categories
-    }
+            ?: emptyList()
 
     override fun setWorkOrganization(organization: WorkOrganization?) {
-        encryptedPreferenceStore.save(getKeyName(R.string.preferences__work_directory_organization), organization?.toJSON())
+        encryptedPreferenceStore.save(
+            getKeyName(R.string.preferences__work_directory_organization),
+            organization?.let(Json::encodeToString),
+        )
     }
 
     override fun getWorkOrganization(): WorkOrganization? =
-        encryptedPreferenceStore.getJSONObject(getKeyName(R.string.preferences__work_directory_organization))
-            ?.let(::WorkOrganization)
+        encryptedPreferenceStore.getString(getKeyName(R.string.preferences__work_directory_organization))
+            ?.let { jsonString ->
+                Json.decodeFromStringOrNull(jsonString)
+            }
 
     override fun setLicensedStatus(licensed: Boolean) {
         preferenceStore.save(getKeyName(R.string.preferences__license_status), licensed)
@@ -893,12 +902,12 @@ class PreferenceServiceImpl(
     override fun getVideoCallsProfile(): String? =
         preferenceStore.getString(getKeyName(R.string.preferences__voip_video_profile))
 
-    override fun setBallotOverviewHidden(hidden: Boolean) {
-        preferenceStore.save(getKeyName(R.string.preferences__ballot_overview_hidden), hidden)
+    override fun setPollOverviewHidden(hidden: Boolean) {
+        preferenceStore.save(getKeyName(R.string.preferences__poll_overview_hidden), hidden)
     }
 
-    override fun getBallotOverviewHidden(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__ballot_overview_hidden))
+    override fun getPollOverviewHidden(): Boolean =
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__poll_overview_hidden))
 
     override fun isVideoCallToggleTooltipShown(): Boolean =
         preferenceStore.getInt(getKeyName(R.string.preferences__tooltip_video_toggle)) > 0
@@ -934,11 +943,11 @@ class PreferenceServiceImpl(
     override fun skipGroupCallCreateDelay(): Boolean =
         preferenceStore.getBoolean(getKeyName(R.string.preferences__group_call_skip_delay))
 
-    override fun getBackupWarningDismissedTime(): Instant? =
-        preferenceStore.getInstant(getKeyName(R.string.preferences__backup_warning_dismissed_time))
+    override fun isBackupWarningDismissed(): Boolean =
+        preferenceStore.getInstant(getKeyName(R.string.preferences__backup_warning_dismissed_time)) != null
 
-    override fun setBackupWarningDismissedTime(timestamp: Instant?) {
-        preferenceStore.save(getKeyName(R.string.preferences__backup_warning_dismissed_time), timestamp)
+    override fun setBackupWarningDismissed(isDismissed: Boolean) {
+        preferenceStore.save(getKeyName(R.string.preferences__backup_warning_dismissed_time), if (isDismissed) timeProvider.get() else null)
     }
 
     @StarredMessagesSortOrder
@@ -958,36 +967,32 @@ class PreferenceServiceImpl(
         return AutoDeleteUtil.validateKeepMessageDays(autoDeleteDays)
     }
 
-    override fun removeLastNotificationRationaleShown() {
-        val key = getKeyName(R.string.preferences__last_notification_rationale_shown)
-        if (preferenceStore.containsKey(key)) {
-            preferenceStore.remove(key)
-        }
-    }
-
     override fun getMediaGalleryContentTypes(): BooleanArray {
-        val contentTypes = BooleanArray(SELECTABLE_CONTENT_TYPES.size)
-        Arrays.fill(contentTypes, true)
-        val array = preferenceStore.getJSONArray(getKeyName(R.string.preferences__media_gallery_content_types))
-        if (array.length() == contentTypes.size) {
-            for (i in 0..<array.length()) {
-                try {
-                    val value = array.getBoolean(i)
-                    contentTypes[i] = value
-                } catch (e: JSONException) {
-                    logger.error("JSON error", e)
-                }
+        val contentTypes = BooleanArray(SELECTABLE_CONTENT_TYPES.size) { true }
+        preferenceStore.getString(getKeyName(R.string.preferences__media_gallery_content_types))
+            ?.let { jsonString ->
+                Json.decodeFromStringOrNull<JsonArray>(jsonString)
             }
-        }
+            ?.let { jsonArray ->
+                jsonArray
+                    .take(SELECTABLE_CONTENT_TYPES.size)
+                    .forEachIndexed { index, jsonElement ->
+                        jsonElement.booleanOrNull
+                            ?.let { value ->
+                                contentTypes[index] = value
+                            }
+                    }
+            }
         return contentTypes
     }
 
-    override fun setMediaGalleryContentTypes(contentTypes: BooleanArray?) {
-        try {
-            preferenceStore.save(getKeyName(R.string.preferences__media_gallery_content_types), JSONArray(contentTypes))
-        } catch (e: JSONException) {
-            logger.error("JSON error", e)
+    override fun setMediaGalleryContentTypes(contentTypes: BooleanArray) {
+        val jsonArray = buildJsonArray {
+            contentTypes.forEach { contentType ->
+                add(contentType)
+            }
         }
+        preferenceStore.save(getKeyName(R.string.preferences__media_gallery_content_types), jsonArray.toString())
     }
 
     override fun getEmailSyncHashCode(): Int =
@@ -1042,7 +1047,7 @@ class PreferenceServiceImpl(
             appContext.getString(R.string.error_reporting_value_always_ask) -> ErrorReportingState.ALWAYS_ASK
             else -> if (BuildConfig.DEBUG) {
                 ErrorReportingState.NEVER_SEND
-            } else if (BuildFlavor.current == BuildFlavor.Blue) {
+            } else if (BuildFlavor.current.isSandbox) {
                 ErrorReportingState.ALWAYS_SEND
             } else {
                 ErrorReportingState.ALWAYS_ASK
@@ -1076,6 +1081,9 @@ class PreferenceServiceImpl(
 
     override fun getDebugLogEnabledTimestamp(): Instant? =
         preferenceStore.getInstant(getKeyName(R.string.preferences__debug_log_enable_time))
+
+    override fun watchDebugLogEnabledTimestamp(): Flow<Instant?> =
+        preferenceStore.watchInstant(getKeyName(R.string.preferences__debug_log_enable_time))
 
     override fun setAvailabilityStatus(availabilityStatus: AvailabilityStatus) {
         if (!BuildConfig.AVAILABILITY_STATUS_ENABLED) {
@@ -1119,10 +1127,6 @@ class PreferenceServiceImpl(
     private fun getKeyName(@StringRes resourceId: Int, suffix: String) = appContext.getString(resourceId) + suffix
 
     companion object {
-        private const val CONTACT_PHOTO_BLOB_ID = "id"
-        private const val CONTACT_PHOTO_ENCRYPTION_KEY = "key"
-        private const val CONTACT_PHOTO_SIZE = "size"
-
         private const val ONE_TIME_DIALOG_PREFIX = "dialog_"
 
         private fun isPinCodeValid(code: String?): Boolean =

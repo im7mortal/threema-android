@@ -145,7 +145,7 @@ public class AudioViewFragment extends MediaViewFragment implements Player.Liste
             return;
         }
         final @DrawableRes int mimeTypeImageRes = isVoiceMessage
-            ? R.drawable.ic_keyboard_voice_outline
+            ? R.drawable.ic_microphone_outline
             : IconUtil.getMimeCategoryIcon(category);
         mimeCategoryImageView.setImageDrawable(
             ResourcesCompat.getDrawable(

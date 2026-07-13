@@ -1,13 +1,12 @@
 package ch.threema.app.asynctasks
 
-import ch.threema.app.AppConstants.THREEMA_SUPPORT_IDENTITY
+import ch.threema.app.protocolsteps.ValidContactsLookupSteps
 import ch.threema.app.restrictions.AppRestrictions
-import ch.threema.app.services.ContactServiceImpl
+import ch.threema.data.datatypes.PredefinedContact
+import ch.threema.data.datatypes.PredefinedContact.Companion.THREEMA_SUPPORT_IDENTITY
 import ch.threema.data.models.ContactModel
 import ch.threema.data.repositories.ContactModelRepository
-import ch.threema.domain.protocol.api.APIConnector
-import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel
+import ch.threema.domain.models.AcquaintanceLevel
 
 /**
  * The result of sending some messages to the support.
@@ -22,19 +21,17 @@ enum class SendToSupportResult {
  * already available.
  */
 abstract class SendToSupportBackgroundTask(
-    myIdentity: IdentityString,
-    apiConnector: APIConnector,
+    validContactsLookupSteps: ValidContactsLookupSteps,
     contactModelRepository: ContactModelRepository,
     appRestrictions: AppRestrictions,
 ) : AddOrUpdateContactBackgroundTask<SendToSupportResult>(
     identity = THREEMA_SUPPORT_IDENTITY,
     acquaintanceLevel = AcquaintanceLevel.DIRECT,
-    myIdentity = myIdentity,
-    apiConnector = apiConnector,
+    validContactsLookupSteps = validContactsLookupSteps,
     contactModelRepository = contactModelRepository,
     addContactRestrictionPolicy = AddContactRestrictionPolicy.IGNORE,
     appRestrictions = appRestrictions,
-    expectedPublicKey = ContactServiceImpl.SUPPORT_PUBLIC_KEY,
+    expectedPublicKey = PredefinedContact.supportContact?.publicKey,
 ) {
     final override fun onContactResult(result: ContactResult): SendToSupportResult =
         when (result) {

@@ -7,8 +7,6 @@
     android:layout_height="match_parent"
     android:fillViewport="true">
 
-    <include layout="@layout/background_new_wizard" />
-
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -20,13 +18,12 @@
 
         <TextView
             android:id="@+id/wizard_privacy_policy_explain"
-            style="@style/WizardSmallText"
+            style="@style/WizardTextBodySmall"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/grid_unit_x4"
             android:gravity="center"
             android:text="@string/privacy_policy_explain"
-            android:textSize="15dp"
             tools:ignore="SpUsage" />
 
     </LinearLayout>
@@ -44,7 +41,7 @@
 
         <TextView
             android:id="@+id/new_to_threema_title"
-            style="@style/WizardMediumText"
+            style="@style/WizardTextBodySmall"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/wizard_contents_padding"
@@ -52,15 +49,15 @@
             android:gravity="center_horizontal"
             android:text="@string/new_to_threema" />
 
-        <ch.threema.app.activities.wizard.components.WizardButtonXml
+        <ch.threema.app.ui.interop.ButtonPrimaryXml
             android:id="@+id/setup_threema_compose"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:wizardButton_text="@string/flavored__new_wizard_setup_threema" />
+            app:buttonPrimary_text="@string/flavored__new_wizard_setup_threema" />
 
         <TextView
             android:id="@+id/back_to_threema_title"
-            style="@style/WizardMediumText"
+            style="@style/WizardTextBodySmall"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/wizard_contents_padding"
@@ -68,11 +65,12 @@
             android:gravity="center_horizontal"
             android:text="@string/back_to_threema" />
 
-        <ch.threema.app.activities.wizard.components.WizardButtonXml
+        <ch.threema.app.ui.interop.ButtonPrimaryXml
             android:id="@+id/restore_backup_compose"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            app:wizardButton_text="@string/menu_restore" />
+            android:layout_marginBottom="@dimen/grid_unit_x1"
+            app:buttonPrimary_text="@string/menu_restore" />
 
     </LinearLayout>
 

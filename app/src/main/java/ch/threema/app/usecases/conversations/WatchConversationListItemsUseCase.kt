@@ -6,11 +6,11 @@ import ch.threema.android.ResolvableString
 import ch.threema.android.ResourceIdString
 import ch.threema.android.toResolvedString
 import ch.threema.app.R
+import ch.threema.app.compose.common.IconInfo
 import ch.threema.app.compose.common.text.conversation.ConversationTextAnalyzer
 import ch.threema.app.compose.conversation.models.ConversationNameStyle
 import ch.threema.app.compose.conversation.models.ConversationUiModel
 import ch.threema.app.compose.conversation.models.GroupCallUiModel
-import ch.threema.app.compose.conversation.models.IconInfo
 import ch.threema.app.compose.conversation.models.UnreadState
 import ch.threema.app.drafts.DraftManager
 import ch.threema.app.drafts.MessageDraft
@@ -21,7 +21,8 @@ import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.DistributionListService
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.RingtoneService
-import ch.threema.app.usecases.WatchTypingIdentitiesUseCase
+import ch.threema.app.typingindicator.TypingIndicatorProvider
+import ch.threema.app.ui.getIconResAt
 import ch.threema.app.usecases.availabilitystatus.WatchAllContactAvailabilityStatusesUseCase
 import ch.threema.app.usecases.contacts.WatchAllMentionNamesUseCase
 import ch.threema.app.usecases.contacts.WatchContactNameFormatSettingUseCase
@@ -30,13 +31,18 @@ import ch.threema.app.utils.MessageUtil
 import ch.threema.app.utils.NameUtil
 import ch.threema.app.utils.QuoteUtil
 import ch.threema.app.utils.StateBitmapUtil
+import ch.threema.common.TimeProvider
 import ch.threema.common.combine
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.datatypes.ContactNameFormat
+import ch.threema.data.datatypes.ConversationId
+import ch.threema.data.datatypes.ConversationIdObfuscated
+import ch.threema.data.datatypes.ConversationVisibility
+import ch.threema.data.datatypes.DistributionListConversationId
+import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.data.datatypes.MentionNameData
 import ch.threema.data.datatypes.localGroupId
-import ch.threema.domain.models.ReceiverIdentifier
-import ch.threema.domain.types.ConversationUID
 import ch.threema.domain.types.Identity
 import ch.threema.domain.types.IdentityString
 import ch.threema.storage.models.AbstractMessageModel
@@ -47,6 +53,7 @@ import ch.threema.storage.models.MessageState
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.ReceiverModel
 import ch.threema.storage.models.group.GroupModelOld
+import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 
 // TODO(ANDR-4175): Watching the typing indicator separately may not be necessary anymore if the isTyping value of archived conversation models is updated correctly
@@ -54,7 +61,6 @@ import kotlinx.coroutines.flow.Flow
 abstract class WatchConversationListItemsUseCase(
     private val watchConversationsUseCase: WatchConversationsUseCase,
     private val watchGroupCallsUseCase: WatchGroupCallsUseCase,
-    private val watchTypingIdentitiesUseCase: WatchTypingIdentitiesUseCase,
     private val watchAvatarIterationsUseCase: WatchAvatarIterationsUseCase,
     private val watchContactNameFormatSettingUseCase: WatchContactNameFormatSettingUseCase,
     private val watchAllMentionNamesUseCase: WatchAllMentionNamesUseCase,
@@ -65,13 +71,15 @@ abstract class WatchConversationListItemsUseCase(
     private val groupService: GroupService,
     private val distributionListService: DistributionListService,
     private val ringtoneService: RingtoneService,
+    private val typingIndicatorProvider: TypingIndicatorProvider,
+    private val timeProvider: TimeProvider,
 ) {
 
     /**
      *  Creates a flow holding the most recent [ConversationUiModel]s.
      *
      *  Things that influence the list of conversation models:
-     *  - Any change to the underlying [ConversationModel]s that is published via the global [ch.threema.app.listeners.ConversationListener], like:
+     *  - Any change to the underlying [ConversationModel]s that is published via the [ch.threema.app.eventbus.GlobalEventFlows], like:
      *      - the latest message
      *      - the category applied to a conversation (private-marked)
      *      - the tag(s) applied to a conversation (pinned, unread)
@@ -93,7 +101,7 @@ abstract class WatchConversationListItemsUseCase(
         combine(
             watchConversationsUseCase.call(),
             watchGroupCallsUseCase.call(),
-            watchTypingIdentitiesUseCase.call(),
+            typingIndicatorProvider.watchTypingIdentities(),
             watchAvatarIterationsUseCase.call(),
             watchContactNameFormatSettingUseCase.call(),
             draftManager.drafts,
@@ -109,23 +117,25 @@ abstract class WatchConversationListItemsUseCase(
                 mentionNameData,
                 contactAvailabilityStatuses,
             ->
-            val privateConversationUIDs: Set<ConversationUID> = conversationModels
+            val privateConversationIds: Set<ConversationId> = conversationModels
                 .mapNotNull { conversationModel ->
-                    if (getIsPrivate(conversationModel)) conversationModel.uid else null
+                    if (getIsPrivate(conversationModel)) conversationModel.id else null
                 }
                 .toSet()
+            val now = timeProvider.get()
             conversationModels
                 .mapNotNull { conversationModel ->
                     mapToConversationUiModel(
                         conversationModel = conversationModel,
                         groupCalls = groupCalls,
                         typingIdentities = typingIdentities,
-                        privateConversationUIDs = privateConversationUIDs,
+                        privateConversationIds = privateConversationIds,
                         avatarIterations = avatarIterations,
                         contactNameFormat = contactNameFormat,
                         drafts = drafts,
                         mentionNameData = mentionNameData,
                         contactAvailabilityStatuses = contactAvailabilityStatuses,
+                        now,
                     )
                 }
         }
@@ -133,42 +143,46 @@ abstract class WatchConversationListItemsUseCase(
     private fun mapToConversationUiModel(
         conversationModel: ConversationModel,
         groupCalls: Set<GroupCallUiModel>,
-        typingIdentities: Set<IdentityString>,
-        privateConversationUIDs: Set<ConversationUID>,
-        avatarIterations: Map<ReceiverIdentifier, AvatarIteration>,
+        typingIdentities: Set<Identity>,
+        privateConversationIds: Set<ConversationId>,
+        avatarIterations: Map<ConversationId, AvatarIteration>,
         contactNameFormat: ContactNameFormat,
-        drafts: Map<ConversationUID, MessageDraft>,
+        drafts: Map<ConversationIdObfuscated, MessageDraft>,
         mentionNameData: List<MentionNameData>,
         contactAvailabilityStatuses: Map<IdentityString, AvailabilityStatus>,
+        now: Instant,
     ): ConversationUiModel? =
         if (conversationModel.contact != null) {
             mapToContactConversationUiModel(
                 conversationModel = conversationModel,
                 typingIdentities = typingIdentities,
-                privateConversationUIDs = privateConversationUIDs,
+                privateConversationIds = privateConversationIds,
                 avatarIterations = avatarIterations,
                 contactNameFormat = contactNameFormat,
                 drafts = drafts,
                 mentionNameData = mentionNameData,
                 contactAvailabilityStatuses = contactAvailabilityStatuses,
+                now = now,
             )
         } else if (conversationModel.group != null) {
             mapToGroupConversationUiModel(
                 conversationModel = conversationModel,
                 groupCalls = groupCalls,
-                privateConversationUIDs = privateConversationUIDs,
+                privateConversationIds = privateConversationIds,
                 avatarIterations = avatarIterations,
                 contactNameFormat = contactNameFormat,
                 drafts = drafts,
                 mentionNameData = mentionNameData,
+                now = now,
             )
         } else if (conversationModel.distributionList != null) {
             mapToDistributionListConversationUiModel(
                 conversationModel = conversationModel,
-                privateConversationUIDs = privateConversationUIDs,
+                privateConversationIds = privateConversationIds,
                 contactNameFormat = contactNameFormat,
                 drafts = drafts,
                 mentionNameData = mentionNameData,
+                now = now,
             )
         } else {
             null
@@ -176,18 +190,23 @@ abstract class WatchConversationListItemsUseCase(
 
     private fun mapToContactConversationUiModel(
         conversationModel: ConversationModel,
-        typingIdentities: Set<IdentityString>,
-        privateConversationUIDs: Set<ConversationUID>,
-        avatarIterations: Map<ReceiverIdentifier, AvatarIteration>,
+        typingIdentities: Set<Identity>,
+        privateConversationIds: Set<ConversationId>,
+        avatarIterations: Map<ConversationId, AvatarIteration>,
         contactNameFormat: ContactNameFormat,
-        drafts: Map<ConversationUID, MessageDraft>,
+        drafts: Map<ConversationIdObfuscated, MessageDraft>,
         mentionNameData: List<MentionNameData>,
         contactAvailabilityStatuses: Map<IdentityString, AvailabilityStatus>,
+        now: Instant,
     ): ConversationUiModel.ContactConversation? {
-        val contactModel: ContactModel = conversationModel.contact ?: return null
+        val contactModel: ContactModel = conversationModel.contact
+            ?: return null
+        val contactIdentity = Identity(contactModel.identity)
+        val contactConversationId = ContactConversationId(
+            identity = contactIdentity.value,
+        )
         return ConversationUiModel.ContactConversation(
-            conversationUID = conversationModel.uid,
-            receiverIdentifier = contactModel.identifier,
+            conversationId = contactConversationId,
             latestMessageData = getLatestMessageData(conversationModel, mentionNameData, contactNameFormat),
             receiverDisplayName = getReceiverDisplayNameOrNull(
                 receiverModel = conversationModel.receiverModel,
@@ -197,13 +216,13 @@ abstract class WatchConversationListItemsUseCase(
             conversationNameStyle = ConversationNameStyle.forConversationModel(conversationModel),
             draftData = getDraftData(conversationModel, drafts, mentionNameData, contactNameFormat),
             unreadState = getUnreadStateOrNull(conversationModel),
-            isPinned = conversationModel.isPinTagged,
-            isPrivate = privateConversationUIDs.contains(conversationModel.uid),
+            isPinned = conversationModel.conversationVisibility == ConversationVisibility.PINNED,
+            isPrivate = privateConversationIds.contains(contactConversationId),
             icon = getConversationIconOrNull(conversationModel),
-            muteStatusIcon = getMuteStatusIconOrNull(conversationModel),
-            showWorkBadge = contactService.showBadge(contactModel),
-            isTyping = typingIdentities.contains(contactModel.identity),
-            avatarIteration = avatarIterations[contactModel.identifier] ?: AvatarIteration.initial,
+            muteStatusIcon = getMuteStatusIconOrNull(conversationModel, now),
+            showIdentityTypeBadge = contactService.showIdentityTypeBadge(contactModel),
+            isTyping = typingIdentities.contains(contactIdentity),
+            avatarIteration = avatarIterations[contactConversationId] ?: AvatarIteration.initial,
             availabilityStatus = contactAvailabilityStatuses[contactModel.identity],
         )
     }
@@ -211,16 +230,20 @@ abstract class WatchConversationListItemsUseCase(
     private fun mapToGroupConversationUiModel(
         conversationModel: ConversationModel,
         groupCalls: Set<GroupCallUiModel>,
-        privateConversationUIDs: Set<ConversationUID>,
-        avatarIterations: Map<ReceiverIdentifier, AvatarIteration>,
+        privateConversationIds: Set<ConversationId>,
+        avatarIterations: Map<ConversationId, AvatarIteration>,
         contactNameFormat: ContactNameFormat,
-        drafts: Map<ConversationUID, MessageDraft>,
+        drafts: Map<ConversationIdObfuscated, MessageDraft>,
         mentionNameData: List<MentionNameData>,
+        now: Instant,
     ): ConversationUiModel.GroupConversation? {
-        val groupModel: GroupModelOld = conversationModel.group ?: return null
+        val groupModel: GroupModelOld = conversationModel.group
+            ?: return null
+        val groupContactConversationId = GroupConversationId(
+            groupDatabaseId = groupModel.id.toLong(),
+        )
         return ConversationUiModel.GroupConversation(
-            conversationUID = conversationModel.uid,
-            receiverIdentifier = groupModel.identifier,
+            conversationId = groupContactConversationId,
             latestMessageData = getLatestMessageData(conversationModel, mentionNameData, contactNameFormat),
             receiverDisplayName = getReceiverDisplayNameOrNull(
                 receiverModel = conversationModel.receiverModel,
@@ -230,31 +253,35 @@ abstract class WatchConversationListItemsUseCase(
             conversationNameStyle = ConversationNameStyle.forConversationModel(conversationModel),
             draftData = getDraftData(conversationModel, drafts, mentionNameData, contactNameFormat),
             unreadState = getUnreadStateOrNull(conversationModel),
-            isPinned = conversationModel.isPinTagged,
-            isPrivate = privateConversationUIDs.contains(conversationModel.uid),
+            isPinned = conversationModel.conversationVisibility == ConversationVisibility.PINNED,
+            isPrivate = privateConversationIds.contains(groupContactConversationId),
             groupCall = getGroupCallState(groupModel, groupCalls),
             icon = getConversationIconOrNull(conversationModel),
-            muteStatusIcon = getMuteStatusIconOrNull(conversationModel),
+            muteStatusIcon = getMuteStatusIconOrNull(conversationModel, now),
             latestMessageSenderName = getGroupMessageSenderNameOrNull(
                 conversationModel = conversationModel,
                 contactNameFormat = contactNameFormat,
                 drafts = drafts,
             ),
-            avatarIteration = avatarIterations[groupModel.identifier] ?: AvatarIteration.initial,
+            avatarIteration = avatarIterations[groupContactConversationId] ?: AvatarIteration.initial,
         )
     }
 
     private fun mapToDistributionListConversationUiModel(
         conversationModel: ConversationModel,
-        privateConversationUIDs: Set<ConversationUID>,
+        privateConversationIds: Set<ConversationId>,
         contactNameFormat: ContactNameFormat,
-        drafts: Map<ConversationUID, MessageDraft>,
+        drafts: Map<ConversationIdObfuscated, MessageDraft>,
         mentionNameData: List<MentionNameData>,
+        now: Instant,
     ): ConversationUiModel.DistributionListConversation? {
-        val distributionListModel: DistributionListModel = conversationModel.distributionList ?: return null
+        val distributionListModel: DistributionListModel = conversationModel.distributionList
+            ?: return null
+        val distributionListConversationId = DistributionListConversationId(
+            distributionListId = distributionListModel.id,
+        )
         return ConversationUiModel.DistributionListConversation(
-            conversationUID = conversationModel.uid,
-            receiverIdentifier = distributionListModel.identifier,
+            conversationId = distributionListConversationId,
             latestMessageData = getLatestMessageData(conversationModel, mentionNameData, contactNameFormat),
             receiverDisplayName = getReceiverDisplayNameOrNull(
                 receiverModel = conversationModel.receiverModel,
@@ -264,10 +291,10 @@ abstract class WatchConversationListItemsUseCase(
             conversationNameStyle = ConversationNameStyle.forConversationModel(conversationModel),
             draftData = getDraftData(conversationModel, drafts, mentionNameData, contactNameFormat),
             unreadState = getUnreadStateOrNull(conversationModel),
-            isPinned = conversationModel.isPinTagged,
-            isPrivate = privateConversationUIDs.contains(conversationModel.uid),
+            isPinned = conversationModel.conversationVisibility == ConversationVisibility.PINNED,
+            isPrivate = privateConversationIds.contains(distributionListConversationId),
             icon = getConversationIconOrNull(conversationModel),
-            muteStatusIcon = getMuteStatusIconOrNull(conversationModel),
+            muteStatusIcon = getMuteStatusIconOrNull(conversationModel, now),
             avatarIteration = AvatarIteration.initial,
         )
     }
@@ -291,8 +318,6 @@ abstract class WatchConversationListItemsUseCase(
                     false,
                     contactNameFormat,
                 )
-                MessageType.IMAGE -> messageModel.caption
-                MessageType.VIDEO -> messageModel.caption
                 MessageType.FILE -> messageModel.caption
                 else -> null
             } ?: ""
@@ -316,21 +341,23 @@ abstract class WatchConversationListItemsUseCase(
 
     private fun getDraftData(
         conversationModel: ConversationModel,
-        drafts: Map<ConversationUID, MessageDraft>,
+        drafts: Map<ConversationIdObfuscated, MessageDraft>,
         mentionNameData: List<MentionNameData>,
         contactNameFormat: ContactNameFormat,
     ): ConversationUiModel.DraftData? {
-        return drafts[conversationModel.messageReceiver.uniqueIdString]?.text?.let { draft ->
-            val mentionNames: Map<Identity, ResolvableString> = ConversationTextAnalyzer.findResolvableMentionNames(
-                input = draft,
-                mentionNameData = mentionNameData,
-                contactNameFormat = contactNameFormat,
-            )
-            ConversationUiModel.DraftData(
-                draft = draft,
-                mentionNames = mentionNames,
-            )
-        }
+        return drafts[conversationModel.id.obfuscated]
+            ?.text
+            ?.let { draft ->
+                val mentionNames: Map<Identity, ResolvableString> = ConversationTextAnalyzer.findResolvableMentionNames(
+                    input = draft,
+                    mentionNameData = mentionNameData,
+                    contactNameFormat = contactNameFormat,
+                )
+                ConversationUiModel.DraftData(
+                    draft = draft,
+                    mentionNames = mentionNames,
+                )
+            }
     }
 
     private fun getConversationIconOrNull(conversationModel: ConversationModel): IconInfo? =
@@ -338,7 +365,7 @@ abstract class WatchConversationListItemsUseCase(
             conversationModel.isContactConversation -> getContactConversationIconOrNull(conversationModel)
             conversationModel.isGroupConversation -> getGroupConversationIconOrNull(conversationModel)
             conversationModel.isDistributionListConversation -> IconInfo(
-                res = R.drawable.ic_distribution_list_filled,
+                iconRes = R.drawable.ic_distribution_list,
                 contentDescription = R.string.distribution_list,
             )
             else -> null
@@ -356,14 +383,14 @@ abstract class WatchConversationListItemsUseCase(
         if (latestMessageModel.type == MessageType.VOIP_STATUS) {
             // TODO(ANDR-4549): Correct the content description used for this icon
             return IconInfo(
-                res = R.drawable.ic_phone_locked,
+                iconRes = R.drawable.ic_phone_locked,
                 contentDescription = R.string.state_sent,
             )
         }
         if (!latestMessageModel.isOutbox) {
             // TODO(ANDR-4549): Correct the content description used for this icon
             return IconInfo(
-                res = R.drawable.ic_reply_filled,
+                iconRes = R.drawable.ic_reply,
                 contentDescription = R.string.state_sent,
             )
         }
@@ -392,7 +419,7 @@ abstract class WatchConversationListItemsUseCase(
             }
 
         return IconInfo(
-            res = stateIconRes,
+            iconRes = stateIconRes,
             contentDescription = stateIconContentDescriptionRes,
             tintOverride = tintOverride,
         )
@@ -409,12 +436,12 @@ abstract class WatchConversationListItemsUseCase(
             ?: return null
         return if (groupModel.isNotesGroup() == true) {
             IconInfo(
-                res = R.drawable.ic_spiral_bound_booklet_outline,
+                iconRes = R.drawable.ic_spiral_bound_booklet_outline,
                 contentDescription = R.string.notes,
             )
         } else {
             IconInfo(
-                res = R.drawable.ic_group_filled,
+                iconRes = R.drawable.ic_group_filled,
                 contentDescription = R.string.prefs_group_notifications,
             )
         }
@@ -462,8 +489,8 @@ abstract class WatchConversationListItemsUseCase(
     }
 
     private fun getIsPrivate(conversationModel: ConversationModel): Boolean {
-        return conversationCategoryService.isPrivateChat(
-            uniqueIdString = conversationModel.messageReceiver.uniqueIdString,
+        return conversationCategoryService.isMarkedAsPrivate(
+            conversationId = conversationModel.id,
         )
     }
 
@@ -474,19 +501,20 @@ abstract class WatchConversationListItemsUseCase(
     }
 
     @DrawableRes
-    private fun getMuteStatusIconOrNull(conversationModel: ConversationModel): Int? {
+    private fun getMuteStatusIconOrNull(
+        conversationModel: ConversationModel,
+        now: Instant,
+    ): Int? {
         var iconRes: Int? = null
         val messageReceiver = conversationModel.messageReceiver
         if (messageReceiver is ContactMessageReceiver) {
-            iconRes = messageReceiver.contact.currentNotificationTriggerPolicyOverride().iconResRightNow
+            iconRes = messageReceiver.contact.notificationTriggerPolicyOverride?.getIconResAt(now)
         } else if (messageReceiver is GroupMessageReceiver) {
-            iconRes = messageReceiver.group.currentNotificationTriggerPolicyOverride().iconResRightNow
+            iconRes = messageReceiver.group.notificationTriggerPolicyOverride?.getIconResAt(now)
         }
-        if (
-            iconRes == null &&
-            ringtoneService.hasCustomRingtone(conversationModel.messageReceiver.uniqueIdString) &&
-            ringtoneService.isSilent(conversationModel.messageReceiver.uniqueIdString, conversationModel.isGroupConversation)
-        ) {
+        val hasCustomRingtone = ringtoneService.hasCustomRingtone(conversationModel.id)
+        val isSilent = ringtoneService.isSilent(conversationModel.id, conversationModel.isGroupConversation)
+        if (iconRes == null && hasCustomRingtone && isSilent) {
             iconRes = R.drawable.ic_notifications_off_filled
         }
         return iconRes
@@ -495,9 +523,9 @@ abstract class WatchConversationListItemsUseCase(
     private fun getGroupMessageSenderNameOrNull(
         conversationModel: ConversationModel,
         contactNameFormat: ContactNameFormat,
-        drafts: Map<ConversationUID, MessageDraft>,
+        drafts: Map<ConversationIdObfuscated, MessageDraft>,
     ): ResolvableString? {
-        val hasOwnDraft: Boolean = drafts.contains(conversationModel.messageReceiver.uniqueIdString)
+        val hasOwnDraft: Boolean = drafts.contains(conversationModel.id.obfuscated)
         val latestMessage: AbstractMessageModel? = conversationModel.latestMessage
 
         if (

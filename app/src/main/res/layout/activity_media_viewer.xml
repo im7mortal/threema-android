@@ -36,39 +36,49 @@
             android:textColor="@android:color/white" />
     </LinearLayout>
 
-    <FrameLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/caption_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:paddingHorizontal="@dimen/grid_unit_x2"
-        android:paddingBottom="@dimen/mediaviewer_caption_border_bottom"
+        android:paddingBottom="@dimen/media_viewer_caption_border_bottom"
         android:visibility="gone"
         tools:visibility="visible">
 
         <com.google.android.material.card.MaterialCardView
+            android:id="@+id/caption_card"
             style="@style/Threema.CardView.MediaViewerCaption"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal">
+            android:layout_gravity="center_horizontal"
+            app:layout_constrainedHeight="true"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHeight_max="@dimen/media_viewer_caption_max_height"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
 
-            <ch.threema.app.emojis.EmojiTextView
-                android:id="@+id/caption"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:paddingHorizontal="@dimen/grid_unit_x2"
-                android:paddingVertical="@dimen/mediaviewer_caption_container_padding_vertical"
-                android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
-                android:textColor="?attr/colorOnBackground"
-                tools:text="This is the caption"
-                tools:textColor="@android:color/white" />
+            <androidx.core.widget.NestedScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <ch.threema.app.emojis.EmojiTextView
+                    android:id="@+id/caption"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="@dimen/grid_unit_x2"
+                    android:paddingVertical="@dimen/media_viewer_caption_container_padding_vertical"
+                    android:textAppearance="@style/TextAppearance.Material3.BodyMedium"
+                    android:textColor="?attr/colorOnBackground"
+                    tools:text="This is the caption"
+                    tools:textColor="@android:color/white" />
+
+            </androidx.core.widget.NestedScrollView>
 
         </com.google.android.material.card.MaterialCardView>
 
-
-    </FrameLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <com.google.android.material.appbar.AppBarLayout
         android:id="@+id/appbar"

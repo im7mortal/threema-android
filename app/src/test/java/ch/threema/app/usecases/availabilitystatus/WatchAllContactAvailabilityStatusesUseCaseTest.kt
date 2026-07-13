@@ -2,17 +2,19 @@ package ch.threema.app.usecases.availabilitystatus
 
 import app.cash.turbine.test
 import ch.threema.app.BuildConfig
-import ch.threema.app.managers.ListenerManager
-import ch.threema.app.test.unconfinedTestDispatcherProvider
+import ch.threema.app.eventbus.GlobalEventFlows
+import ch.threema.app.eventbus.events.ContactEvent
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.testhelpers.expectItem
+import ch.threema.testhelpers.unconfinedTestDispatcherProvider
 import io.mockk.Called
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlin.test.Test
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assume
 import testdata.TestData
@@ -42,9 +44,14 @@ class WatchAllContactAvailabilityStatusesUseCaseTest {
         val contactModelRepositoryMock = mockk<ContactModelRepository> {
             every { getAll() } returns allInitial andThen allUpdated
         }
+        val contactEventsFlow = MutableSharedFlow<ContactEvent>()
+        val globalEventFlowsMock = mockk<GlobalEventFlows> {
+            every { contacts } returns contactEventsFlow
+        }
         val useCase = WatchAllContactAvailabilityStatusesUseCase(
             contactModelRepository = contactModelRepositoryMock,
             dispatcherProvider = unconfinedTestDispatcherProvider(),
+            globalEventFlows = globalEventFlowsMock,
         )
 
         // act / assert
@@ -57,9 +64,7 @@ class WatchAllContactAvailabilityStatusesUseCaseTest {
             )
 
             // Expect the updated items
-            ListenerManager.contactListeners.handle {
-                it.onModified(TestData.Identities.OTHER_1.value)
-            }
+            contactEventsFlow.emit(ContactEvent.ContactUpdated(TestData.Identities.OTHER_1))
             expectItem(
                 mapOf(
                     TestData.Identities.OTHER_1.value to AvailabilityStatus.Unavailable(description = "On vacation"),
@@ -80,9 +85,11 @@ class WatchAllContactAvailabilityStatusesUseCaseTest {
 
         // arrange
         val contactModelRepositoryMock = mockk<ContactModelRepository>()
+        val globalEventFlowsMock = mockk<GlobalEventFlows>()
         val useCase = WatchAllContactAvailabilityStatusesUseCase(
             contactModelRepository = contactModelRepositoryMock,
             dispatcherProvider = unconfinedTestDispatcherProvider(),
+            globalEventFlows = globalEventFlowsMock,
         )
 
         // act / assert

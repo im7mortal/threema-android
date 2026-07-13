@@ -4,7 +4,6 @@ import android.content.Context
 import ch.threema.app.ThreemaApplication
 import ch.threema.app.utils.WebRTCUtil
 import ch.threema.app.voip.groupcall.sfu.*
-import ch.threema.base.utils.Utils.hexStringToByteArray
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.types.Identity
 import org.webrtc.RtcCertificatePem
@@ -40,7 +39,7 @@ class Joining internal constructor(
             if (it == null) {
                 throw Error("Expected fingerprint to be a SHA-256 digest")
             }
-            hexStringToByteArray(it.value.replace(":", ""))
+            it.value.replace(":", "").hexToByteArray()
         }
 
         val joinResponse = join(fingerprint, 2)

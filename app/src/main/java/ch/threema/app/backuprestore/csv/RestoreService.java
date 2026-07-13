@@ -8,7 +8,6 @@ import android.app.Service;
 import android.content.ComponentCallbacks2;
 import android.content.Context;
 import android.content.Intent;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.PowerManager;
@@ -30,8 +29,9 @@ import java.io.InputStreamReader;
 import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -48,10 +48,10 @@ import androidx.core.app.ServiceCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import ch.threema.app.BuildConfig;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.activities.DummyActivity;
-import ch.threema.app.reset.ResetAppTaskJavaCompat;
-import ch.threema.app.stores.IdentityProvider;
+import ch.threema.app.backuprestore.LegacyMessageBodyTransformer;
+import ch.threema.app.notifications.NotificationRequestCodes;
+import ch.threema.data.IdentityProvider;
 import ch.threema.app.usecases.OverrideOneTimeHintsUseCase;
 import ch.threema.app.home.HomeActivity;
 import ch.threema.app.backuprestore.MessageIdCache;
@@ -71,25 +71,29 @@ import ch.threema.app.utils.CSVReader;
 import ch.threema.app.utils.CSVRow;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.Counter;
-import ch.threema.app.utils.JsonUtil;
 import ch.threema.app.utils.MessageUtil;
 import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.ResettableInputStream;
 import ch.threema.app.utils.ElapsedTimeFormatter;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.utils.ThrowingConsumer;
 import ch.threema.base.ThreemaException;
 import ch.threema.base.crypto.NonceFactory;
 import ch.threema.base.crypto.NonceScope;
 
+import static ch.threema.app.notifications.NotificationIDs.RESTORE_COMPLETION_NOTIFICATION_ID;
+import static ch.threema.app.notifications.NotificationIDs.RESTORE_NOTIFICATION_ID;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.base.utils.Utils;
+
+import ch.threema.data.datatypes.ConversationVisibility;
+import ch.threema.data.datatypes.PredefinedContact;
 import ch.threema.data.models.GroupModel;
 import ch.threema.data.repositories.EmojiReactionsRepository;
 import ch.threema.data.repositories.GroupModelRepository;
 import ch.threema.data.repositories.ModelRepositories;
 import ch.threema.data.storage.DbEmojiReaction;
+import ch.threema.domain.models.AcquaintanceLevel;
 import ch.threema.domain.models.GroupId;
+import ch.threema.domain.models.MessageId;
 import ch.threema.domain.models.UserState;
 import ch.threema.domain.models.VerificationLevel;
 import ch.threema.domain.protocol.connection.ServerConnection;
@@ -101,7 +105,6 @@ import ch.threema.storage.factories.GroupModelFactory;
 import ch.threema.storage.factories.MessageModelFactory;
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.ContactModel;
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel;
 import ch.threema.storage.models.DistributionListMemberModel;
 import ch.threema.storage.models.DistributionListMessageModel;
 import ch.threema.storage.models.DistributionListModel;
@@ -111,18 +114,21 @@ import ch.threema.storage.models.group.GroupModelOld;
 import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.MessageType;
-import ch.threema.storage.models.ballot.BallotChoiceModel;
-import ch.threema.storage.models.ballot.BallotModel;
-import ch.threema.storage.models.ballot.BallotVoteModel;
-import ch.threema.storage.models.ballot.GroupBallotModel;
-import ch.threema.storage.models.ballot.IdentityBallotModel;
-import ch.threema.storage.models.ballot.LinkBallotModel;
+import ch.threema.storage.models.poll.PollChoiceModel;
+import ch.threema.storage.models.poll.PollModel;
+import ch.threema.storage.models.poll.PollVoteModel;
+import ch.threema.storage.models.poll.GroupPollModel;
+import ch.threema.storage.models.poll.IdentityPollModel;
+import ch.threema.storage.models.poll.LinkPollModel;
 import ch.threema.storage.models.data.MessageContentsType;
-import ch.threema.storage.models.data.media.BallotDataModel;
+import ch.threema.storage.models.data.media.PollDataModel;
 import ch.threema.storage.models.data.media.FileDataModel;
 
 import static android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC;
+import static ch.threema.common.JavaCompat.hexToByteArray;
 import static ch.threema.common.JavaCompat.inputStreamToString;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
+import static ch.threema.common.JsonExtensionsKt.parseJsonObjectAsStringMap;
 
 public class RestoreService extends Service implements ComponentCallbacks2 {
     private static final Logger logger = getThreemaLogger("RestoreService");
@@ -139,6 +145,8 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
     private static final int FG_SERVICE_TYPE = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ? FOREGROUND_SERVICE_TYPE_DATA_SYNC : 0;
 
+    @Nullable
+    private Thread restoreThread;
     private ServiceManager serviceManager;
     private ContactService contactService;
     private ConversationService conversationService;
@@ -158,8 +166,6 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
     private NotificationCompat.Builder notificationBuilder;
 
-    private static final int RESTORE_NOTIFICATION_ID = 981772;
-    public static final int RESTORE_COMPLETION_NOTIFICATION_ID = 981773;
     private static final String EXTRA_ID_CANCEL = "cnc";
 
     private final HashMap<String, String> identityIdMap = new HashMap<>();
@@ -247,22 +253,18 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                     return START_NOT_STICKY;
                 }
 
-                new AsyncTask<Void, Void, Boolean>() {
-                    @Override
-                    protected Boolean doInBackground(Void... params) {
-                        logger.info("Size of backup file: {}", formatFileSize(file.length()));
-                        zipFileWrapper = new ZipFileWrapper(file, password);
-                        if (!zipFileWrapper.isValidZipFile()) {
-                            logger.warn("ZIP file might be invalid, restore might fail");
-                        }
-                        return restore();
+                restoreThread = new Thread(() -> {
+                    logger.info("Size of backup file: {}", formatFileSize(file.length()));
+                    zipFileWrapper = new ZipFileWrapper(file, password);
+                    if (!zipFileWrapper.isValidZipFile()) {
+                        logger.warn("ZIP file might be invalid, restore might fail");
                     }
+                    restore();
 
-                    @Override
-                    protected void onPostExecute(Boolean success) {
-                        stopSelf();
-                    }
-                }.execute();
+                    restoreThread = null;
+                    stopSelf();
+                });
+                restoreThread.start();
 
                 if (isRunning) {
                     return START_STICKY;
@@ -290,7 +292,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
         isRunning = true;
 
-        serviceManager = ThreemaApplication.getServiceManager();
+        serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             stopSelf();
             return;
@@ -323,6 +325,12 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
         if (isCanceled) {
             onFinished(getString(R.string.restore_data_cancelled));
+        }
+
+        final Thread restoreThread = this.restoreThread;
+        if (restoreThread != null && !restoreThread.isInterrupted()) {
+            restoreThread.interrupt();
+            this.restoreThread = null;
         }
 
         super.onDestroy();
@@ -376,9 +384,9 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     }
 
     private RestoreSettings restoreSettings;
-    private final HashMap<String, Integer> ballotIdMap = new HashMap<>();
-    private final HashMap<Integer, Integer> ballotOldIdMap = new HashMap<>();
-    private final HashMap<String, Integer> ballotChoiceIdMap = new HashMap<>();
+    private final HashMap<String, Integer> pollIdMap = new HashMap<>();
+    private final HashMap<Integer, Integer> pollOldIdMap = new HashMap<>();
+    private final HashMap<String, Integer> pollChoiceIdMap = new HashMap<>();
     private final HashMap<String, Long> distributionListIdMap = new HashMap<>();
 
     private boolean applyRestore = false;
@@ -422,9 +430,9 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                 this.identityIdMap.clear();
                 this.identitiesSet.clear();
                 this.groupUidMap.clear();
-                this.ballotIdMap.clear();
-                this.ballotOldIdMap.clear();
-                this.ballotChoiceIdMap.clear();
+                this.pollIdMap.clear();
+                this.pollOldIdMap.clear();
+                this.pollChoiceIdMap.clear();
                 this.distributionListIdMap.clear();
 
                 if (applyRestore) {
@@ -440,9 +448,9 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                     databaseService.getDistributionListMessageModelFactory().deleteAll();
                     databaseService.getDistributionListMemberModelFactory().deleteAll();
                     databaseService.getDistributionListModelFactory().deleteAll();
-                    databaseService.getBallotModelFactory().deleteAll();
-                    databaseService.getBallotVoteModelFactory().deleteAll();
-                    databaseService.getBallotChoiceModelFactory().deleteAll();
+                    databaseService.getPollModelFactory().deleteAll();
+                    databaseService.getPollVoteModelFactory().deleteAll();
+                    databaseService.getPollChoiceModelFactory().deleteAll();
                     databaseService.getOutgoingGroupSyncRequestLogModelFactory().deleteAll();
                     databaseService.getIncomingGroupSyncRequestLogModelFactory().deleteAll();
 
@@ -618,7 +626,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     }
 
     /**
-     * restore the main files (contacts, groups, distribution lists, ballots)
+     * restore the main files (contacts, groups, distribution lists, polls)
      */
     private boolean restoreMainFiles(List<FileHeader> fileHeaders) throws IOException, RestoreCanceledException {
         FileHeader contactsFileHeader = getFileHeader(Tags.CONTACTS_FILE_NAME + Tags.CSV_FILE_POSTFIX, fileHeaders);
@@ -629,7 +637,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
         // It is important that groups are restored *after* the contacts, as this information is also needed to restore group memberships
         FileHeader groupsFileHeader = getFileHeader(Tags.GROUPS_FILE_NAME + Tags.CSV_FILE_POSTFIX, fileHeaders);
-        if (groupsFileHeader != null &&!restoreGroupFile(groupsFileHeader)) {
+        if (groupsFileHeader != null && !restoreGroupFile(groupsFileHeader)) {
             logger.error("restore group file failed");
         }
 
@@ -638,11 +646,11 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
             logger.error("restore distribution list file failed");
         }
 
-        FileHeader ballotMainFileHeader = getFileHeader(Tags.BALLOT_FILE_NAME + Tags.CSV_FILE_POSTFIX, fileHeaders);
-        FileHeader ballotChoiceFileHeader = getFileHeader(Tags.BALLOT_CHOICE_FILE_NAME + Tags.CSV_FILE_POSTFIX, fileHeaders);
-        FileHeader ballotVoteFileHeader = getFileHeader(Tags.BALLOT_VOTE_FILE_NAME + Tags.CSV_FILE_POSTFIX, fileHeaders);
-        if (ballotMainFileHeader != null && ballotChoiceFileHeader != null && ballotVoteFileHeader != null) {
-            restoreBallotFile(ballotMainFileHeader, ballotChoiceFileHeader, ballotVoteFileHeader);
+        FileHeader pollMainFileHeader = getFileHeader(Tags.POLL_FILE_NAME + Tags.CSV_FILE_POSTFIX, fileHeaders);
+        FileHeader pollChoiceFileHeader = getFileHeader(Tags.POLL_CHOICE_FILE_NAME + Tags.CSV_FILE_POSTFIX, fileHeaders);
+        FileHeader pollVoteFileHeader = getFileHeader(Tags.POLL_VOTE_FILE_NAME + Tags.CSV_FILE_POSTFIX, fileHeaders);
+        if (pollMainFileHeader != null && pollChoiceFileHeader != null && pollVoteFileHeader != null) {
+            restorePollFile(pollMainFileHeader, pollChoiceFileHeader, pollVoteFileHeader);
         }
 
         return true;
@@ -758,19 +766,19 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                 try {
                     // Note that currently there is only one nonce per row, and therefore we do
                     // not need to read them as array. However, this gives us the flexibility to
-                    // backup several nonces in one row (as we have done in 5.1-alpha3)
+                    // back up several nonces in one row (as we have done in 5.1-alpha3)
                     String[] nonces = row.getStrings(Tags.TAG_NONCES);
                     nonceCount += nonces.length;
                     if (applyRestore) {
                         for (String nonce : nonces) {
-                            nonceBytes.add(Utils.hexStringToByteArray(nonce));
+                            nonceBytes.add(hexToByteArray(nonce));
                             if (nonceBytes.size() >= NONCES_CHUNK_SIZE) {
                                 success &= insertNonces(scope, nonceBytes);
                                 nonceBytes.clear();
                             }
                         }
                     }
-                } catch (ThreemaException|NoSuchAlgorithmException|InvalidKeyException e) {
+                } catch (ThreemaException | NoSuchAlgorithmException | InvalidKeyException | IllegalArgumentException e) {
                     logger.error("Could not insert nonces", e);
                     return 0;
                 }
@@ -778,7 +786,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
             if (!nonceBytes.isEmpty()) {
                 try {
                     success &= insertNonces(scope, nonceBytes);
-                } catch (NoSuchAlgorithmException|InvalidKeyException e) {
+                } catch (NoSuchAlgorithmException | InvalidKeyException e) {
                     logger.error("Could not insert remaining nonces", e);
                     success = false;
                 }
@@ -916,7 +924,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                         id,
                         senderIdentity,
                         sequence,
-                        new Date(reactedAt)
+                        Instant.ofEpochMilli(reactedAt)
                     ));
                     restoredReactionsCounter.count();
                     long steps = restoredReactionsCounter.getAndResetSteps(REACTIONS_STEP_THRESHOLD);
@@ -960,7 +968,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                         id,
                         senderIdentity,
                         sequence,
-                        new Date(reactedAt)
+                        Instant.ofEpochMilli(reactedAt)
                     ));
                     restoredReactionsCounter.count();
                     long steps = restoredReactionsCounter.getAndResetSteps(REACTIONS_STEP_THRESHOLD);
@@ -1051,10 +1059,10 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
             }
 
             final String groupUid = fileName.substring(Tags.GROUP_AVATAR_PREFIX.length());
-            if (!TestUtil.isEmptyOrNull(groupUid)) {
+            if (!isNullOrEmpty(groupUid)) {
                 Integer groupId = groupUidMap.get(groupUid);
                 if (groupId != null) {
-                    GroupModel m = groupModelRepository.getByLocalGroupDbId(groupId);
+                    GroupModel m = groupModelRepository.getByGroupDatabaseId(groupId);
                     if (m != null) {
                         try (InputStream inputStream = getZipFileInputStream(fileHeader)) {
                             this.fileService.writeGroupProfilePicture(m, inputStream);
@@ -1117,7 +1125,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         if (applyRestore) {
             for (FileHeader fileHeader : fileHeaders) {
                 String fileName = fileHeader.getFileName();
-                if (!TestUtil.isEmptyOrNull(fileName) && fileName.startsWith(thumbnailPrefix)) {
+                if (!isNullOrEmpty(fileName) && fileName.startsWith(thumbnailPrefix)) {
                     thumbnailFileHeaders.put(fileName, fileHeader);
                 }
             }
@@ -1150,7 +1158,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                                 }
                                 if (fileSize < MAX_THUMBNAIL_SIZE_BYTES) {
                                     try (InputStream inputStream = getZipFileInputStream(thumbnailFileHeader)) {
-                                        this.fileService.saveThumbnail(model, inputStream);
+                                        fileService.saveThumbnail(messageUid, inputStream);
                                     }
                                 }
                             }
@@ -1163,13 +1171,13 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                                 );
                             }
                             try (InputStream inputStream = getZipFileInputStream(fileHeader)) {
-                                this.fileService.writeConversationMedia(model, inputStream);
+                                fileService.writeConversationMedia(messageUid, inputStream, false);
                             }
 
                             // TODO(ANDR-3737): The following check is insufficient and leads to false positives and false negatives,
                             //  e.g. video files are not handled properly
                             if (MessageUtil.canHaveThumbnailFile(model) && model.getMessageContentsType() == MessageContentsType.IMAGE) {
-                                    // check if a thumbnail file is in backup
+                                // check if a thumbnail file is in backup
                                 FileHeader thumbnailFileHeader = thumbnailFileHeaders.get(thumbnailPrefix + messageUid);
 
                                 // if no thumbnail file exist in backup, generate one
@@ -1217,7 +1225,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                 ContactModel contactModel = createContactModel(row, restoreSettings);
                 if (applyRestore && !contactModel.getIdentity().equals(myIdentity)) {
                     ContactModelFactory contactModelFactory = databaseService.getContactModelFactory();
-                    contactModelFactory.createOrUpdate(contactModel);
+                    contactModelFactory.create(contactModel);
                 }
             } catch (Exception x) {
                 logger.error("Could not restore contact", x);
@@ -1228,12 +1236,12 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     private boolean restoreContactAvatarFile(@NonNull FileHeader fileHeader) {
         // Look up avatar filename
         String filename = fileHeader.getFileName();
-        if (TestUtil.isEmptyOrNull(filename)) {
+        if (isNullOrEmpty(filename)) {
             return false;
         }
 
         String identityId = filename.substring(Tags.CONTACT_AVATAR_FILE_PREFIX.length());
-        if (TestUtil.isEmptyOrNull(identityId)) {
+        if (isNullOrEmpty(identityId)) {
             return false;
         }
 
@@ -1261,13 +1269,13 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     private boolean restoreContactPhotoFile(@NonNull FileHeader fileHeader) {
         // Look up profile picture filename
         String filename = fileHeader.getFileName();
-        if (TestUtil.isEmptyOrNull(filename)) {
+        if (isNullOrEmpty(filename)) {
             return false;
         }
 
         // Look up contact model for this avatar
         String identityId = filename.substring(Tags.CONTACT_PROFILE_PIC_FILE_PREFIX.length());
-        if (TestUtil.isEmptyOrNull(identityId)) {
+        if (isNullOrEmpty(identityId)) {
             return false;
         }
         ContactModel contactModel = contactService.getByIdentity(identityIdMap.get(identityId));
@@ -1376,34 +1384,34 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         });
     }
 
-    private void restoreBallotFile(
-        @NonNull FileHeader ballotMain,
-        @NonNull final FileHeader ballotChoice,
-        @NonNull FileHeader ballotVote
+    private void restorePollFile(
+        @NonNull FileHeader pollMain,
+        @NonNull final FileHeader pollChoice,
+        @NonNull FileHeader pollVote
     ) throws IOException, RestoreCanceledException {
-        this.processCsvFile(ballotMain, row -> {
+        this.processCsvFile(pollMain, row -> {
             try {
-                BallotModel ballotModel = createBallotModel(row);
+                PollModel pollModel = createPollModel(row);
                 if (applyRestore) {
-                    databaseService.getBallotModelFactory().create(ballotModel);
+                    databaseService.getPollModelFactory().create(pollModel);
                 }
-                ballotIdMap.put(BackupUtils.buildBallotUid(ballotModel), ballotModel.getId());
-                ballotOldIdMap.put(row.getInteger(Tags.TAG_BALLOT_ID), ballotModel.getId());
+                pollIdMap.put(BackupUtils.buildPollUid(pollModel), pollModel.getId());
+                pollOldIdMap.put(row.getInteger(Tags.TAG_POLL_ID), pollModel.getId());
 
-                LinkBallotModel ballotLinkModel = createLinkBallotModel(row, ballotModel.getId());
+                LinkPollModel pollLinkModel = createLinkPollModel(row, pollModel.getId());
 
                 if (applyRestore) {
-                    if (ballotLinkModel == null) {
+                    if (pollLinkModel == null) {
                         //link failed
                         logger.error("link failed");
                     }
-                    if (ballotLinkModel instanceof GroupBallotModel) {
-                        databaseService.getGroupBallotModelFactory().create(
-                            (GroupBallotModel) ballotLinkModel
+                    if (pollLinkModel instanceof GroupPollModel) {
+                        databaseService.getGroupPollModelFactory().create(
+                            (GroupPollModel) pollLinkModel
                         );
-                    } else if (ballotLinkModel instanceof IdentityBallotModel) {
-                        databaseService.getIdentityBallotModelFactory().create(
-                            (IdentityBallotModel) ballotLinkModel
+                    } else if (pollLinkModel instanceof IdentityPollModel) {
+                        databaseService.getIdentityPollModelFactory().create(
+                            (IdentityPollModel) pollLinkModel
                         );
                     } else {
                         logger.error("not handled link");
@@ -1411,31 +1419,31 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                 }
 
             } catch (Exception x) {
-                logger.error("Could not restore ballot", x);
+                logger.error("Could not restore poll", x);
             }
         });
 
-        this.processCsvFile(ballotChoice, row -> {
+        this.processCsvFile(pollChoice, row -> {
             try {
-                BallotChoiceModel ballotChoiceModel = createBallotChoiceModel(row);
-                if (ballotChoiceModel != null && applyRestore) {
-                    databaseService.getBallotChoiceModelFactory().create(ballotChoiceModel);
-                    ballotChoiceIdMap.put(BackupUtils.buildBallotChoiceUid(ballotChoiceModel), ballotChoiceModel.getId());
+                PollChoiceModel pollChoiceModel = createPollChoiceModel(row);
+                if (pollChoiceModel != null && applyRestore) {
+                    databaseService.getPollChoiceModelFactory().create(pollChoiceModel);
+                    pollChoiceIdMap.put(BackupUtils.buildPollChoiceUid(pollChoiceModel), pollChoiceModel.getId());
                 }
             } catch (Exception e) {
-                logger.error("Failed to restore ballot choice file", e);
+                logger.error("Failed to restore poll choice file", e);
                 // continue!
             }
         });
 
-        this.processCsvFile(ballotVote, row -> {
+        this.processCsvFile(pollVote, row -> {
             try {
-                BallotVoteModel ballotVoteModel = createBallotVoteModel(row);
-                if (ballotVoteModel != null && applyRestore) {
-                    databaseService.getBallotVoteModelFactory().create(ballotVoteModel);
+                PollVoteModel pollVoteModel = createPollVoteModel(row);
+                if (pollVoteModel != null && applyRestore) {
+                    databaseService.getPollVoteModelFactory().create(pollVoteModel);
                 }
             } catch (Exception x) {
-                logger.error("Failed to restore ballot vote file", x);
+                logger.error("Failed to restore poll vote file", x);
                 // continue!
             }
         });
@@ -1447,22 +1455,41 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         groupModel.setApiGroupId(new GroupId(row.getString(Tags.TAG_GROUP_ID)));
         groupModel.setCreatorIdentity(row.getString(Tags.TAG_GROUP_CREATOR));
         groupModel.setName(row.getString(Tags.TAG_GROUP_NAME));
-        groupModel.setCreatedAt(row.getDate(Tags.TAG_GROUP_CREATED_AT));
+
+        @Nullable Instant createdAt = row.getInstant(Tags.TAG_GROUP_CREATED_AT);
+        if (createdAt != null && createdAt.toEpochMilli() < 0) {
+            // Due to a bug in older versions, backups with a negative createdAt timestamp might exist
+            createdAt = Instant.ofEpochMilli(0);
+        }
+        groupModel.setCreatedAt(createdAt);
 
         if (restoreSettings.getVersion() >= 4 && row.hasField(Tags.TAG_GROUP_DELETED) && row.getBoolean(Tags.TAG_GROUP_DELETED)) {
             return null;
         }
         if (restoreSettings.getVersion() >= 14) {
-            groupModel.setArchived(row.getBoolean(Tags.TAG_GROUP_ARCHIVED));
+            boolean isArchived = row.getBoolean(Tags.TAG_GROUP_ARCHIVED);
+            groupModel.setConversationVisibility(
+                isArchived ? ConversationVisibility.ARCHIVED : ConversationVisibility.NORMAL
+            );
         }
 
         if (restoreSettings.getVersion() >= 17) {
             groupModel.setGroupDesc(row.getString(Tags.TAG_GROUP_DESC));
-            groupModel.setGroupDescTimestamp(row.getDate(Tags.TAG_GROUP_DESC_TIMESTAMP));
+            @Nullable Instant groupDescTimestamp = row.getInstant(Tags.TAG_GROUP_DESC_TIMESTAMP);
+            if (groupDescTimestamp != null && groupDescTimestamp.toEpochMilli() < 0) {
+                // Due to a bug in older versions, backups with a negative groupDescTimestamp timestamp might exist
+                groupDescTimestamp = Instant.ofEpochMilli(0);
+            }
+            groupModel.setGroupDescTimestamp(groupDescTimestamp);
         }
 
         if (restoreSettings.getVersion() >= 22) {
-            groupModel.setLastUpdate(row.getDate(Tags.TAG_GROUP_LAST_UPDATE));
+            @Nullable Instant lastUpdateAt = row.getInstant(Tags.TAG_GROUP_LAST_UPDATE);
+            if (lastUpdateAt != null && lastUpdateAt.toEpochMilli() < 0) {
+                // Due to a bug in older versions, backups with a negative lastUpdateAt timestamp might exist
+                lastUpdateAt = Instant.ofEpochMilli(0);
+            }
+            groupModel.setLastUpdate(lastUpdateAt);
         }
 
         if (restoreSettings.getVersion() >= 25) {
@@ -1472,51 +1499,51 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         return groupModel;
     }
 
-    private BallotModel createBallotModel(CSVRow row) throws ThreemaException {
-        BallotModel ballotModel = new BallotModel();
+    private PollModel createPollModel(CSVRow row) throws ThreemaException {
+        PollModel pollModel = new PollModel();
 
-        ballotModel.setApiBallotId(row.getString(Tags.TAG_BALLOT_API_ID));
-        ballotModel.setCreatorIdentity(row.getString(Tags.TAG_BALLOT_API_CREATOR));
-        ballotModel.setName(row.getString(Tags.TAG_BALLOT_NAME));
+        pollModel.setApiPollId(row.getString(Tags.TAG_POLL_API_ID));
+        pollModel.setCreatorIdentity(row.getString(Tags.TAG_POLL_API_CREATOR));
+        pollModel.setName(row.getString(Tags.TAG_POLL_NAME));
 
-        String state = row.getString(Tags.TAG_BALLOT_STATE);
-        if (TestUtil.compare(state, BallotModel.State.CLOSED.toString())) {
-            ballotModel.setState(BallotModel.State.CLOSED);
-        } else if (TestUtil.compare(state, BallotModel.State.OPEN.toString())) {
-            ballotModel.setState(BallotModel.State.OPEN);
-        } else if (TestUtil.compare(state, BallotModel.State.TEMPORARY.toString())) {
-            ballotModel.setState(BallotModel.State.TEMPORARY);
+        String state = row.getString(Tags.TAG_POLL_STATE);
+        if (PollModel.State.CLOSED.toString().equals(state)) {
+            pollModel.setState(PollModel.State.CLOSED);
+        } else if (PollModel.State.OPEN.toString().equals(state)) {
+            pollModel.setState(PollModel.State.OPEN);
+        } else if (PollModel.State.TEMPORARY.toString().equals(state)) {
+            pollModel.setState(PollModel.State.TEMPORARY);
         }
 
-        String assessment = row.getString(Tags.TAG_BALLOT_ASSESSMENT);
-        if (TestUtil.compare(assessment, BallotModel.Assessment.MULTIPLE_CHOICE.toString())) {
-            ballotModel.setAssessment(BallotModel.Assessment.MULTIPLE_CHOICE);
-        } else if (TestUtil.compare(assessment, BallotModel.Assessment.SINGLE_CHOICE.toString())) {
-            ballotModel.setAssessment(BallotModel.Assessment.SINGLE_CHOICE);
+        String assessment = row.getString(Tags.TAG_POLL_ASSESSMENT);
+        if (PollModel.Assessment.MULTIPLE_CHOICE.toString().equals(assessment)) {
+            pollModel.setAssessment(PollModel.Assessment.MULTIPLE_CHOICE);
+        } else if (PollModel.Assessment.SINGLE_CHOICE.toString().equals(assessment)) {
+            pollModel.setAssessment(PollModel.Assessment.SINGLE_CHOICE);
         }
 
-        String type = row.getString(Tags.TAG_BALLOT_TYPE);
-        if (TestUtil.compare(type, BallotModel.Type.INTERMEDIATE.toString())) {
-            ballotModel.setType(BallotModel.Type.INTERMEDIATE);
-        } else if (TestUtil.compare(type, BallotModel.Type.RESULT_ON_CLOSE.toString())) {
-            ballotModel.setType(BallotModel.Type.RESULT_ON_CLOSE);
+        String type = row.getString(Tags.TAG_POLL_TYPE);
+        if (PollModel.Type.INTERMEDIATE.toString().equals(type)) {
+            pollModel.setType(PollModel.Type.INTERMEDIATE);
+        } else if (PollModel.Type.RESULT_ON_CLOSE.toString().equals(type)) {
+            pollModel.setType(PollModel.Type.RESULT_ON_CLOSE);
         }
 
-        String choiceType = row.getString(Tags.TAG_BALLOT_C_TYPE);
-        if (TestUtil.compare(choiceType, BallotModel.ChoiceType.TEXT.toString())) {
-            ballotModel.setChoiceType(BallotModel.ChoiceType.TEXT);
+        String choiceType = row.getString(Tags.TAG_POLL_C_TYPE);
+        if (PollModel.ChoiceType.TEXT.toString().equals(choiceType)) {
+            pollModel.setChoiceType(PollModel.ChoiceType.TEXT);
         }
 
-        ballotModel.setLastViewedAt(row.getDate(Tags.TAG_BALLOT_LAST_VIEWED_AT));
-        ballotModel.setCreatedAt(row.getDate(Tags.TAG_BALLOT_CREATED_AT));
-        ballotModel.setModifiedAt(row.getDate(Tags.TAG_BALLOT_MODIFIED_AT));
+        pollModel.setLastViewedAt(row.getInstant(Tags.TAG_POLL_LAST_VIEWED_AT));
+        pollModel.setCreatedAt(row.getInstant(Tags.TAG_POLL_CREATED_AT));
+        pollModel.setModifiedAt(row.getInstant(Tags.TAG_POLL_MODIFIED_AT));
 
-        return ballotModel;
+        return pollModel;
     }
 
-    private LinkBallotModel createLinkBallotModel(CSVRow row, int ballotId) throws ThreemaException {
-        String reference = row.getString(Tags.TAG_BALLOT_REF);
-        String referenceId = row.getString(Tags.TAG_BALLOT_REF_ID);
+    private LinkPollModel createLinkPollModel(CSVRow row, int pollId) throws ThreemaException {
+        String reference = row.getString(Tags.TAG_POLL_REF);
+        String referenceId = row.getString(Tags.TAG_POLL_REF_ID);
         Integer groupId = null;
         String identity = null;
 
@@ -1535,72 +1562,72 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         }
 
         if (groupId != null) {
-            GroupBallotModel linkBallotModel = new GroupBallotModel();
-            linkBallotModel.setBallotId(ballotId);
-            linkBallotModel.setGroupId(groupId);
+            GroupPollModel linkPollModel = new GroupPollModel();
+            linkPollModel.setPollId(pollId);
+            linkPollModel.setGroupId(groupId);
 
-            return linkBallotModel;
+            return linkPollModel;
         } else if (identity != null) {
             if (!identitiesSet.contains(identity)) {
-                logger.error("invalid ballot reference {} with id {}, contact {} does not exist", reference, referenceId, identity);
+                logger.error("invalid poll reference {} with id {}, contact {} does not exist", reference, referenceId, identity);
                 return null;
             }
-            IdentityBallotModel linkBallotModel = new IdentityBallotModel();
-            linkBallotModel.setBallotId(ballotId);
-            linkBallotModel.setIdentity(referenceId);
-            return linkBallotModel;
+            IdentityPollModel linkPollModel = new IdentityPollModel();
+            linkPollModel.setPollId(pollId);
+            linkPollModel.setIdentity(referenceId);
+            return linkPollModel;
         }
 
         if (applyRestore) {
-            logger.error("invalid ballot reference {} with id {}", reference, referenceId);
+            logger.error("invalid poll reference {} with id {}", reference, referenceId);
             return null;
         }
         // not a valid reference!
         return null;
     }
 
-    private BallotChoiceModel createBallotChoiceModel(CSVRow row) throws ThreemaException {
-        Integer ballotId = ballotIdMap.get(row.getString(Tags.TAG_BALLOT_CHOICE_BALLOT_UID));
-        if (ballotId == null) {
-            logger.error("invalid ballotId");
+    private PollChoiceModel createPollChoiceModel(CSVRow row) throws ThreemaException {
+        Integer pollId = pollIdMap.get(row.getString(Tags.TAG_POLL_CHOICE_POLL_UID));
+        if (pollId == null) {
+            logger.error("invalid pollId");
             return null;
         }
 
-        BallotChoiceModel ballotChoiceModel = new BallotChoiceModel();
-        ballotChoiceModel.setBallotId(ballotId);
-        ballotChoiceModel.setApiBallotChoiceId(row.getInteger(Tags.TAG_BALLOT_CHOICE_API_ID));
-        ballotChoiceModel.setApiBallotChoiceId(row.getInteger(Tags.TAG_BALLOT_CHOICE_API_ID));
+        PollChoiceModel pollChoiceModel = new PollChoiceModel();
+        pollChoiceModel.setPollId(pollId);
+        pollChoiceModel.setApiPollChoiceId(row.getInteger(Tags.TAG_POLL_CHOICE_API_ID));
+        pollChoiceModel.setApiPollChoiceId(row.getInteger(Tags.TAG_POLL_CHOICE_API_ID));
 
-        String type = row.getString(Tags.TAG_BALLOT_CHOICE_TYPE);
-        if (TestUtil.compare(type, BallotChoiceModel.Type.Text.toString())) {
-            ballotChoiceModel.setType(BallotChoiceModel.Type.Text);
+        String type = row.getString(Tags.TAG_POLL_CHOICE_TYPE);
+        if (PollChoiceModel.Type.Text.toString().equals(type)) {
+            pollChoiceModel.setType(PollChoiceModel.Type.Text);
         }
 
-        ballotChoiceModel.setName(row.getString(Tags.TAG_BALLOT_CHOICE_NAME));
-        ballotChoiceModel.setVoteCount(row.getInteger(Tags.TAG_BALLOT_CHOICE_VOTE_COUNT));
-        ballotChoiceModel.setOrder(row.getInteger(Tags.TAG_BALLOT_CHOICE_ORDER));
-        ballotChoiceModel.setCreatedAt(row.getDate(Tags.TAG_BALLOT_CHOICE_CREATED_AT));
-        ballotChoiceModel.setModifiedAt(row.getDate(Tags.TAG_BALLOT_CHOICE_MODIFIED_AT));
+        pollChoiceModel.setName(row.getString(Tags.TAG_POLL_CHOICE_NAME));
+        pollChoiceModel.setVoteCount(row.getInteger(Tags.TAG_POLL_CHOICE_VOTE_COUNT));
+        pollChoiceModel.setOrder(row.getInteger(Tags.TAG_POLL_CHOICE_ORDER));
+        pollChoiceModel.setCreatedAt(row.getInstant(Tags.TAG_POLL_CHOICE_CREATED_AT));
+        pollChoiceModel.setModifiedAt(row.getInstant(Tags.TAG_POLL_CHOICE_MODIFIED_AT));
 
-        return ballotChoiceModel;
+        return pollChoiceModel;
     }
 
-    private BallotVoteModel createBallotVoteModel(CSVRow row) throws ThreemaException {
-        Integer ballotId = ballotIdMap.get(row.getString(Tags.TAG_BALLOT_VOTE_BALLOT_UID));
-        Integer ballotChoiceId = ballotChoiceIdMap.get(row.getString(Tags.TAG_BALLOT_VOTE_CHOICE_UID));
+    private PollVoteModel createPollVoteModel(CSVRow row) throws ThreemaException {
+        Integer pollId = pollIdMap.get(row.getString(Tags.TAG_POLL_VOTE_POLL_UID));
+        Integer pollChoiceId = pollChoiceIdMap.get(row.getString(Tags.TAG_POLL_VOTE_CHOICE_UID));
 
-        if (ballotId == null || ballotChoiceId == null) {
+        if (pollId == null || pollChoiceId == null) {
             return null;
         }
 
-        BallotVoteModel ballotVoteModel = new BallotVoteModel();
-        ballotVoteModel.setBallotId(ballotId);
-        ballotVoteModel.setBallotChoiceId(ballotChoiceId);
-        ballotVoteModel.setVotingIdentity(row.getString(Tags.TAG_BALLOT_VOTE_IDENTITY));
-        ballotVoteModel.setChoice(row.getInteger(Tags.TAG_BALLOT_VOTE_CHOICE));
-        ballotVoteModel.setCreatedAt(row.getDate(Tags.TAG_BALLOT_VOTE_CREATED_AT));
-        ballotVoteModel.setModifiedAt(row.getDate(Tags.TAG_BALLOT_VOTE_MODIFIED_AT));
-        return ballotVoteModel;
+        PollVoteModel pollVoteModel = new PollVoteModel();
+        pollVoteModel.setPollId(pollId);
+        pollVoteModel.setPollChoiceId(pollChoiceId);
+        pollVoteModel.setVotingIdentity(row.getString(Tags.TAG_POLL_VOTE_IDENTITY));
+        pollVoteModel.setChoice(row.getInteger(Tags.TAG_POLL_VOTE_CHOICE));
+        pollVoteModel.setCreatedAt(row.getInstant(Tags.TAG_POLL_VOTE_CREATED_AT));
+        pollVoteModel.setModifiedAt(row.getInstant(Tags.TAG_POLL_VOTE_MODIFIED_AT));
+        return pollVoteModel;
     }
 
     private long restoreContactMessageFile(FileHeader fileHeader) throws IOException, ThreemaException, RestoreCanceledException {
@@ -1612,7 +1639,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         }
 
         final String identityId = fileName.substring(Tags.MESSAGE_FILE_PREFIX.length(), fileName.indexOf(Tags.CSV_FILE_POSTFIX));
-        if (TestUtil.isEmptyOrNull(identityId)) {
+        if (isNullOrEmpty(identityId)) {
             throw new ThreemaException(null);
         }
 
@@ -1698,7 +1725,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         }
 
         final String groupUid = fileName.substring(Tags.GROUP_MESSAGE_FILE_PREFIX.length(), fileName.indexOf(Tags.CSV_FILE_POSTFIX));
-        if (TestUtil.isEmptyOrNull(groupUid)) {
+        if (isNullOrEmpty(groupUid)) {
             throw new ThreemaException("Group uid could not be extracted");
         }
 
@@ -1733,7 +1760,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         if (restoreSettings.getVersion() >= 17) {
             try {
                 String messageStatesJson = row.getString(Tags.TAG_GROUP_MESSAGE_STATES);
-                if (!TestUtil.isEmptyOrNull(messageStatesJson)) {
+                if (!isNullOrEmpty(messageStatesJson)) {
                     createGroupReactionsForMessage(messageStatesJson, messageModel);
                 }
             } catch (Exception e) {
@@ -1752,11 +1779,11 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
             messageModel.getId(),
             messageStatesJson
         );
-        Map<String, Object> messageStatesMap = JsonUtil.convertObject(messageStatesJson);
+        Map<String, String> messageStatesMap = parseJsonObjectAsStringMap(messageStatesJson);
         List<DbEmojiReaction> reactions = messageStatesMap.entrySet().stream()
-            .filter(entry -> entry != null && entry.getKey() != null && entry.getValue() instanceof String)
+            .filter(entry -> entry != null && entry.getKey() != null && entry.getValue() != null)
             .map(entry -> createReactionForStateName(
-                (String) entry.getValue(),
+                entry.getValue(),
                 entry.getKey(),
                 messageModel
             ))
@@ -1779,9 +1806,9 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
             return null;
         }
 
-        // We do not exactly now, when this reaction was actually created
+        // We do not exactly know, when this reaction was actually created
         // therefore we make a best guess.
-        Date reactedAt;
+        Instant reactedAt;
         if (messageModel.getModifiedAt() != null) {
             // This is the closest we get
             reactedAt = messageModel.getModifiedAt();
@@ -1790,7 +1817,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
             reactedAt = messageModel.getCreatedAt();
         } else {
             // Fallback to current date if no other dates are present
-            reactedAt = new Date();
+            reactedAt = Instant.now();
         }
 
         return new DbEmojiReaction(
@@ -1828,7 +1855,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
         final String distributionListBackupUid = pieces[0];
 
-        if (TestUtil.isEmptyOrNull(distributionListBackupUid)) {
+        if (isNullOrEmpty(distributionListBackupUid)) {
             throw new ThreemaException(null);
         }
 
@@ -1863,12 +1890,27 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         DistributionListModel distributionListModel = new DistributionListModel();
         distributionListModel.setId(row.getLong(Tags.TAG_DISTRIBUTION_LIST_ID));
         distributionListModel.setName(row.getString(Tags.TAG_DISTRIBUTION_LIST_NAME));
-        distributionListModel.setCreatedAt(row.getDate(Tags.TAG_DISTRIBUTION_CREATED_AT));
+
+        @Nullable Instant createdAt = row.getInstant(Tags.TAG_DISTRIBUTION_CREATED_AT);
+        if (createdAt != null && createdAt.toEpochMilli() < 0) {
+            // Due to a bug in older versions, backups with a negative createdAt timestamp might exist
+            createdAt = Instant.ofEpochMilli(0);
+        }
+        distributionListModel.setCreatedAt(createdAt);
+
         if (restoreSettings.getVersion() >= 14) {
-            distributionListModel.setArchived(row.getBoolean(Tags.TAG_DISTRIBUTION_LIST_ARCHIVED));
+            boolean isArchived = row.getBoolean(Tags.TAG_DISTRIBUTION_LIST_ARCHIVED);
+            distributionListModel.setConversationVisibility(
+                isArchived ? ConversationVisibility.ARCHIVED : ConversationVisibility.NORMAL
+            );
         }
         if (restoreSettings.getVersion() >= 22) {
-            distributionListModel.setLastUpdate(row.getDate(Tags.TAG_DISTRIBUTION_LAST_UPDATE));
+            @Nullable Instant lastUpdateAt = row.getInstant(Tags.TAG_DISTRIBUTION_LAST_UPDATE);
+            if (lastUpdateAt != null && lastUpdateAt.toEpochMilli() < 0) {
+                // Due to a bug in older versions, backups with a negative lastUpdateAt timestamp might exist
+                lastUpdateAt = Instant.ofEpochMilli(0);
+            }
+            distributionListModel.setLastUpdate(lastUpdateAt);
         }
         return distributionListModel;
     }
@@ -1876,7 +1918,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     private List<GroupMemberModel> createGroupMembers(CSVRow row, int groupId) throws ThreemaException {
         List<GroupMemberModel> res = new ArrayList<>();
         for (String identity : row.getStrings(Tags.TAG_GROUP_MEMBERS)) {
-            if (!TestUtil.isEmptyOrNull(identity)) {
+            if (!isNullOrEmpty(identity)) {
                 GroupMemberModel m = new GroupMemberModel();
                 m.setGroupId(groupId);
                 m.setIdentity(identity);
@@ -1889,7 +1931,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     private List<DistributionListMemberModel> createDistributionListMembers(CSVRow row, long distributionListId) throws ThreemaException {
         List<DistributionListMemberModel> res = new ArrayList<>();
         for (String identity : row.getStrings(Tags.TAG_DISTRIBUTION_MEMBERS)) {
-            if (!TestUtil.isEmptyOrNull(identity)) {
+            if (!isNullOrEmpty(identity)) {
                 DistributionListMemberModel m = new DistributionListMemberModel();
                 m.setDistributionListId(distributionListId);
                 m.setIdentity(identity);
@@ -1901,18 +1943,30 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     }
 
     private ContactModel createContactModel(CSVRow row, RestoreSettings restoreSettings) throws ThreemaException {
+        byte[] publicKey;
+        try {
+            publicKey = hexToByteArray(row.getString(Tags.TAG_CONTACT_PUBLIC_KEY));
+        } catch (IllegalArgumentException e) {
+            throw new ThreemaException("Failed to restore public key", e);
+        }
         ContactModel contactModel = ContactModel.create(
             row.getString(Tags.TAG_CONTACT_IDENTITY),
-            Utils.hexStringToByteArray(row.getString(Tags.TAG_CONTACT_PUBLIC_KEY))
+            publicKey
         );
+        PredefinedContact predefinedContact = PredefinedContact.getPredefinedContact(contactModel.getIdentity());
+        if (predefinedContact != null && !Arrays.equals(predefinedContact.getPublicKey(), contactModel.getPublicKey())) {
+            throw new ThreemaException("Cannot restore predefined contact where public key does not match");
+        }
 
         String verificationString = row.getString(Tags.TAG_CONTACT_VERIFICATION_LEVEL);
-        VerificationLevel verification = VerificationLevel.UNVERIFIED;
+        VerificationLevel verification;
 
-        if (verificationString.equals(VerificationLevel.SERVER_VERIFIED.name())) {
-            verification = VerificationLevel.SERVER_VERIFIED;
-        } else if (verificationString.equals(VerificationLevel.FULLY_VERIFIED.name())) {
+        if (predefinedContact != null || verificationString.equals(VerificationLevel.FULLY_VERIFIED.name())) {
             verification = VerificationLevel.FULLY_VERIFIED;
+        } else if (verificationString.equals(VerificationLevel.SERVER_VERIFIED.name())) {
+            verification = VerificationLevel.SERVER_VERIFIED;
+        } else {
+            verification = VerificationLevel.UNVERIFIED;
         }
         contactModel.verificationLevel = verification;
         contactModel.setFirstName(row.getString(Tags.TAG_CONTACT_FIRST_NAME));
@@ -1923,11 +1977,14 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         }
         if (restoreSettings.getVersion() >= 13) {
             final boolean isHidden = row.getBoolean(Tags.TAG_CONTACT_HIDDEN);
-            // Contacts are marked as hidden if their acquaintance level is GROUP
-            contactModel.setAcquaintanceLevel(isHidden ? AcquaintanceLevel.GROUP : AcquaintanceLevel.DIRECT);
+            // Contacts are marked as hidden if their acquaintance level is GROUP_OR_DELETED
+            contactModel.setAcquaintanceLevel(isHidden ? AcquaintanceLevel.GROUP_OR_DELETED : AcquaintanceLevel.DIRECT);
         }
         if (restoreSettings.getVersion() >= 14) {
-            contactModel.setArchived(row.getBoolean(Tags.TAG_CONTACT_ARCHIVED));
+            boolean isArchived = row.getBoolean(Tags.TAG_CONTACT_ARCHIVED);
+            contactModel.setConversationVisibility(
+                isArchived ? ConversationVisibility.ARCHIVED : ConversationVisibility.NORMAL
+            );
         }
         if (restoreSettings.getVersion() >= 19) {
             identityIdMap.put(row.getString(Tags.TAG_CONTACT_IDENTITY_ID), contactModel.getIdentity());
@@ -1936,7 +1993,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         }
         identitiesSet.add(contactModel.getIdentity());
         if (restoreSettings.getVersion() >= 22) {
-            contactModel.setLastUpdate(row.getDate(Tags.TAG_CONTACT_LAST_UPDATE));
+            contactModel.setLastUpdate(row.getInstant(Tags.TAG_CONTACT_LAST_UPDATE));
         }
         contactModel.setIsRestored(true);
 
@@ -1948,7 +2005,6 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         @NonNull CSVRow row,
         @NonNull RestoreSettings restoreSettings
     ) throws ThreemaException {
-        messageModel.setApiMessageId(row.getString(Tags.TAG_MESSAGE_API_MESSAGE_ID));
         messageModel.setOutbox(row.getBoolean(Tags.TAG_MESSAGE_IS_OUTBOX));
         messageModel.setRead(row.getBoolean(Tags.TAG_MESSAGE_IS_READ));
         messageModel.setSaved(row.getBoolean(Tags.TAG_MESSAGE_IS_SAVED));
@@ -1959,7 +2015,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
         setMessageContent(messageModel, row);
 
-        tryUpdatingToNewBallotId(messageModel);
+        tryUpdatingToNewPollId(messageModel);
 
         messageModel.setUid(row.getString(Tags.TAG_MESSAGE_UID));
 
@@ -1973,7 +2029,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
         if (restoreSettings.getVersion() >= 15) {
             String quotedMessageId = row.getString(Tags.TAG_MESSAGE_QUOTED_MESSAGE_ID);
-            if (!TestUtil.isEmptyOrNull(quotedMessageId)) {
+            if (!isNullOrEmpty(quotedMessageId)) {
                 messageModel.setQuotedMessageId(quotedMessageId);
             }
         }
@@ -1984,31 +2040,49 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                 messageModel.setDisplayTags(displayTags);
             }
         }
+
+        var type = messageModel.getType();
+        if (type != null && type.getRequiresMessageId()) {
+            var messageId = extractMessageId(row);
+            messageModel.setMessageId(messageId != null ? messageId : MessageId.random());
+        }
+    }
+
+    private MessageId extractMessageId(@NonNull CSVRow row) throws ThreemaException {
+        var apiMessageId = row.getString(Tags.TAG_MESSAGE_API_MESSAGE_ID);
+        if (apiMessageId != null && !apiMessageId.isEmpty()) {
+            try {
+                return MessageId.fromString(apiMessageId);
+            } catch (Exception e) {
+                // ignore invalid message IDs
+            }
+        }
+        return null;
     }
 
     private void setCommonTimestamps(
         @NonNull AbstractMessageModel messageModel,
         @NonNull CSVRow row
     ) throws ThreemaException {
-        messageModel.setPostedAt(row.getDate(Tags.TAG_MESSAGE_POSTED_AT));
-        messageModel.setCreatedAt(row.getDate(Tags.TAG_MESSAGE_CREATED_AT));
+        messageModel.setPostedAt(row.getInstant(Tags.TAG_MESSAGE_POSTED_AT));
+        messageModel.setCreatedAt(row.getInstant(Tags.TAG_MESSAGE_CREATED_AT));
 
         if (restoreSettings.getVersion() >= 5) {
-            messageModel.setModifiedAt(row.getDate(Tags.TAG_MESSAGE_MODIFIED_AT));
+            messageModel.setModifiedAt(row.getInstant(Tags.TAG_MESSAGE_MODIFIED_AT));
         }
 
         if (restoreSettings.getVersion() >= 16) {
-            messageModel.setDeliveredAt(row.getDate(Tags.TAG_MESSAGE_DELIVERED_AT));
-            messageModel.setReadAt(row.getDate(Tags.TAG_MESSAGE_READ_AT));
+            messageModel.setDeliveredAt(row.getInstant(Tags.TAG_MESSAGE_DELIVERED_AT));
+            messageModel.setReadAt(row.getInstant(Tags.TAG_MESSAGE_READ_AT));
         }
 
         // Edit/delete is only available for contact and group messages
         if (messageModel instanceof MessageModel || messageModel instanceof GroupMessageModel) {
             if (restoreSettings.getVersion() >= 23) {
-                messageModel.setEditedAt(row.getDate(Tags.TAG_MESSAGE_EDITED_AT));
+                messageModel.setEditedAt(row.getInstant(Tags.TAG_MESSAGE_EDITED_AT));
             }
             if (restoreSettings.getVersion() >= 24) {
-                messageModel.setDeletedAt(row.getDate(Tags.TAG_MESSAGE_DELETED_AT));
+                messageModel.setDeletedAt(row.getInstant(Tags.TAG_MESSAGE_DELETED_AT));
             }
         }
     }
@@ -2056,59 +2130,67 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     private void setMessageContent(@NonNull AbstractMessageModel messageModel, @NonNull CSVRow row) throws ThreemaException {
         MessageType messageType = MessageType.TEXT;
         @MessageContentsType int messageContentsType = MessageContentsType.UNDEFINED;
-        String typeAsString = row.getString(Tags.TAG_MESSAGE_TYPE);
+        String backupMessageType = row.getString(Tags.TAG_MESSAGE_TYPE);
+        String body = row.getString(Tags.TAG_MESSAGE_BODY);
 
-        if (typeAsString.equals(MessageType.VIDEO.name())) {
-            messageType = MessageType.VIDEO;
-            messageContentsType = MessageContentsType.VIDEO;
-        } else if (typeAsString.equals(MessageType.VOICEMESSAGE.name())) {
-            messageType = MessageType.VOICEMESSAGE;
-            messageContentsType = MessageContentsType.VOICE_MESSAGE;
-        } else if (typeAsString.equals(MessageType.LOCATION.name())) {
+        // Transform messages with deprecated message types
+        switch (backupMessageType) {
+            case BackupMessageTypes.DEPRECATED_IMAGE:
+                body = LegacyMessageBodyTransformer.transformImageBodyToFileBody(body);
+                backupMessageType = BackupMessageTypes.FILE;
+                break;
+            case BackupMessageTypes.DEPRECATED_VIDEO:
+                body = LegacyMessageBodyTransformer.transformVideoBodyToFileBody(body);
+                backupMessageType = BackupMessageTypes.FILE;
+                break;
+            case BackupMessageTypes.DEPRECATED_VOICEMESSAGE:
+                body = LegacyMessageBodyTransformer.transformAudioBodyToFileBody(body);
+                backupMessageType = BackupMessageTypes.FILE;
+                break;
+        }
+
+        if (backupMessageType.equals(BackupMessageTypes.LOCATION)) {
             messageType = MessageType.LOCATION;
             messageContentsType = MessageContentsType.LOCATION;
-        } else if (typeAsString.equals(MessageType.IMAGE.name())) {
-            messageType = MessageType.IMAGE;
-            messageContentsType = MessageContentsType.IMAGE;
-        } else if (typeAsString.equals(MessageType.CONTACT.name())) {
-            messageType = MessageType.CONTACT;
-            messageContentsType = MessageContentsType.CONTACT;
-        } else if (typeAsString.equals(MessageType.BALLOT.name())) {
-            messageType = MessageType.BALLOT;
-            messageContentsType = MessageContentsType.BALLOT;
-        } else if (typeAsString.equals(MessageType.FILE.name())) {
+        } else if (backupMessageType.equals(BackupMessageTypes.DEPRECATED_CONTACT)) {
+            // CONTACT messages are converted into regular text messages.
+            // This may not be ideal, but we suspect that no such messages actually exist in a backup, so it shouldn't matter.
+            messageContentsType = MessageContentsType.TEXT;
+        } else if (backupMessageType.equals(BackupMessageTypes.POLL)) {
+            messageType = MessageType.POLL;
+            messageContentsType = MessageContentsType.POLL;
+        } else if (backupMessageType.equals(BackupMessageTypes.FILE)) {
             messageType = MessageType.FILE;
             // get mime type from body
-            String body = row.getString(Tags.TAG_MESSAGE_BODY);
-            if (!TestUtil.isEmptyOrNull(body)) {
+            if (body != null && !body.isEmpty()) {
                 FileDataModel fileDataModel = FileDataModel.create(body);
                 messageContentsType = MimeUtil.getContentTypeFromFileData(fileDataModel);
             } else {
                 messageContentsType = MessageContentsType.FILE;
             }
-        } else if (typeAsString.equals(MessageType.VOIP_STATUS.name())) {
+        } else if (backupMessageType.equals(BackupMessageTypes.VOIP_STATUS)) {
             messageType = MessageType.VOIP_STATUS;
             messageContentsType = MessageContentsType.VOIP_STATUS;
-        } else if (typeAsString.equals(MessageType.GROUP_CALL_STATUS.name())) {
+        } else if (backupMessageType.equals(BackupMessageTypes.GROUP_CALL_STATUS)) {
             messageType = MessageType.GROUP_CALL_STATUS;
             messageContentsType = MessageContentsType.GROUP_CALL_STATUS;
-        } else if (typeAsString.equals(MessageType.GROUP_STATUS.name())) {
+        } else if (backupMessageType.equals(BackupMessageTypes.GROUP_STATUS)) {
             messageType = MessageType.GROUP_STATUS;
             messageContentsType = MessageContentsType.GROUP_STATUS;
         }
         messageModel.setType(messageType);
         messageModel.setMessageContentsType(messageContentsType);
-        messageModel.setBody(row.getString(Tags.TAG_MESSAGE_BODY));
+        messageModel.setBody(body);
     }
 
-    private void tryUpdatingToNewBallotId(@NonNull AbstractMessageModel messageModel) {
-        if (messageModel.getType() == MessageType.BALLOT) {
-            // try to update to new ballot id
-            BallotDataModel ballotData = messageModel.getBallotData();
-            Integer ballotId = this.ballotOldIdMap.get(ballotData.getBallotId());
-            if (ballotId != null) {
-                BallotDataModel newBallotData = new BallotDataModel(ballotData.getType(), ballotId);
-                messageModel.setBallotData(newBallotData);
+    private void tryUpdatingToNewPollId(@NonNull AbstractMessageModel messageModel) {
+        if (messageModel.getType() == MessageType.POLL) {
+            // try to update to new poll id
+            PollDataModel pollData = messageModel.getPollData();
+            Integer pollId = this.pollOldIdMap.get(pollData.getPollId());
+            if (pollId != null) {
+                PollDataModel newPollData = new PollDataModel(pollData.getType(), pollId);
+                messageModel.setPollData(newPollData);
             }
         }
     }
@@ -2249,8 +2331,8 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                 new Intent(RESTORE_PROGRESS_INTENT).putExtra(RESTORE_PROGRESS_ERROR_MESSAGE, message)
             );
 
-            ResetAppTaskJavaCompat task = KoinJavaComponent.get(ResetAppTaskJavaCompat.class);
-            task.executeAsync();
+            RestoreServiceHelper helper = KoinJavaComponent.get(RestoreServiceHelper.class);
+            helper.resetAppAsync();
         }
     }
 
@@ -2261,9 +2343,19 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         cancelIntent.putExtra(EXTRA_ID_CANCEL, true);
         PendingIntent cancelPendingIntent;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            cancelPendingIntent = PendingIntent.getForegroundService(this, (int) System.currentTimeMillis(), cancelIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            cancelPendingIntent = PendingIntent.getForegroundService(
+                this,
+                NotificationRequestCodes.RESTORE_CANCEL,
+                cancelIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
         } else {
-            cancelPendingIntent = PendingIntent.getService(this, (int) System.currentTimeMillis(), cancelIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            cancelPendingIntent = PendingIntent.getService(
+                this,
+                NotificationRequestCodes.RESTORE_CANCEL,
+                cancelIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
         }
 
         notificationBuilder = new NotificationCompat.Builder(this, NotificationChannels.NOTIFICATION_CHANNEL_BACKUP_RESTORE_IN_PROGRESS)
@@ -2305,7 +2397,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     private void showRestoreErrorNotification(String message) {
         String contentText;
 
-        if (!TestUtil.isEmptyOrNull(message)) {
+        if (!isNullOrEmpty(message)) {
             contentText = message;
         } else {
             contentText = getString(R.string.restore_error_body);
@@ -2342,7 +2434,12 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
             // Android Q does not allow restart in the background
             Intent backupIntent = HomeActivity.createIntent(this);
-            PendingIntent pendingIntent = PendingIntent.getActivity(this, (int) System.currentTimeMillis(), backupIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            PendingIntent pendingIntent = PendingIntent.getActivity(
+                this,
+                NotificationRequestCodes.HOME_ACTIVITY,
+                backupIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
 
             builder.setContentIntent(pendingIntent);
 

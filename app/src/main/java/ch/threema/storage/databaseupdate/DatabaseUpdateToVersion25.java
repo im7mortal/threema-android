@@ -17,19 +17,19 @@ public class DatabaseUpdateToVersion25 implements DatabaseUpdate {
 
     @Override
     public void run() throws SQLException {
-        for (String statement : BallotModel.getStatements()) {
+        for (String statement : PollModel.getStatements()) {
             sqLiteDatabase.execSQL(statement);
         }
-        for (String statement : BallotChoiceModel.getStatements()) {
+        for (String statement : PollChoiceModel.getStatements()) {
             sqLiteDatabase.execSQL(statement);
         }
-        for (String statement : BallotVoteModel.getStatements()) {
+        for (String statement : PollVoteModel.getStatements()) {
             sqLiteDatabase.execSQL(statement);
         }
-        for (String statement : IdentityBallotModel.getStatements()) {
+        for (String statement : IdentityPollModel.getStatements()) {
             sqLiteDatabase.execSQL(statement);
         }
-        for (String statement : GroupBallotModel.getStatements()) {
+        for (String statement : GroupPollModel.getStatements()) {
             sqLiteDatabase.execSQL(statement);
         }
     }
@@ -39,7 +39,7 @@ public class DatabaseUpdateToVersion25 implements DatabaseUpdate {
         return 25;
     }
 
-    private static class BallotModel {
+    private static class PollModel {
         static String[] getStatements() {
             return new String[]{
                 "CREATE TABLE `ballot` (`id` INTEGER PRIMARY KEY AUTOINCREMENT , `apiBallotId` VARCHAR NOT NULL , `creatorIdentity` VARCHAR NOT NULL , `name` VARCHAR , `state` VARCHAR NOT NULL , `assessment` VARCHAR NOT NULL , `type` VARCHAR NOT NULL , `choiceType` VARCHAR NOT NULL , `displayType` VARCHAR , `createdAt` BIGINT NOT NULL , `modifiedAt` BIGINT NOT NULL , `lastViewedAt` BIGINT )",
@@ -48,7 +48,7 @@ public class DatabaseUpdateToVersion25 implements DatabaseUpdate {
         }
     }
 
-    private static class BallotChoiceModel {
+    private static class PollChoiceModel {
         static String[] getStatements() {
             return new String[]{
                 "CREATE TABLE `ballot_choice` (`id` INTEGER PRIMARY KEY AUTOINCREMENT , `ballotId` INTEGER , `apiBallotChoiceId` INTEGER , `type` VARCHAR , `name` VARCHAR , `voteCount` INTEGER , `order` INTEGER NOT NULL , `createdAt` BIGINT , `modifiedAt` BIGINT )",
@@ -57,7 +57,7 @@ public class DatabaseUpdateToVersion25 implements DatabaseUpdate {
         }
     }
 
-    private static class BallotVoteModel {
+    private static class PollVoteModel {
         static String[] getStatements() {
             return new String[]{
                 "CREATE TABLE `ballot_vote` (`id` INTEGER PRIMARY KEY AUTOINCREMENT , `ballotId` INTEGER NOT NULL , `ballotChoiceId` INTEGER NOT NULL , `votingIdentity` VARCHAR NOT NULL , `choice` INTEGER , `createdAt` BIGINT NOT NULL , `modifiedAt` BIGINT NOT NULL );",
@@ -67,7 +67,7 @@ public class DatabaseUpdateToVersion25 implements DatabaseUpdate {
         }
     }
 
-    private static class IdentityBallotModel {
+    private static class IdentityPollModel {
         static String[] getStatements() {
             return new String[]{
                 "CREATE TABLE `identity_ballot` (`id` INTEGER PRIMARY KEY AUTOINCREMENT , `identity` VARCHAR NOT NULL , `ballotId` INTEGER NOT NULL )",
@@ -76,7 +76,7 @@ public class DatabaseUpdateToVersion25 implements DatabaseUpdate {
         }
     }
 
-    private static class GroupBallotModel {
+    private static class GroupPollModel {
         static String[] getStatements() {
             return new String[]{
                 "CREATE TABLE `group_ballot` (`id` INTEGER PRIMARY KEY AUTOINCREMENT , `groupId` INTEGER NOT NULL , `ballotId` INTEGER NOT NULL )",

@@ -1,7 +1,7 @@
 package ch.threema.domain.onprem
 
-import ch.threema.base.utils.Base64
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.Base64
 import ch.threema.common.plus
 import ch.threema.common.toIntArray
 import ch.threema.common.toJSONObjectList

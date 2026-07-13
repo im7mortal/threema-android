@@ -14,18 +14,15 @@ import ch.threema.storage.models.data.DisplayTag
 import ch.threema.storage.models.data.LocationDataModel
 import ch.threema.storage.models.data.MessageContentsType
 import ch.threema.storage.models.data.MessageDataInterface
-import ch.threema.storage.models.data.media.AudioDataModel
-import ch.threema.storage.models.data.media.BallotDataModel
 import ch.threema.storage.models.data.media.FileDataModel
-import ch.threema.storage.models.data.media.ImageDataModel
-import ch.threema.storage.models.data.media.VideoDataModel
+import ch.threema.storage.models.data.media.PollDataModel
 import ch.threema.storage.models.data.status.ForwardSecurityStatusDataModel
 import ch.threema.storage.models.data.status.GroupCallStatusDataModel
 import ch.threema.storage.models.data.status.GroupStatusDataModel
 import ch.threema.storage.models.data.status.StatusDataModel
 import ch.threema.storage.models.data.status.VoipStatusDataModel
 import ch.threema.storage.models.group.GroupMessageModel
-import java.util.Date
+import java.time.Instant
 
 private val logger = getThreemaLogger("AbstractMessageModel")
 
@@ -90,26 +87,26 @@ internal constructor(
 
     open var state: MessageState? = null
 
-    var rawPostedAt: Date? = null
+    var rawPostedAt: Instant? = null
         private set
 
-    open var postedAt: Date?
+    open var postedAt: Instant?
         get() = rawPostedAt ?: createdAt
         set(value) {
             rawPostedAt = value
         }
 
-    open var createdAt: Date? = null
+    open var createdAt: Instant? = null
 
-    open var deliveredAt: Date? = null
+    open var deliveredAt: Instant? = null
 
-    open var readAt: Date? = null
+    open var readAt: Instant? = null
 
-    open var modifiedAt: Date? = null
+    open var modifiedAt: Instant? = null
 
-    open var editedAt: Date? = null
+    open var editedAt: Instant? = null
 
-    open var deletedAt: Date? = null
+    open var deletedAt: Instant? = null
 
     var caption: String? = null
         get() = when (type) {
@@ -162,76 +159,55 @@ internal constructor(
             setDataModel(MessageType.LOCATION, value)
         }
 
-    var videoData: VideoDataModel
-        get() = getOrSetDataModel(MessageType.VIDEO, VideoDataModel::create)
-            ?: emptyVideoDataModel
-        set(value) {
-            setDataModel(MessageType.VIDEO, value)
-        }
-
-    var audioData: AudioDataModel
-        get() = getOrSetDataModel(MessageType.VOICEMESSAGE, AudioDataModel::create)
-            ?: emptyAudioDataModel
-        set(value) {
-            setDataModel(MessageType.VOICEMESSAGE, value)
-        }
-
     var voipStatusData: VoipStatusDataModel?
         get() = getOrSetDataModel(
             expectedType = MessageType.VOIP_STATUS,
-            convert = {
-                StatusDataModel.convert(this) as VoipStatusDataModel?
+            convert = { body ->
+                StatusDataModel.deserialize(body) as VoipStatusDataModel?
             },
         )
         set(value) {
-            setDataModel(MessageType.VOIP_STATUS, value, StatusDataModel::convert)
+            setDataModel(MessageType.VOIP_STATUS, value, StatusDataModel::serialize)
         }
 
     var groupCallStatusData: GroupCallStatusDataModel?
         get() = getOrSetDataModel(
             expectedType = MessageType.GROUP_CALL_STATUS,
-            convert = {
-                StatusDataModel.convert(this) as GroupCallStatusDataModel?
+            convert = { body ->
+                StatusDataModel.deserialize(body) as GroupCallStatusDataModel?
             },
         )
         set(value) {
-            setDataModel(MessageType.GROUP_CALL_STATUS, value, StatusDataModel::convert)
+            setDataModel(MessageType.GROUP_CALL_STATUS, value, StatusDataModel::serialize)
         }
 
     var forwardSecurityStatusData: ForwardSecurityStatusDataModel?
         get() = getOrSetDataModel(
             expectedType = MessageType.FORWARD_SECURITY_STATUS,
-            convert = {
-                StatusDataModel.convert(this) as ForwardSecurityStatusDataModel?
+            convert = { body ->
+                StatusDataModel.deserialize(body) as ForwardSecurityStatusDataModel?
             },
         )
         set(value) {
-            setDataModel(MessageType.FORWARD_SECURITY_STATUS, value, StatusDataModel::convert)
+            setDataModel(MessageType.FORWARD_SECURITY_STATUS, value, StatusDataModel::serialize)
         }
 
     var groupStatusData: GroupStatusDataModel?
         get() = getOrSetDataModel(
             expectedType = MessageType.GROUP_STATUS,
-            convert = {
-                StatusDataModel.convert(this) as GroupStatusDataModel?
+            convert = { body ->
+                StatusDataModel.deserialize(body) as GroupStatusDataModel?
             },
         )
         set(value) {
-            setDataModel(MessageType.GROUP_STATUS, value, StatusDataModel::convert)
+            setDataModel(MessageType.GROUP_STATUS, value, StatusDataModel::serialize)
         }
 
-    var imageData: ImageDataModel
-        get() = getOrSetDataModel(MessageType.IMAGE, ImageDataModel::create)
-            ?: emptyImageDataModel
+    var pollData: PollDataModel
+        get() = getOrSetDataModel(MessageType.POLL, PollDataModel::deserialize)
+            ?: emptyPollDataModel
         set(value) {
-            setDataModel(MessageType.IMAGE, value)
-        }
-
-    var ballotData: BallotDataModel
-        get() = getOrSetDataModel(MessageType.BALLOT, BallotDataModel::create)
-            ?: emptyBallotDataModel
-        set(value) {
-            setDataModel(MessageType.BALLOT, value)
+            setDataModel(MessageType.POLL, value)
         }
 
     var fileData: FileDataModel
@@ -243,11 +219,11 @@ internal constructor(
 
     private inline fun <reified T : MessageDataInterface> getOrSetDataModel(
         expectedType: MessageType,
-        convert: String.() -> T?,
+        convert: (String) -> T?,
     ): T? {
         if (dataObject == null || dataObject !is T) {
             if (checkBodyAndTypeForDataObjectAccess(expectedType)) {
-                dataObject = body?.convert()
+                dataObject = body?.let(convert)
                 if (dataObject !is T) {
                     logger.warn("Message data object is of wrong type for expected message type {}", expectedType)
                 }
@@ -258,7 +234,6 @@ internal constructor(
 
     private fun checkBodyAndTypeForDataObjectAccess(expectedType: MessageType): Boolean {
         if (body == null) {
-            logger.warn("Message body was null when trying to get data model from it")
             return false
         }
         if (type == null) {
@@ -293,9 +268,6 @@ internal constructor(
 
     val isAvailable: Boolean
         get() = when (type) {
-            MessageType.IMAGE -> isOutbox || imageData.isDownloaded
-            MessageType.VIDEO -> isOutbox || videoData.isDownloaded
-            MessageType.VOICEMESSAGE -> isOutbox || audioData.isDownloaded
             MessageType.FILE -> isOutbox || fileData.isDownloaded
             else -> true
         }
@@ -328,15 +300,11 @@ internal constructor(
     val blobScopeForMarkAsDone: BlobScope
         get() = if (!isOutbox && this !is GroupMessageModel) BlobScope.Public else BlobScope.Local
 
-    fun isDownloadedVoiceMessage(): Boolean {
-        if (type == MessageType.VOICEMESSAGE) {
-            return true
-        }
-        return type == MessageType.FILE &&
+    fun isDownloadedVoiceMessage(): Boolean =
+        type == MessageType.FILE &&
             MimeUtil.isAudioFile(fileData.getMimeType()) &&
             fileData.renderingType == FileData.RENDERING_MEDIA &&
             fileData.isDownloaded
-    }
 
     companion object {
         /**
@@ -477,17 +445,8 @@ internal constructor(
         private val emptyLocationDataModel by lazy(LazyThreadSafetyMode.NONE) {
             LocationDataModel.createEmpty()
         }
-        private val emptyVideoDataModel by lazy(LazyThreadSafetyMode.NONE) {
-            VideoDataModel.createEmpty()
-        }
-        private val emptyAudioDataModel by lazy(LazyThreadSafetyMode.NONE) {
-            AudioDataModel.createEmpty()
-        }
-        private val emptyImageDataModel by lazy(LazyThreadSafetyMode.NONE) {
-            ImageDataModel.createEmpty()
-        }
-        private val emptyBallotDataModel by lazy(LazyThreadSafetyMode.NONE) {
-            BallotDataModel.createEmpty()
+        private val emptyPollDataModel by lazy(LazyThreadSafetyMode.NONE) {
+            PollDataModel.createEmpty()
         }
         private val emptyFileDataModel by lazy(LazyThreadSafetyMode.NONE) {
             FileDataModel.createEmpty()

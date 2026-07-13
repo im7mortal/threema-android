@@ -15,6 +15,7 @@ import java.util.Set;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import ch.threema.app.androidcontactsync.read.RawContactReader;
 import ch.threema.app.apptaskexecutor.AppTaskExecutor;
 import ch.threema.app.listeners.SynchronizeContactsListener;
 import ch.threema.app.managers.ListenerManager;
@@ -177,6 +178,7 @@ public class SynchronizeContactsServiceImpl implements SynchronizeContactsServic
 
     @Override
     public boolean enableSyncFromLocal() {
+        logger.info("Enabling contact sync");
         boolean success = false;
 
         if (this.userService != null) {
@@ -192,6 +194,7 @@ public class SynchronizeContactsServiceImpl implements SynchronizeContactsServic
 
     @Override
     public boolean disableSyncFromLocal(final Runnable runAfterRemovedAccount) {
+        logger.info("Disabling contact sync");
         if (this.userService != null) {
             //cancel all syncs!
             synchronized (this.pendingRoutines) {

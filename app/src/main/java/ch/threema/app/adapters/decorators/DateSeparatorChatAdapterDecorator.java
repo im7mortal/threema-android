@@ -3,7 +3,7 @@ package ch.threema.app.adapters.decorators;
 import android.content.Context;
 import android.content.res.ColorStateList;
 
-import java.util.Date;
+import java.time.Instant;
 
 import androidx.annotation.NonNull;
 import ch.threema.app.R;
@@ -36,11 +36,11 @@ public class DateSeparatorChatAdapterDecorator extends ChatAdapterDecorator {
 
     @Override
     protected void configureChatMessage(final ComposeMessageHolder holder, Context context, final int position) {
-        Date date = this.getMessageModel().getCreatedAt();
+        Instant date = this.getMessageModel().getCreatedAt();
 
         if (this.showHide(holder.bodyTextView, true)) {
             if (date != null) {
-                holder.bodyTextView.setText(LocaleUtil.formatDateRelative(date.getTime()));
+                holder.bodyTextView.setText(LocaleUtil.formatDateRelative(date));
             }
         }
     }

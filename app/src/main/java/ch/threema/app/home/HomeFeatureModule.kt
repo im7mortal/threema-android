@@ -1,6 +1,5 @@
 package ch.threema.app.home
 
-import ch.threema.app.home.usecases.CheckBackupsFeatureEnabledUseCase
 import ch.threema.app.home.usecases.CheckServerMessagesUseCase
 import ch.threema.app.home.usecases.GetStarredMessagesCountUseCase
 import ch.threema.app.home.usecases.GetUnreadConversationCountUseCase
@@ -12,7 +11,6 @@ import org.koin.dsl.module
 
 val homeFeatureModule = module {
     viewModelOf(::HomeViewModel)
-    factoryOf(::CheckBackupsFeatureEnabledUseCase)
     factoryOf(::ErrorReportingDialog)
     factoryOf(::GetUnreadConversationCountUseCase)
     factoryOf(::GetStarredMessagesCountUseCase)

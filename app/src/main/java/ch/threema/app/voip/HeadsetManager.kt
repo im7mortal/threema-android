@@ -357,12 +357,12 @@ class HeadsetManager(private val context: Context, private val audioManager: Aud
      * Observe state changes regarding wired headsets. True is emitted if a wired headset is
      * connected, false if it has been disconnected.
      */
-    fun observeWiredHeadset(): StateFlow<Boolean> = wiredHeadsetFlow.asStateFlow()
+    fun watchWiredHeadset(): StateFlow<Boolean> = wiredHeadsetFlow.asStateFlow()
 
     /**
      * Observe state changes regarding bluetooth headsets.
      */
-    fun observeBluetoothHeadset(): StateFlow<BluetoothHeadsetState> =
+    fun watchBluetoothHeadset(): StateFlow<BluetoothHeadsetState> =
         bluetoothHeadsetFlow.asStateFlow()
 
     /**
@@ -379,7 +379,7 @@ class HeadsetManager(private val context: Context, private val audioManager: Aud
 
     /**
      * Try playing audio via bluetooth. By observing the bluetooth headset state (with
-     * [observeBluetoothHeadset]), updates whether starting bluetooth sco has succeeded can be
+     * [watchBluetoothHeadset]), updates whether starting bluetooth sco has succeeded can be
      * retrieved.
      */
     fun playAudioOverBluetoothSco() {

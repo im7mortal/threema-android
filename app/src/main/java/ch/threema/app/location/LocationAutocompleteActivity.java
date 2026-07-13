@@ -29,7 +29,7 @@ import ch.threema.app.dialogs.SimpleStringAlertDialog;
 import ch.threema.app.ui.EmptyRecyclerView;
 import ch.threema.app.ui.EmptyView;
 import ch.threema.app.ui.InsetSides;
-import ch.threema.app.ui.SimpleTextWatcher;
+import ch.threema.android.textwatchers.SimpleTextWatcher;
 import ch.threema.app.ui.SpacingValues;
 import ch.threema.app.ui.ThreemaEditText;
 import ch.threema.app.ui.ViewExtensionsKt;

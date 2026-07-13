@@ -7,38 +7,29 @@ import ch.threema.app.R
 import ch.threema.app.framework.BaseViewModel
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.LockAppService
+import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.TimeProvider
 import ch.threema.common.minus
-import ch.threema.common.plus
-import java.time.Instant
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 
+private val logger = getThreemaLogger("PinLockViewModel")
+
 class PinLockViewModel(
     private val lockAppService: LockAppService,
     private val preferenceService: PreferenceService,
     private val timeProvider: TimeProvider,
     private val isCheckOnly: Boolean,
+    private val pinLockDeadlineManager: PinLockDeadlineManager,
 ) : BaseViewModel<PinLockViewState, PinLockScreenEvent>() {
 
     private var failedAttempts: Int
         get() = preferenceService.getLockoutAttempts()
         set(value) {
             preferenceService.setLockoutAttempts(value)
-        }
-    private var lockoutDeadline: Instant?
-        get() = (preferenceService.getLockoutDeadline())
-            ?.let { deadline ->
-                val now = timeProvider.get()
-                deadline
-                    .takeIf { it > now }
-                    ?.coerceAtMost(now + LOCKOUT_TIMEOUT)
-            }
-        set(value) {
-            preferenceService.setLockoutDeadline(value)
         }
     private var errorResetJob: Job? = null
         set(value) {
@@ -51,11 +42,25 @@ class PinLockViewModel(
             field = value
         }
 
-    override fun initialize() = runInitialization { PinLockViewState() }
+    override suspend fun initialize(): PinLockViewState {
+        runWhenActive {
+            if (!lockAppService.isLocked && !isCheckOnly) {
+                cancel()
+            }
+            handleAttemptLockout()
+            try {
+                awaitCancellation()
+            } finally {
+                countdownJob = null
+            }
+        }
+
+        return PinLockViewState()
+    }
 
     fun onChangedPin(pin: String) = runAction {
         if (pin.length > AppConstants.MAX_PIN_LENGTH) {
-            endAction()
+            return@runAction
         }
         updateViewState {
             copy(pin = pin)
@@ -65,25 +70,28 @@ class PinLockViewModel(
     fun onClickSubmit() = runAction {
         val pin = currentViewState.pin
         if (pin.isEmpty()) {
-            endAction()
+            return@runAction
         }
         if (lockAppService.unlock(pin)) {
+            logger.info("Correct PIN entered")
             failedAttempts = 0
-            lockoutDeadline = null
+            pinLockDeadlineManager.onCorrectPinEntered()
             emitEvent(PinLockScreenEvent.Unlock)
         } else {
             failedAttempts++
 
             if (failedAttempts > MAX_FAILED_ATTEMPTS) {
-                lockoutDeadline = timeProvider.get() + LOCKOUT_TIMEOUT
+                pinLockDeadlineManager.onMaxAttemptsReached()
+                logger.info("Wrong PIN entered, temporarily blocking UI")
                 handleAttemptLockout()
             } else {
+                logger.info("Wrong PIN entered")
                 showError(error = ResourceIdString(R.string.pinentry_wrong_pin), duration = ERROR_MESSAGE_TIMEOUT)
             }
         }
     }
 
-    private suspend fun ViewModelActionScope<PinLockViewState, PinLockScreenEvent>.showError(error: ResolvableString, duration: Duration? = null) {
+    private suspend fun showError(error: ResolvableString, duration: Duration? = null) {
         updateViewState {
             copy(
                 pin = "",
@@ -92,7 +100,7 @@ class PinLockViewModel(
         }
         errorResetJob = null
         duration?.let {
-            errorResetJob = runAction {
+            errorResetJob = launchAction {
                 delay(duration)
                 updateViewState {
                     copy(error = null)
@@ -101,14 +109,14 @@ class PinLockViewModel(
         }
     }
 
-    private suspend fun ViewModelActionScope<PinLockViewState, PinLockScreenEvent>.handleAttemptLockout() {
-        val deadline = lockoutDeadline ?: timeProvider.get()
+    private suspend fun handleAttemptLockout() {
+        val deadline = pinLockDeadlineManager.lockoutDeadline ?: timeProvider.get()
         updateViewState {
             copy(
                 pinEntryEnabled = false,
             )
         }
-        countdownJob = runAction {
+        countdownJob = launchAction {
             var seconds = (deadline - timeProvider.get()).inWholeSeconds
             while (seconds > 0) {
                 showError(error = { context -> context.getString(R.string.too_many_incorrect_attempts, seconds.toString()) })
@@ -134,22 +142,7 @@ class PinLockViewModel(
         cancel()
     }
 
-    override suspend fun onActive() {
-        runAction {
-            if (!lockAppService.isLocked && !isCheckOnly) {
-                cancel()
-            }
-            handleAttemptLockout()
-        }
-
-        try {
-            awaitCancellation()
-        } finally {
-            countdownJob = null
-        }
-    }
-
-    private suspend fun ViewModelBaseScope<PinLockScreenEvent>.cancel() {
+    private suspend fun cancel() {
         if (isCheckOnly) {
             emitEvent(PinLockScreenEvent.Cancel)
         } else {
@@ -160,6 +153,5 @@ class PinLockViewModel(
     companion object {
         private const val MAX_FAILED_ATTEMPTS = 3
         private val ERROR_MESSAGE_TIMEOUT = 3.seconds
-        private val LOCKOUT_TIMEOUT = 30.seconds
     }
 }

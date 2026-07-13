@@ -1,11 +1,11 @@
 package ch.threema.app.files
 
 import android.provider.MediaStore.MEDIA_IGNORE_FILENAME
-import ch.threema.base.utils.Base32
+import ch.threema.common.Base32
 import ch.threema.common.clearDirectoryRecursively
 import ch.threema.common.files.FileHandle
+import ch.threema.common.sha256
 import ch.threema.domain.types.IdentityString
-import ch.threema.libthreema.sha256
 import ch.threema.localcrypto.MasterKeyProvider
 import java.io.File
 import java.io.IOException
@@ -49,7 +49,7 @@ class ProfilePictureFileHandleProvider(
         private const val LEGACY_PROFILE_PICTURES_DIRECTORY = ".avatar"
 
         private fun getFileName(prefix: String, identity: String): String {
-            val identityHash = sha256("c-$identity".toByteArray())
+            val identityHash = sha256("c-$identity")
             return prefix + Base32.encode(identityHash)
         }
     }

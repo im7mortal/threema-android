@@ -139,4 +139,27 @@ class ByteArrayExtensionsTest {
             bytes.readLittleEndianShort(offset = 1),
         )
     }
+
+    @Test
+    fun `all zeroes`() {
+        assertTrue(byteArrayOf(0, 0, 0).isAllZeroes())
+        assertFalse(byteArrayOf(0, 0, 0, 1, 0).isAllZeroes())
+        assertTrue(emptyByteArray().isAllZeroes())
+    }
+
+    @Test
+    fun `concatenate multiple byte arrays`() {
+        assertContentEquals(
+            byteArrayOf(1, 2, 3, 4, 5, 6, 7, 8, 9),
+            concatenateByteArrays(byteArrayOf(1, 2, 3), byteArrayOf(4, 5), byteArrayOf(6, 7, 8), byteArrayOf(9)),
+        )
+    }
+
+    @Test
+    fun `byte array to separated hex string`() {
+        assertEquals(
+            "01-02-03-ff",
+            byteArrayOf(1, 2, 3, 0xff.toByte()).toSeparatedHexString(separator = '-'),
+        )
+    }
 }

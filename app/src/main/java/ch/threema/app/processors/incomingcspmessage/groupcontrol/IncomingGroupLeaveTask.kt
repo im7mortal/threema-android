@@ -8,6 +8,7 @@ import ch.threema.app.protocolsteps.Contact
 import ch.threema.app.protocolsteps.IdentityBlockedSteps
 import ch.threema.app.protocolsteps.Init
 import ch.threema.app.protocolsteps.Invalid
+import ch.threema.app.protocolsteps.PredefinedContactPublicKeyMismatch
 import ch.threema.app.protocolsteps.SpecialContact
 import ch.threema.app.protocolsteps.UserContact
 import ch.threema.app.protocolsteps.ValidContactsLookupSteps
@@ -17,7 +18,7 @@ import ch.threema.app.tasks.ReflectGroupSyncUpdateImmediateTask
 import ch.threema.app.tasks.ReflectionResult
 import ch.threema.app.voip.groupcall.GroupCallManager
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.repositories.GroupModelRepository
 import ch.threema.domain.models.BasicContact
 import ch.threema.domain.protocol.csp.messages.GroupLeaveMessage
@@ -149,5 +150,6 @@ class IncomingGroupLeaveTask(
 
             is Invalid -> null
             is UserContact -> error("This can never happen")
+            is PredefinedContactPublicKeyMismatch -> null
         }
 }

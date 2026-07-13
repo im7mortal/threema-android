@@ -1,27 +1,13 @@
 package ch.threema.app.utils
 
-import android.content.Context
-import android.text.format.DateUtils
-import androidx.work.Operation
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
-import androidx.work.await
 import ch.threema.base.utils.getThreemaLogger
 import java.util.concurrent.ExecutionException
 
 private val logger = getThreemaLogger("WorkManagerUtil")
 
 object WorkManagerUtil {
-    @JvmStatic
-    fun cancelUniqueWork(context: Context, uniqueWorkName: String): Operation {
-        logger.info("Cancel unique work '{}'", uniqueWorkName)
-        return WorkManager.getInstance(context).cancelUniqueWork(uniqueWorkName)
-    }
-
-    suspend fun cancelUniqueWorkAwait(context: Context, uniqueWorkName: String) {
-        logger.info("Cancel result = {}", cancelUniqueWork(context, uniqueWorkName).await())
-    }
-
     /**
      * Check if periodic work with provided [uniqueWorkName] is already scheduled or running and has the same schedule period.
      * Cancel existing work in case of error
@@ -78,22 +64,6 @@ object WorkManagerUtil {
                 else -> throw e
             }
             false
-        }
-    }
-
-    /**
-     * Normalize a schedule period in seconds to milliseconds:
-     *
-     * When [schedulePeriodS] is <= 0, a period of one day is returned.
-     * Otherwise the [schedulePeriodS] is converted to milliseconds.
-     *
-     * @return The normalized schedule period in milliseconds
-     */
-    @JvmStatic
-    fun normalizeSchedulePeriod(schedulePeriodS: Int): Long {
-        return when {
-            schedulePeriodS <= 0 -> DateUtils.DAY_IN_MILLIS
-            else -> schedulePeriodS * DateUtils.SECOND_IN_MILLIS
         }
     }
 }

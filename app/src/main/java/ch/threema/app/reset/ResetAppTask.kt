@@ -4,6 +4,7 @@ import android.app.ActivityManager
 import android.content.Context
 import androidx.core.content.getSystemService
 import androidx.work.WorkManager
+import ch.threema.app.files.deleteSecurely
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.preference.service.PreferenceService
@@ -11,13 +12,13 @@ import ch.threema.app.push.PushService
 import ch.threema.app.services.PassphraseService
 import ch.threema.app.services.UserService
 import ch.threema.app.tasks.TaskCreator
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.app.utils.ShortcutUtil
 import ch.threema.app.webclient.manager.WebClientServiceManager
 import ch.threema.app.webclient.services.instance.DisconnectContext
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.common.deleteSecurely
-import ch.threema.domain.stores.DHSessionStoreInterface
+import ch.threema.common.DispatcherProvider
+import ch.threema.common.clearDirectoryRecursively
+import ch.threema.domain.stores.DHSessionStore
 import ch.threema.localcrypto.KeyStoreSecretKeyManager
 import ch.threema.localcrypto.MasterKeyFileProvider
 import ch.threema.storage.DatabaseNonceStore
@@ -36,7 +37,7 @@ private val logger = getThreemaLogger("ResetAppTask")
 class ResetAppTask(
     private val appContext: Context,
     private val userService: UserService,
-    private val dhSessionStore: DHSessionStoreInterface,
+    private val dhSessionStore: DHSessionStore,
     private val preferenceService: PreferenceService,
     private val databaseProvider: DatabaseProviderImpl,
     private val masterKeyFileProvider: MasterKeyFileProvider,
@@ -48,7 +49,13 @@ class ResetAppTask(
     private val serviceManager: ServiceManager,
     private val dispatcherProvider: DispatcherProvider,
 ) {
-    suspend fun execute(): Nothing = withContext(dispatcherProvider.worker) {
+    /**
+     * @param clearAllAppUserData If true, the [ActivityManager.clearApplicationUserData] will be invoked at the end,
+     * which deletes all the app's files and also revokes all runtime permissions, removes all notifications and removes all Uri grants.
+     * If false, [ActivityManager.clearApplicationUserData] will not be invoked, thus leaving runtime permissions and notifications untouched
+     * but still deleting all files.
+     */
+    suspend fun execute(clearAllAppUserData: Boolean = true): Nothing = withContext(dispatcherProvider.worker) {
         logger.info("Resetting app")
 
         stopWebClientSessions()
@@ -81,7 +88,7 @@ class ResetAppTask(
         deleteIdentity()
         stopConnection()
         closeDatabases()
-        deleteAllFiles()
+        deleteAllFiles(clearAllAppUserData)
         exitProcess(0)
     }
 
@@ -92,8 +99,8 @@ class ResetAppTask(
     }
 
     private fun deleteMasterKey() {
-        masterKeyFileProvider.getVersion2KeyStoreProtectedMasterKeyFile().deleteSecurely(appContext.filesDir)
-        masterKeyFileProvider.getVersion2UnencryptedMasterKeyFile().deleteSecurely(appContext.filesDir)
+        masterKeyFileProvider.getVersion2KeyStoreProtectedMasterKeyFile().deleteSecurely(appContext)
+        masterKeyFileProvider.getVersion2UnencryptedMasterKeyFile().deleteSecurely(appContext)
 
         // The secret key must only be deleted AFTER the master key file(s) have been deleted,
         // as having a master key file but no secret key to unlock it is an invalid state the app cannot recover from.
@@ -119,7 +126,7 @@ class ResetAppTask(
 
     private fun stopConnection() {
         try {
-            serviceManager.getConnection().stop()
+            serviceManager.connection.stop()
         } catch (e: Exception) {
             logger.warn("Failed to stop connection", e)
         }
@@ -130,16 +137,20 @@ class ResetAppTask(
         dhSessionStore.close()
     }
 
-    private fun deleteAllFiles() {
+    private fun deleteAllFiles(clearAllAppUserData: Boolean) {
         preferenceService.clear()
 
         // All app files will be deleted in the end, but with some files we want to be extra careful,
         // so we first overwrite them with zeroes
-        DatabaseOpenHelper.getDatabaseFile(appContext).deleteSecurely(appContext.filesDir)
-        DatabaseNonceStore.getDatabaseFile(appContext).deleteSecurely(appContext.filesDir)
-        DatabaseOpenHelper.getDatabaseBackupFile(appContext).deleteSecurely(appContext.filesDir)
+        DatabaseOpenHelper.getDatabaseFile(appContext).deleteSecurely(appContext)
+        DatabaseNonceStore.getDatabaseFile(appContext).deleteSecurely(appContext)
+        DatabaseOpenHelper.getDatabaseBackupFile(appContext).deleteSecurely(appContext)
 
-        appContext.getSystemService<ActivityManager>()
-            ?.clearApplicationUserData()
+        if (clearAllAppUserData) {
+            appContext.getSystemService<ActivityManager>()?.clearApplicationUserData()
+        } else {
+            appContext.filesDir.clearDirectoryRecursively()
+            appContext.cacheDir.clearDirectoryRecursively()
+        }
     }
 }

@@ -1,7 +1,6 @@
 package ch.threema.app.location;
 
 import android.content.Context;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.TextView;
@@ -21,13 +20,15 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatDialog;
+
+import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.R;
 import ch.threema.app.dialogs.ThreemaDialogFragment;
 import ch.threema.app.utils.GeoLocationUtil;
-import ch.threema.app.utils.TestUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 
 public class LocationPickerConfirmDialog extends ThreemaDialogFragment {
@@ -91,11 +92,7 @@ public class LocationPickerConfirmDialog extends ThreemaDialogFragment {
 
         addressText.setVisibility(View.GONE);
 
-        if (latLng != null) {
-            new LocationNameAsyncTask(getContext(), addressText, latLng.getLatitude(), latLng.getLongitude()).execute();
-        }
-
-        if (!TestUtil.isEmptyOrNull(name)) {
+        if (!isNullOrEmpty(name)) {
             nameText.setText(name);
         } else {
             nameText.setVisibility(View.GONE);
@@ -110,7 +107,7 @@ public class LocationPickerConfirmDialog extends ThreemaDialogFragment {
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireContext(), getTheme());
         builder.setView(dialogView);
 
-        if (!TestUtil.isEmptyOrNull(title)) {
+        if (!isNullOrEmpty(title)) {
             builder.setTitle(title);
         }
 
@@ -120,6 +117,11 @@ public class LocationPickerConfirmDialog extends ThreemaDialogFragment {
 
         AlertDialog alertDialog = builder.create();
 
+        if (latLng != null) {
+            new LocationNameAsyncTask(getContext(), addressText, latLng.getLatitude(), latLng.getLongitude())
+                .execute(alertDialog, null);
+        }
+
         setCancelable(false);
 
         return alertDialog;
@@ -128,10 +130,11 @@ public class LocationPickerConfirmDialog extends ThreemaDialogFragment {
     /**
      * AsyncTask that loads the address retrieved from the Geocoder to the supplied TextView
      */
-    private static class LocationNameAsyncTask extends AsyncTask<Void, Void, String> {
-        WeakReference<Context> contextWeakReference;
-        WeakReference<TextView> textViewWeakReference;
-        double latitude, longitude;
+    private static class LocationNameAsyncTask extends LifecycleAwareAsyncTask<Void, String> {
+        private final WeakReference<Context> contextWeakReference;
+        private final WeakReference<TextView> textViewWeakReference;
+        private final double latitude;
+        private final double longitude;
 
         public LocationNameAsyncTask(@Nullable Context context, @NonNull TextView textView, double latitude, double longitude) {
             this.contextWeakReference = new WeakReference<>(context);
@@ -141,10 +144,11 @@ public class LocationPickerConfirmDialog extends ThreemaDialogFragment {
         }
 
         @Override
-        protected String doInBackground(Void... voids) {
-            if (contextWeakReference != null && contextWeakReference.get() != null) {
+        protected String doInBackground(Void params) {
+            var context = contextWeakReference.get();
+            if (context != null) {
                 try {
-                    return GeoLocationUtil.getAddressFromLocation(contextWeakReference.get(), latitude, longitude);
+                    return GeoLocationUtil.getAddressFromLocation(context, latitude, longitude);
                 } catch (IOException e) {
                     logger.error("Exception", e);
                 }
@@ -154,10 +158,11 @@ public class LocationPickerConfirmDialog extends ThreemaDialogFragment {
 
         @Override
         protected void onPostExecute(String s) {
-            if (!TestUtil.isEmptyOrNull(s)) {
-                if (textViewWeakReference != null && textViewWeakReference.get() != null) {
-                    textViewWeakReference.get().setText(s);
-                    textViewWeakReference.get().setVisibility(View.VISIBLE);
+            if (!isNullOrEmpty(s)) {
+                var textView = textViewWeakReference.get();
+                if (textView != null) {
+                    textView.setText(s);
+                    textView.setVisibility(View.VISIBLE);
                 }
             }
         }

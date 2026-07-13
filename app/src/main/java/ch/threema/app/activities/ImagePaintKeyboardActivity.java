@@ -26,7 +26,7 @@ import java.util.Objects;
 
 import ch.threema.app.R;
 import ch.threema.app.motionviews.widget.TextEntity;
-import ch.threema.app.ui.SimpleTextWatcher;
+import ch.threema.android.textwatchers.SimpleTextWatcher;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.EditTextUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;

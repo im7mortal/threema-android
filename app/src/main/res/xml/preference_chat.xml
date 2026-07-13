@@ -14,7 +14,7 @@
             android:summaryOff="@string/prefs_sum_enter_off"
             android:summaryOn="@string/prefs_sum_enter_on"
             android:title="@string/prefs_title_enter"
-            android:icon="@drawable/ic_send_circle_outline"
+            android:icon="@drawable/ic_send"
             android:defaultValue="false" />
     </PreferenceCategory>
 

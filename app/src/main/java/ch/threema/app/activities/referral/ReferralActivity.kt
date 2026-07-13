@@ -1,5 +1,6 @@
 package ch.threema.app.activities.referral
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
@@ -8,27 +9,19 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
@@ -44,17 +37,20 @@ import androidx.compose.ui.tooling.preview.PreviewDynamicColors
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ch.threema.android.buildActivityIntent
 import ch.threema.android.buildIntent
 import ch.threema.android.showToast
 import ch.threema.app.R
 import ch.threema.app.activities.ThreemaActivity
-import ch.threema.app.compose.common.DynamicSpacerSize1
-import ch.threema.app.compose.common.DynamicSpacerSize3
-import ch.threema.app.compose.common.SpacerHorizontal
-import ch.threema.app.compose.common.SpacerVertical
-import ch.threema.app.compose.common.ThemedText
+import ch.threema.app.compose.common.appbars.AppBar
+import ch.threema.app.compose.common.appbars.NavigationIcon
 import ch.threema.app.compose.common.buttons.TextButtonPrimaryOverride
 import ch.threema.app.compose.common.buttons.primary.ButtonPrimaryOverride
+import ch.threema.app.compose.common.spacer.DynamicSpacerSize1
+import ch.threema.app.compose.common.spacer.DynamicSpacerSize3
+import ch.threema.app.compose.common.spacer.SpacerHorizontal
+import ch.threema.app.compose.common.spacer.SpacerVertical
+import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.theme.ThreemaTheme
 import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.dimens.GridUnit
@@ -127,6 +123,10 @@ class ReferralActivity : ThreemaActivity() {
         val wrappedChooserIntent = Intent.createChooser(sendLinkIntent, getString(R.string.share_via))
         startActivity(wrappedChooserIntent)
     }
+
+    companion object {
+        fun createIntent(context: Context) = buildActivityIntent<ReferralActivity>(context)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -144,34 +144,12 @@ private fun ReferralScreenContent(
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         contentWindowInsets = WindowInsets.safeDrawing,
         topBar = {
-            TopAppBar(
-                windowInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout).only(
-                    WindowInsetsSides.Horizontal + WindowInsetsSides.Top,
+            AppBar(
+                title = stringResource(R.string.referral_screen_title),
+                navigationIcon = NavigationIcon.back(
+                    onClick = onClickBack,
                 ),
                 scrollBehavior = scrollBehavior,
-                title = {
-                    ThemedText(
-                        style = MaterialTheme.typography.titleLarge,
-                        text = stringResource(R.string.referral_screen_title),
-                    )
-                },
-                navigationIcon = {
-                    IconButton(
-                        onClick = onClickBack,
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_arrow_back_24),
-                            contentDescription = stringResource(R.string.back),
-                        )
-                    }
-                },
-                colors = TopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                    actionIconContentColor = MaterialTheme.colorScheme.onSurface,
-                ),
             )
         },
     ) { insetsPadding ->

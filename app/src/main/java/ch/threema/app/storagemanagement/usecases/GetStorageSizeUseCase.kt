@@ -1,9 +1,12 @@
 package ch.threema.app.storagemanagement.usecases
 
+import android.annotation.SuppressLint
 import ch.threema.app.files.AppDirectoryProvider
 import ch.threema.app.services.MessageService
-import ch.threema.app.utils.DispatcherProvider
-import ch.threema.common.getTotalSize
+import ch.threema.common.ByteSize
+import ch.threema.common.DispatcherProvider
+import ch.threema.common.bytes
+import ch.threema.common.getTotalDirectorySize
 import kotlinx.coroutines.withContext
 
 class GetStorageSizeUseCase(
@@ -11,20 +14,22 @@ class GetStorageSizeUseCase(
     private val messageService: MessageService,
     private val dispatcherProvider: DispatcherProvider,
 ) {
+    @SuppressLint("UsableSpace")
     suspend fun call(): Result = withContext(dispatcherProvider.io) {
+        @Suppress("DEPRECATION")
         Result(
-            totalBytes = appDirectoryProvider.userFilesDirectory.totalSpace,
-            freeBytes = appDirectoryProvider.userFilesDirectory.usableSpace,
-            usedBytes = appDirectoryProvider.userFilesDirectory.getTotalSize() +
-                appDirectoryProvider.legacyUserFilesDirectory.getTotalSize(),
+            totalSpace = appDirectoryProvider.userFilesDirectory.totalSpace.bytes,
+            freeSpace = appDirectoryProvider.userFilesDirectory.usableSpace.bytes,
+            usedSpace = appDirectoryProvider.userFilesDirectory.getTotalDirectorySize() +
+                appDirectoryProvider.legacyUserFilesDirectory.getTotalDirectorySize(),
             messageCount = messageService.getTotalMessageCount(),
         )
     }
 
     data class Result(
-        val totalBytes: Long,
-        val freeBytes: Long,
-        val usedBytes: Long,
+        val totalSpace: ByteSize,
+        val freeSpace: ByteSize,
+        val usedSpace: ByteSize,
         val messageCount: Long,
     )
 }

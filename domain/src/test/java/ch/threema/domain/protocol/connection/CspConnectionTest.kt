@@ -143,7 +143,6 @@ internal class CspConnectionTest : ServerConnectionTest() {
             incomingMessageProcessor,
             taskManager,
             { emptyArray() },
-            ipv6 = false,
             createSocketFactory(),
         )
     }

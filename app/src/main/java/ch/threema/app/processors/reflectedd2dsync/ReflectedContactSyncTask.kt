@@ -1,22 +1,23 @@
 package ch.threema.app.processors.reflectedd2dsync
 
 import ch.threema.app.BuildConfig
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.ContactEvent
 import ch.threema.app.managers.ServiceManager
-import ch.threema.app.services.DeadlineListService.DEADLINE_INDEFINITE
 import ch.threema.app.utils.AppVersionProvider
-import ch.threema.app.utils.ContactUtil
 import ch.threema.app.utils.ExifInterface
-import ch.threema.app.utils.ShortcutUtil
 import ch.threema.base.ThreemaException
+import ch.threema.base.crypto.SymmetricEncryptionService
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.contentEquals
 import ch.threema.data.datatypes.AvailabilityStatus
-import ch.threema.data.datatypes.NotificationTriggerPolicyOverride
+import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.models.ContactModel
 import ch.threema.data.models.ContactModelData
 import ch.threema.data.repositories.ContactCreateException
 import ch.threema.data.repositories.ContactModelRepository
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.ContactSyncState
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
@@ -27,22 +28,21 @@ import ch.threema.domain.models.WorkVerificationLevel
 import ch.threema.domain.protocol.blob.BlobScope
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.taskmanager.ProtocolException
-import ch.threema.domain.taskmanager.TriggerSource
+import ch.threema.domain.types.Identity
 import ch.threema.domain.types.IdentityString
 import ch.threema.protobuf.common.Blob
 import ch.threema.protobuf.common.DeltaImage
 import ch.threema.protobuf.d2d.ContactSync
 import ch.threema.protobuf.d2d.sync.Contact
 import ch.threema.protobuf.d2d.sync.ConversationCategory
-import ch.threema.protobuf.d2d.sync.ConversationVisibility
+import ch.threema.protobuf.d2d.sync.ConversationVisibility as ProtocolsConversationVisibility
 import ch.threema.protobuf.d2d.sync.contactDefinedProfilePictureOrNull
 import ch.threema.protobuf.d2d.sync.userDefinedProfilePictureOrNull
 import ch.threema.protobuf.d2d.sync.workAvailabilityStatusOrNull
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel
-import ch.threema.storage.models.ConversationModel
-import ch.threema.storage.models.ConversationTag
+import ch.threema.protobuf.toDataType
 import java.time.Instant
-import java.util.Date
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("ReflectedContactSyncTask")
 
@@ -50,12 +50,11 @@ class ReflectedContactSyncTask(
     private val contactSync: ContactSync,
     private val contactModelRepository: ContactModelRepository,
     private val serviceManager: ServiceManager,
-) {
+    private val globalEventBuses: GlobalEventBuses,
+) : KoinComponent {
     private val conversationCategoryService by lazy { serviceManager.conversationCategoryService }
     private val fileService by lazy { serviceManager.fileService }
-    private val contactService by lazy { serviceManager.contactService }
-    private val preferenceService by lazy { serviceManager.preferenceService }
-    private val conversationService by lazy { serviceManager.conversationService }
+    private val symmetricEncryptionService: SymmetricEncryptionService by inject()
 
     fun run() {
         when (contactSync.actionCase) {
@@ -115,6 +114,7 @@ class ReflectedContactSyncTask(
         val contactModel = contactModelRepository.getByIdentity(identity)
         if (contactModel != null) {
             applyContactModelUpdate(contactModel, contactUpdate.contact)
+            globalEventBuses.contacts.emit(ContactEvent.ContactUpdated(Identity(identity)))
         } else {
             logger.error("Got a contact update for an unknown contact: {}", identity)
         }
@@ -145,7 +145,7 @@ class ReflectedContactSyncTask(
 
         applyConversationCategory(contact)
 
-        applyConversationVisibility(contact)
+        applyConversationVisibility(contactModel, contact)
 
         if (BuildConfig.AVAILABILITY_STATUS_ENABLED) {
             applyAvailabilityStatus(contactModel, contact)
@@ -236,47 +236,19 @@ class ReflectedContactSyncTask(
             ConversationCategory.UNRECOGNIZED -> unrecognizedValue("conversation category")
             null -> nullValue("conversation category")
         }?.let { isPrivateChat ->
-            val uid = ContactUtil.getUniqueIdString(contact.identity)
+            val contactConversationId = ContactConversationId(contact.identity)
             if (isPrivateChat) {
-                conversationCategoryService.persistPrivateChat(uid)
+                conversationCategoryService.persistAddPrivateMark(contactConversationId)
             } else {
-                conversationCategoryService.persistDefaultChat(uid)
+                conversationCategoryService.persistRemovePrivateMark(contactConversationId)
             }
         }
     }
 
     private fun applyNotificationTriggerPolicy(contactModel: ContactModel, contact: Contact) {
-        if (!contact.hasNotificationTriggerPolicyOverride()) {
-            return
-        }
-        val newNotificationTriggerPolicyOverride: NotificationTriggerPolicyOverride? = when {
-            contact.notificationTriggerPolicyOverride.hasDefault() -> NotificationTriggerPolicyOverride.NotMuted
-            contact.notificationTriggerPolicyOverride.hasPolicy() -> {
-                val policy = contact.notificationTriggerPolicyOverride.policy
-                when (policy.policy) {
-                    Contact.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.NEVER -> {
-                        if (policy.hasExpiresAt()) {
-                            NotificationTriggerPolicyOverride.MutedUntil(policy.expiresAt)
-                        } else {
-                            NotificationTriggerPolicyOverride.MutedIndefinite
-                        }
-                    }
-
-                    Contact.NotificationTriggerPolicyOverride.Policy.NotificationTriggerPolicy.UNRECOGNIZED ->
-                        unrecognizedValue("notification trigger policy override")
-                    null -> nullValue("notification trigger policy override")
-                }
-            }
-
-            else -> {
-                logger.warn("Notification trigger policy does not contain default or policy")
-                null
-            }
-        }
-
-        newNotificationTriggerPolicyOverride?.let {
+        if (contact.hasNotificationTriggerPolicyOverride()) {
             contactModel.setNotificationTriggerPolicyOverrideFromSync(
-                newNotificationTriggerPolicyOverride.dbValue,
+                contact.notificationTriggerPolicyOverride.toDataType(),
             )
         }
     }
@@ -342,11 +314,7 @@ class ReflectedContactSyncTask(
     }
 
     private fun onAvatarChanged(identity: IdentityString) {
-        ListenerManager.contactListeners.handle { it.onAvatarChanged(identity) }
-        ShortcutUtil.updateShareTargetShortcut(
-            contactService.createReceiver(identity),
-            preferenceService.getContactNameFormat(),
-        )
+        globalEventBuses.contacts.emit(ContactEvent.ContactProfilePictureUpdated(Identity(identity)))
     }
 
     private fun Blob.loadAndMarkAsDone(persistBlob: (blob: ByteArray) -> Unit) {
@@ -355,7 +323,7 @@ class ReflectedContactSyncTask(
             version = AppVersionProvider.appVersion,
             serverAddressProvider = serviceManager.serverAddressProviderService.serverAddressProvider,
             multiDevicePropertyProvider = serviceManager.multiDeviceManager.propertiesProvider,
-            symmetricEncryptionService = serviceManager.symmetricEncryptionService,
+            symmetricEncryptionService = symmetricEncryptionService,
             fallbackNonce = ProtocolDefines.CONTACT_PHOTO_NONCE,
             downloadBlobScope = BlobScope.Local,
             markAsDoneBlobScope = BlobScope.Local,
@@ -388,83 +356,15 @@ class ReflectedContactSyncTask(
         }
     }
 
-    private fun applyConversationVisibility(contact: Contact) {
+    private fun applyConversationVisibility(contactModel: ContactModel, contact: Contact) {
         if (contact.hasConversationVisibility()) {
-            when (contact.conversationVisibility) {
-                ConversationVisibility.NORMAL -> {
-                    // TODO(ANDR-3010): Use new conversation model
-                    val archivedConversationModel = getArchivedConversationModel(contact.identity)
-                    if (archivedConversationModel != null) {
-                        conversationService.unarchive(listOf(archivedConversationModel), TriggerSource.SYNC)
-                    } else {
-                        unPinConversation(contact.identity)
-                    }
+            val conversationVisibility = contact.getConversationVisibilityOrNull()
+                ?: run {
+                    logger.warn("Conversation visibility is set but cannot be applied because it is null")
+                    return
                 }
-
-                ConversationVisibility.ARCHIVED -> {
-                    val conversationModel = getConversationModel(contact.identity)
-                    if (conversationModel != null) {
-                        conversationService.archive(conversationModel, TriggerSource.SYNC)
-                    } else if (getArchivedConversationModel(contact.identity) != null) {
-                        logger.warn("Cannot archive conversation with {} as it is already archived", contact.identity)
-                    } else {
-                        logger.error("Could not archive conversation with {} as it couldn't be found", contact.identity)
-                    }
-                }
-
-                ConversationVisibility.PINNED -> {
-                    getArchivedConversationModel(contact.identity)?.let {
-                        conversationService.unarchive(listOf(it), TriggerSource.SYNC)
-                    }
-                    pinConversation(contact.identity)
-                }
-
-                ConversationVisibility.UNRECOGNIZED -> unrecognizedValue("conversation visibility")
-
-                null -> nullValue("conversation visibility")
-            }
+            contactModel.setConversationVisibilityFromSync(conversationVisibility)
         }
-    }
-
-    private fun pinConversation(identity: IdentityString) {
-        // TODO(ANDR-3010): Use new conversation model
-        val conversationModel = getConversationModel(identity) ?: run {
-            logger.error("Could not pin conversation with {} as it couldn't be found", identity)
-            return
-        }
-        conversationService.tag(conversationModel, ConversationTag.PINNED, TriggerSource.SYNC)
-    }
-
-    private fun unPinConversation(identity: IdentityString) {
-        // TODO(ANDR-3010): Use new conversation model
-        val conversationModel = getConversationModel(identity) ?: run {
-            logger.error("Could not unpin conversation with {} as it couldn't be found", identity)
-            return
-        }
-        conversationService.untag(conversationModel, ConversationTag.PINNED, TriggerSource.SYNC)
-    }
-
-    private fun getConversationModel(identity: IdentityString): ConversationModel? {
-        // We need load the conversations from the database. This is due to a race condition in the conversation service when the user pins an
-        // archived contact.
-        return conversationService.getAll(true)
-            .find { it.contact?.identity == identity }.also {
-                if (it == null) {
-                    logger.warn("Could not find conversation model for contact {}", identity)
-                }
-            }
-    }
-
-    private fun getArchivedConversationModel(identity: IdentityString): ConversationModel? {
-        return conversationService.getArchived()
-            .find { it.contact?.identity == identity }.also {
-                if (it == null) {
-                    logger.warn(
-                        "Could not find archived conversation model for contact {}",
-                        identity,
-                    )
-                }
-            }
     }
 
     private fun unrecognizedValue(valueName: String): Nothing? {
@@ -531,7 +431,7 @@ class ReflectedContactSyncTask(
     private fun Contact.getIdentityTypeOrNull(): IdentityType? {
         return if (hasIdentityType()) {
             when (identityType) {
-                Contact.IdentityType.REGULAR -> IdentityType.NORMAL
+                Contact.IdentityType.REGULAR -> IdentityType.REGULAR
                 Contact.IdentityType.WORK -> IdentityType.WORK
                 Contact.IdentityType.UNRECOGNIZED -> unrecognizedValue("identity type")
                 null -> nullValue("identity type")
@@ -545,7 +445,7 @@ class ReflectedContactSyncTask(
         return if (hasAcquaintanceLevel()) {
             when (acquaintanceLevel) {
                 Contact.AcquaintanceLevel.DIRECT -> AcquaintanceLevel.DIRECT
-                Contact.AcquaintanceLevel.GROUP_OR_DELETED -> AcquaintanceLevel.GROUP
+                Contact.AcquaintanceLevel.GROUP_OR_DELETED -> AcquaintanceLevel.GROUP_OR_DELETED
                 Contact.AcquaintanceLevel.UNRECOGNIZED -> unrecognizedValue("acquaintance level")
                 null -> nullValue("acquaintance level")
             }
@@ -640,16 +540,17 @@ class ReflectedContactSyncTask(
         }
     }
 
-    private fun Contact.getConversationVisibilityArchiveOrNull(): Boolean? {
-        return if (hasConversationVisibility()) {
-            when (conversationVisibility) {
-                ConversationVisibility.NORMAL, ConversationVisibility.PINNED -> false
-                ConversationVisibility.ARCHIVED -> true
-                ConversationVisibility.UNRECOGNIZED -> unrecognizedValue("conversation visibility")
-                null -> nullValue("conversation visibility")
-            }
-        } else {
-            null
+    private fun Contact.getConversationVisibilityOrNull(): ConversationVisibility? {
+        if (!hasConversationVisibility()) {
+            return null
+        }
+
+        return when (conversationVisibility) {
+            ProtocolsConversationVisibility.NORMAL -> ConversationVisibility.NORMAL
+            ProtocolsConversationVisibility.PINNED -> ConversationVisibility.PINNED
+            ProtocolsConversationVisibility.ARCHIVED -> ConversationVisibility.ARCHIVED
+            ProtocolsConversationVisibility.UNRECOGNIZED -> unrecognizedValue("conversation visibility")
+            null -> nullValue("conversation visibility")
         }
     }
 
@@ -669,9 +570,9 @@ class ReflectedContactSyncTask(
         }
     }
 
-    private fun Contact.getCreatedAtOrNull(): Date? {
+    private fun Contact.getCreatedAtOrNull(): Instant? {
         return if (hasCreatedAt()) {
-            Date(createdAt)
+            Instant.ofEpochMilli(createdAt)
         } else {
             null
         }
@@ -684,48 +585,42 @@ class ReflectedContactSyncTask(
      *
      * @throws MissingPropertyException if a required property for a new contact is missing
      */
-    private fun Contact.toNewContactModelData() = ContactModelData(
-        identity = identity,
-        publicKey = getPublicKeyOrNull() ?: missingProperty("publicKey"),
-        createdAt = getCreatedAtOrNull() ?: missingProperty("createdAt"),
-        firstName = getFirstNameOrNull() ?: "",
-        lastName = getLastNameOrNull() ?: "",
-        nickname = getNicknameOrNull(),
-        verificationLevel = getVerificationLevelOrNull() ?: VerificationLevel.UNVERIFIED,
-        workVerificationLevel = getWorkVerificationLevelOrNull() ?: WorkVerificationLevel.NONE,
-        identityType = getIdentityTypeOrNull() ?: IdentityType.NORMAL,
-        acquaintanceLevel = getAcquaintanceLevelOrNull() ?: AcquaintanceLevel.DIRECT,
-        activityState = getActivityStateOrNull() ?: IdentityState.ACTIVE,
-        syncState = getSyncStateOrNull() ?: ContactSyncState.INITIAL,
-        featureMask = getFeatureMaskOrNull() ?: missingProperty("featureMask"),
-        readReceiptPolicy = getReadReceiptPolicyOrNull() ?: ReadReceiptPolicy.DEFAULT,
-        typingIndicatorPolicy = getTypingIndicatorPolicyOrNull() ?: TypingIndicatorPolicy.DEFAULT,
-        isArchived = getConversationVisibilityArchiveOrNull() ?: false,
-        androidContactLookupInfo = null,
-        localAvatarExpires = null,
-        isRestored = false,
-        profilePictureBlobId = null,
-        jobTitle = null,
-        department = null,
-        notificationTriggerPolicyOverride = notificationTriggerPolicyOverride.toInternalMutedOverrideUntilValue(),
-        availabilityStatus = getAvailabilityStatusOrNone(),
-        workLastFullSyncAt = getWorkLastFullSyncAtOrNull(),
-    )
-
-    private fun Contact.NotificationTriggerPolicyOverride.toInternalMutedOverrideUntilValue(): Long? =
-        when (overrideCase) {
-            Contact.NotificationTriggerPolicyOverride.OverrideCase.DEFAULT -> null
-            Contact.NotificationTriggerPolicyOverride.OverrideCase.POLICY -> {
-                if (policy.hasExpiresAt()) {
-                    policy.expiresAt
-                } else {
-                    DEADLINE_INDEFINITE
-                }
-            }
-
-            Contact.NotificationTriggerPolicyOverride.OverrideCase.OVERRIDE_NOT_SET -> null
-            null -> null
+    private fun Contact.toNewContactModelData(): ContactModelData {
+        val contactNotificationTriggerPolicyOverride = if (hasNotificationTriggerPolicyOverride()) {
+            notificationTriggerPolicyOverride.toDataType()
+        } else {
+            null
         }
+
+        return ContactModelData(
+            identity = identity,
+            publicKey = getPublicKeyOrNull() ?: missingProperty("publicKey"),
+            createdAt = getCreatedAtOrNull() ?: missingProperty("createdAt"),
+            lastUpdateAt = null,
+            firstName = getFirstNameOrNull() ?: "",
+            lastName = getLastNameOrNull() ?: "",
+            nickname = getNicknameOrNull(),
+            verificationLevel = getVerificationLevelOrNull() ?: VerificationLevel.UNVERIFIED,
+            workVerificationLevel = getWorkVerificationLevelOrNull() ?: WorkVerificationLevel.NONE,
+            identityType = getIdentityTypeOrNull() ?: IdentityType.REGULAR,
+            acquaintanceLevel = getAcquaintanceLevelOrNull() ?: AcquaintanceLevel.DIRECT,
+            activityState = getActivityStateOrNull() ?: IdentityState.ACTIVE,
+            syncState = getSyncStateOrNull() ?: ContactSyncState.INITIAL,
+            featureMask = getFeatureMaskOrNull() ?: missingProperty("featureMask"),
+            readReceiptPolicy = getReadReceiptPolicyOrNull() ?: ReadReceiptPolicy.DEFAULT,
+            typingIndicatorPolicy = getTypingIndicatorPolicyOrNull() ?: TypingIndicatorPolicy.DEFAULT,
+            conversationVisibility = getConversationVisibilityOrNull() ?: ConversationVisibility.NORMAL,
+            androidContactLookupInfo = null,
+            localAvatarExpires = null,
+            isRestored = false,
+            profilePictureBlobId = null,
+            jobTitle = null,
+            department = null,
+            notificationTriggerPolicyOverride = contactNotificationTriggerPolicyOverride,
+            availabilityStatus = getAvailabilityStatusOrNone(),
+            workLastFullSyncAt = getWorkLastFullSyncAtOrNull(),
+        )
+    }
 
     private fun missingProperty(propertyName: String): Nothing =
         throw MissingPropertyException(propertyName)

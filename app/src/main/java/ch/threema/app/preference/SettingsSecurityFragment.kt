@@ -31,9 +31,9 @@ import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.preference.usecases.RemoveAllPrivateMarksUseCase
 import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.utils.DialogUtil
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.localcrypto.MasterKeyManager
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
@@ -73,7 +73,7 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
 
     private val setSystemLockLauncher = registerForActivityResult<Intent, ActivityResult?>(StartActivityForResult()) { result: ActivityResult ->
         if (result.resultCode == Activity.RESULT_OK) {
-            lockMechanismPreference.value = PreferenceService.LOCKING_MECH_SYSTEM
+            setLockMechanismPreferenceValue(PreferenceService.LockMechanism.SYSTEM)
             if (uiLockSwitchPreference.isChecked) {
                 preferenceService.setAppLockEnabled(true)
             }
@@ -119,29 +119,29 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         fragmentView = view
 
-        // Initially, the complete view is made invisible, until the user unlocks the settings using the configured locking mechanism.
+        // Initially, the complete view is made invisible, until the user unlocks the settings using the configured lock mechanism.
         fragmentView.visibility = View.INVISIBLE
 
         super.onViewCreated(view, savedInstanceState)
-        val lockingMechanism = preferenceService.getLockMechanism()
+        val lockMechanism = preferenceService.getLockMechanism()
 
         // TODO(ANDR-4317): Rethink and improve the fallback mechanism
-        if (lockingMechanism == PreferenceService.LOCKING_MECH_PIN && !preferenceService.isPinSet()) {
-            logger.warn("Locking mechanism was set to PIN but no PIN is set, thus disabling locking mechanism")
+        if (lockMechanism == PreferenceService.LockMechanism.PIN && !preferenceService.isPinSet()) {
+            logger.warn("Lock mechanism was set to PIN but no PIN is set, thus disabling lock mechanism")
             removeAccessProtection()
             onUnlocked()
             return
         }
 
-        when (lockingMechanism) {
-            PreferenceService.LOCKING_MECH_NONE -> onUnlocked()
-            PreferenceService.LOCKING_MECH_PIN -> if (savedInstanceState == null) {
+        when (lockMechanism) {
+            PreferenceService.LockMechanism.NONE -> onUnlocked()
+            PreferenceService.LockMechanism.PIN -> if (savedInstanceState == null) {
                 unlockLauncher.launch(
                     PinLockActivity.createIntent(requireContext(), checkOnly = true),
                 )
             }
-            PreferenceService.LOCKING_MECH_SYSTEM,
-            PreferenceService.LOCKING_MECH_BIOMETRIC,
+            PreferenceService.LockMechanism.SYSTEM,
+            PreferenceService.LockMechanism.BIOMETRIC,
             -> {
                 if (savedInstanceState == null) {
                     unlockLauncher.launch(
@@ -155,10 +155,10 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
     private fun onUnlocked() {
         fragmentView.isVisible = true
 
-        uiLockSwitchPreference = getPref(getString(R.string.preferences__lock_ui_switch))
-        lockMechanismPreference = getPref(getString(R.string.preferences__lock_mechanism))
-        pinPreference = getPref(getString(R.string.preferences__pin_lock_code))
-        graceTimePreference = getPref(getString(R.string.preferences__pin_lock_grace_time))
+        uiLockSwitchPreference = getPref(R.string.preferences__lock_ui_switch)
+        lockMechanismPreference = getPref(R.string.preferences__lock_mechanism)
+        pinPreference = getPref(R.string.preferences__pin_lock_code)
+        graceTimePreference = getPref(R.string.preferences__pin_lock_grace_time)
 
         uiLockSwitchPreference.setChecked(preferenceService.isAppLockEnabled())
 
@@ -166,9 +166,9 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
 
         if (!isBiometricLockSupported()) {
             // TODO(ANDR-4317): Rethink and improve the fallback mechanism
-            if (preferenceService.getLockMechanism() == PreferenceService.LOCKING_MECH_BIOMETRIC) {
+            if (preferenceService.getLockMechanism() == PreferenceService.LockMechanism.BIOMETRIC) {
                 if (appLockUtil.hasDeviceLock()) {
-                    preferenceService.setLockMechanism(PreferenceService.LOCKING_MECH_SYSTEM)
+                    preferenceService.setLockMechanism(PreferenceService.LockMechanism.SYSTEM)
                 } else {
                     removeAccessProtection()
                 }
@@ -180,10 +180,10 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
 
         lockMechanismPreference.setValueIndex(
             when (preferenceService.getLockMechanism()) {
-                PreferenceService.LOCKING_MECH_PIN -> 1
-                PreferenceService.LOCKING_MECH_SYSTEM -> 2
-                PreferenceService.LOCKING_MECH_BIOMETRIC -> 3
-                else -> 0
+                PreferenceService.LockMechanism.NONE -> 0
+                PreferenceService.LockMechanism.PIN -> 1
+                PreferenceService.LockMechanism.SYSTEM -> 2
+                PreferenceService.LockMechanism.BIOMETRIC -> 3
             },
         )
 
@@ -192,11 +192,13 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
         setGraceTime()
 
         lockMechanismPreference.onPreferenceChangeListener = Preference.OnPreferenceChangeListener { _, newValue ->
-            when (newValue as String?) {
-                PreferenceService.LOCKING_MECH_NONE -> onNoLockingMechanismSelected()
-                PreferenceService.LOCKING_MECH_PIN -> onPinLockingMechanismSelected()
-                PreferenceService.LOCKING_MECH_SYSTEM -> onSystemLockingMechanismSelected()
-                PreferenceService.LOCKING_MECH_BIOMETRIC -> onBiometricLockingMechanismSelected()
+            val newLockMechanism = PreferenceService.LockMechanism.deserialize(newValue as String)
+                ?: PreferenceService.LockMechanism.NONE
+            when (newLockMechanism) {
+                PreferenceService.LockMechanism.NONE -> onNoneLockMechanismSelected()
+                PreferenceService.LockMechanism.PIN -> onPinLockMechanismSelected()
+                PreferenceService.LockMechanism.SYSTEM -> onSystemLockMechanismSelected()
+                PreferenceService.LockMechanism.BIOMETRIC -> onBiometricLockMechanismSelected()
             }
             updateLockPreferences()
             false
@@ -208,8 +210,7 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
             if (oldCheckedValue != newCheckedValue) {
                 preferenceService.setAppLockEnabled(false)
                 if (newCheckedValue) {
-                    val lockMechanism = lockMechanismPreference.value ?: PreferenceService.LOCKING_MECH_NONE
-                    if (lockMechanism == PreferenceService.LOCKING_MECH_NONE) {
+                    if (getLockMechanismPreferenceValue() == PreferenceService.LockMechanism.NONE) {
                         return@OnPreferenceChangeListener false
                     }
                     setGraceTime()
@@ -252,15 +253,15 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
         }
     }
 
-    private fun onNoLockingMechanismSelected() {
-        if (conversationCategoryService.hasPrivateChats()) {
+    private fun onNoneLockMechanismSelected() {
+        if (conversationCategoryService.hasAnyPrivateMarks()) {
             showPrivateChatsConfirmDialog()
         } else {
             removeAccessProtection()
         }
     }
 
-    private fun onPinLockingMechanismSelected() {
+    private fun onPinLockMechanismSelected() {
         val dialog = GenericAlertDialog.newInstance(
             /* title = */
             R.string.warning,
@@ -305,8 +306,11 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
         )
         lockMechanismPreference.setSummary(lockMechanismPreference.getEntry())
 
-        when (lockMechanismPreference.value) {
-            PreferenceService.LOCKING_MECH_NONE -> {
+        val lockMechanism = lockMechanismPreference.value
+            ?.let(PreferenceService.LockMechanism::deserialize)
+            ?: PreferenceService.LockMechanism.NONE
+        when (lockMechanism) {
+            PreferenceService.LockMechanism.NONE -> {
                 pinPreference.isEnabled = false
                 graceTimePreference.isEnabled = false
                 uiLockSwitchPreference.setChecked(false)
@@ -314,12 +318,14 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
                 preferenceService.setPin(null)
                 preferenceService.setAppLockEnabled(false)
             }
-            PreferenceService.LOCKING_MECH_PIN -> {
+            PreferenceService.LockMechanism.PIN -> {
                 pinPreference.isEnabled = true
                 graceTimePreference.isEnabled = true
                 uiLockSwitchPreference.isEnabled = true
             }
-            PreferenceService.LOCKING_MECH_SYSTEM, PreferenceService.LOCKING_MECH_BIOMETRIC -> {
+            PreferenceService.LockMechanism.SYSTEM,
+            PreferenceService.LockMechanism.BIOMETRIC,
+            -> {
                 pinPreference.isEnabled = false
                 graceTimePreference.isEnabled = true
                 uiLockSwitchPreference.isEnabled = true
@@ -354,15 +360,17 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
             0,
             /* showForgotPwHint = */
             PasswordEntryDialog.ForgotHintType.NONE,
+            /* requestKey = */
+            null,
         )
         dialogFragment.setTargetFragment(this, 0)
         dialogFragment.show(parentFragmentManager, DIALOG_TAG_PIN)
     }
 
-    private fun onSystemLockingMechanismSelected() {
+    private fun onSystemLockMechanismSelected() {
         if (appLockUtil.hasDeviceLock()) {
             setSystemLockLauncher.launch(
-                AppLockActivity.createIntent(requireContext(), checkOnly = true, authType = PreferenceService.LOCKING_MECH_SYSTEM),
+                AppLockActivity.createIntent(requireContext(), checkOnly = true, lockMechanism = PreferenceService.LockMechanism.SYSTEM),
             )
         } else {
             val snackbar = Snackbar.make(fragmentView, R.string.no_lockscreen_set, Snackbar.LENGTH_LONG)
@@ -373,7 +381,7 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
         }
     }
 
-    private fun onBiometricLockingMechanismSelected() {
+    private fun onBiometricLockMechanismSelected() {
         when (appLockUtil.getBiometricsAuthenticatorState()) {
             AppLockUtil.BiometricsState.NO_PERMISSION -> showToast(R.string.biometrics_no_permission)
             AppLockUtil.BiometricsState.NONE_ENROLLED -> showToast(R.string.biometrics_not_enrolled)
@@ -397,9 +405,9 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
                 AppLockUtil.AuthenticationResult.Success -> {
                     Snackbar.make(fragmentView, R.string.biometric_authentication_successful, Snackbar.LENGTH_LONG).show()
 
-                    lockMechanismPreference.value = PreferenceService.LOCKING_MECH_BIOMETRIC
+                    setLockMechanismPreferenceValue(PreferenceService.LockMechanism.BIOMETRIC)
                     if (uiLockSwitchPreference.isChecked) {
-                        preferenceService.setLockMechanism(PreferenceService.LOCKING_MECH_BIOMETRIC)
+                        preferenceService.setLockMechanism(PreferenceService.LockMechanism.BIOMETRIC)
                     }
                     updateLockPreferences()
                 }
@@ -463,6 +471,8 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
             0,
             /* showForgotPwHint = */
             PasswordEntryDialog.ForgotHintType.NONE,
+            /* requestKey = */
+            null,
         )
         dialogFragment.setTargetFragment(this, 0)
         if (oldPassphrase != null) {
@@ -501,7 +511,7 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
     override fun onYes(tag: String?, text: String, isChecked: Boolean, data: Any?) {
         when (tag) {
             DIALOG_TAG_PIN -> if (preferenceService.setPin(text)) {
-                lockMechanismPreference.setValue(PreferenceService.LOCKING_MECH_PIN)
+                setLockMechanismPreferenceValue(PreferenceService.LockMechanism.PIN)
                 if (uiLockSwitchPreference.isChecked) {
                     preferenceService.setAppLockEnabled(true)
                 }
@@ -549,17 +559,17 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
     }
 
     private fun removeAccessProtection() {
-        logger.info("Removing locking mechanism and private marks")
+        logger.info("Removing lock mechanism and private marks")
         preferenceService.setArePrivateChatsHidden(false)
         lifecycleScope.launch {
             try {
-                if (conversationCategoryService.hasPrivateChats()) {
+                if (conversationCategoryService.hasAnyPrivateMarks()) {
                     showProgressDialog()
                     withContext(dispatcherProvider.worker) {
                         removeAllPrivateMarksUseCase.call()
                     }
                 }
-                lockMechanismPreference.setValue(PreferenceService.LOCKING_MECH_NONE)
+                setLockMechanismPreferenceValue(PreferenceService.LockMechanism.NONE)
                 updateLockPreferences()
             } catch (e: Exception) {
                 logger.error("Failed to remove private marks", e)
@@ -568,6 +578,13 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
                 hideProgressDialog()
             }
         }
+    }
+
+    private fun getLockMechanismPreferenceValue(): PreferenceService.LockMechanism =
+        lockMechanismPreference.value?.let(PreferenceService.LockMechanism::deserialize) ?: PreferenceService.LockMechanism.NONE
+
+    private fun setLockMechanismPreferenceValue(value: PreferenceService.LockMechanism) {
+        lockMechanismPreference.value = value.serialized
     }
 
     override fun getPreferenceTitleResource() = R.string.prefs_security

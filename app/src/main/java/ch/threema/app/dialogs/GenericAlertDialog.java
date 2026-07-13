@@ -3,11 +3,7 @@ package ch.threema.app.dialogs;
 import android.app.Activity;
 import android.content.DialogInterface;
 import android.os.Bundle;
-import android.text.Html;
 import android.text.TextUtils;
-import android.text.method.LinkMovementMethod;
-import android.view.View;
-import android.widget.TextView;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
@@ -21,19 +17,18 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import org.slf4j.Logger;
 
-import ch.threema.app.utils.TestUtil;
 
+import static androidx.fragment.app.FragmentKt.setFragmentResult;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class GenericAlertDialog extends ThreemaDialogFragment {
     private static final Logger logger = getThreemaLogger("GenericAlertDialog");
 
-    private DialogClickListener callback;
+    private @Nullable DialogClickListener callback;
     private Activity activity;
-    private AlertDialog alertDialog;
-    private boolean isHtml;
 
     @NonNull
     public static GenericAlertDialog newInstance(
@@ -48,6 +43,28 @@ public class GenericAlertDialog extends ThreemaDialogFragment {
         args.putInt("message", message);
         args.putInt("positive", positive);
         args.putInt("negative", negative);
+
+        dialog.setArguments(args);
+        return dialog;
+    }
+
+    @NonNull
+    public static GenericAlertDialog newInstance(
+        @StringRes int title,
+        @StringRes int message,
+        @StringRes int positive,
+        @StringRes int negative,
+        @Nullable String requestKey
+    ) {
+        GenericAlertDialog dialog = new GenericAlertDialog();
+        Bundle args = new Bundle();
+        args.putInt("title", title);
+        args.putInt("message", message);
+        args.putInt("positive", positive);
+        args.putInt("negative", negative);
+        if (requestKey != null) {
+            args.putString("requestKey", requestKey);
+        }
 
         dialog.setArguments(args);
         return dialog;
@@ -136,27 +153,6 @@ public class GenericAlertDialog extends ThreemaDialogFragment {
     }
 
     @NonNull
-    public static GenericAlertDialog newInstanceHtml(
-        @StringRes int title,
-        String messageString,
-        @StringRes int positive,
-        @StringRes int negative,
-        boolean cancelable
-    ) {
-        GenericAlertDialog dialog = new GenericAlertDialog();
-        Bundle args = new Bundle();
-        args.putInt("title", title);
-        args.putString("messageString", messageString);
-        args.putInt("positive", positive);
-        args.putInt("negative", negative);
-        args.putBoolean("cancelable", cancelable);
-        args.putBoolean("html", true);
-
-        dialog.setArguments(args);
-        return dialog;
-    }
-
-    @NonNull
     public static GenericAlertDialog newInstance(
         @StringRes int title,
         CharSequence messageString,
@@ -238,11 +234,6 @@ public class GenericAlertDialog extends ThreemaDialogFragment {
         // called from an activity rather than a fragment
         if (activity instanceof DialogClickListener) {
             callback = (DialogClickListener) activity;
-            return;
-        }
-
-        if (callback == null) {
-            throw new ClassCastException("Dialog is missing a DialogClickListener");
         }
     }
 
@@ -252,39 +243,24 @@ public class GenericAlertDialog extends ThreemaDialogFragment {
         this.activity = activity;
     }
 
-
-    @Override
-    public void onStart() {
-        super.onStart();
-
-        if (isHtml) {
-            View textView = alertDialog.findViewById(android.R.id.message);
-
-            if (textView instanceof TextView) {
-                ((TextView) textView).setMovementMethod(LinkMovementMethod.getInstance());
-            }
-        }
-    }
-
     @NonNull
     @Override
     public AppCompatDialog onCreateDialog(Bundle savedInstanceState) {
-        int title = getArguments().getInt("title");
-        String titleString = getArguments().getString("titleString");
-        int message = getArguments().getInt("message");
-        CharSequence messageString = getArguments().getCharSequence("messageString");
-        int positive = getArguments().getInt("positive");
-        int negative = getArguments().getInt("negative");
-        int neutral = getArguments().getInt("neutral");
-        @DrawableRes int icon = getArguments().getInt("icon", 0);
-        boolean cancelable = getArguments().getBoolean("cancelable", true);
-        isHtml = getArguments().getBoolean("html", false);
+        int title = requireArguments().getInt("title");
+        String titleString = requireArguments().getString("titleString");
+        int message = requireArguments().getInt("message");
+        CharSequence messageString = requireArguments().getCharSequence("messageString");
+        int positive = requireArguments().getInt("positive");
+        int negative = requireArguments().getInt("negative");
+        int neutral = requireArguments().getInt("neutral");
+        @DrawableRes int icon = requireArguments().getInt("icon", 0);
+        boolean cancelable = requireArguments().getBoolean("cancelable", true);
+        final @Nullable String requestKey = requireArguments().getString("requestKey");
+        final @Nullable String tag = this.getTag();
 
-        final String tag = this.getTag();
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(requireActivity());
 
-        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(getActivity());
-
-        if (TestUtil.isEmptyOrNull(titleString)) {
+        if (isNullOrEmpty(titleString)) {
             if (title != 0) {
                 builder.setTitle(title);
             }
@@ -296,21 +272,55 @@ public class GenericAlertDialog extends ThreemaDialogFragment {
                 builder.setMessage(message);
             }
         } else {
-            if (isHtml) {
-                builder.setMessage(Html.fromHtml(messageString.toString()));
-            } else {
-                builder.setMessage(messageString);
-            }
+            builder.setMessage(messageString);
         }
 
-        builder.setPositiveButton(getString(positive), (dialog, whichButton) -> callback.onYes(tag, object)
+        builder.setPositiveButton(
+            getString(positive),
+            (dialog, whichButton) -> {
+                if (callback != null) {
+                    callback.onYes(tag, object);
+                }
+                if (requestKey != null) {
+                    final @NonNull Bundle resultBundle = new Bundle();
+                    resultBundle.putAll(requestData);
+                    resultBundle.putSerializable(ThreemaDialogFragment.BUNDLE_KEY_CLICKED_BUTTON, ClickedButton.POSITIVE);
+                    setFragmentResult(GenericAlertDialog.this, requestKey, resultBundle);
+                }
+            }
         );
         if (negative != 0) {
-            builder.setNegativeButton(getString(negative), (dialog, whichButton) -> callback.onNo(tag, object));
+            builder.setNegativeButton(
+                getString(negative),
+                (dialog, whichButton) -> {
+                    if (callback != null) {
+                        callback.onNo(tag, object);
+                    }
+                    if (requestKey != null) {
+                        final @NonNull Bundle resultBundle = new Bundle();
+                        resultBundle.putAll(requestData);
+                        resultBundle.putSerializable(ThreemaDialogFragment.BUNDLE_KEY_CLICKED_BUTTON, ClickedButton.NEGATIVE);
+                        setFragmentResult(GenericAlertDialog.this, requestKey, resultBundle);
+                    }
+                }
+            );
         }
 
         if (neutral != 0) {
-            builder.setNeutralButton(getString(neutral), (dialog, whichButton) -> callback.onNeutral(tag, object));
+            builder.setNeutralButton(
+                getString(neutral),
+                (dialog, whichButton) -> {
+                    if (callback != null) {
+                        callback.onNeutral(tag, object);
+                    }
+                    if (requestKey != null) {
+                        final @NonNull Bundle resultBundle = new Bundle();
+                        resultBundle.putAll(requestData);
+                        resultBundle.putSerializable(ThreemaDialogFragment.BUNDLE_KEY_CLICKED_BUTTON, ClickedButton.NEUTRAL);
+                        setFragmentResult(GenericAlertDialog.this, requestKey, resultBundle);
+                    }
+                }
+            );
             cancelable = false;
         }
 
@@ -318,7 +328,7 @@ public class GenericAlertDialog extends ThreemaDialogFragment {
             builder.setIcon(icon);
         }
 
-        alertDialog = builder.create();
+        final @NonNull AlertDialog alertDialog = builder.create();
 
         if (!cancelable) {
             setCancelable(false);
@@ -329,9 +339,15 @@ public class GenericAlertDialog extends ThreemaDialogFragment {
 
     @Override
     public void onCancel(@NonNull DialogInterface dialogInterface) {
-        callback.onNo(getTag(), object);
+        if (callback != null) {
+            callback.onNo(getTag(), object);
+        }
     }
 
+    /**
+     * @deprecated Specify request keys and use a {@code FragmentResultListener} instead.
+     */
+    @Deprecated
     public GenericAlertDialog setTargetFragment(@Nullable Fragment fragment) {
         setTargetFragment(fragment, 0);
         return this;
@@ -339,9 +355,10 @@ public class GenericAlertDialog extends ThreemaDialogFragment {
 
     /**
      * Set the callback of this dialog.
-     *
-     * @param dialogClickListener the listener
+     * <br><br>
+     * <b>Warning:</b> It does not handle the case of a recreated fragment. Specify a request key and use a {@code FragmentResultListener} instead.
      */
+    // TODO(ANDR-4620): Remove, as this is not lifecycle-aware
     public void setCallback(@NonNull DialogClickListener dialogClickListener) {
         this.callback = dialogClickListener;
     }

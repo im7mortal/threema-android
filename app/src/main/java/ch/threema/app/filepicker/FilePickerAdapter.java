@@ -11,7 +11,7 @@ import android.widget.TextView;
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.List;
 
 import ch.threema.app.R;
@@ -20,7 +20,8 @@ import ch.threema.app.utils.FileUtil;
 import ch.threema.app.utils.IconUtil;
 import ch.threema.app.utils.LocaleUtil;
 import ch.threema.app.utils.MimeUtil;
-import ch.threema.app.utils.TestUtil;
+
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class FilePickerAdapter extends ArrayAdapter<FileInfo> {
 
@@ -91,7 +92,7 @@ public class FilePickerAdapter extends ArrayAdapter<FileInfo> {
                 if (mimeType != null && mimeType.equals(MimeUtil.MIME_TYPE_ZIP)) {
                     String id = getBackupID(fileInfo.getName());
 
-                    if (!TestUtil.isEmptyOrNull(id)) {
+                    if (!isNullOrEmpty(id)) {
                         viewHolder.extra.setText(id);
                         viewHolder.extra.setVisibility(View.VISIBLE);
                     }
@@ -110,15 +111,14 @@ public class FilePickerAdapter extends ArrayAdapter<FileInfo> {
     }
 
     private String getBackupID(final String filename) {
-        if (!TestUtil.isEmptyOrNull(filename)) {
+        if (!isNullOrEmpty(filename)) {
             String[] pieces = filename.split("_");
             if (pieces.length > 2 && pieces[0].equals("threema-backup")) {
-                if (!TestUtil.isEmptyOrNull(pieces[1]) && !TestUtil.isEmptyOrNull(pieces[2])) {
+                if (!isNullOrEmpty(pieces[1]) && !isNullOrEmpty(pieces[2])) {
                     final String identity = pieces[1];
-                    final Date time = new Date();
 
                     try {
-                        time.setTime(Long.parseLong(pieces[2]));
+                        Long.parseLong(pieces[2]);
                     } catch (NumberFormatException e) {
                         return null;
                     }

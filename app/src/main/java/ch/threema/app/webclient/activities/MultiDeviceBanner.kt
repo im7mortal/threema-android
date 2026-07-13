@@ -19,7 +19,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import ch.threema.app.R
-import ch.threema.app.compose.common.ThemedText
+import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.preview.PreviewThreemaAll
 import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.dimens.GridUnit
@@ -78,7 +78,7 @@ fun MultiDeviceBanner(
                     onClick = onClickDismiss,
                 ) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_close_rounded),
+                        painter = painterResource(R.drawable.ic_close),
                         contentDescription = stringResource(R.string.accessibility_dismiss_hint),
                         tint = LocalContentColor.current,
                     )

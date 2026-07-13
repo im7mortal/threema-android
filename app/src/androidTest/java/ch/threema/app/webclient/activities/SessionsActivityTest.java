@@ -14,12 +14,11 @@ import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 import org.koin.java.KoinJavaComponent;
 
-import java.util.Collections;
-import java.util.Date;
+import java.time.Instant;import java.util.Collections;
 
 import androidx.annotation.NonNull;
 import androidx.preference.PreferenceManager;
-import androidx.test.InstrumentationRegistry;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.LargeTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -30,7 +29,7 @@ import ch.threema.app.ScreenshotTakingRule;
 import ch.threema.storage.factories.WebClientSessionModelFactory;
 import ch.threema.storage.models.WebClientSessionModel;
 
-import static androidx.test.InstrumentationRegistry.getInstrumentation;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
@@ -99,8 +98,8 @@ public class SessionsActivityTest {
         String label,
         WebClientSessionModel.State state,
         boolean persistent,
-        @NonNull Date created,
-        @NonNull Date lastConnection,
+        @NonNull Instant created,
+        @NonNull Instant lastConnection,
         @NonNull Browser browser
     ) {
         final WebClientSessionModel model = new WebClientSessionModel();
@@ -136,7 +135,7 @@ public class SessionsActivityTest {
 
     @Before
     public void setUp() {
-        final Context context = InstrumentationRegistry.getTargetContext();
+        final Context context = ApplicationProvider.getApplicationContext();
 
         // By default, don't show welcome screen
         showWelcomeScreen(context, false);
@@ -154,7 +153,7 @@ public class SessionsActivityTest {
      */
     @Test
     public void testWelcomeScreen() {
-        showWelcomeScreen(InstrumentationRegistry.getTargetContext(), true);
+        showWelcomeScreen(ApplicationProvider.getApplicationContext(), true);
 
         final Instrumentation.ActivityMonitor monitor = getInstrumentation()
             .addMonitor(SessionsIntroActivity.class.getName(), null, false);
@@ -172,10 +171,10 @@ public class SessionsActivityTest {
     @Test
     public void testSessionList() {
         // Create two sessions
-        createSession("Feuerfuchs", WebClientSessionModel.State.AUTHORIZED, true, new Date(), new Date(), Browser.FIREFOX);
+        createSession("Feuerfuchs", WebClientSessionModel.State.AUTHORIZED, true, Instant.now(), Instant.now(), Browser.FIREFOX);
         createSession("Googlebrowser", WebClientSessionModel.State.ERROR,
-            true, new Date(System.currentTimeMillis() - 3600),
-            new Date(System.currentTimeMillis() - 3500), Browser.CHROME
+            true, Instant.ofEpochMilli(System.currentTimeMillis() - 3600),
+            Instant.ofEpochMilli(System.currentTimeMillis() - 3500), Browser.CHROME
         );
 
         // Start activty
@@ -208,9 +207,9 @@ public class SessionsActivityTest {
     public void testCleanOnStart() throws Exception {
         final long hours = 3600000;
 
-        final Date now = new Date();
-        final Date hours23ago = new Date(System.currentTimeMillis() - hours * 23);
-        final Date hours25ago = new Date(System.currentTimeMillis() - hours * 25);
+        final Instant now = Instant.now();
+        final Instant hours23ago = Instant.ofEpochMilli(now.toEpochMilli() - hours * 23);
+        final Instant hours25ago = Instant.ofEpochMilli(now.toEpochMilli() - hours * 25);
 
         createSession("Persistent now", WebClientSessionModel.State.AUTHORIZED, true, now, now, Browser.FIREFOX);
         createSession("Persistent old", WebClientSessionModel.State.AUTHORIZED, true, hours25ago, hours25ago, Browser.CHROME);

@@ -8,9 +8,9 @@ import org.junit.Test;
 import java.util.Arrays;
 
 import ch.threema.app.webclient.converter.MsgpackObjectBuilder;
-import ch.threema.base.utils.Utils;
 
 import static junit.framework.Assert.assertEquals;
+import static ch.threema.common.JavaCompat.hexToByteArray;
 
 
 public class MsgpackObjectBuilderTest {
@@ -45,7 +45,7 @@ public class MsgpackObjectBuilderTest {
     private void doTest(MsgpackObjectBuilder objectBuilder, String hexString) {
         doTest(objectBuilder,
             //replace spaces and convert
-            Utils.hexStringToByteArray(hexString.replace(" ", "").trim()));
+            hexToByteArray(hexString.replace(" ", "").trim()));
     }
 
     @Test

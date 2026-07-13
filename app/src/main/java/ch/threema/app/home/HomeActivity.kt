@@ -1,11 +1,9 @@
 package ch.threema.app.home
 
-import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.graphics.PorterDuff
 import android.net.ConnectivityManager
 import android.os.Build
 import android.os.Bundle
@@ -26,7 +24,9 @@ import androidx.core.graphics.drawable.toDrawable
 import androidx.core.graphics.scale
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import ch.threema.android.Destroyer.Companion.createDestroyer
 import ch.threema.android.ToastDuration
@@ -38,18 +38,15 @@ import ch.threema.android.registerPermissionResultContract
 import ch.threema.android.registerSimpleActivityResultContract
 import ch.threema.android.runTransaction
 import ch.threema.android.showToast
-import ch.threema.app.AppConstants.THREEMA_CHANNEL_IDENTITY
 import ch.threema.app.BuildConfig
 import ch.threema.app.BuildFlavor
 import ch.threema.app.R
 import ch.threema.app.activities.BackupAdminActivity
 import ch.threema.app.activities.BackupRestoreProgressActivity
-import ch.threema.app.activities.ComposeMessageActivity
 import ch.threema.app.activities.DistributionListAddActivity
 import ch.threema.app.activities.DownloadApkActivity
 import ch.threema.app.activities.EnterSerialActivity
 import ch.threema.app.activities.GroupAddActivity
-import ch.threema.app.activities.ServerMessageActivity
 import ch.threema.app.activities.ThreemaAppCompatActivity
 import ch.threema.app.activities.WhatsNewActivity
 import ch.threema.app.activities.WorkIntroActivity
@@ -57,48 +54,36 @@ import ch.threema.app.activities.directory.DirectoryActivity
 import ch.threema.app.activities.starred.StarredMessagesActivity
 import ch.threema.app.activities.wizard.WizardBaseActivity
 import ch.threema.app.activities.wizard.WizardStartActivity
-import ch.threema.app.apptaskexecutor.AppTaskExecutor
+import ch.threema.app.applogo.AppLogoProvider
 import ch.threema.app.archive.ArchiveActivity
-import ch.threema.app.asynctasks.AddContactRestrictionPolicy
-import ch.threema.app.asynctasks.BasicAddOrUpdateContactBackgroundTask
-import ch.threema.app.asynctasks.ContactAvailable
-import ch.threema.app.asynctasks.ContactCreated
-import ch.threema.app.asynctasks.ContactResult
 import ch.threema.app.backuprestore.csv.BackupService
 import ch.threema.app.backuprestore.csv.RestoreService
+import ch.threema.app.conversations.ConversationsFragment
 import ch.threema.app.dialogs.GenericAlertDialog
 import ch.threema.app.dialogs.GenericAlertDialog.DialogClickListener
-import ch.threema.app.dialogs.GenericProgressDialog
 import ch.threema.app.dialogs.SMSVerificationDialog
 import ch.threema.app.dialogs.SMSVerificationDialog.SMSVerificationDialogCallback
 import ch.threema.app.dialogs.ShowOnceDialog
 import ch.threema.app.dialogs.SimpleStringAlertDialog
 import ch.threema.app.errorreporting.ErrorReportingHelper
-import ch.threema.app.files.TempFilesCleanupWorker
+import ch.threema.app.eventbus.GlobalEventFlows
+import ch.threema.app.eventbus.events.ActionEvent
+import ch.threema.app.eventbus.events.MessageEvent
+import ch.threema.app.eventbus.events.ProfileEvent
 import ch.threema.app.fragments.ContactsSectionFragment
 import ch.threema.app.fragments.MyIDFragment
-import ch.threema.app.fragments.conversations.ConversationsFragment
 import ch.threema.app.glide.AvatarOptions
 import ch.threema.app.globalsearch.GlobalSearchActivity
-import ch.threema.app.home.usecases.CheckBackupsFeatureEnabledUseCase
 import ch.threema.app.home.usecases.CheckServerMessagesUseCase
 import ch.threema.app.home.usecases.GetStarredMessagesCountUseCase
 import ch.threema.app.home.usecases.GetUnreadConversationCountUseCase
-import ch.threema.app.home.usecases.SetUpThreemaChannelUseCase
 import ch.threema.app.home.usecases.ShouldShowWorkIntroScreenUseCase
 import ch.threema.app.identitylinks.VerifyMobileNumberUseCase
-import ch.threema.app.listeners.AppIconListener
-import ch.threema.app.listeners.ContactCountListener
-import ch.threema.app.listeners.ConversationListener
-import ch.threema.app.listeners.MessageListener
-import ch.threema.app.listeners.ProfileListener
 import ch.threema.app.listeners.SMSVerificationListener
 import ch.threema.app.listeners.VoipCallListener
 import ch.threema.app.logging.DebugLogHelper
 import ch.threema.app.managers.ListenerManager
 import ch.threema.app.managers.ListenerManager.TypedListenerManager
-import ch.threema.app.multidevice.LinkedDevicesActivity
-import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.preference.SettingsActivity
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.preference.service.SynchronizedSettingsService
@@ -107,12 +92,11 @@ import ch.threema.app.problemsolving.ProblemSolverActivity
 import ch.threema.app.push.PushService
 import ch.threema.app.restrictions.AppRestrictions
 import ch.threema.app.routines.CheckLicenseRoutine
+import ch.threema.app.servermessage.ServerMessageActivity
 import ch.threema.app.services.ActivityService
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.ContactServiceImpl
 import ch.threema.app.services.ConversationService
 import ch.threema.app.services.DeviceService
-import ch.threema.app.services.FileService
 import ch.threema.app.services.LockAppService
 import ch.threema.app.services.NotificationPreferenceService
 import ch.threema.app.services.PassphraseService
@@ -130,32 +114,27 @@ import ch.threema.app.ui.InsetSides.Companion.ltr
 import ch.threema.app.ui.OngoingCallNoticeMode
 import ch.threema.app.ui.OngoingCallNoticeView
 import ch.threema.app.ui.applyDeviceInsetsAsPadding
+import ch.threema.app.usecases.CheckBackupsFeatureEnabledUseCase
 import ch.threema.app.utils.AnimationUtil
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.ConnectionIndicatorUtil
 import ch.threema.app.utils.DialogUtil
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.app.utils.IntentDataUtil
 import ch.threema.app.utils.RuntimeUtil
-import ch.threema.app.utils.TestUtil
-import ch.threema.app.utils.executor.BackgroundExecutor
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.app.voip.groupcall.GroupCallDescription
 import ch.threema.app.voip.groupcall.GroupCallManager
 import ch.threema.app.voip.groupcall.GroupCallObserver
 import ch.threema.app.voip.services.VoipCallService
-import ch.threema.app.webclient.activities.SessionsActivity
 import ch.threema.app.webviews.SupportActivity
+import ch.threema.base.isInDeviceTest
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.common.consume
 import ch.threema.common.minus
 import ch.threema.common.secureContentEquals
-import ch.threema.data.repositories.ContactModelRepository
-import ch.threema.domain.models.ContactReceiverIdentifier
 import ch.threema.domain.protocol.api.APIConnector
 import ch.threema.domain.protocol.api.LinkMobileNoException
-import ch.threema.domain.protocol.connection.ConnectionState
-import ch.threema.domain.protocol.connection.ConnectionStateListener
 import ch.threema.domain.protocol.connection.ServerConnection
 import ch.threema.domain.stores.IdentityStore
 import ch.threema.domain.taskmanager.TaskManager
@@ -163,8 +142,6 @@ import ch.threema.domain.taskmanager.TriggerSource
 import ch.threema.localcrypto.MasterKeyManager
 import ch.threema.localcrypto.models.RemoteSecretCheckType
 import ch.threema.storage.models.AbstractMessageModel
-import ch.threema.storage.models.ContactModel
-import ch.threema.storage.models.ConversationModel
 import ch.threema.storage.models.MessageState
 import com.bumptech.glide.Glide
 import com.google.android.material.appbar.MaterialToolbar
@@ -173,7 +150,6 @@ import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.navigation.NavigationBarView
 import java.time.Instant
 import kotlin.system.exitProcess
-import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
@@ -189,22 +165,19 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
         logScreenVisibility(logger)
     }
 
+    private val activityService: ActivityService by inject()
     private val apiConnector: APIConnector by inject()
-    private val appTaskExecutor: AppTaskExecutor by inject()
-    private val contactModelRepository: ContactModelRepository by inject()
     private val contactService: ContactService by inject()
     private val conversationService: ConversationService by inject()
     private val errorReportingHelper: ErrorReportingHelper by inject()
     private val errorReportingDialog: ErrorReportingDialog by inject()
     private val deviceService: DeviceService by inject()
     private val dispatcherProvider: DispatcherProvider by inject()
-    private val fileService: FileService by inject()
     private val groupCallManager: GroupCallManager by inject()
     private val identityStore: IdentityStore by inject()
     private val licenseService: LicenseService<*> by inject()
     private val lockAppService: LockAppService by inject()
     private val masterKeyManager: MasterKeyManager by inject()
-    private val multiDeviceManager: MultiDeviceManager by inject()
     private val notificationPreferenceService: NotificationPreferenceService by inject()
     private val notificationService: NotificationService by inject()
     private val preferenceService: PreferenceService by inject()
@@ -217,17 +190,15 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
     private val getProblemsUseCase: GetProblemsUseCase by inject()
     private val checkBackupsFeatureEnabledUseCase: CheckBackupsFeatureEnabledUseCase by inject()
     private val shouldShowWorkIntroScreenUseCase: ShouldShowWorkIntroScreenUseCase by inject()
-    private val setUpThreemaChannelUseCase: SetUpThreemaChannelUseCase by inject()
     private val getUnreadConversationCountUseCase: GetUnreadConversationCountUseCase by inject()
     private val getStarredMessagesCountUseCase: GetStarredMessagesCountUseCase by inject()
     private val checkServerMessagesUseCase: CheckServerMessagesUseCase by inject()
     private val verifyMobileNumberUseCase: VerifyMobileNumberUseCase by inject()
     private val debugLogHelper: DebugLogHelper by inject()
+    private val appLogoProvider: AppLogoProvider by inject()
+    private val globalEventFlows: GlobalEventFlows by inject()
     private val viewModel: HomeViewModel by viewModel()
     private val destroyer = createDestroyer()
-    private val backgroundExecutor by lazy {
-        BackgroundExecutor()
-    }
 
     private val notificationPermissionLauncher = registerPermissionResultContract { isGranted ->
         if (!isGranted) {
@@ -277,8 +248,6 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
         }
     }
 
-    private val connectionStateListener = ConnectionStateListener(::updateConnectionIndicator)
-
     private val smsVerificationListener = object : SMSVerificationListener {
         override fun onVerified() {
             lifecycleScope.launch {
@@ -297,64 +266,6 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
         }
     }
 
-    private val conversationListener = object : ConversationListener {
-        override fun onNew(conversationModel: ConversationModel) {
-            updateUnreadBadge()
-        }
-
-        override fun onModified(modifiedConversationModel: ConversationModel) {
-            updateUnreadBadge()
-        }
-
-        override fun onRemoved(conversationModel: ConversationModel) {
-            updateUnreadBadge()
-        }
-
-        override fun onModifiedAll() {
-            updateUnreadBadge()
-        }
-    }
-
-    private val messageListener = object : MessageListener {
-        override fun onModified(modifiedMessageModels: MutableList<AbstractMessageModel>) {
-            for (modifiedMessageModel in modifiedMessageModels) {
-                if (!modifiedMessageModel.isStatusMessage &&
-                    modifiedMessageModel.isOutbox
-                ) {
-                    if (modifiedMessageModel.state == MessageState.SENDFAILED) {
-                        updateUnsentMessagesList(modifiedMessageModel, UnsentMessageAction.ADD)
-                    } else {
-                        updateUnsentMessagesList(modifiedMessageModel, UnsentMessageAction.REMOVE)
-                    }
-                }
-            }
-        }
-
-        override fun onRemoved(removedMessageModel: AbstractMessageModel) {
-            updateUnsentMessagesList(removedMessageModel, UnsentMessageAction.REMOVE)
-        }
-
-        override fun onRemoved(removedMessageModels: MutableList<AbstractMessageModel>) {
-            for (removedMessageModel in removedMessageModels) {
-                updateUnsentMessagesList(removedMessageModel, UnsentMessageAction.REMOVE)
-            }
-        }
-
-        override fun onResendDismissed(messageModel: AbstractMessageModel) {
-            updateUnsentMessagesList(messageModel, UnsentMessageAction.REMOVE)
-        }
-    }
-
-    private val appIconListener = AppIconListener {
-        updateAppLogo()
-    }
-
-    private val profileListener: ProfileListener = ProfileListener {
-        lifecycleScope.launch {
-            updateDrawerImage()
-        }
-    }
-
     private val voipCallListener: VoipCallListener = object : VoipCallListener {
         override fun onStart(contact: String?, elpasedTimeMs: Long) {
             updateOngoingCallNotice()
@@ -366,25 +277,6 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
     }
 
     private val groupCallObserver = GroupCallObserver { updateOngoingCallNotice() }
-
-    private val contactCountListener: ContactCountListener = ContactCountListener { last24hoursCount ->
-        if (preferenceService.getShowUnreadBadge()) {
-            lifecycleScope.launch {
-                if (!isFinishing && !isDestroyed && !isChangingConfigurations) {
-                    val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bottom_navigation)
-                    if (bottomNavigationView != null) {
-                        val badgeDrawable = bottomNavigationView.getOrCreateBadge(R.id.contacts)
-                        // the contacts tab item badge uses custom colors (normally badges are red)
-                        badgeDrawable.backgroundColor = getContactsTabBadgeColor(bottomNavigationView.selectedItemId)
-                        if (badgeDrawable.verticalOffset == 0) {
-                            badgeDrawable.verticalOffset = resources.getDimensionPixelSize(R.dimen.bottom_nav_badge_offset_vertical)
-                        }
-                        badgeDrawable.isVisible = last24hoursCount > 0
-                    }
-                }
-            }
-        }
-    }
 
     // State
     private var currentFragmentTag: String? = null
@@ -527,7 +419,7 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
     private fun showWhatsNew() {
         val skipWhatsNew = true // set this to false if you want to show a What's New screen
 
-        if (!preferenceService.isLatestVersion(this)) {
+        if (!preferenceService.isLatestVersion()) {
             // so the app has just been updated
             ConfigUtils.requestNotificationPermission(this, notificationPermissionLauncher, preferenceService)
 
@@ -535,7 +427,7 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
                 preferenceService.setPrivacyPolicyAccepted(Instant.now(), PreferenceService.PRIVACY_POLICY_ACCEPT_UPDATE)
             }
 
-            if (!ConfigUtils.isWorkBuild() && !TestUtil.isInDeviceTest() && !isFinishing) {
+            if (!ConfigUtils.isWorkBuild() && !isInDeviceTest() && !isFinishing) {
                 if (skipWhatsNew) {
                     // make sure isWhatsNewShown is set to false here if whatsnew is skipped - otherwise pin unlock will not be shown once
                     isWhatsNewShown = false
@@ -553,7 +445,7 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
                     }
                 }
             }
-            preferenceService.setLatestVersion(this)
+            preferenceService.setLatestVersion()
         }
     }
 
@@ -703,26 +595,40 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
         }
         val isAppStart = savedInstanceState == null
 
-        // TODO(ANDR-2816): Remove
-        preferenceService.removeLastNotificationRationaleShown()
-
         preferenceService.setLastOnlineStatus(deviceService.isOnline())
 
         notificationService.cancelRestartNotification()
 
-        bindListener(ListenerManager.messageListeners, messageListener)
         bindListener(ListenerManager.smsVerificationListeners, smsVerificationListener)
-        bindListener(ListenerManager.appIconListeners, appIconListener)
-        bindListener(ListenerManager.profileListeners, profileListener)
         bindListener(ListenerManager.voipCallListeners, voipCallListener)
-        bindListener(ListenerManager.conversationListeners, conversationListener)
-        bindListener(ListenerManager.contactCountListener, contactCountListener)
+        lifecycleScope.launch {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.CREATED) {
+                globalEventFlows.profiles.collect(::onProfileEvent)
+            }
+        }
+        lifecycleScope.launch {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.CREATED) {
+                globalEventFlows.messages.collect(::onMessageEvent)
+            }
+        }
+        lifecycleScope.launch {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.CREATED) {
+                globalEventFlows.actions.collect(::onActionEvent)
+            }
+        }
+        lifecycleScope.launch {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.CREATED) {
+                globalEventFlows.conversations.collect {
+                    updateUnreadBadge()
+                }
+            }
+        }
 
         groupCallManager.addGeneralGroupCallObserver(groupCallObserver)
         destroyer.own { groupCallManager.removeGeneralGroupCallObserver(groupCallObserver) }
 
         initHomeActivity(savedInstanceState)
-        if (isAppStart && preferenceService.checkForAppUpdate(this)) {
+        if (isAppStart && preferenceService.checkForAppUpdate()) {
             taskManager.schedule(ApplicationUpdateStepsTask())
         }
     }
@@ -731,6 +637,42 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
     private fun <T> bindListener(listeners: TypedListenerManager<T>, listener: T) {
         listeners.add(listener)
         destroyer.own { listeners.remove(listener) }
+    }
+
+    private fun onProfileEvent(event: ProfileEvent) {
+        if (event is ProfileEvent.ProfilePictureUpdated) {
+            updateDrawerImage()
+        }
+    }
+
+    // TODO(ANDR-4686): The handling of failed messages should be moved into a monitor
+    private fun onMessageEvent(messageEvent: MessageEvent) {
+        when (messageEvent) {
+            is MessageEvent.MessagesUpdated -> {
+                for (modifiedMessageModel in messageEvent.messages) {
+                    if (!modifiedMessageModel.isStatusMessage && modifiedMessageModel.isOutbox) {
+                        if (modifiedMessageModel.state == MessageState.SENDFAILED) {
+                            updateUnsentMessagesList(modifiedMessageModel, UnsentMessageAction.ADD)
+                        } else {
+                            updateUnsentMessagesList(modifiedMessageModel, UnsentMessageAction.REMOVE)
+                        }
+                    }
+                }
+            }
+            is MessageEvent.MessageRemovedLocally -> {
+                updateUnsentMessagesList(messageEvent.message, UnsentMessageAction.REMOVE)
+            }
+            else -> Unit
+        }
+    }
+
+    private fun onActionEvent(actionEvent: ActionEvent) {
+        when (actionEvent) {
+            is ActionEvent.ResendNotificationDismissed -> {
+                updateUnsentMessagesList(actionEvent.message, UnsentMessageAction.REMOVE)
+            }
+            else -> Unit
+        }
     }
 
     @UiThread
@@ -781,7 +723,7 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
         }
 
         initActionBar()
-        updateAppLogo()
+        initAppLogo()
         actionBar?.setDisplayShowTitleEnabled(false)
         actionBar?.setDisplayUseLogoEnabled(false)
         ConfigUtils.applyScreenshotPolicy(this, synchronizedSettingsService, lockAppService)
@@ -809,11 +751,11 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
 
         initOngoingCallNotice()
 
-        var initialFragmentTag = FRAGMENT_TAG_MESSAGES
+        var initialFragmentTag = FRAGMENT_TAG_CONVERSATIONS
         val initialItemId: Int
 
+        val conversationsFragment: Fragment
         val contactsFragment: Fragment
-        val messagesFragment: Fragment
         val profileFragment: Fragment
 
         if (intent != null && intent.getBooleanExtra(EXTRA_SHOW_CONTACTS, false)) {
@@ -823,25 +765,25 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
 
         if (!isAppStart && savedInstanceState.containsKey(BUNDLE_CURRENT_FRAGMENT_TAG)) {
             initialFragmentTag = savedInstanceState.getString(BUNDLE_CURRENT_FRAGMENT_TAG, initialFragmentTag)
+            conversationsFragment = supportFragmentManager.findFragmentByTag(FRAGMENT_TAG_CONVERSATIONS)!!
             contactsFragment = supportFragmentManager.findFragmentByTag(FRAGMENT_TAG_CONTACTS)!!
-            messagesFragment = supportFragmentManager.findFragmentByTag(FRAGMENT_TAG_MESSAGES)!!
             profileFragment = supportFragmentManager.findFragmentByTag(FRAGMENT_TAG_PROFILE)!!
             currentFragmentTag = initialFragmentTag
             initialItemId = getFragmentIdForTag(initialFragmentTag)
             supportFragmentManager.runTransaction {
                 when (initialFragmentTag) {
                     FRAGMENT_TAG_CONTACTS -> {
-                        hide(messagesFragment)
+                        hide(conversationsFragment)
                         hide(profileFragment)
                         show(contactsFragment)
                     }
-                    FRAGMENT_TAG_MESSAGES -> {
+                    FRAGMENT_TAG_CONVERSATIONS -> {
                         hide(contactsFragment)
                         hide(profileFragment)
-                        show(messagesFragment)
+                        show(conversationsFragment)
                     }
                     FRAGMENT_TAG_PROFILE -> {
-                        hide(messagesFragment)
+                        hide(conversationsFragment)
                         hide(contactsFragment)
                         show(profileFragment)
                     }
@@ -851,28 +793,28 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
             if (!conversationService.hasConversations()) {
                 initialFragmentTag = FRAGMENT_TAG_CONTACTS
             }
+            conversationsFragment = ConversationsFragment()
             contactsFragment = ContactsSectionFragment()
-            messagesFragment = ConversationsFragment()
             profileFragment = MyIDFragment()
             currentFragmentTag = initialFragmentTag
             initialItemId = getFragmentIdForTag(initialFragmentTag)
             try {
                 supportFragmentManager.runTransaction(allowStateLoss = true) {
                     add(R.id.home_container, contactsFragment, FRAGMENT_TAG_CONTACTS)
-                    add(R.id.home_container, messagesFragment, FRAGMENT_TAG_MESSAGES)
+                    add(R.id.home_container, conversationsFragment, FRAGMENT_TAG_CONVERSATIONS)
                     add(R.id.home_container, profileFragment, FRAGMENT_TAG_PROFILE)
                     when (initialFragmentTag) {
                         FRAGMENT_TAG_CONTACTS -> {
-                            hide(messagesFragment)
+                            hide(conversationsFragment)
                             hide(profileFragment)
                         }
-                        FRAGMENT_TAG_MESSAGES -> {
+                        FRAGMENT_TAG_CONVERSATIONS -> {
                             hide(contactsFragment)
                             hide(profileFragment)
                         }
                         FRAGMENT_TAG_PROFILE -> {
                             hide(contactsFragment)
-                            hide(messagesFragment)
+                            hide(conversationsFragment)
                         }
                     }
                 }
@@ -907,14 +849,14 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
                     }
                     R.id.messages -> consume {
                         logger.info("Messages tab clicked")
-                        if (currentFragmentTag != FRAGMENT_TAG_MESSAGES) {
+                        if (currentFragmentTag != FRAGMENT_TAG_CONVERSATIONS) {
                             logger.info("Switching to Messages tab")
                             supportFragmentManager.runTransaction {
                                 setCustomAnimations(R.anim.fast_fade_in, R.anim.fast_fade_out, R.anim.fast_fade_in, R.anim.fast_fade_out)
                                 hide(currentFragment)
-                                show(messagesFragment)
+                                show(conversationsFragment)
                             }
-                            currentFragmentTag = FRAGMENT_TAG_MESSAGES
+                            currentFragmentTag = FRAGMENT_TAG_CONVERSATIONS
                         }
                     }
                     R.id.my_profile -> consume {
@@ -954,7 +896,7 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
 
         showStartupInfoIfNeeded(isAppStart)
 
-        notificationService.cancelRestoreNotification()
+        notificationService.cancelRestoreCompletionNotification()
 
         if (preferenceService.getLastNotificationPermissionRequestTimestamp() == null) {
             ConfigUtils.requestNotificationPermission(this, notificationPermissionLauncher, preferenceService)
@@ -962,13 +904,13 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
     }
 
     private fun initConnectionIndicator() {
+        connectionIndicator = findViewById(R.id.connection_indicator)
         lifecycleScope.launch {
-            withContext(dispatcherProvider.worker) {
-                serverConnection.addConnectionStateListener(connectionStateListener)
-                updateConnectionIndicator(serverConnection.connectionState)
-            }
-            destroyer.own {
-                serverConnection.removeConnectionStateListener(connectionStateListener)
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                serverConnection.watchConnectionState().collect { connectionState ->
+                    ConnectionIndicatorUtil.getInstance()
+                        .updateConnectionIndicator(connectionIndicator, connectionState)
+                }
             }
         }
     }
@@ -976,7 +918,7 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
     private fun getFragmentIdForTag(fragmentTag: String) =
         when (fragmentTag) {
             FRAGMENT_TAG_CONTACTS -> R.id.contacts
-            FRAGMENT_TAG_MESSAGES -> R.id.messages
+            FRAGMENT_TAG_CONVERSATIONS -> R.id.messages
             FRAGMENT_TAG_PROFILE -> R.id.my_profile
             else -> R.id.messages
         }
@@ -1132,14 +1074,6 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
                 logger.info("Backups button clicked")
                 startActivity(BackupAdminActivity.createIntent(this))
             }
-            R.id.webclient -> consume {
-                logger.info("Web button clicked")
-                startActivity(SessionsActivity.createIntent(this))
-            }
-            R.id.multi_device -> consume {
-                logger.info("MD button clicked")
-                startActivity(LinkedDevicesActivity.createIntent(this))
-            }
             R.id.help -> consume {
                 logger.info("Help button clicked")
                 startActivity(SupportActivity.createIntent(this))
@@ -1151,10 +1085,6 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
             R.id.directory -> consume {
                 logger.info("Directory button clicked")
                 startActivity(DirectoryActivity.createIntent(this))
-            }
-            R.id.threema_channel -> consume {
-                logger.info("Threema channel button clicked")
-                confirmThreemaChannel()
             }
             R.id.archived -> consume {
                 logger.info("Archive button clicked")
@@ -1184,7 +1114,6 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
         layoutParams.height = (ConfigUtils.getActionBarSize(this) / 3.5).toInt()
         toolbarLogoMain.setLayoutParams(layoutParams)
         toolbarLogoMain.setImageResource(R.drawable.logo_main)
-        toolbarLogoMain.setColorFilter(ConfigUtils.getColorFromAttribute(this, R.attr.colorOnSurface), PorterDuff.Mode.SRC_IN)
         toolbarLogoMain.setContentDescription(getString(R.string.logo))
         toolbarLogoMain.setOnClickListener { onLogoClicked() }
 
@@ -1207,14 +1136,14 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
     override fun onPrepareOptionsMenu(menu: Menu) = consume {
         super.onPrepareOptionsMenu(menu)
 
-        menu.findItem(R.id.menu_lock)?.isVisible = lockAppService.isLockingEnabled()
+        menu.findItem(R.id.menu_lock)?.isVisible = lockAppService.isLockingEnabled
 
         menu.findItem(R.id.menu_toggle_private_chats)?.let { privateChatToggleMenuItem ->
             if (preferenceService.arePrivateChatsHidden()) {
-                privateChatToggleMenuItem.setIcon(R.drawable.ic_outline_visibility)
+                privateChatToggleMenuItem.setIcon(R.drawable.ic_visibility)
                 privateChatToggleMenuItem.setTitle(R.string.title_show_private_chats)
             } else {
-                privateChatToggleMenuItem.setIcon(R.drawable.ic_outline_visibility_off)
+                privateChatToggleMenuItem.setIcon(R.drawable.ic_visibility_off)
                 privateChatToggleMenuItem.setTitle(R.string.title_hide_private_chats)
             }
             ConfigUtils.tintMenuIcon(this, privateChatToggleMenuItem, R.attr.colorOnSurface)
@@ -1223,13 +1152,6 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
         menu.findItem(R.id.my_backups)?.isVisible = checkBackupsFeatureEnabledUseCase.call()
 
         menu.findItem(R.id.directory)?.isVisible = ConfigUtils.isWorkBuild() && ConfigUtils.isWorkDirectoryEnabled()
-
-        menu.findItem(R.id.threema_channel)?.isVisible = !ConfigUtils.isWorkBuild() && contactService.getByIdentity(THREEMA_CHANNEL_IDENTITY) == null
-
-        menu.findItem(R.id.webclient)?.isVisible = !ConfigUtils.isWorkRestricted() || !appRestrictions.isWebDisabled()
-
-        // If MD is currently locked, but was activated before, we still have to give access to the menu item
-        menu.findItem(R.id.multi_device)?.isVisible = multiDeviceManager.isMultiDeviceActive || ConfigUtils.isMultiDeviceEnabled()
 
         menu.findItem(R.id.starred_messages)?.let { starredMessagesItem ->
             if (starredMessagesCount > 0) {
@@ -1310,7 +1232,6 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
                 finish()
             }
             DIALOG_TAG_FINISH_UP -> exitProcess(0)
-            DIALOG_TAG_THREEMA_CHANNEL_VERIFY -> addThreemaChannel()
             DIALOG_TAG_PASSWORD_PRESET_CONFIRM -> {
                 if (data != null) {
                     reconfigureThreemaSafe(data as ThreemaSafeMDMConfig)
@@ -1362,7 +1283,7 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
 
     public override fun onResume() {
         if (!isWhatsNewShown) {
-            ActivityService.activityResumed(this)
+            activityService.resume(this)
         } else {
             isWhatsNewShown = false
         }
@@ -1370,9 +1291,6 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
         if (masterKeyManager.isProtectedWithPassphrase() && !PassphraseService.isRunning()) {
             PassphraseService.start(this)
         }
-
-        // TODO(ANDR-4565): This worker should run periodically, instead of being explicitly started here
-        TempFilesCleanupWorker.enqueue(this, fileAgeThreshold = 2.hours)
 
         updateStarredMessages()
         super.onResume()
@@ -1383,97 +1301,32 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
 
     override fun onPause() {
         super.onPause()
-        ActivityService.activityPaused(this)
+        activityService.pause(this)
     }
 
     override fun onUserInteraction() {
-        ActivityService.activityUserInteract(this)
+        activityService.userInteract(this)
     }
 
-    private fun updateAppLogo() {
+    private fun initAppLogo() {
         if (!ConfigUtils.isWorkBuild()) {
             return
         }
+        val headerImageView = toolbar?.findViewById<ImageView>(R.id.toolbar_logo_main)
+            ?: return
         lifecycleScope.launch {
-            val headerImageView = toolbar?.findViewById<ImageView>(R.id.toolbar_logo_main)
-                ?: return@launch
-            val customAppLogo = withContext(dispatcherProvider.worker) {
-                fileService.getAppLogo(
-                    ConfigUtils.getAppThemeSettingFromDayNightMode(ConfigUtils.getCurrentDayNightMode(context)),
-                )
-            }
-                ?: return@launch
-            headerImageView.clearColorFilter()
-            Glide.with(this@HomeActivity)
-                .load(customAppLogo)
-                .into(headerImageView)
-        }
-    }
-
-    // TODO(ANDR-4481): This needs refactoring
-    @SuppressLint("StaticFieldLeak")
-    private fun addThreemaChannel() {
-        logger.info("Adding Threema channel")
-        backgroundExecutor.execute(
-            object : BasicAddOrUpdateContactBackgroundTask(
-                identity = THREEMA_CHANNEL_IDENTITY,
-                acquaintanceLevel = ContactModel.AcquaintanceLevel.DIRECT,
-                myIdentity = userService.getIdentity()!!,
-                apiConnector = apiConnector,
-                contactModelRepository = contactModelRepository,
-                addContactRestrictionPolicy = AddContactRestrictionPolicy.IGNORE,
-                appRestrictions = appRestrictions,
-                expectedPublicKey = ContactServiceImpl.THREEMA_PUBLIC_KEY,
-            ) {
-                override fun onBefore() {
-                    GenericProgressDialog.newInstance(R.string.threema_channel, R.string.please_wait)
-                        .show(supportFragmentManager, DIALOG_TAG_THREEMA_CHANNEL_PROGRESS)
+            val theme = ConfigUtils.getAppThemeSettingFromDayNightMode(ConfigUtils.getCurrentDayNightMode(context))
+            appLogoProvider.watchAppLogoBitmap(theme).collect { customAppLogo ->
+                if (customAppLogo == null) {
+                    Glide.with(this@HomeActivity)
+                        .clear(headerImageView)
+                    headerImageView.setImageResource(R.drawable.logo_main)
+                } else {
+                    Glide.with(this@HomeActivity)
+                        .load(customAppLogo)
+                        .into(headerImageView)
                 }
-
-                override fun onFinished(result: ContactResult) {
-                    DialogUtil.dismissDialog(supportFragmentManager, DIALOG_TAG_THREEMA_CHANNEL_PROGRESS, true)
-
-                    if (result is ContactAvailable) {
-                        // In case the contact has been successfully created or it has been  modified, already verified, or already exists,
-                        // the threema channel conversation is launched.
-                        launchThreemaChannelConversation()
-
-                        // Send initial messages to threema channel only if the threema channel has been newly created as a contact and
-                        // did not exist before.
-                        if (result is ContactCreated) {
-                            appTaskExecutor.scheduleTask {
-                                setUpThreemaChannelUseCase.call()
-                            }
-                        }
-                    } else {
-                        showToast(R.string.internet_connection_required, ToastDuration.LONG)
-                    }
-                }
-            },
-        )
-    }
-
-    private fun launchThreemaChannelConversation() {
-        startActivity(ComposeMessageActivity.createIntent(this, ContactReceiverIdentifier(THREEMA_CHANNEL_IDENTITY)))
-    }
-
-    @AnyThread
-    private fun updateConnectionIndicator(connectionState: ConnectionState?) {
-        logger.debug("connectionState = {}", connectionState)
-        lifecycleScope.launch {
-            connectionIndicator = findViewById<View>(R.id.connection_indicator)
-            if (connectionIndicator != null) {
-                ConnectionIndicatorUtil.getInstance().updateConnectionIndicator(connectionIndicator, connectionState)
             }
-        }
-    }
-
-    private fun confirmThreemaChannel() {
-        if (contactService.getByIdentity(THREEMA_CHANNEL_IDENTITY) == null) {
-            GenericAlertDialog.newInstance(R.string.threema_channel, R.string.threema_channel_intro, R.string.ok, R.string.cancel, 0)
-                .show(supportFragmentManager, DIALOG_TAG_THREEMA_CHANNEL_VERIFY)
-        } else {
-            launchThreemaChannelConversation()
         }
     }
 
@@ -1507,7 +1360,7 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
     }
 
     override fun onDestroy() {
-        ActivityService.activityDestroyed(this)
+        activityService.destroy(this)
 
         identityPopup?.dismiss()
         identityPopup = null
@@ -1522,6 +1375,19 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
         super.onDestroy()
     }
 
+    fun setContactsBadgeVisible(visible: Boolean) {
+        lifecycleScope.launch {
+            val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bottom_navigation)
+                ?: return@launch
+            val badgeDrawable = bottomNavigationView.getOrCreateBadge(R.id.contacts)
+            badgeDrawable.backgroundColor = getContactsTabBadgeColor(bottomNavigationView.selectedItemId)
+            if (badgeDrawable.verticalOffset == 0) {
+                badgeDrawable.verticalOffset = resources.getDimensionPixelSize(R.dimen.bottom_nav_badge_offset_vertical)
+            }
+            badgeDrawable.isVisible = visible
+        }
+    }
+
     private enum class UnsentMessageAction {
         ADD,
         REMOVE,
@@ -1533,11 +1399,9 @@ class HomeActivity : ThreemaAppCompatActivity(), SMSVerificationDialogCallback, 
         private const val DIALOG_TAG_CANCEL_VERIFY = "cv"
         private const val DIALOG_TAG_SERIAL_LOCKED = "sll"
         private const val DIALOG_TAG_FINISH_UP = "fup"
-        private const val DIALOG_TAG_THREEMA_CHANNEL_VERIFY = "tcv"
-        private const val DIALOG_TAG_THREEMA_CHANNEL_PROGRESS = "tcp"
         private const val DIALOG_TAG_PASSWORD_PRESET_CONFIRM = "pwconf"
 
-        private const val FRAGMENT_TAG_MESSAGES = "0"
+        private const val FRAGMENT_TAG_CONVERSATIONS = "0"
         private const val FRAGMENT_TAG_CONTACTS = "1"
         private const val FRAGMENT_TAG_PROFILE = "2"
 

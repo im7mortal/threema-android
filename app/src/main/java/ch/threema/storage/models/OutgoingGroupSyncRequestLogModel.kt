@@ -1,7 +1,7 @@
 package ch.threema.storage.models
 
 import ch.threema.domain.types.IdentityString
-import java.util.Date
+import java.time.Instant
 
 /**
  * This model is used to track at what time a group sync request has been sent to what group. This
@@ -11,7 +11,7 @@ data class OutgoingGroupSyncRequestLogModel(
     val id: Int,
     val apiGroupId: String,
     val creatorIdentity: IdentityString,
-    val lastRequest: Date?,
+    val lastRequest: Instant?,
 ) {
 
     override fun toString(): String {

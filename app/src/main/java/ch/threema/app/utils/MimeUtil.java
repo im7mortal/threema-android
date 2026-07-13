@@ -460,15 +460,6 @@ public class MimeUtil {
         String mimeType;
 
         switch (messageModel.getType()) {
-            case IMAGE:
-                mimeType = MimeUtil.MIME_TYPE_IMAGE_JPEG;
-                break;
-            case VIDEO:
-                mimeType = MimeUtil.MIME_TYPE_VIDEO_AVC;
-                break;
-            case VOICEMESSAGE:
-                mimeType = MimeUtil.MIME_TYPE_AUDIO_AAC;
-                break;
             case TEXT:
                 mimeType = MimeUtil.MIME_TYPE_TEXT;
                 break;

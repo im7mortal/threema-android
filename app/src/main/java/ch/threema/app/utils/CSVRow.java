@@ -1,9 +1,11 @@
 package ch.threema.app.utils;
 
-import java.util.Date;
+import java.time.Instant;
 
 import androidx.annotation.NonNull;
 import ch.threema.base.ThreemaException;
+
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class CSVRow {
     private CSVWriter writer;
@@ -38,13 +40,13 @@ public class CSVRow {
     }
 
     public boolean getBoolean(int pos) throws ThreemaException {
-        return TestUtil.compare("1", this.getString(pos));
+        return "1".equals(getString(pos));
     }
 
-    public Date getDate(int pos) throws ThreemaException {
+    public Instant getInstant(int pos) throws ThreemaException {
         String cell = this.getString(pos);
         if (cell != null && !cell.isEmpty()) {
-            return new Date(Long.parseLong(cell));
+            return Instant.ofEpochMilli(Long.parseLong(cell));
         }
 
         return null;
@@ -122,7 +124,7 @@ public class CSVRow {
         return this;
     }
 
-    public CSVRow write(String fieldName, Date v) throws ThreemaException {
+    public CSVRow write(String fieldName, Instant v) throws ThreemaException {
         int pos = this.getValuePosition(fieldName);
         if (pos < 0) {
             throw new ThreemaException("invalid csv header position");
@@ -131,7 +133,7 @@ public class CSVRow {
         return this.write(pos, v);
     }
 
-    public CSVRow write(int pos, Date v) throws ThreemaException {
+    public CSVRow write(int pos, Instant v) throws ThreemaException {
         if (this.data.length < pos) {
             throw new ThreemaException("invalid position to write [" + pos + "]");
         }
@@ -160,7 +162,7 @@ public class CSVRow {
 
     public String[] getStrings(int pos) throws ThreemaException {
         String r = this.getString(pos);
-        return TestUtil.isEmptyOrNull(r) ? new String[]{} : r.split(";");
+        return isNullOrEmpty(r) ? new String[]{} : r.split(";");
     }
 
     public String getString(String fieldName) throws ThreemaException {
@@ -195,12 +197,12 @@ public class CSVRow {
         return this.getBoolean(pos);
     }
 
-    public Date getDate(String fieldName) throws ThreemaException {
+    public Instant getInstant(String fieldName) throws ThreemaException {
         int pos = this.getValuePosition(fieldName);
         if (pos < 0) {
             throw new ThreemaException("invalid csv header position [" + fieldName + "]");
         }
-        return this.getDate(pos);
+        return this.getInstant(pos);
 
     }
 
@@ -244,11 +246,11 @@ public class CSVRow {
     /**
      * return a csv well formed string
      */
-    private String escape(Date date) {
+    private String escape(Instant date) {
         if (date == null) {
             return "";
         }
-        return String.valueOf(date.getTime());
+        return String.valueOf(date.toEpochMilli());
     }
 
     /**

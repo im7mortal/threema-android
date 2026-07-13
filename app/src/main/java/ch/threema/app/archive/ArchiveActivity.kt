@@ -1,7 +1,6 @@
 package ch.threema.app.archive
 
 import android.content.Context
-import android.content.Intent
 import android.content.res.Configuration
 import android.os.Bundle
 import android.view.Menu
@@ -43,21 +42,20 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import ch.threema.android.buildActivityIntent
-import ch.threema.android.context
-import ch.threema.app.AppConstants
 import ch.threema.app.R
 import ch.threema.app.activities.ComposeMessageActivity
 import ch.threema.app.activities.DistributionListAddActivity
+import ch.threema.app.activities.GroupDetailActivity
 import ch.threema.app.activities.ThreemaToolbarActivity
+import ch.threema.app.compose.common.IconInfo
 import ch.threema.app.compose.common.LocalDayOfYear
-import ch.threema.app.compose.common.SpacerVertical
 import ch.threema.app.compose.common.immutables.ImmutableBitmap
 import ch.threema.app.compose.common.rememberRefreshingLocalDayOfYear
+import ch.threema.app.compose.common.spacer.SpacerVertical
 import ch.threema.app.compose.conversation.ConversationListItem
 import ch.threema.app.compose.conversation.models.ConversationListItemUiModel
 import ch.threema.app.compose.conversation.models.ConversationNameStyle
 import ch.threema.app.compose.conversation.models.ConversationUiModel
-import ch.threema.app.compose.conversation.models.IconInfo
 import ch.threema.app.compose.preview.PreviewData
 import ch.threema.app.compose.theme.ThreemaTheme
 import ch.threema.app.compose.theme.ThreemaThemePreview
@@ -67,8 +65,6 @@ import ch.threema.app.dialogs.GenericAlertDialog
 import ch.threema.app.dialogs.GenericAlertDialog.DialogClickListener
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.preference.service.PreferenceService.EmojiStyle
-import ch.threema.app.services.GroupService
-import ch.threema.app.stores.IdentityProvider
 import ch.threema.app.ui.InsetSides
 import ch.threema.app.ui.ThreemaSearchView
 import ch.threema.app.ui.applyDeviceInsetsAsPadding
@@ -76,15 +72,15 @@ import ch.threema.app.usecases.conversations.AvatarIteration
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.voip.activities.GroupCallActivity
 import ch.threema.common.consume
+import ch.threema.data.IdentityProvider
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.datatypes.ContactNameFormat
-import ch.threema.domain.models.ContactReceiverIdentifier
-import ch.threema.domain.models.DistributionListReceiverIdentifier
-import ch.threema.domain.models.GroupReceiverIdentifier
-import ch.threema.domain.models.ReceiverIdentifier
+import ch.threema.data.datatypes.ConversationId
+import ch.threema.data.datatypes.DistributionListConversationId
+import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.domain.types.Identity
 import com.google.android.material.appbar.MaterialToolbar
-import java.util.UUID
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -92,7 +88,6 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 class ArchiveActivity : ThreemaToolbarActivity(), DialogClickListener, SearchView.OnQueryTextListener {
     private val preferenceService: PreferenceService by inject()
     private val viewModel: ArchiveViewModel by viewModel()
-    private val groupService: GroupService by inject()
     private val identityProvider: IdentityProvider by inject()
 
     private var actionMode: ActionMode? = null
@@ -112,18 +107,6 @@ class ArchiveActivity : ThreemaToolbarActivity(), DialogClickListener, SearchVie
                         when (archiveScreenEvent) {
                             ArchiveScreenEvent.ConversationsUnarchived -> actionMode?.finish()
                             ArchiveScreenEvent.ConversationsDeleted -> actionMode?.finish()
-                            is ArchiveScreenEvent.OpenDistributionListConversation -> openComposeMessageActivity {
-                                putExtra(AppConstants.INTENT_DATA_DISTRIBUTION_LIST_ID, archiveScreenEvent.distributionListId)
-                            }
-
-                            is ArchiveScreenEvent.OpenGroupConversation -> openComposeMessageActivity {
-                                putExtra(AppConstants.INTENT_DATA_GROUP_DATABASE_ID, archiveScreenEvent.groupDatabaseId.toLong())
-                            }
-
-                            is ArchiveScreenEvent.OpenOneToOneConversation -> openComposeMessageActivity {
-                                putExtra(AppConstants.INTENT_DATA_CONTACT, archiveScreenEvent.identity)
-                            }
-
                             is ArchiveScreenEvent.ShowReallyDeleteConversationsDialog -> showReallyDeleteSelectedConversationsDialog(
                                 archiveScreenEvent.content,
                             )
@@ -134,11 +117,11 @@ class ArchiveActivity : ThreemaToolbarActivity(), DialogClickListener, SearchVie
         }
     }
 
-    private fun openComposeMessageActivity(applyExtras: Intent.() -> Unit) {
-        val intent = Intent(context, ComposeMessageActivity::class.java)
-            .apply {
-                applyExtras()
-            }
+    private fun onClickConversation(conversationId: ConversationId) {
+        val intent = ComposeMessageActivity.createIntent(
+            context = this,
+            conversationId = conversationId,
+        )
         startActivityForResult(intent, ACTIVITY_ID_COMPOSE_MESSAGE)
     }
 
@@ -170,20 +153,20 @@ class ArchiveActivity : ThreemaToolbarActivity(), DialogClickListener, SearchVie
         toolbar.setNavigationOnClickListener { _ -> finish() }
         toolbar.setTitle(R.string.archived_chats)
 
-        val searchQuery = intent.getStringExtra(AppConstants.INTENT_DATA_ARCHIVE_FILTER)
+        val searchQuery = intent.getStringExtra(INTENT_DATA_SEARCH_QUERY)
 
-        val filterMenu = toolbar.menu.findItem(R.id.menu_filter_archive)
-        val searchView = filterMenu.actionView as ThreemaSearchView?
+        val searchMenu = toolbar.menu.findItem(R.id.menu_search_archive)
+        val searchView = searchMenu.actionView as ThreemaSearchView?
         if (searchView != null) {
             searchView.maxWidth = Integer.MAX_VALUE
-            searchView.queryHint = getString(R.string.hint_filter_list)
+            searchView.queryHint = getString(R.string.hint_search_list)
             if (!searchQuery.isNullOrEmpty()) {
-                filterMenu.expandActionView()
+                searchMenu.expandActionView()
                 searchView.setQuery(searchQuery, false)
             }
             searchView.post { searchView.setOnQueryTextListener(this@ArchiveActivity) }
         } else {
-            filterMenu.isVisible = false
+            searchMenu.isVisible = false
         }
 
         findViewById<ComposeView>(R.id.conversation_list).setContent {
@@ -194,7 +177,7 @@ class ArchiveActivity : ThreemaToolbarActivity(), DialogClickListener, SearchVie
 
             LaunchedEffect(Unit) {
                 if (!searchQuery.isNullOrBlank()) {
-                    viewModel.setFilterQuery(searchQuery)
+                    viewModel.setSearchQuery(searchQuery)
                 }
             }
 
@@ -216,34 +199,32 @@ class ArchiveActivity : ThreemaToolbarActivity(), DialogClickListener, SearchVie
                     ArchiveActivityContent(
                         insetsPadding = insetsPadding,
                         conversationListItemUiModels = conversationListItemUiModels,
-                        onClickConversation = { conversationUiModel ->
-                            actionMode?.let { currentActionMode ->
-                                val hasAnyCheckedConversations = viewModel.toggleSelected(
-                                    conversationUID = conversationUiModel.conversationUID,
-                                )
-                                if (hasAnyCheckedConversations) {
-                                    currentActionMode.invalidate()
-                                } else {
-                                    currentActionMode.finish()
+                        onClickConversation = { conversationId ->
+                            actionMode
+                                ?.let { currentActionMode ->
+                                    val hasAnyCheckedConversations = viewModel.toggleSelected(conversationId)
+                                    if (hasAnyCheckedConversations) {
+                                        currentActionMode.invalidate()
+                                    } else {
+                                        currentActionMode.finish()
+                                    }
                                 }
-                            } ?: run {
-                                viewModel.onClickedConversation(conversationUiModel.conversationUID)
-                            }
+                                ?: run {
+                                    onClickConversation(conversationId)
+                                }
                         },
                         onClickAvatar = ::onAvatarClicked,
-                        onLongClickConversation = { conversationUiModel ->
-                            val hasAnyCheckedConversations: Boolean = viewModel.toggleSelected(
-                                conversationUID = conversationUiModel.conversationUID,
-                            )
+                        onLongClickConversation = { conversationId ->
+                            val hasAnyCheckedConversations: Boolean = viewModel.toggleSelected(conversationId)
                             if (actionMode == null && hasAnyCheckedConversations) {
                                 actionMode = startSupportActionMode(ArchiveActionCallback())
                             }
                         },
-                        onClickJoinOrOpenGroupCall = { groupReceiverIdentifier ->
+                        onClickJoinOrOpenGroupCall = { groupConversationId ->
                             startActivity(
                                 GroupCallActivity.createJoinCallIntent(
                                     this,
-                                    groupReceiverIdentifier.groupDatabaseId.toInt(),
+                                    groupConversationId.groupDatabaseId.toInt(),
                                 ),
                             )
                         },
@@ -264,7 +245,7 @@ class ArchiveActivity : ThreemaToolbarActivity(), DialogClickListener, SearchVie
     override fun onQueryTextSubmit(query: String) = false
 
     override fun onQueryTextChange(newText: String) = consume {
-        viewModel.setFilterQuery(newText)
+        viewModel.setSearchQuery(newText)
     }
 
     inner class ArchiveActionCallback : ActionMode.Callback {
@@ -326,28 +307,24 @@ class ArchiveActivity : ThreemaToolbarActivity(), DialogClickListener, SearchVie
         }
     }
 
-    private fun onAvatarClicked(conversationUiModel: ConversationUiModel) {
-        val intent = when (val receiverIdentifier = conversationUiModel.receiverIdentifier) {
-            is ContactReceiverIdentifier -> {
-                ContactDetailActivity.createIntent(this, receiverIdentifier.identity)
+    private fun onAvatarClicked(conversationId: ConversationId) {
+        val intent =
+            when (conversationId) {
+                is ContactConversationId -> ContactDetailActivity.createIntent(this, conversationId.identity)
+                is GroupConversationId -> GroupDetailActivity.createIntent(this, conversationId.groupDatabaseId)
+                is DistributionListConversationId -> DistributionListAddActivity.createIntent(this, conversationId.distributionListId)
             }
-
-            is GroupReceiverIdentifier -> {
-                groupService.getGroupDetailIntent(receiverIdentifier.groupDatabaseId, this)
-            }
-
-            is DistributionListReceiverIdentifier -> {
-                DistributionListAddActivity.createIntent(this, receiverIdentifier.id)
-            }
-        }
         startActivity(intent)
     }
 
     companion object {
+
+        private const val INTENT_DATA_SEARCH_QUERY = "search-query"
+
         private const val DIALOG_TAG_REALLY_DELETE_CHATS = "delc"
 
-        fun createIntent(context: Context, filterQuery: String? = null) = buildActivityIntent<ArchiveActivity>(context) {
-            putExtra(AppConstants.INTENT_DATA_ARCHIVE_FILTER, filterQuery)
+        fun createIntent(context: Context, searchQuery: String? = null) = buildActivityIntent<ArchiveActivity>(context) {
+            putExtra(INTENT_DATA_SEARCH_QUERY, searchQuery)
         }
     }
 }
@@ -356,11 +333,11 @@ class ArchiveActivity : ThreemaToolbarActivity(), DialogClickListener, SearchVie
 private fun ArchiveActivityContent(
     insetsPadding: PaddingValues,
     conversationListItemUiModels: List<ConversationListItemUiModel>,
-    onClickConversation: (ConversationUiModel) -> Unit,
-    onLongClickConversation: (ConversationUiModel) -> Unit,
-    onClickAvatar: (ConversationUiModel) -> Unit,
-    onClickJoinOrOpenGroupCall: (GroupReceiverIdentifier) -> Unit,
-    avatarBitmapProvider: suspend (ReceiverIdentifier) -> ImmutableBitmap?,
+    onClickConversation: (ConversationId) -> Unit,
+    onLongClickConversation: (ConversationId) -> Unit,
+    onClickAvatar: (ConversationId) -> Unit,
+    onClickJoinOrOpenGroupCall: (GroupConversationId) -> Unit,
+    avatarBitmapProvider: suspend (ConversationId) -> ImmutableBitmap?,
     ownIdentity: Identity,
     @EmojiStyle emojiStyle: Int,
     contactNameFormat: ContactNameFormat,
@@ -388,7 +365,7 @@ private fun ArchiveActivityContent(
                 items(
                     items = conversationListItemUiModels,
                     key = { conversationListItemUiModel ->
-                        conversationListItemUiModel.model.conversationUID
+                        conversationListItemUiModel.model.conversationId
                     },
                     contentType = { "conversation" },
                 ) { conversationListItemUiModel ->
@@ -425,7 +402,7 @@ private fun ArchiveActivityContent(
                 SpacerVertical(GridUnit.x2)
                 Icon(
                     modifier = Modifier.size(GridUnit.x7),
-                    painter = painterResource(R.drawable.ic_archive_outline),
+                    painter = painterResource(R.drawable.ic_archive),
                     contentDescription = null,
                     tint = LocalContentColor.current,
                 )
@@ -453,12 +430,11 @@ private fun ArchiveActivityContent_Preview() {
                 conversationListItemUiModels = listOf(
                     ConversationListItemUiModel(
                         model = ConversationUiModel.ContactConversation(
-                            conversationUID = UUID.randomUUID().toString(),
+                            conversationId = ContactConversationId(
+                                identity = PreviewData.IDENTITY_OTHER_1.value,
+                            ),
                             latestMessageData = PreviewData.LatestMessageData.incomingTextMessage(
                                 body = "How are you?",
-                            ),
-                            receiverIdentifier = ContactReceiverIdentifier(
-                                identity = PreviewData.IDENTITY_OTHER_1.value,
                             ),
                             receiverDisplayName = "Contact Name",
                             conversationName = "Conversation Name",
@@ -468,11 +444,11 @@ private fun ArchiveActivityContent_Preview() {
                             isPinned = false,
                             isPrivate = false,
                             icon = IconInfo(
-                                res = R.drawable.ic_reply_filled,
+                                iconRes = R.drawable.ic_reply,
                                 contentDescription = null,
                             ),
                             muteStatusIcon = null,
-                            showWorkBadge = true,
+                            showIdentityTypeBadge = true,
                             isTyping = false,
                             avatarIteration = AvatarIteration.initial,
                             availabilityStatus = AvailabilityStatus.Unavailable(),
@@ -482,14 +458,11 @@ private fun ArchiveActivityContent_Preview() {
                     ),
                     ConversationListItemUiModel(
                         model = ConversationUiModel.GroupConversation(
-                            conversationUID = UUID.randomUUID().toString(),
+                            conversationId = GroupConversationId(
+                                groupDatabaseId = 1L,
+                            ),
                             latestMessageData = PreviewData.LatestMessageData.incomingTextMessage(
                                 body = "How are you?",
-                            ),
-                            receiverIdentifier = GroupReceiverIdentifier(
-                                groupDatabaseId = 1L,
-                                groupCreatorIdentity = PreviewData.IDENTITY_OTHER_1.value,
-                                groupApiId = 1L,
                             ),
                             receiverDisplayName = "Contact Name",
                             conversationName = "Group Conversation Name",
@@ -499,7 +472,7 @@ private fun ArchiveActivityContent_Preview() {
                             isPinned = false,
                             isPrivate = false,
                             icon = IconInfo(
-                                res = R.drawable.ic_group_filled,
+                                iconRes = R.drawable.ic_group_filled,
                                 contentDescription = null,
                             ),
                             muteStatusIcon = null,
@@ -512,12 +485,11 @@ private fun ArchiveActivityContent_Preview() {
                     ),
                     ConversationListItemUiModel(
                         model = ConversationUiModel.DistributionListConversation(
-                            conversationUID = UUID.randomUUID().toString(),
+                            conversationId = DistributionListConversationId(
+                                distributionListId = 1L,
+                            ),
                             latestMessageData = PreviewData.LatestMessageData.incomingTextMessage(
                                 body = "How are you?",
-                            ),
-                            receiverIdentifier = DistributionListReceiverIdentifier(
-                                id = 1L,
                             ),
                             receiverDisplayName = "Contact Name",
                             conversationName = "Distribution List Conversation Name",
@@ -527,7 +499,7 @@ private fun ArchiveActivityContent_Preview() {
                             isPinned = false,
                             isPrivate = false,
                             icon = IconInfo(
-                                res = R.drawable.ic_distribution_list_filled,
+                                iconRes = R.drawable.ic_distribution_list,
                                 contentDescription = null,
                             ),
                             muteStatusIcon = null,

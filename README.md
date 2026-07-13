@@ -272,7 +272,7 @@ language, please contact us at `support at threema dot ch`.
 
 Threema for Android is licensed under the GNU Affero General Public License v3.
 
-    Copyright (c) Threema GmbH
+    Copyright (c) Threema AG
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License, version 3,

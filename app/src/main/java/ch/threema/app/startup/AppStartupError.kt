@@ -16,6 +16,11 @@ sealed class AppStartupError(val isTemporary: Boolean = false) {
     data class Unexpected(val code: String) : AppStartupError()
 
     /**
+     * Indicates that the database version on the device is newer than expected, requiring a downgrade.
+     */
+    data class DatabaseDowngrade(val oldVersion: Int) : AppStartupError()
+
+    /**
      * Indicates that RS is enabled, but an admin has revoked the user's access, making the app unusable.
      */
     data object BlockedByAdmin : AppStartupError()

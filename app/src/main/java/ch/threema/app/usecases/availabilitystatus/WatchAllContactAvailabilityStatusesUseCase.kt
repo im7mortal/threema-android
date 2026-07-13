@@ -1,32 +1,36 @@
 package ch.threema.app.usecases.availabilitystatus
 
 import ch.threema.app.BuildConfig
-import ch.threema.app.listeners.ContactListener
-import ch.threema.app.managers.ListenerManager
-import ch.threema.base.utils.getThreemaLogger
+import ch.threema.app.eventbus.GlobalEventFlows
+import ch.threema.app.eventbus.events.ContactEvent
 import ch.threema.common.DispatcherProvider
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.domain.types.IdentityString
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel.Factory.CONFLATED
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.channels.onClosed
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
-import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.onStart
 
-private val logger = getThreemaLogger("WatchAllContactAvailabilityStatusesUseCase")
-
+@OptIn(FlowPreview::class)
 class WatchAllContactAvailabilityStatusesUseCase(
     private val contactModelRepository: ContactModelRepository,
     private val dispatcherProvider: DispatcherProvider,
+    private val globalEventFlows: GlobalEventFlows,
 ) {
 
     /**
-     *  If the feature is supported by this build, a *cold* [Flow] that emits the most recent [AvailabilityStatus.Set] values for all contacts is
-     *  returned. Otherwise, a flow emitting exactly one empty map is returned.
+     *  If the feature is supported by this build, a *cold* [Flow] that emits the most recent [AvailabilityStatus] values for all contacts is
+     *  returned. Otherwise, a flow emitting exactly one empty map is returned. The emission of subsequent values is slightly delayed to
+     *  avoid having to repeatedly and unnecessarily load all contacts from the database in case of multiple changes to contacts in short succession.
      *
      *  ##### Direct emit promise
      *  This flow fulfills the promise to directly emit the current values.
@@ -35,51 +39,29 @@ class WatchAllContactAvailabilityStatusesUseCase(
      *  If a consumer consumes the values slower than they get produced, the old unconsumed value gets **dropped** in favor of the most recent value.
      *
      *  ##### Error strategy
-     *  Every exception that's not occurring inside the [ContactListener] will flow downstream.
+     *  Every exception will flow downstream.
      */
     fun call(): Flow<Map<IdentityString, AvailabilityStatus>> {
         if (!BuildConfig.AVAILABILITY_STATUS_ENABLED) {
             return flowOf(emptyMap())
         }
-        return callbackFlow {
-            // Direct emit promise
-            val currentAvailabilityStatuses = getCurrentAvailabilityStatuses()
-            trySend(currentAvailabilityStatuses)
-                .onClosed {
-                    // Collection already ended
-                    return@callbackFlow
-                }
-
-            fun trySendCurrent() {
-                val currentAvailabilityStatuses = getCurrentAvailabilityStatuses()
-                trySend(currentAvailabilityStatuses)
-                    .onClosed { throwable ->
-                        logger.error("Tried to send a new value after channel was closed", throwable)
-                    }
-            }
-
-            val contactListener = object : ContactListener {
-                override fun onNew(identity: String) {
-                    trySendCurrent()
-                }
-
-                override fun onModified(identity: String) {
-                    trySendCurrent()
-                }
-
-                override fun onRemoved(identity: String) {
-                    trySendCurrent()
-                }
-
-                override fun onAvatarChanged(identity: String) {
-                    trySendCurrent()
+        return globalEventFlows.contacts
+            .filter { event ->
+                when (event) {
+                    is ContactEvent.ContactRemoved,
+                    is ContactEvent.ContactUpdated,
+                    is ContactEvent.NewContact,
+                    -> true
+                    is ContactEvent.ContactProfilePictureUpdated -> false
                 }
             }
-            ListenerManager.contactListeners.add(contactListener)
-            awaitClose {
-                ListenerManager.contactListeners.remove(contactListener)
+            .debounce(500.milliseconds)
+            .map {
+                getCurrentAvailabilityStatuses()
             }
-        }
+            .onStart {
+                emit(getCurrentAvailabilityStatuses())
+            }
             .buffer(capacity = CONFLATED)
             .flowOn(context = dispatcherProvider.io)
     }
@@ -91,6 +73,7 @@ class WatchAllContactAvailabilityStatusesUseCase(
                 contactModel.data?.availabilityStatus?.let { availabilityStatus ->
                     contactModel.identity to availabilityStatus
                 }
-            }.toMap()
+            }
+            .toMap()
     }
 }

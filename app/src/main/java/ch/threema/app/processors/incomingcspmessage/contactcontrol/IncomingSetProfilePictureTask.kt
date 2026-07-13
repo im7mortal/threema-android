@@ -1,13 +1,12 @@
 package ch.threema.app.processors.incomingcspmessage.contactcontrol
 
-import ch.threema.app.listeners.ContactListener
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.ContactEvent
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.processors.incomingcspmessage.IncomingCspMessageSubTask
 import ch.threema.app.processors.incomingcspmessage.ReceiveStepsResult
 import ch.threema.app.tasks.ReflectContactSyncUpdateImmediateTask.ReflectContactProfilePicture
 import ch.threema.app.utils.ExifInterface
-import ch.threema.app.utils.ShortcutUtil
 import ch.threema.base.crypto.NaCl
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.contentEquals
@@ -18,6 +17,7 @@ import ch.threema.domain.protocol.csp.messages.SetProfilePictureMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.TriggerSource
 import ch.threema.domain.taskmanager.catchAllExceptNetworkException
+import ch.threema.domain.types.Identity
 
 private val logger = getThreemaLogger("IncomingSetProfilePictureTask")
 
@@ -25,14 +25,12 @@ class IncomingSetProfilePictureTask(
     message: SetProfilePictureMessage,
     triggerSource: TriggerSource,
     serviceManager: ServiceManager,
+    private val globalEventBuses: GlobalEventBuses,
 ) : IncomingCspMessageSubTask<SetProfilePictureMessage>(message, triggerSource, serviceManager) {
     private val apiService by lazy { serviceManager.apiService }
     private val fileService by lazy { serviceManager.fileService }
-    private val contactService by lazy { serviceManager.contactService }
     private val contactModelRepository by lazy { serviceManager.modelRepositories.contacts }
     private val multiDeviceManager by lazy { serviceManager.multiDeviceManager }
-    private val nonceFactory by lazy { serviceManager.nonceFactory }
-    private val preferenceService by lazy { serviceManager.preferenceService }
 
     private val identity by lazy { message.fromIdentity }
 
@@ -82,14 +80,7 @@ class IncomingSetProfilePictureTask(
         }
 
         this.fileService.writeContactDefinedProfilePicture(identity, blob)
-        ListenerManager.contactListeners.handle { listener: ContactListener ->
-            listener.onAvatarChanged(identity)
-        }
-
-        ShortcutUtil.updateShareTargetShortcut(
-            contactService.createReceiver(contactModel),
-            preferenceService.getContactNameFormat(),
-        )
+        globalEventBuses.contacts.emit(ContactEvent.ContactProfilePictureUpdated(Identity(identity)))
 
         return ReceiveStepsResult.SUCCESS
     }

@@ -6,6 +6,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.transaction
 import ch.threema.localcrypto.MasterKey
 import java.nio.ByteBuffer
+import net.zetetic.database.sqlcipher.SQLiteCursor
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
 inline fun <T, DB : SupportSQLiteDatabase> DB.runTransaction(
@@ -59,6 +60,31 @@ fun SQLiteDatabase.runDelete(
         whereClause,
         whereArgs,
     )
+
+fun SQLiteDatabase.queryByBlob(query: String, blob: ByteArray): Cursor =
+    rawQueryWithFactory({ _, masterQuery, editTable, query ->
+        query.bindBlob(1, blob)
+        SQLiteCursor(masterQuery, editTable, query)
+    }, query, null, null)
+
+fun SQLiteDatabase.exists(
+    table: String,
+    selection: String? = null,
+    selectionArgs: Array<Any>? = null,
+): Boolean {
+    val sql = "SELECT EXISTS(SELECT 1 FROM $table WHERE $selection LIMIT 1)"
+    val cursor = if (selectionArgs != null) query(sql, selectionArgs) else query(sql)
+    return cursor.use {
+        cursor.moveToFirst() && cursor.getInt(0) == 1
+    }
+}
+
+fun SQLiteDatabase.existsByBlob(table: String, selection: String, blob: ByteArray): Boolean {
+    val cursor = queryByBlob("SELECT EXISTS(SELECT 1 FROM $table WHERE $selection LIMIT 1)", blob)
+    return cursor.use {
+        cursor.moveToFirst() && cursor.getInt(0) == 1
+    }
+}
 
 fun buildContentValues(block: ContentValues.() -> Unit): ContentValues =
     ContentValues().apply(block)

@@ -74,7 +74,7 @@
                     android:id="@+id/passphrase"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:imeOptions="actionGo"
+                    android:imeOptions="actionGo|flagNoPersonalizedLearning"
                     android:inputType="textPassword|textNoSuggestions"
                     android:singleLine="true">
 

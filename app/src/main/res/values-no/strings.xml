@@ -29,6 +29,8 @@
     <string name="menu_done">Ferdig</string>
     <string name="compose_message_and_enter">Trykk her for å skrive</string>
     <string name="send">Send</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
     <string name="prefs_privacy">Personvern</string>
     <string name="prefs_notifications">Lyd &amp; varsler</string>
     <string name="prefs_chatdisplay">Samtale</string>
@@ -79,7 +81,8 @@ når den første meldingen mottas.</string>
     <string name="prefs_sum_threema_push_off">Sjekk for nye meldinger ved bruk av systemets push-tjeneste</string>
     <string name="prefs_logging">Logging</string>
     <string name="prefs_title_message_log_switch">Logg til fil</string>
-    <string name="prefs_title_sum_message_log_on">Hendelser og nettverksinformasjon blir logget til filen debug_log.txt</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
     <string name="prefs_title_sum_message_log_off">Hendelser blir ikke logget</string>
     <string name="prefs_reset_push">Resett push token</string>
     <string name="prefs_sum_reset_push">Registrer enheten på nytt for push-varsler med FCM/HMS</string>
@@ -645,7 +648,6 @@ http://www.7-zip.org eller https://itunes.apple.com/us/app/the-unarchiver/id4254
     <string name="new_wizard_anonymous_confirm">Du har ikke skrevet et telefonnummer eller en e-postadresse for å koble til din ${app_name_short} ID. Du vil ikke dukke opp på dine venners kontaktliste. Vil du virkelig bruke ${app_name} anonymt?</string>
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_anonymous_confirm_phone_only">Du har ikke skrevet et telefonnummer for å koble til din ${app_name_short} ID. Du vil ikke dukke opp på dine venners kontaktliste. Vil du virkelig bruke ${app_name} anonymt?</string>
-    <string name="new_wizard_scan_id_backup">Eller skann QR-koden av din ID-eksport</string>
     <string name="error_saving_file">Feil ved lagring av fil. Sjekk tillatelser.</string>
     <string name="wait_one_minute">Vennligst vent minst 10 minutter for at SMS-en skal bli mottatt før du spør om en telefonsamtale.</string>
     <string name="backup_id">Eksportert ID</string>
@@ -713,7 +715,7 @@ http://www.7-zip.org eller https://itunes.apple.com/us/app/the-unarchiver/id4254
     <string name="prefs_language_override">Språk</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
     <string name="threema_channel_intro">${app_name_short} Channel gir deg nyheter om alt som omhandler ${app_name_short}. Vil du abonnere til ${app_name_short} Channel og legge det til dine kontakter? Det er gratis og du kan avslutte abonnementet når som helst.</string>
-    <string name="quote">Sitat</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
     <string name="contacts_deleted">Kontakter har blitt slettet</string>
     <string name="take_photo">Ta bilde</string>
     <string name="select_from_gallery">Velg fra galleri</string>
@@ -1135,6 +1137,7 @@ http://www.7-zip.org eller https://itunes.apple.com/us/app/the-unarchiver/id4254
     <string name="max_selectable_media_exceeded">Ikke mer en %d objekter kan bli sendt samtidig.</string>
     <string name="error_unable_loading_media_thumb">Feil. Miniatyrbilde kunne ikke lastes inn</string>
     <string name="filter_list">Filtrer liste</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
     <string name="hint_filter_list">Skriv inn filter</string>
     <string name="add">Legg til</string>
     <string name="only_images_or_videos">Bare biler eller video kan bli valgt</string>
@@ -1453,7 +1456,6 @@ Om du bytter til en ny enhet, vennligst avinstaller eller deaktiver %s på den g
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
     <!-- The %s is a placeholder for an ID. It must be left as-is. -->
     <!-- Message shown in dialog when the user starts configuring a backup, but we detected that there might be a problem and thus offer a workaround option to choose from -->
@@ -1541,6 +1543,7 @@ Om du bytter til en ny enhet, vennligst avinstaller eller deaktiver %s på den g
         <item quantity="one">%d melding slettet</item>
         <item quantity="other">%d meldinger slettet</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
     <plurals name="notifications_for_x_hours">
         <item quantity="one">I %d time</item>
         <item quantity="other">I %d timer</item>

@@ -1,5 +1,8 @@
 package ch.threema.domain.protocol.csp.messages.file;
 
+import static ch.threema.common.JavaCompat.hexToByteArray;
+import static ch.threema.common.JavaCompat.toHexString;
+
 import androidx.annotation.IntDef;
 import androidx.annotation.Nullable;
 
@@ -14,7 +17,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-import ch.threema.base.utils.Utils;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
 import ch.threema.domain.protocol.csp.messages.BadMessageException;
 
@@ -45,12 +47,15 @@ public class FileData {
     private byte[] thumbnailBlobId;
     private byte[] encryptionKey;
     private String mimeType;
+    @Nullable
     private String thumbnailMimeType;
     private long fileSize;
     private String fileName;
-    private @RenderingType int renderingType;
+    @RenderingType
+    private int renderingType;
     private String caption;
     private String correlationId;
+    @Nullable
     private Map<String, Object> metaData;
 
     public byte[] getFileBlobId() {
@@ -89,6 +94,7 @@ public class FileData {
         return this;
     }
 
+    @Nullable
     public String getThumbnailMimeType() {
         return thumbnailMimeType;
     }
@@ -147,11 +153,12 @@ public class FileData {
         return this;
     }
 
+    @Nullable
     public Map<String, Object> getMetaData() {
         return this.metaData;
     }
 
-    public FileData setMetaData(Map<String, Object> metaData) {
+    public FileData setMetaData(@Nullable Map<String, Object> metaData) {
         this.metaData = metaData;
         return this;
     }
@@ -163,7 +170,7 @@ public class FileData {
             FileData fileData = new FileData();
 
             try {
-                fileData.fileBlobId = Utils.hexStringToByteArray(o.getString(KEY_BLOB_ID));
+                fileData.fileBlobId = hexToByteArray(o.getString(KEY_BLOB_ID));
             } catch (IllegalArgumentException e) {
                 throw new BadMessageException("TM038");
             }
@@ -171,14 +178,14 @@ public class FileData {
             //optional field
             if (o.has(KEY_THUMBNAIL_BLOB_ID)) {
                 try {
-                    fileData.thumbnailBlobId = Utils.hexStringToByteArray(o.getString(KEY_THUMBNAIL_BLOB_ID));
+                    fileData.thumbnailBlobId = hexToByteArray(o.getString(KEY_THUMBNAIL_BLOB_ID));
                 } catch (IllegalArgumentException e) {
                     throw new BadMessageException("TM039");
                 }
             }
 
             try {
-                fileData.encryptionKey = Utils.hexStringToByteArray(o.getString(KEY_ENCRYPTION_KEY));
+                fileData.encryptionKey = hexToByteArray(o.getString(KEY_ENCRYPTION_KEY));
                 if (fileData.encryptionKey.length != ProtocolDefines.BLOB_KEY_LEN) {
                     throw new BadMessageException("Invalid encryption key length: " + fileData.encryptionKey.length);
                 }
@@ -265,9 +272,9 @@ public class FileData {
     protected String generateString() throws BadMessageException {
         JSONObject o = new JSONObject();
         try {
-            o.put(KEY_BLOB_ID, Utils.byteArrayToHexString(this.fileBlobId));
-            o.put(KEY_THUMBNAIL_BLOB_ID, Utils.byteArrayToHexString(this.thumbnailBlobId));
-            o.put(KEY_ENCRYPTION_KEY, Utils.byteArrayToHexString(this.encryptionKey));
+            o.put(KEY_BLOB_ID, toHexString(this.fileBlobId));
+            o.put(KEY_THUMBNAIL_BLOB_ID, toHexString(this.thumbnailBlobId));
+            o.put(KEY_ENCRYPTION_KEY, toHexString(this.encryptionKey));
             o.put(KEY_MIME_TYPE, this.mimeType);
             o.put(KEY_THUMBNAIL_MIME_TYPE, this.thumbnailMimeType);
             o.put(KEY_FILE_NAME, this.fileName);

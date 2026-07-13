@@ -1,5 +1,6 @@
 package ch.threema.app.processors
 
+import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.processors.incomingcspmessage.getSubTaskFromMessage
 import ch.threema.app.processors.reflectedd2dsync.ReflectedContactSyncTask
@@ -10,9 +11,11 @@ import ch.threema.app.processors.reflectedmessageupdate.ReflectedIncomingMessage
 import ch.threema.app.processors.reflectedmessageupdate.ReflectedOutgoingMessageUpdateTask
 import ch.threema.app.processors.reflectedoutgoingmessage.getReflectedOutgoingMessageTask
 import ch.threema.app.tasks.ActiveComposableTask
+import ch.threema.app.typingindicator.TypingIndicatorManager
 import ch.threema.app.utils.AppVersionProvider
 import ch.threema.base.crypto.Nonce
 import ch.threema.base.crypto.NonceScope
+import ch.threema.base.crypto.SymmetricEncryptionService
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.toHexString
 import ch.threema.domain.protocol.connection.data.InboundD2mMessage
@@ -30,20 +33,19 @@ import ch.threema.domain.protocol.csp.messages.GroupEditMessage
 import ch.threema.domain.protocol.csp.messages.GroupReactionMessage
 import ch.threema.domain.protocol.csp.messages.GroupSyncRequestMessage
 import ch.threema.domain.protocol.csp.messages.GroupTextMessage
-import ch.threema.domain.protocol.csp.messages.ImageMessage
 import ch.threema.domain.protocol.csp.messages.ReactionMessage
 import ch.threema.domain.protocol.csp.messages.SetProfilePictureMessage
 import ch.threema.domain.protocol.csp.messages.TextMessage
 import ch.threema.domain.protocol.csp.messages.TypingIndicatorMessage
-import ch.threema.domain.protocol.csp.messages.ballot.GroupPollSetupMessage
-import ch.threema.domain.protocol.csp.messages.ballot.GroupPollVoteMessage
-import ch.threema.domain.protocol.csp.messages.ballot.PollSetupMessage
-import ch.threema.domain.protocol.csp.messages.ballot.PollVoteMessage
 import ch.threema.domain.protocol.csp.messages.file.FileMessage
 import ch.threema.domain.protocol.csp.messages.file.GroupFileMessage
 import ch.threema.domain.protocol.csp.messages.groupcall.GroupCallStartMessage
 import ch.threema.domain.protocol.csp.messages.location.GroupLocationMessage
 import ch.threema.domain.protocol.csp.messages.location.LocationMessage
+import ch.threema.domain.protocol.csp.messages.poll.GroupPollSetupMessage
+import ch.threema.domain.protocol.csp.messages.poll.GroupPollVoteMessage
+import ch.threema.domain.protocol.csp.messages.poll.PollSetupMessage
+import ch.threema.domain.protocol.csp.messages.poll.PollVoteMessage
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallAnswerMessage
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallHangupMessage
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallOfferMessage
@@ -64,16 +66,21 @@ import ch.threema.protobuf.d2d.OutgoingMessage
 import ch.threema.protobuf.d2d.OutgoingMessageUpdate
 import ch.threema.protobuf.d2d.SettingsSync
 import ch.threema.protobuf.d2d.UserProfileSync
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("IncomingReflectedMessageTask")
 
 class IncomingReflectedMessageTask(
     private val message: InboundD2mMessage.Reflected,
     private val serviceManager: ServiceManager,
-) : ActiveComposableTask<Unit> {
+    private val globalEventBuses: GlobalEventBuses,
+    private val typingIndicatorManager: TypingIndicatorManager,
+) : ActiveComposableTask<Unit>, KoinComponent {
     private val nonceFactory by lazy { serviceManager.nonceFactory }
     private val multiDeviceManager by lazy { serviceManager.multiDeviceManager }
     private val myIdentity by lazy { serviceManager.userService.identity!! }
+    private val symmetricEncryptionService: SymmetricEncryptionService by inject()
 
     override suspend fun run(handle: ActiveTaskCodec) {
         val multiDeviceProperties = multiDeviceManager.propertiesProvider.get()
@@ -237,16 +244,18 @@ class IncomingReflectedMessageTask(
                 myIdentity,
             )
 
-            CspE2eMessageType.DEPRECATED_IMAGE -> ImageMessage.fromReflected(incomingMessage)
+            CspE2eMessageType.DEPRECATED_IMAGE -> fromReflected(incomingMessage) { bodyBytes ->
+                LegacyMessageTransformer.transformImageMessage(bodyBytes)
+            }
             CspE2eMessageType.DEPRECATED_AUDIO -> fromReflected(incomingMessage) { bodyBytes ->
                 LegacyMessageTransformer.transformAudioMessage(bodyBytes)
             }
             CspE2eMessageType.DEPRECATED_VIDEO -> fromReflected(incomingMessage) { bodyBytes ->
                 LegacyMessageTransformer.transformVideoMessage(bodyBytes)
             }
-            CspE2eMessageType.GROUP_IMAGE -> throw IllegalStateException("Deprecated group image messages are unsupported")
-            CspE2eMessageType.GROUP_AUDIO -> throw IllegalStateException("Deprecated group audio messages are unsupported")
-            CspE2eMessageType.GROUP_VIDEO -> throw IllegalStateException("Deprecated group video messages are unsupported")
+            CspE2eMessageType.GROUP_IMAGE -> error("Deprecated group image messages are unsupported")
+            CspE2eMessageType.GROUP_AUDIO -> error("Deprecated group audio messages are unsupported")
+            CspE2eMessageType.GROUP_VIDEO -> error("Deprecated group video messages are unsupported")
             CspE2eMessageType.REACTION -> ReactionMessage.fromReflected(incomingMessage)
             CspE2eMessageType.GROUP_REACTION -> GroupReactionMessage.fromReflected(incomingMessage)
 
@@ -256,24 +265,24 @@ class IncomingReflectedMessageTask(
             CspE2eMessageType.GROUP_SET_PROFILE_PICTURE -> logIgnoredMessageAndReturnNull("GROUP_SET_PROFILE_PICTURE")
             CspE2eMessageType.GROUP_DELETE_PROFILE_PICTURE -> logIgnoredMessageAndReturnNull("GROUP_DELETE_PROFILE_PICTURE")
 
-            CspE2eMessageType.WEB_SESSION_RESUME -> throw IllegalStateException(
+            CspE2eMessageType.WEB_SESSION_RESUME -> error(
                 "A web session resume message should never be received as reflected incoming message",
             )
 
             CspE2eMessageType.TYPING_INDICATOR -> TypingIndicatorMessage.fromReflected(incomingMessage)
 
-            CspE2eMessageType.FORWARD_SECURITY_ENVELOPE -> throw IllegalStateException(
+            CspE2eMessageType.FORWARD_SECURITY_ENVELOPE -> error(
                 "A forward security envelope message should never be received as reflected incoming message",
             )
 
-            CspE2eMessageType.WORK_SYNC_DELTA -> throw IllegalStateException(
+            CspE2eMessageType.WORK_SYNC_DELTA -> error(
                 "A work sync delta message should never be received as reflected incoming message",
             )
 
-            CspE2eMessageType.EMPTY -> throw IllegalStateException("An empty message should never be received as reflected incoming message")
+            CspE2eMessageType.EMPTY -> error("An empty message should never be received as reflected incoming message")
 
-            CspE2eMessageType.UNRECOGNIZED -> throw IllegalStateException("The reflected incoming message type is unrecognized")
-            CspE2eMessageType._INVALID_TYPE -> throw IllegalStateException("The reflected incoming message type is invalid")
+            CspE2eMessageType.UNRECOGNIZED -> error("The reflected incoming message type is unrecognized")
+            CspE2eMessageType._INVALID_TYPE -> error("The reflected incoming message type is invalid")
 
             null -> {
                 logger.error("The reflected incoming message type is null")
@@ -293,7 +302,7 @@ class IncomingReflectedMessageTask(
             } else {
                 logger.debug("Do not store nonces for message of type {}", incomingMessage.type)
             }
-            getSubTaskFromMessage(message, TriggerSource.SYNC, serviceManager).run(handle)
+            getSubTaskFromMessage(message, TriggerSource.SYNC, serviceManager, globalEventBuses, typingIndicatorManager).run(handle)
         }
     }
 
@@ -319,18 +328,19 @@ class IncomingReflectedMessageTask(
             okHttpClient = serviceManager.okHttpClient,
             serverAddressProvider = serviceManager.serverAddressProviderService.serverAddressProvider,
             multiDevicePropertyProvider = multiDeviceManager.propertiesProvider,
-            symmetricEncryptionService = serviceManager.symmetricEncryptionService,
+            symmetricEncryptionService = symmetricEncryptionService,
             appVersion = AppVersionProvider.appVersion,
             preferenceService = serviceManager.preferenceService,
             profilePictureRecipientsService = serviceManager.profilePicRecipientsService,
         ).run()
     }
 
-    private suspend fun processContactSync(contactSync: ContactSync) {
+    private fun processContactSync(contactSync: ContactSync) {
         ReflectedContactSyncTask(
             contactSync = contactSync,
             contactModelRepository = serviceManager.modelRepositories.contacts,
             serviceManager = serviceManager,
+            globalEventBuses = globalEventBuses,
         ).run()
     }
 
@@ -342,12 +352,11 @@ class IncomingReflectedMessageTask(
             fileService = serviceManager.fileService,
             okHttpClient = serviceManager.okHttpClient,
             serverAddressProvider = serviceManager.serverAddressProviderService.serverAddressProvider,
-            symmetricEncryptionService = serviceManager.symmetricEncryptionService,
+            symmetricEncryptionService = symmetricEncryptionService,
             multiDeviceManager = multiDeviceManager,
-            conversationService = serviceManager.conversationService,
             conversationCategoryService = serviceManager.conversationCategoryService,
             userService = serviceManager.userService,
-            preferenceService = serviceManager.preferenceService,
+            globalEventBuses = globalEventBuses,
         ).run()
     }
 

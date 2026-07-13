@@ -46,7 +46,6 @@ import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.LocaleUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.utils.WebRTCUtil;
 import ch.threema.app.utils.executor.BackgroundExecutor;
 import ch.threema.app.voip.PeerConnectionClient;
@@ -59,6 +58,7 @@ import ch.threema.protobuf.o2o_call.Envelope;
 
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 /**
  * An activity to debug problems with WebRTC (in the context of Threema Calls).
@@ -131,7 +131,7 @@ public class WebRTCDebugActivity extends ThreemaToolbarActivity implements PeerC
         // Wire up copy button
         assert this.copyButton != null;
         this.copyButton.setOnClickListener(view -> {
-            if (!TestUtil.isEmptyOrNull(this.clipboardString)) {
+            if (!isNullOrEmpty(this.clipboardString)) {
                 this.copyToClipboard(this.clipboardString);
             }
         });
@@ -139,7 +139,7 @@ public class WebRTCDebugActivity extends ThreemaToolbarActivity implements PeerC
         // Wire up send button
         assert this.sendButton != null;
         this.sendButton.setOnClickListener(view -> {
-            if (!TestUtil.isEmptyOrNull(this.clipboardString)) {
+            if (!isNullOrEmpty(this.clipboardString)) {
                 this.prepareSendToSupport();
             }
         });
@@ -420,8 +420,7 @@ public class WebRTCDebugActivity extends ThreemaToolbarActivity implements PeerC
     @SuppressLint("StaticFieldLeak")
     private void sendToSupport(@NonNull String caption) {
         SendToSupportBackgroundTask sendToSupportTask = new SendToSupportBackgroundTask(
-            dependencies.getUserService().getIdentity(),
-            dependencies.getApiConnector(),
+            dependencies.getValidContactsLookupSteps(),
             dependencies.getContactModelRepository(),
             dependencies.getAppRestrictions()
         ) {

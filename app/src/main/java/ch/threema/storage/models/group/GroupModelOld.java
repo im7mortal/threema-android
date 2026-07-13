@@ -1,18 +1,19 @@
 package ch.threema.storage.models.group;
 
+import static ch.threema.common.StringExtensionsKt.truncateUTF8String;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.Objects;
 
+import ch.threema.data.datatypes.ConversationVisibility;
 import ch.threema.data.datatypes.IdColor;
-import ch.threema.data.datatypes.NotificationTriggerPolicyOverride;
-import ch.threema.base.utils.Utils;
-import ch.threema.data.models.GroupIdentity;
+import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverride;
+import ch.threema.data.datatypes.GroupIdentity;
 import ch.threema.domain.models.GroupId;
-import ch.threema.domain.models.GroupReceiverIdentifier;
 import ch.threema.domain.models.UserState;
 import ch.threema.storage.models.ReceiverModel;
 
@@ -29,27 +30,33 @@ public class GroupModelOld implements ReceiverModel {
     public static final String COLUMN_CREATED_AT = "createdAt";
     public static final String COLUMN_SYNCHRONIZED_AT = "synchronizedAt";
     public static final String COLUMN_LAST_UPDATE = "lastUpdateAt"; /* date when the conversation was last updated */
-    public static final String COLUMN_IS_ARCHIVED = "isArchived"; /* whether this group has been archived by user */
+    public static final String COLUMN_CONVERSATION_VISIBILITY = "conversationVisibility";
     public static final String COLUMN_GROUP_DESC = "groupDesc";
     public static final String COLUMN_GROUP_DESC_CHANGED_TIMESTAMP = "changedGroupDescTimestamp";
     public static final String COLUMN_COLOR_INDEX = "colorIndex";
     public static final String COLUMN_USER_STATE = "userState";
-    public static final String COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE = "notificationTriggerPolicyOverride";
+    public static final String COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_POLICY = "notificationTriggerPolicyOverridePolicy";
+    public static final String COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_EXPIRES_AT = "notificationTriggerPolicyOverrideExpiresAt";
 
     private String groupDesc;
-    private Date changedGroupDescTimestamp;
+    private Instant changedGroupDescTimestamp;
 
     private int id;
     private GroupId apiGroupId;
     private String name;
     private String creatorIdentity;
-    private Date createdAt;
-    private Date synchronizedAt;
-    private @Nullable Date lastUpdate;
-    private boolean isArchived;
-    private @NonNull IdColor idColor = IdColor.invalid();
-    private @Nullable UserState userState;
-    private @Nullable Long notificationTriggerPolicyOverride;
+    private Instant createdAt;
+    private Instant synchronizedAt;
+    @Nullable
+    private Instant lastUpdate;
+    @NonNull
+    private ConversationVisibility conversationVisibility = ConversationVisibility.NORMAL;
+    @NonNull
+    private IdColor idColor = IdColor.invalid();
+    @Nullable
+    private UserState userState;
+    @Nullable
+    private GroupNotificationTriggerPolicyOverride notificationTriggerPolicyOverride;
 
     @Nullable
     public String getName() {
@@ -57,7 +64,9 @@ public class GroupModelOld implements ReceiverModel {
     }
 
     public GroupModelOld setName(@Nullable String name) {
-        this.name = Utils.truncateUTF8String(name, GROUP_NAME_MAX_LENGTH_BYTES);
+        this.name = name != null
+            ? truncateUTF8String(name, GROUP_NAME_MAX_LENGTH_BYTES)
+            : null;
         return this;
     }
 
@@ -88,43 +97,48 @@ public class GroupModelOld implements ReceiverModel {
         return this;
     }
 
-    public Date getCreatedAt() {
+    public Instant getCreatedAt() {
         return this.createdAt;
     }
 
-    public GroupModelOld setCreatedAt(Date createdAt) {
+    public GroupModelOld setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
         return this;
     }
 
     @Override
-    public GroupModelOld setLastUpdate(@Nullable Date lastUpdate) {
+    public GroupModelOld setLastUpdate(@Nullable Instant lastUpdate) {
         this.lastUpdate = lastUpdate;
         return this;
     }
 
     @Override
-    public @Nullable Date getLastUpdate() {
+    public @Nullable Instant getLastUpdate() {
         // Note: Never return null for groups, they should always be visible
-        return this.lastUpdate == null ? new Date(0) : this.lastUpdate;
+        return this.lastUpdate == null ? Instant.EPOCH : this.lastUpdate;
     }
 
-    public Date getSynchronizedAt() {
+    public Instant getSynchronizedAt() {
         return this.synchronizedAt;
     }
 
-    public GroupModelOld setSynchronizedAt(Date synchronizedAt) {
+    public GroupModelOld setSynchronizedAt(Instant synchronizedAt) {
         this.synchronizedAt = synchronizedAt;
         return this;
     }
 
     @Override
     public boolean isArchived() {
-        return isArchived;
+        return conversationVisibility == ConversationVisibility.ARCHIVED;
     }
 
-    public GroupModelOld setArchived(boolean archived) {
-        isArchived = archived;
+    @NonNull
+    public ConversationVisibility getConversationVisibility() {
+        return conversationVisibility;
+    }
+
+    public GroupModelOld setConversationVisibility(@NonNull ConversationVisibility conversationVisibility) {
+        this.conversationVisibility = conversationVisibility;
         return this;
     }
 
@@ -132,16 +146,6 @@ public class GroupModelOld implements ReceiverModel {
     public boolean isHidden() {
         // Groups can't currently be hidden from the conversation list
         return false;
-    }
-
-    @NonNull
-    @Override
-    public GroupReceiverIdentifier getIdentifier() {
-        return new GroupReceiverIdentifier(
-            id,
-            creatorIdentity,
-            apiGroupId.toLong()
-        );
     }
 
     public IdColor getIdColor() {
@@ -161,7 +165,7 @@ public class GroupModelOld implements ReceiverModel {
         return this;
     }
 
-    public GroupModelOld setGroupDescTimestamp(Date groupDescDate) {
+    public GroupModelOld setGroupDescTimestamp(Instant groupDescDate) {
         changedGroupDescTimestamp = groupDescDate;
         return this;
     }
@@ -170,7 +174,7 @@ public class GroupModelOld implements ReceiverModel {
         return this.groupDesc;
     }
 
-    public Date getGroupDescTimestamp() {
+    public Instant getGroupDescTimestamp() {
         return this.changedGroupDescTimestamp;
     }
 
@@ -186,19 +190,16 @@ public class GroupModelOld implements ReceiverModel {
     }
 
     @NonNull
-    public GroupModelOld setNotificationTriggerPolicyOverride(@Nullable final Long notificationTriggerPolicyOverride) {
+    public GroupModelOld setNotificationTriggerPolicyOverride(
+        @Nullable final GroupNotificationTriggerPolicyOverride notificationTriggerPolicyOverride
+    ) {
         this.notificationTriggerPolicyOverride = notificationTriggerPolicyOverride;
         return this;
     }
 
     @Nullable
-    public Long getNotificationTriggerPolicyOverride() {
+    public GroupNotificationTriggerPolicyOverride getNotificationTriggerPolicyOverride() {
         return notificationTriggerPolicyOverride;
-    }
-
-    @NonNull
-    public NotificationTriggerPolicyOverride currentNotificationTriggerPolicyOverride() {
-        return NotificationTriggerPolicyOverride.fromDbValueGroup(notificationTriggerPolicyOverride);
     }
 
     public GroupIdentity getGroupIdentity() {

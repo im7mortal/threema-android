@@ -12,7 +12,6 @@ import ch.threema.protobuf.csp.e2e.fs.Version
 import ch.threema.protobuf.d2d.IncomingMessage
 import ch.threema.protobuf.d2d.OutgoingMessage
 import java.nio.charset.StandardCharsets
-import java.util.Arrays
 
 class GroupCallStartMessage(payloadData: GroupCallStartData) :
     AbstractProtobufGroupMessage<GroupCallStartData>(
@@ -119,7 +118,7 @@ class GroupCallStartMessage(payloadData: GroupCallStartData) :
             val apiGroupId = GroupId(data, positionIndex)
             positionIndex += ProtocolDefines.GROUP_ID_LEN
 
-            val protobufPayload = Arrays.copyOfRange(data, positionIndex, length + offset)
+            val protobufPayload = data.copyOfRange(positionIndex, length + offset)
             val groupCallStartData: GroupCallStartData = fromProtobuf(protobufPayload)
 
             return GroupCallStartMessage(groupCallStartData).apply {

@@ -32,7 +32,7 @@ import ch.threema.app.services.DownloadService;
 import ch.threema.app.services.FileService;
 import ch.threema.app.services.MessageService;
 import ch.threema.app.services.UserService;
-import ch.threema.app.services.ballot.BallotService;
+import ch.threema.app.services.poll.PollService;
 import ch.threema.app.services.license.LicenseService;
 import ch.threema.app.ui.listitemholder.AbstractListItemHolder;
 import ch.threema.app.ui.listitemholder.ComposeMessageHolder;
@@ -41,7 +41,6 @@ import ch.threema.app.utils.LinkifyUtil;
 import ch.threema.app.utils.MessageUtil;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.app.utils.StateBitmapUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.utils.TextExtensionsKt;
 import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.ContactModel;
@@ -52,6 +51,8 @@ import ch.threema.storage.models.data.DisplayTag;
 
 import static ch.threema.app.utils.MessageUtilKt.getUiContentColor;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrBlank;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 abstract public class ChatAdapterDecorator extends AdapterDecorator implements LinkifyUtil.UnhandledClickHandler {
     private static final Logger logger = getThreemaLogger("ChatAdapterDecorator");
@@ -104,7 +105,7 @@ abstract public class ChatAdapterDecorator extends AdapterDecorator implements L
         private final UserService userService;
         private final ContactService contactService;
         private final FileService fileService;
-        private final BallotService ballotService;
+        private final PollService pollService;
         private final ThumbnailCache thumbnailCache;
         private final PreferenceService preferenceService;
         private final DownloadService downloadService;
@@ -123,7 +124,7 @@ abstract public class ChatAdapterDecorator extends AdapterDecorator implements L
             UserService userService,
             ContactService contactService,
             FileService fileService,
-            BallotService ballotService,
+            PollService pollService,
             ThumbnailCache thumbnailCache,
             PreferenceService preferenceService,
             DownloadService downloadService,
@@ -139,7 +140,7 @@ abstract public class ChatAdapterDecorator extends AdapterDecorator implements L
             this.userService = userService;
             this.contactService = contactService;
             this.fileService = fileService;
-            this.ballotService = ballotService;
+            this.pollService = pollService;
             this.thumbnailCache = thumbnailCache;
             this.preferenceService = preferenceService;
             this.downloadService = downloadService;
@@ -192,8 +193,8 @@ abstract public class ChatAdapterDecorator extends AdapterDecorator implements L
             return myIdentity;
         }
 
-        public BallotService getBallotService() {
-            return ballotService;
+        public PollService getPollService() {
+            return pollService;
         }
 
         public Map<String, ContactCache> getContactCache() {
@@ -359,7 +360,7 @@ abstract public class ChatAdapterDecorator extends AdapterDecorator implements L
                         viewHolder.avatarView.setImageBitmap(contactCache.avatar);
                         viewHolder.avatarView.setVisibility(View.VISIBLE);
                         if (contactCache.contactModel != null) {
-                            viewHolder.avatarView.setWorkBadgeVisible(helper.getContactService().showBadge(contactCache.contactModel));
+                            viewHolder.avatarView.setIdentityTypeBadgeVisible(helper.getContactService().showIdentityTypeBadge(contactCache.contactModel));
                         }
                     } else {
                         // hide avatar in grouped messages
@@ -388,7 +389,7 @@ abstract public class ChatAdapterDecorator extends AdapterDecorator implements L
 
             CharSequence contentDescription;
 
-            if (!TestUtil.isBlankOrNull(datePrefix)) {
+            if (!isNullOrBlank(datePrefix)) {
                 contentDescription = context.getString(R.string.state_dialog_modified) + ": " + displayDate;
                 if (messageModel.isOutbox()) {
                     displayDate = TextUtils.concat(datePrefix, " | " + displayDate);
@@ -581,7 +582,7 @@ abstract public class ChatAdapterDecorator extends AdapterDecorator implements L
     }
 
     protected void configureBodyText(@NonNull ComposeMessageHolder holder, @Nullable String caption) {
-        if (!TestUtil.isEmptyOrNull(caption)) {
+        if (!isNullOrEmpty(caption)) {
             holder.bodyTextView.setText(formatTextString(holder.bodyTextView.getContext(), caption, filterString));
             // remove movement method. Otherwise clicks on the text are not handled correctly
             holder.bodyTextView.setMovementMethod(null);

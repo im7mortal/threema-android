@@ -3,7 +3,6 @@ package ch.threema.storage.factories;
 import android.content.ContentValues;
 import android.database.Cursor;
 
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
@@ -14,7 +13,7 @@ import java.util.Objects;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.app.services.MessageService;
-import ch.threema.app.utils.JsonUtil;
+import ch.threema.data.datatypes.ConversationVisibility;
 import ch.threema.domain.models.MessageId;
 import ch.threema.storage.ChunkedSequence;
 import ch.threema.storage.CursorHelper;
@@ -30,6 +29,7 @@ import ch.threema.storage.models.MessageType;
 import ch.threema.storage.models.group.GroupModelOld;
 import kotlin.ranges.LongProgression;
 
+import static ch.threema.common.JsonExtensionsKt.parseJsonObjectAsStringMap;
 import static ch.threema.storage.models.data.DisplayTag.DISPLAY_TAG_STARRED;
 
 public class GroupMessageModelFactory extends AbstractMessageModelFactory {
@@ -100,7 +100,7 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
     public List<AbstractMessageModel> getMessagesByText(@Nullable String text, boolean includeArchived, boolean starredOnly, boolean sortAscending) {
         String displayClause, sortClause;
         if (starredOnly) {
-            displayClause = " AND (displayTags & " + DISPLAY_TAG_STARRED + ") > 0 ";
+            displayClause = " AND (" + GroupMessageModel.COLUMN_DISPLAY_TAGS + " & " + DISPLAY_TAG_STARRED + ") > 0 ";
         } else {
             displayClause = "";
         }
@@ -115,27 +115,26 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
             if (text == null) {
                 return convertAbstractList(getReadableDatabase().rawQuery(
                     "SELECT * FROM " + GroupMessageModel.TABLE +
-                        " WHERE isStatusMessage = 0" +
+                        " WHERE " + GroupMessageModel.COLUMN_IS_STATUS_MESSAGE + " = 0" +
                         displayClause +
-                        " ORDER BY createdAtUtc" + sortClause +
+                        " ORDER BY " + GroupMessageModel.COLUMN_CREATED_AT + sortClause +
                         "LIMIT 200",
                     new String[]{}));
             }
 
             return convertAbstractList(getReadableDatabase().rawQuery(
                 "SELECT * FROM " + GroupMessageModel.TABLE +
-                    " WHERE ( ( body LIKE ? " +
-                    " AND type IN (" +
-                    MessageType.TEXT.ordinal() + "," +
-                    MessageType.LOCATION.ordinal() + "," +
-                    MessageType.BALLOT.ordinal() + ") )" +
-                    " OR ( caption LIKE ? " +
-                    " AND type IN (" +
-                    MessageType.IMAGE.ordinal() + "," +
-                    MessageType.FILE.ordinal() + ") ) )" +
-                    " AND isStatusMessage = 0" +
+                    " WHERE ( ( " + GroupMessageModel.COLUMN_BODY + " LIKE ? " +
+                    " AND " + GroupMessageModel.COLUMN_TYPE + " IN (" +
+                    MessageType.TEXT.serializedValue + "," +
+                    MessageType.LOCATION.serializedValue + "," +
+                    MessageType.POLL.serializedValue + ") )" +
+                    " OR ( " + GroupMessageModel.COLUMN_CAPTION + " LIKE ? " +
+                    " AND " + GroupMessageModel.COLUMN_TYPE + " = " +
+                    MessageType.FILE.serializedValue + " ) )" +
+                    " AND " + GroupMessageModel.COLUMN_IS_STATUS_MESSAGE + " = 0" +
                     displayClause +
-                    " ORDER BY createdAtUtc" + sortClause +
+                    " ORDER BY " + GroupMessageModel.COLUMN_CREATED_AT + sortClause +
                     "LIMIT 200",
                 new String[]{
                     "%" + text + "%",
@@ -145,31 +144,30 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
             if (text == null) {
                 return convertAbstractList(getReadableDatabase().rawQuery(
                     "SELECT * FROM " + GroupMessageModel.TABLE + " m" +
-                        " INNER JOIN " + GroupModelOld.TABLE + " g ON g.id = m.groupId" +
-                        " WHERE g.isArchived = 0" +
-                        " AND m.isStatusMessage = 0" +
+                        " INNER JOIN " + GroupModelOld.TABLE + " g ON g." + GroupModelOld.COLUMN_ID + " = m." + GroupMessageModel.COLUMN_GROUP_ID +
+                        " WHERE g." + GroupModelOld.COLUMN_CONVERSATION_VISIBILITY + " != " + ConversationVisibility.ARCHIVED.getSerializedValue() +
+                        " AND m." + GroupMessageModel.COLUMN_IS_STATUS_MESSAGE + " = 0" +
                         displayClause +
-                        " ORDER BY m.createdAtUtc" + sortClause +
+                        " ORDER BY m." + GroupMessageModel.COLUMN_CREATED_AT + sortClause +
                         "LIMIT 200",
                     new String[]{}));
             }
 
             return convertAbstractList(getReadableDatabase().rawQuery(
                 "SELECT * FROM " + GroupMessageModel.TABLE + " m" +
-                    " INNER JOIN " + GroupModelOld.TABLE + " g ON g.id = m.groupId" +
-                    " WHERE g.isArchived = 0" +
-                    " AND ( ( m.body LIKE ? " +
-                    " AND m.type IN (" +
-                    MessageType.TEXT.ordinal() + "," +
-                    MessageType.LOCATION.ordinal() + "," +
-                    MessageType.BALLOT.ordinal() + ") )" +
-                    " OR ( m.caption LIKE ? " +
-                    " AND m.type IN (" +
-                    MessageType.IMAGE.ordinal() + "," +
-                    MessageType.FILE.ordinal() + ") ) )" +
-                    " AND m.isStatusMessage = 0" +
+                    " INNER JOIN " + GroupModelOld.TABLE + " g ON g." + GroupModelOld.COLUMN_ID + " = m." + GroupMessageModel.COLUMN_GROUP_ID +
+                    " WHERE g." + GroupModelOld.COLUMN_CONVERSATION_VISIBILITY + " != " + ConversationVisibility.ARCHIVED.getSerializedValue() +
+                    " AND ( ( m." + GroupMessageModel.COLUMN_BODY + " LIKE ? " +
+                    " AND m." + GroupMessageModel.COLUMN_TYPE + " IN (" +
+                    MessageType.TEXT.serializedValue + "," +
+                    MessageType.LOCATION.serializedValue + "," +
+                    MessageType.POLL.serializedValue + ") )" +
+                    " OR ( m." + GroupMessageModel.COLUMN_CAPTION + " LIKE ? " +
+                    " AND m." + GroupMessageModel.COLUMN_TYPE + " = " +
+                    MessageType.FILE.serializedValue + " ) )" +
+                    " AND m." + GroupMessageModel.COLUMN_IS_STATUS_MESSAGE + " = 0" +
                     displayClause +
-                    " ORDER BY m.createdAtUtc" + sortClause +
+                    " ORDER BY m." + GroupMessageModel.COLUMN_CREATED_AT + sortClause +
                     "LIMIT 200",
                 new String[]{
                     "%" + text + "%",
@@ -221,9 +219,9 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
                 String messageStates = cursorHelper.getString(GroupMessageModel.COLUMN_GROUP_MESSAGE_STATES);
                 if (messageStates != null) {
                     try {
-                        Map<String, Object> messageStatesMap = JsonUtil.convertObject(messageStates);
+                        Map<String, String> messageStatesMap = parseJsonObjectAsStringMap(messageStates);
                         groupMessageModel.setGroupMessageStates(messageStatesMap);
-                    } catch (JSONException ignored) {
+                    } catch (Exception ignored) {
                         // map may not be available or empty
                         groupMessageModel.setGroupMessageStates(null);
                     }
@@ -280,7 +278,7 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
     public long countByTypes(MessageType[] messageTypes) {
         String[] args = new String[messageTypes.length];
         for (int n = 0; n < messageTypes.length; n++) {
-            args[n] = String.valueOf(messageTypes[n].ordinal());
+            args[n] = String.valueOf(messageTypes[n].serializedValue);
         }
 
         Cursor c = getReadableDatabase().rawQuery(

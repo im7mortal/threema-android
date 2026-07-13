@@ -2,10 +2,13 @@ package ch.threema.app.utils
 
 import android.content.Context
 import ch.threema.app.R
+import ch.threema.app.conversation.MessageViewElementFactory
 import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.services.FileService
 import ch.threema.app.services.MessageService
 import ch.threema.app.services.UserService
+import ch.threema.app.test.koinTestModuleRule
+import ch.threema.app.ui.models.MessageViewElement
 import ch.threema.app.utils.QuoteUtil.QuoteContent
 import ch.threema.data.datatypes.ContactNameFormat
 import ch.threema.domain.types.IdentityString
@@ -21,8 +24,28 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.junit.Rule
 
 class QuoteUtilTest {
+
+    @get:Rule
+    val koinTestRule = koinTestModuleRule {
+        factory<MessageViewElementFactory> {
+            mockk {
+                every {
+                    getViewElement(any(), any(), any(), any(), any())
+                } answers {
+                    val type = firstArg<MessageType>()
+                    val body = secondArg<String>()
+                    if (type == MessageType.FILE && body.contains("video/mpeg")) {
+                        MessageViewElement(icon = R.drawable.ic_movie_filled, text = "Video")
+                    } else {
+                        MessageViewElement(text = body)
+                    }
+                }
+            }
+        }
+    }
 
     // Quotes V1
 
@@ -171,9 +194,8 @@ class QuoteUtilTest {
         val quotedModel: AbstractMessageModel = MessageModel(false)
         quotedModel.apiMessageId = quotedMessageId
         quotedModel.identity = quotedIdentity
-        @Suppress("DEPRECATION")
-        quotedModel.type = MessageType.VIDEO
-        quotedModel.body = ""
+        quotedModel.type = MessageType.FILE
+        quotedModel.body = """["","","video/mpeg",512000,"le-video.mp4",1,true,null,null,{}]""" // video file, no caption
 
         // Create quoter model
         val quoterModel: AbstractMessageModel = MessageModel(false)

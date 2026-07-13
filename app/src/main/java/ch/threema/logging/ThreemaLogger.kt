@@ -9,6 +9,8 @@ class ThreemaLogger(
     private val backends: List<LogBackend>,
 ) : MarkerIgnoringBase() {
 
+    override fun getName(): String = tag
+
     var prefix: String? = null
 
     override fun isTraceEnabled() = true

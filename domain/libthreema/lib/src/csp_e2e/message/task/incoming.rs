@@ -94,6 +94,7 @@ enum DiscardReason {
     ReceiverIsNotUser,
     SenderIsUser,
     SenderIsInvalid,
+    SenderPublicKeyNonContributory,
     MetadataDecryptionFailed,
     MetadataDecodingFailed,
     MessageDecryptionFailed,
@@ -583,14 +584,18 @@ impl State {
         //
         // Note: At this point the message is only decoded and validated to some degree. The receive
         // steps have not been run, yet.
-        let message = match decrypt_and_decode_message(
-            context
-                .csp_e2e
-                .client_key
-                .derive_csp_e2e_key(&sender.inner().public_key),
-            payload,
-            &sender,
-        ) {
+        let Some(shared_secret) = context
+            .csp_e2e
+            .client_key
+            .derive_csp_e2e_key(&sender.inner().public_key)
+        else {
+            warn!("Discarding message where the sender's public key is non-contributory");
+            return Ok(ProcessingOutcome::Discard {
+                reason: DiscardReason::SenderPublicKeyNonContributory,
+                acknowledge: AcknowledgeContext::from(&*payload),
+            });
+        };
+        let message = match decrypt_and_decode_message(shared_secret, payload, &sender) {
             ProcessingOutcome::Ok(message) => message,
             ProcessingOutcome::Discard { reason, acknowledge } => {
                 return Ok(ProcessingOutcome::Discard { reason, acknowledge });
@@ -1212,7 +1217,7 @@ impl IncomingMessageTask {
 #[cfg(test)]
 mod tests {
     use core::cell::RefCell;
-    use std::rc::Rc;
+    use std::{rc::Rc, sync::Arc};
 
     use assert_matches::assert_matches;
     use data_encoding::HEXLOWER;
@@ -1296,8 +1301,9 @@ mod tests {
             (identity, CachedContactResult::Invalid(identity))
         }
 
-        fn create_message(
+        fn create_message_with_shared_secret(
             context: &CspE2eContext,
+            shared_secret: CspE2eKey,
             message: &OutgoingMessage,
         ) -> OutgoingMessageWithMetadataBox {
             let nickname = Self::nickname();
@@ -1305,9 +1311,23 @@ mod tests {
                 Self::identity(),
                 (nickname.as_deref().clone().into_non_empty(), nickname.as_deref()),
                 context.user_identity,
-                context.client_key.derive_csp_e2e_key(&Self::public_key()),
+                shared_secret,
                 message,
                 Nonce::random(),
+            )
+        }
+
+        fn create_message(
+            context: &CspE2eContext,
+            message: &OutgoingMessage,
+        ) -> OutgoingMessageWithMetadataBox {
+            Self::create_message_with_shared_secret(
+                context,
+                context
+                    .client_key
+                    .derive_csp_e2e_key(&Self::public_key())
+                    .unwrap(),
+                message,
             )
         }
 
@@ -1566,6 +1586,25 @@ mod tests {
         }
     }
 
+    /// Special Version of `StaticTestSender` to mimic client with all-zero public key.
+    struct TestSenderNonContributory(StaticTestSender);
+    impl TestSenderNonContributory {
+        const IDENTITY: ThreemaId = ThreemaId::predefined(*b"NASTYKEY");
+    }
+    impl TestSender for TestSenderNonContributory {
+        fn identity() -> ThreemaId {
+            Self::IDENTITY
+        }
+
+        fn public_key() -> PublicKey {
+            PublicKey::from([0_u8; 32])
+        }
+
+        fn nickname() -> Delta<String> {
+            Delta::Update("non-contributor".to_owned())
+        }
+    }
+
     struct TestShortcutProvider {
         web_session_resume_buffer: Rc<RefCell<Vec<WebSessionResumeMessage>>>,
     }
@@ -1666,7 +1705,7 @@ mod tests {
             let web_session_resume_buffer = Rc::new(RefCell::new(vec![]));
             let context = CspE2eProtocolContext::from(CspE2eProtocolContextInit {
                 client_info: ClientInfo::Libthreema,
-                config: Rc::new(config),
+                config: Arc::new(config),
                 csp_e2e: CspE2eContextInit {
                     user_identity,
                     client_key: ClientKey::from(&RawClientKey::from_hex(init.client_key).unwrap()),
@@ -2015,7 +2054,8 @@ mod tests {
                 .context
                 .csp_e2e
                 .client_key
-                .derive_csp_e2e_key(&StaticTestSender::public_key());
+                .derive_csp_e2e_key(&StaticTestSender::public_key())
+                .unwrap();
 
             // Create random nonce
             let nonce = Nonce::random();
@@ -2398,6 +2438,57 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn fetch_sender_non_contributory() -> anyhow::Result<()> {
+        let mut context = Context::from(
+            ContextInitBuilder::default()
+                .contact_lookup_cache(vec![TestSenderNonContributory::cached()])
+                .build()?,
+        );
+
+        let state = FetchSenderState {
+            payload: IncomingMessageWithMetadataBox::try_from(
+                MessageWithMetadataBox::try_from(
+                    TestSenderNonContributory::create_message_with_shared_secret(
+                        &context.context.csp_e2e,
+                        context
+                            .context
+                            .csp_e2e
+                            .client_key
+                            .derive_csp_e2e_key(&PublicKey::from([1_u8; PublicKey::LENGTH]))
+                            .unwrap(),
+                        &OutgoingMessage {
+                            id: MessageId::random(),
+                            overrides: MessageOverrides::default(),
+                            created_at: utc_now_ms(),
+                            body: OutgoingMessageBody::Contact(OutgoingContactMessageBody {
+                                receiver_identity: context.database.user_identity,
+                                body: ContactMessageBody::DeliveryReceipt(DeliveryReceiptMessage {
+                                    receipt_type: DeliveryReceiptType::Received,
+                                    message_ids: vec![MessageId::random()],
+                                }),
+                            }),
+                        },
+                    ),
+                )
+                .unwrap(),
+            )
+            .unwrap(),
+            fetch_sender_task: ContactsLookupSubtask::new(
+                vec![TestSenderNonContributory::identity()],
+                CacheLookupPolicy::Allow,
+            ),
+        };
+
+        assert_matches!(
+            State::process_fetch_sender_state(&mut context.context, state)?,
+            ProcessingOutcome::Discard { reason, .. } => {
+                assert_eq!(reason, DiscardReason::SenderPublicKeyNonContributory);
+            }
+        );
+        Ok(())
+    }
+
     // TODO(LIB-16): Add static messages for all other messages
     #[rstest]
     #[case(StaticTestSender::static_text_message())]
@@ -2675,7 +2766,8 @@ mod tests {
                 .context
                 .csp_e2e
                 .client_key
-                .derive_csp_e2e_key(&StaticTestSender::public_key()),
+                .derive_csp_e2e_key(&StaticTestSender::public_key())
+                .unwrap(),
             &OutgoingMessage {
                 id: message_id,
                 overrides: MessageOverrides::default(),
@@ -2773,7 +2865,8 @@ mod tests {
                 .context
                 .csp_e2e
                 .client_key
-                .derive_csp_e2e_key(&StaticTestSender::public_key());
+                .derive_csp_e2e_key(&StaticTestSender::public_key())
+                .unwrap();
             let nonce = Nonce::random();
 
             // Encode and encrypt metadata

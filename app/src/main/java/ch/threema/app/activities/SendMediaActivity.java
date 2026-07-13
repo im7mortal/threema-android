@@ -29,7 +29,6 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Parcelable;
@@ -78,6 +77,7 @@ import java.util.List;
 import java.util.Objects;
 
 import ch.threema.android.ActivityExtensionsKt;
+import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.android.ToastDuration;
 import ch.threema.app.AppConstants;
 import ch.threema.app.R;
@@ -104,20 +104,23 @@ import ch.threema.app.ui.InsetSides;
 import ch.threema.app.ui.MediaItem;
 import ch.threema.app.ui.RootViewDeferringInsetsCallback;
 import ch.threema.app.ui.SendButton;
-import ch.threema.app.ui.SimpleTextWatcher;
+import ch.threema.android.textwatchers.SimpleTextWatcher;
 import ch.threema.app.ui.TranslateDeferringInsetsAnimationCallback;
 import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.utils.AnimationUtil;
 import ch.threema.app.utils.BitmapUtil;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.EditTextUtil;
+import ch.threema.app.utils.FileProviderUtil;
 import ch.threema.app.utils.IntentDataUtil;
 import ch.threema.app.utils.MediaAdapterListener;
 import ch.threema.app.utils.MediaAdapterManager;
 import ch.threema.app.utils.MimeUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.video.VideoTimelineCache;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
+
 import ch.threema.app.messagereceiver.SendingPermissionValidationResult;
 import ch.threema.data.models.GroupModel;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
@@ -266,7 +269,7 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
                     showToast(getApplicationContext(), errorStringRes);
                 }
             }
-            if (allReceiverChatsAreHidden && !dependencies.getConversationCategoryService().isPrivateChat(messageReceiver.getUniqueIdString())) {
+            if (allReceiverChatsAreHidden && !dependencies.getConversationCategoryService().isMarkedAsPrivate(messageReceiver.getConversationId())) {
                 allReceiverChatsAreHidden = false;
             }
         }
@@ -408,7 +411,7 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
         }
 
         String recipients = getIntent().getStringExtra(AppConstants.INTENT_DATA_TEXT);
-        if (!TestUtil.isEmptyOrNull(recipients)) {
+        if (!isNullOrEmpty(recipients)) {
             this.captionEditText.setHint(R.string.add_caption_hint);
             this.captionEditText.addTextChangedListener(new SimpleTextWatcher() {
                 @Override
@@ -424,10 +427,9 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
         }
 
         if (messageReceivers.size() == 1) {
-            var conversationUid = messageReceivers.get(0).getUniqueIdString();
             draftUpdateTextWatcher = new DraftUpdateTextWatcher(
                 dependencies.getDraftManager(),
-                conversationUid,
+                messageReceivers.get(0).getConversationId(),
                 () -> {
                     var mediaItems = mediaAdapterManager.getItems();
                     return !mediaItems.isEmpty() ? mediaItems.get(0).getCaption() : null;
@@ -700,26 +702,30 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
 
     @SuppressLint("UnsupportedChromeOsCameraSystemFeature")
     private void reallyLaunchCamera() {
-        File cameraFile = null;
+        File cameraFile;
         File videoFile;
         try {
-            cameraFile = dependencies.getFileService().createTempFile(".camera", ".jpg");
-            this.cameraFilePath = cameraFile.getCanonicalPath();
+            if (useExternalCamera) {
+                cameraFile = dependencies.getFileService().createShareableTempFile(".camera", ".jpg");
+                videoFile = dependencies.getFileService().createShareableTempFile(".video", ".mp4");
+            } else {
+                cameraFile = dependencies.getFileService().createTempFile(".camera", ".jpg");
+                videoFile = dependencies.getFileService().createTempFile(".video", ".mp4");
+            }
 
-            videoFile = dependencies.getFileService().createTempFile(".video", ".mp4");
+            this.cameraFilePath = cameraFile.getCanonicalPath();
             this.videoFilePath = videoFile.getCanonicalPath();
         } catch (IOException e) {
             logger.error("Exception", e);
             finish();
+            return;
         }
 
         final Intent cameraIntent;
         final int requestCode;
         if (!useExternalCamera) {
             // use internal camera
-            cameraIntent = new Intent(this, CameraActivity.class);
-            cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, cameraFilePath);
-            cameraIntent.putExtra(CameraActivity.EXTRA_VIDEO_OUTPUT, videoFilePath);
+            cameraIntent = CameraActivity.createIntent(this, cameraFilePath, videoFilePath);
             requestCode = ThreemaActivity.ACTIVITY_ID_PICK_CAMERA_INTERNAL;
         } else {
             // use external camera
@@ -733,7 +739,7 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
             }
 
             cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-            cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, dependencies.getFileService().getShareFileUri(cameraFile, null));
+            cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, FileProviderUtil.getUriForFile(this, cameraFile));
             cameraIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
             requestCode = ThreemaActivity.ACTIVITY_ID_PICK_CAMERA_EXTERNAL;
         }
@@ -879,9 +885,9 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
     @SuppressLint("StaticFieldLeak")
     private void addItemsByMediaItem(List<MediaItem> incomingMediaItems, boolean prepend) {
         if (!incomingMediaItems.isEmpty()) {
-            new AsyncTask<Void, Void, List<MediaItem>>() {
+            new LifecycleAwareAsyncTask<Void, List<MediaItem>>() {
                 @Override
-                protected List<MediaItem> doInBackground(Void... voids) {
+                protected List<MediaItem> doInBackground(Void params) {
                     List<MediaItem> itemList = new ArrayList<>();
 
                     for (MediaItem incomingMediaItem : incomingMediaItems) {
@@ -931,7 +937,7 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
                         updateMenu();
                     }
                 }
-            }.execute();
+            }.execute(this, null);
         }
     }
 
@@ -957,7 +963,7 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
                 case ThreemaActivity.ACTIVITY_ID_PICK_CAMERA_INTERNAL:
                     if (intent != null && intent.getBooleanExtra(CameraActivity.EXTRA_VIDEO_RESULT, false)) {
                         // it's a video file
-                        if (!TestUtil.isEmptyOrNull(this.videoFilePath)) {
+                        if (!isNullOrEmpty(this.videoFilePath)) {
                             File videoFile = new File(this.videoFilePath);
                             if (videoFile.exists() && videoFile.length() > 0) {
                                 final Uri videoUri = Uri.fromFile(videoFile);
@@ -969,7 +975,7 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
                             }
                         }
                     } else {
-                        if (!TestUtil.isEmptyOrNull(this.cameraFilePath)) {
+                        if (!isNullOrEmpty(this.cameraFilePath)) {
                             final Uri cameraUri = Uri.fromFile(new File(this.cameraFilePath));
                             if (cameraUri != null) {
                                 BitmapUtil.ExifOrientation exifOrientation = BitmapUtil.getExifOrientation(this, cameraUri);
@@ -1024,7 +1030,9 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
                 captionEditText.removeTextChangedListener(draftUpdateTextWatcher);
                 draftUpdateTextWatcher.stop();
             }
-            dependencies.getDraftManager().remove(messageReceivers.get(0).getUniqueIdString());
+            dependencies.getDraftManager().remove(
+                messageReceivers.get(0).getConversationId()
+            );
         }
 
         // return last media filter to chat via intermediate hop through MediaAttachActivity
@@ -1078,14 +1086,14 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
         Uri imageUri = currentItem.getUri();
 
         try {
-            tempFile = dependencies.getFileService().createTempFile(".crop", ".png");
+            tempFile = dependencies.getFileService().createShareableTempFile(".crop", ".png");
 
             CropImageActivity.CropImageParameters cropImageParameters =
                 new CropImageActivity.CropImageParameters(
                     /* sourceUri = */
                     imageUri,
                     /* saveUri = */
-                    Uri.fromFile(tempFile)
+                    FileProviderUtil.getUriForFile(this, tempFile)
                 );
             cropImageParameters.setFlip(currentItem.getFlip());
             cropImageParameters.setRotation(currentItem.getRotation());
@@ -1194,7 +1202,7 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
 
         captionEditText.setText(null);
 
-        if (!TestUtil.isEmptyOrNull(caption)) {
+        if (!isNullOrEmpty(caption)) {
             captionEditText.append(caption);
         }
     }

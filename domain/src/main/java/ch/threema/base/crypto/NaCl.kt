@@ -19,8 +19,9 @@ private val logger = getThreemaLogger("NaCl")
  *
  *  @throws CryptoException if libthreema fails to derive the shared secret
  */
-class NaCl(privateKey: ByteArray, publicKey: ByteArray) {
-
+class NaCl
+@Throws(CryptoException::class)
+constructor(privateKey: ByteArray, publicKey: ByteArray) {
     @JvmField
     val sharedSecret: ByteArray = x25519Hsalsa20DeriveSharedSecret(
         publicKey = publicKey,

@@ -21,12 +21,11 @@ import com.google.android.material.textfield.TextInputLayout;
 import org.slf4j.Logger;
 
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.emojis.EmojiEditText;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.ActivityService;
 import ch.threema.app.services.LocaleService;
-import ch.threema.app.ui.SimpleTextWatcher;
+import ch.threema.android.textwatchers.SimpleTextWatcher;
 import ch.threema.app.utils.DialogUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
@@ -216,9 +215,9 @@ public class TextEntryDialog extends ThreemaDialogFragment {
                 }
             }
         }
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager != null) {
-            localeService = ThreemaApplication.getServiceManager().getLocaleService();
+            localeService = serviceManager.getLocaleService();
         }
     }
 

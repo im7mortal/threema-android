@@ -1,9 +1,7 @@
 package ch.threema.app.adapters;
 
-import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.os.AsyncTask;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -13,17 +11,22 @@ import android.widget.ImageView;
 import java.io.IOException;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.R;
 
 public class StickerSelectorAdapter extends ArrayAdapter<String> {
     private String[] items;
     private LayoutInflater layoutInflater;
 
-    public StickerSelectorAdapter(Context context, String[] items) {
-        super(context, R.layout.item_sticker_selector, items);
+    private final AppCompatActivity activity;
 
+    public StickerSelectorAdapter(AppCompatActivity activity, String[] items) {
+        super(activity, R.layout.item_sticker_selector, items);
+
+        this.activity = activity;
         this.items = items;
-        this.layoutInflater = LayoutInflater.from(context);
+        this.layoutInflater = LayoutInflater.from(activity);
     }
 
     private class StickerSelectorHolder {
@@ -54,9 +57,9 @@ public class StickerSelectorAdapter extends ArrayAdapter<String> {
         final String item = items[position];
         holder.position = position;
 
-        new AsyncTask<Void, Void, Bitmap>() {
+        new LifecycleAwareAsyncTask<Void, Bitmap>() {
             @Override
-            protected Bitmap doInBackground(Void... params) {
+            protected Bitmap doInBackground(Void params) {
                 try {
                     return BitmapFactory.decodeStream(getContext().getAssets().open(item));
                 } catch (IOException e) {
@@ -73,7 +76,7 @@ public class StickerSelectorAdapter extends ArrayAdapter<String> {
                 }
             }
 
-        }.executeOnExecutor(AsyncTask.SERIAL_EXECUTOR);
+        }.execute(activity, null);
 
         return itemView;
     }

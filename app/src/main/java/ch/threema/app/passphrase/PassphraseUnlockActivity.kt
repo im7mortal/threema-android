@@ -16,6 +16,7 @@ import androidx.lifecycle.lifecycleScope
 import ch.threema.android.bindExtra
 import ch.threema.android.buildActivityIntent
 import ch.threema.android.buildIntent
+import ch.threema.android.textwatchers.SimpleTextWatcher
 import ch.threema.app.AppConstants
 import ch.threema.app.GlobalAppState
 import ch.threema.app.R
@@ -24,7 +25,6 @@ import ch.threema.app.di.awaitAppFullyReady
 import ch.threema.app.dialogs.GenericProgressDialog
 import ch.threema.app.services.LifetimeService
 import ch.threema.app.ui.InsetSides
-import ch.threema.app.ui.SimpleTextWatcher
 import ch.threema.app.ui.SpacingValues
 import ch.threema.app.ui.ThreemaTextInputEditText
 import ch.threema.app.ui.applyDeviceInsetsAsPadding
@@ -52,6 +52,7 @@ class PassphraseUnlockActivity : ThreemaActivity() {
     private val masterKeyManager: MasterKeyManager by inject()
     private val dispatcherProvider: DispatcherProvider by inject()
     private val lifetimeService: LifetimeService by inject()
+    private val globalAppState: GlobalAppState by inject()
 
     private lateinit var passphraseText: ThreemaTextInputEditText
     private lateinit var passphraseLayout: TextInputLayout
@@ -193,7 +194,7 @@ class PassphraseUnlockActivity : ThreemaActivity() {
     private fun triggerConnection() {
         lifecycleScope.launch(dispatcherProvider.worker) {
             awaitAppFullyReady()
-            if (GlobalAppState.isAppResumed) {
+            if (globalAppState.isAppResumed) {
                 lifetimeService.acquireConnection(AppConstants.ACTIVITY_CONNECTION_TAG)
             } else {
                 lifetimeService.ensureConnection()

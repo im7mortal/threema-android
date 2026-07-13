@@ -22,7 +22,7 @@ public class ThreemaFeatureTest {
 
         Assert.assertEquals(0, ThreemaFeature.featureMaskToLevel(ThreemaFeature.AUDIO));
         Assert.assertEquals(1, ThreemaFeature.featureMaskToLevel(ThreemaFeature.GROUP_CHAT));
-        Assert.assertEquals(2, ThreemaFeature.featureMaskToLevel(ThreemaFeature.BALLOT));
+        Assert.assertEquals(2, ThreemaFeature.featureMaskToLevel(ThreemaFeature.POLL));
         Assert.assertEquals(3, ThreemaFeature.featureMaskToLevel(ThreemaFeature.FILE));
         Assert.assertEquals(0, ThreemaFeature.featureMaskToLevel(ThreemaFeature.VOIP));
     }
@@ -32,7 +32,7 @@ public class ThreemaFeatureTest {
         final long maskAllFeatures = new ThreemaFeature.Builder()
             .audio(true)
             .group(true)
-            .ballot(true)
+            .poll(true)
             .file(true)
             .voip(true)
             .videocalls(true)
@@ -47,7 +47,7 @@ public class ThreemaFeatureTest {
         final long maskPartialFeatures = new ThreemaFeature.Builder()
             .audio(true)
             .group(false)
-            .ballot(true)
+            .poll(true)
             .file(false)
             .voip(true)
             .videocalls(false)

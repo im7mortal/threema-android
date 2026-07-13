@@ -2,14 +2,14 @@ package ch.threema.app.threemasafe;
 
 import org.koin.java.KoinJavaComponent;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-
+import androidx.annotation.NonNull;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.restrictions.AppRestrictions;
 import ch.threema.app.utils.ConfigUtils;
-import ch.threema.app.utils.TestUtil;
-import ch.threema.base.utils.Base32;
+import ch.threema.common.Base32;
+
+import static ch.threema.common.HashKt.sha256;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class ThreemaSafeMDMConfig {
     private static final int BACKUP_DISABLE = 0; // disabled threema safe backup
@@ -50,6 +50,10 @@ public class ThreemaSafeMDMConfig {
 
     private static ThreemaSafeMDMConfig sInstance = null;
 
+    /**
+     * Use Koin to access the instance
+     */
+    @Deprecated
     public static synchronized ThreemaSafeMDMConfig getInstance() {
         if (sInstance == null) {
             sInstance = new ThreemaSafeMDMConfig();
@@ -90,17 +94,17 @@ public class ThreemaSafeMDMConfig {
                 booleanPreset = appRestrictions.isSafeEnabledOrNull();
                 if (booleanPreset == null) {
                     this.backupStatus = BACKUP_ENABLE;
-                    if (!TestUtil.isEmptyOrNull(serverName)) {
+                    if (!isNullOrEmpty(serverName)) {
                         this.backupStatus |= SERVER_PRESET;
                     }
                 } else if (!booleanPreset) {
                     this.backupStatus = BACKUP_DISABLE;
                 } else { // true
                     this.backupStatus = BACKUP_FORCE;
-                    if (!TestUtil.isEmptyOrNull(this.password)) {
+                    if (!isNullOrEmpty(this.password)) {
                         this.backupStatus |= PASSWORD_PRESET;
                     }
-                    if (!TestUtil.isEmptyOrNull(serverName)) {
+                    if (!isNullOrEmpty(serverName)) {
                         this.backupStatus |= SERVER_PRESET;
                     }
                 }
@@ -108,17 +112,17 @@ public class ThreemaSafeMDMConfig {
 
             if (appRestrictions.isSafeRestoreEnabled()) {
                 this.identity = appRestrictions.getSafeRestoreId();
-                if (TestUtil.isEmptyOrNull(this.identity)) {
+                if (isNullOrEmpty(this.identity)) {
                     this.restoreStatus = RESTORE_ENABLE;
-                    if (!TestUtil.isEmptyOrNull(serverName)) {
+                    if (!isNullOrEmpty(serverName)) {
                         this.restoreStatus |= SERVER_PRESET;
                     }
                 } else {
                     this.restoreStatus = RESTORE_FORCE;
-                    if (!TestUtil.isEmptyOrNull(password)) {
+                    if (!isNullOrEmpty(password)) {
                         this.restoreStatus |= PASSWORD_PRESET;
                     }
-                    if (!TestUtil.isEmptyOrNull(serverName)) {
+                    if (!isNullOrEmpty(serverName)) {
                         this.restoreStatus |= SERVER_PRESET;
                     }
                 }
@@ -196,8 +200,9 @@ public class ThreemaSafeMDMConfig {
         return isBackupAdminDisabled();
     }
 
+    @NonNull
     private String hash() {
-        String result =
+        final String result =
             Integer.toHexString(this.backupStatus) +
                 Integer.toHexString(this.restoreStatus) +
                 identity +
@@ -205,14 +210,7 @@ public class ThreemaSafeMDMConfig {
                 serverName +
                 serverUsername +
                 serverPassword;
-        try {
-            MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
-            messageDigest.update(result.getBytes());
-            return Base32.encode(messageDigest.digest());
-        } catch (NoSuchAlgorithmException e) {
-            //
-        }
-        return "";
+        return Base32.encode(sha256(result));
     }
 
     public void saveConfig(PreferenceService preferenceService) {

@@ -1,14 +1,14 @@
 package ch.threema.app.identitylinks
 
 import ch.threema.app.services.UserService
-import ch.threema.app.test.testDispatcherProvider
 import ch.threema.domain.protocol.api.LinkMobileNoException
+import ch.threema.testhelpers.testDispatcherProvider
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
+import kotlin.test.assertIs
 import kotlinx.coroutines.test.runTest
 
 class VerifyMobileNumberUseCaseTest {
@@ -51,7 +51,7 @@ class VerifyMobileNumberUseCaseTest {
             verificationCode = "01234567",
         )
 
-        assertTrue { result is VerifyMobileNumberUseCase.VerificationResult.Failure }
+        assertIs<VerifyMobileNumberUseCase.VerificationResult.Failure>(result)
         verify(exactly = 1) { userServiceMock.verifyMobileNumber(any(), any()) }
     }
 
@@ -71,7 +71,7 @@ class VerifyMobileNumberUseCaseTest {
             verificationCode = "012345678",
         )
 
-        assertTrue { result is VerifyMobileNumberUseCase.VerificationResult.Failure }
+        assertIs<VerifyMobileNumberUseCase.VerificationResult.Failure>(result)
         verify(exactly = 0) { userServiceMock.verifyMobileNumber(any(), any()) }
     }
 
@@ -91,7 +91,7 @@ class VerifyMobileNumberUseCaseTest {
             verificationCode = "0123ABCD",
         )
 
-        assertTrue { result is VerifyMobileNumberUseCase.VerificationResult.Failure }
+        assertIs<VerifyMobileNumberUseCase.VerificationResult.Failure>(result)
         verify(exactly = 0) { userServiceMock.verifyMobileNumber(any(), any()) }
     }
 
@@ -110,7 +110,7 @@ class VerifyMobileNumberUseCaseTest {
             verificationCode = "01234567",
         )
 
-        assertTrue { result is VerifyMobileNumberUseCase.VerificationResult.Failure }
+        assertIs<VerifyMobileNumberUseCase.VerificationResult.Failure>(result)
         verify(exactly = 0) { userServiceMock.verifyMobileNumber(any(), any()) }
     }
 
@@ -129,7 +129,7 @@ class VerifyMobileNumberUseCaseTest {
             verificationCode = "01234567",
         )
 
-        assertTrue { result is VerifyMobileNumberUseCase.VerificationResult.Failure }
+        assertIs<VerifyMobileNumberUseCase.VerificationResult.Failure>(result)
         verify(exactly = 0) { userServiceMock.verifyMobileNumber(any(), any()) }
     }
 }

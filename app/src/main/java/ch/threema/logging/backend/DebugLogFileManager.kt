@@ -2,6 +2,8 @@ package ch.threema.logging.backend
 
 import android.content.Context
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.ByteSize
+import ch.threema.common.byteSize
 import java.io.File
 import java.time.Instant
 import java.time.ZoneOffset
@@ -29,6 +31,9 @@ class DebugLogFileManager(
 
     fun getFallbackLogFiles() =
         getLogFiles(fallbackLogDirectory)
+
+    fun getTotalLogFileSize(): ByteSize =
+        getLogFiles().byteSize
 
     private fun getLogFiles(directory: File): List<File> =
         directory.listFiles { file ->

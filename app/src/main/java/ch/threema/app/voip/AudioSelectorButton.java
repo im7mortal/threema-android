@@ -18,11 +18,11 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import ch.threema.app.R;
 import ch.threema.app.utils.AudioDevice;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.app.voip.listeners.VoipAudioManagerListener;
 import ch.threema.app.voip.managers.VoipListenerManager;
 import ch.threema.app.voip.services.VoipCallService;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.base.TestUtilKt.isInDeviceTest;
 
 public class AudioSelectorButton extends AppCompatImageView implements View.OnClickListener {
     private static final Logger logger = getThreemaLogger("AudioSelectorButton");
@@ -88,7 +88,7 @@ public class AudioSelectorButton extends AppCompatImageView implements View.OnCl
         layers.findDrawableByLayerId(R.id.speakerphoneItem)
             .setAlpha(selectedAudioDevice.equals(AudioDevice.SPEAKER_PHONE) ? VISIBLE : HIDDEN);
 
-        if (!TestUtil.isInDeviceTest()) {
+        if (!isInDeviceTest()) {
             setClickable(availableAudioDevices.size() > 1);
             setEnabled(availableAudioDevices.size() > 1);
         }
@@ -97,7 +97,7 @@ public class AudioSelectorButton extends AppCompatImageView implements View.OnCl
     private void init() {
         setOnClickListener(this);
 
-        AudioDevice initialAudioDevice = !TestUtil.isInDeviceTest()
+        AudioDevice initialAudioDevice = !isInDeviceTest()
             ? AudioDevice.NONE
             : AudioDevice.SPEAKER_PHONE;
 

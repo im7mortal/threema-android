@@ -3,19 +3,12 @@ package ch.threema.app.groupmanagement
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.LargeTest
 import ch.threema.app.DangerousTest
-import ch.threema.app.listeners.GroupListener
-import ch.threema.app.managers.ListenerManager
 import ch.threema.app.testutils.TestHelpers.TestContact
 import ch.threema.app.testutils.TestHelpers.TestGroup
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.domain.protocol.csp.messages.GroupLeaveMessage
 import ch.threema.domain.protocol.csp.messages.GroupSyncRequestMessage
-import ch.threema.domain.types.IdentityString
 import junit.framework.TestCase.assertEquals
-import junit.framework.TestCase.assertFalse
-import junit.framework.TestCase.assertTrue
-import junit.framework.TestCase.fail
-import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlinx.coroutines.test.runTest
 import org.junit.runner.RunWith
@@ -23,16 +16,16 @@ import org.junit.runner.RunWith
 /**
  * Tests that incoming group leave messages are handled correctly.
  */
-@RunWith(AndroidJUnit4::class)
 @LargeTest
 @DangerousTest
+@RunWith(AndroidJUnit4::class)
 class IncomingGroupLeaveTest : GroupControlTest<GroupLeaveMessage>() {
     /**
      * Test that contact A leaving my group works as expected.
      */
     @Test
     fun testValidLeaveInMyGroup() = runTest {
-        assertSuccessfulLeave(myGroup, contactA, true)
+        assertSuccessfulLeave(myGroup, contactA)
     }
 
     /**
@@ -91,11 +84,6 @@ class IncomingGroupLeaveTest : GroupControlTest<GroupLeaveMessage>() {
         )
     }
 
-    @AfterTest
-    fun removeAllGroupListeners() {
-        GroupLeaveTracker.stopAllListeners()
-    }
-
     override fun createMessageForGroup() = GroupLeaveMessage()
 
     override fun testCommonGroupReceiveStepUnknownGroupUserCreator() {
@@ -125,7 +113,6 @@ class IncomingGroupLeaveTest : GroupControlTest<GroupLeaveMessage>() {
     private suspend fun assertSuccessfulLeave(
         group: TestGroup,
         contact: TestContact,
-        expectStateChange: Boolean = false,
     ) {
         serviceManager.groupService.resetCache(group.groupModel.id)
         val groupIdentity = GroupIdentity(group.groupCreator.identity, group.apiGroupId.toLong())
@@ -136,15 +123,8 @@ class IncomingGroupLeaveTest : GroupControlTest<GroupLeaveMessage>() {
             serviceManager.modelRepositories.groups.getByGroupIdentity(groupIdentity)?.data?.otherMembers?.toList(),
         )
 
-        val leaveTracker = GroupLeaveTracker(group, contact.identity, expectStateChange)
-            .apply { start() }
-
         // Process the group rename message
         processMessage(createEncryptedGroupLeaveMessage(group, contact), contact.identityStore)
-
-        leaveTracker.assertMemberLeft()
-
-        leaveTracker.stop()
 
         serviceManager.groupService.resetCache(group.groupModel.id)
 
@@ -174,14 +154,8 @@ class IncomingGroupLeaveTest : GroupControlTest<GroupLeaveMessage>() {
         assertGroupIdentities(expectedMemberList, group)
         assertMemberCount(expectedMemberList.size, group)
 
-        val leaveTracker = GroupLeaveTracker(group, contact.identity).apply { start() }
-
         // Process the group rename message
         processMessage(createEncryptedGroupLeaveMessage(group, contact), contact.identityStore)
-
-        leaveTracker.assertNoMemberLeft()
-
-        leaveTracker.stop()
 
         serviceManager.groupService.resetCache(group.groupModel.id)
 
@@ -239,90 +213,6 @@ class IncomingGroupLeaveTest : GroupControlTest<GroupLeaveMessage>() {
                 expectedMemberCount,
                 serviceManager.groupService.countMembers(group.groupModel),
             )
-        }
-    }
-
-    private class GroupLeaveTracker(
-        private val group: TestGroup?,
-        private val leavingIdentity: IdentityString?,
-        private val expectStateChange: Boolean = false,
-    ) {
-        private var memberHasLeft = false
-
-        private val groupListener = object : GroupListener {
-            override fun onCreate(groupIdentity: GroupIdentity) = fail()
-
-            override fun onRename(groupIdentity: GroupIdentity) = fail()
-
-            override fun onUpdatePhoto(groupIdentity: GroupIdentity) = fail()
-
-            override fun onRemove(groupDbId: Long) = fail()
-
-            override fun onNewMember(
-                groupIdentity: GroupIdentity,
-                identityNew: String,
-            ) = fail()
-
-            override fun onMemberLeave(
-                groupIdentity: GroupIdentity,
-                identityLeft: String,
-            ) {
-                assertFalse(memberHasLeft)
-                group?.let {
-                    assertEquals(it.apiGroupId.toLong(), groupIdentity.groupId)
-                    assertEquals(it.groupCreator.identity, groupIdentity.creatorIdentity)
-                    assertEquals(leavingIdentity, identityLeft)
-                }
-                memberHasLeft = true
-            }
-
-            override fun onMemberKicked(
-                groupIdentity: GroupIdentity,
-                identityKicked: String,
-            ) = fail()
-
-            override fun onUpdate(groupIdentity: GroupIdentity) = fail()
-
-            override fun onLeave(groupIdentity: GroupIdentity) = fail()
-
-            override fun onGroupStateChanged(
-                groupIdentity: GroupIdentity,
-                oldState: Int,
-                newState: Int,
-            ) {
-                if (!expectStateChange) {
-                    fail()
-                }
-            }
-        }
-
-        companion object {
-            private val groupListeners: MutableList<GroupListener> = mutableListOf()
-
-            fun stopAllListeners() {
-                for (groupListener in groupListeners) {
-                    ListenerManager.groupListeners.remove(groupListener)
-                }
-                groupListeners.clear()
-            }
-        }
-
-        fun start() {
-            ListenerManager.groupListeners.add(groupListener)
-            groupListeners.add(groupListener)
-        }
-
-        fun assertMemberLeft() {
-            assertTrue(memberHasLeft)
-        }
-
-        fun assertNoMemberLeft() {
-            assertFalse(memberHasLeft)
-        }
-
-        fun stop() {
-            ListenerManager.groupListeners.remove(groupListener)
-            groupListeners.remove(groupListener)
         }
     }
 }

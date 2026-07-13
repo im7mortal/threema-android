@@ -46,7 +46,6 @@ import ch.threema.android.ToastDuration
 import ch.threema.android.buildActivityIntent
 import ch.threema.android.getIntOrNull
 import ch.threema.android.ownedBy
-import ch.threema.app.AppConstants
 import ch.threema.app.R
 import ch.threema.app.activities.ComposeMessageActivity
 import ch.threema.app.activities.ThreemaActivity
@@ -82,6 +81,7 @@ import ch.threema.app.voip.groupcall.GroupCallIntention
 import ch.threema.app.voip.util.VoipUtil
 import ch.threema.app.voip.viewmodel.GroupCallViewModel
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.data.datatypes.LocalGroupId
 import ch.threema.storage.models.group.GroupModelOld
 import com.bumptech.glide.Glide
@@ -120,6 +120,7 @@ class GroupCallActivity : ThreemaActivity(), GenericAlertDialog.DialogClickListe
 
     private val permissionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { activityResult ->
         if (activityResult.resultCode == RESULT_OK) {
+            logger.info("Group call permissions granted, joining call")
             joinCallRespectingPhoneState()
         } else {
             setResult(RESULT_CANCELED)
@@ -344,9 +345,8 @@ class GroupCallActivity : ThreemaActivity(), GenericAlertDialog.DialogClickListe
     }
 
     private fun handleIntent(intent: Intent) {
-        logger.debug("handleIntent")
-
         intention = getIntention(intent)
+        logger.info("handleIntent with intention = {}", intention)
 
         val groupId = LocalGroupId(intent.getIntExtra(EXTRA_GROUP_ID, -1))
         viewModel.setGroupId(groupId)
@@ -500,8 +500,8 @@ class GroupCallActivity : ThreemaActivity(), GenericAlertDialog.DialogClickListe
         viewModel.isMicrophoneActive().observe(this) { microphoneActive ->
             microphoneMuted = !microphoneActive
             val imageResource = when (microphoneMuted) {
-                true -> R.drawable.ic_mic_off_outline
-                false -> R.drawable.ic_keyboard_voice_outline
+                true -> R.drawable.ic_microphone_off_outline
+                false -> R.drawable.ic_microphone_outline
             }
             views.buttonToggleMic.setImageResource(imageResource)
         }
@@ -744,8 +744,10 @@ class GroupCallActivity : ThreemaActivity(), GenericAlertDialog.DialogClickListe
     private fun setGroupChatAction(groupModel: GroupModelOld?) {
         if (groupModel != null) {
             views.title.setOnClickListener {
-                val intent = Intent(this, ComposeMessageActivity::class.java)
-                intent.putExtra(AppConstants.INTENT_DATA_GROUP_DATABASE_ID, groupModel.id.toLong())
+                val intent = ComposeMessageActivity.createIntent(
+                    context = this,
+                    conversationId = GroupConversationId(groupDatabaseId = groupModel.id.toLong()),
+                )
                 startActivity(intent)
             }
         } else {

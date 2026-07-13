@@ -12,7 +12,7 @@ import com.huawei.hms.push.RemoteMessage;
 
 import org.slf4j.Logger;
 
-import java.util.Date;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 
@@ -20,8 +20,9 @@ import androidx.annotation.Nullable;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.utils.PushUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
 import ch.threema.base.ThreemaException;
+
+import static ch.threema.base.TestUtilKt.isInDeviceTest;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
 
@@ -65,9 +66,9 @@ public class PushService extends HmsMessageService {
         logger.info("Received HMS message: {}", remoteMessage.getMessageId());
         // Log message sent time
         try {
-            Date sentDate = new Date(remoteMessage.getSentTime());
+            Instant sentDate = Instant.ofEpochMilli(remoteMessage.getSentTime());
             logger.info("*** Message sent     :  {}", sentDate);
-            logger.info("*** Message received : {}", new Date());
+            logger.info("*** Message received : {}", Instant.now());
             logger.info("*** Original priority: {}", remoteMessage.getOriginalUrgency());
             logger.info("*** Current priority: {}", remoteMessage.getUrgency());
         } catch (Exception ignore) {
@@ -83,7 +84,7 @@ public class PushService extends HmsMessageService {
      * check for specific huawei services
      */
     public static boolean hmsServicesInstalled(Context context) {
-        return TestUtil.isInDeviceTest() || (HuaweiMobileServicesUtil.isHuaweiMobileServicesAvailable(context) == ConnectionResult.SUCCESS);
+        return isInDeviceTest() || (HuaweiMobileServicesUtil.isHuaweiMobileServicesAvailable(context) == ConnectionResult.SUCCESS);
     }
 
     /**

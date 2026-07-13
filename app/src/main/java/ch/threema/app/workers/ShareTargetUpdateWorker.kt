@@ -3,7 +3,6 @@ package ch.threema.app.workers
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.os.Build
-import androidx.annotation.WorkerThread
 import androidx.core.content.getSystemService
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -60,11 +59,10 @@ class ShareTargetUpdateWorker(
         return Result.success()
     }
 
-    companion object {
-        private const val WORKER_SHARE_TARGET_UPDATE = "ShareTargetUpdate"
-
-        @WorkerThread
-        fun scheduleShareTargetShortcutUpdate(context: Context): Boolean {
+    class Scheduler(
+        private val workManager: WorkManager,
+    ) {
+        fun schedulePeriodicUpdate(): Boolean {
             logger.info("Scheduling share target shortcut update work")
             try {
                 val workRequest = buildPeriodicWorkRequest<ShareTargetUpdateWorker>(
@@ -77,7 +75,6 @@ class ShareTargetUpdateWorker(
                     setInitialDelay(20.seconds)
                 }
 
-                val workManager = WorkManager.getInstance(context)
                 workManager.enqueueUniquePeriodicWork(WORKER_SHARE_TARGET_UPDATE, ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE, workRequest)
             } catch (e: IllegalStateException) {
                 logger.error("Unable to schedule share target update work", e)
@@ -87,8 +84,12 @@ class ShareTargetUpdateWorker(
             return true
         }
 
-        fun cancelScheduledShareTargetShortcutUpdate(context: Context) {
-            WorkManager.getInstance(context).cancelUniqueWork(WORKER_SHARE_TARGET_UPDATE)
+        fun cancelPeriodicUpdate() {
+            workManager.cancelUniqueWork(WORKER_SHARE_TARGET_UPDATE)
         }
+    }
+
+    companion object {
+        private const val WORKER_SHARE_TARGET_UPDATE = "ShareTargetUpdate"
     }
 }

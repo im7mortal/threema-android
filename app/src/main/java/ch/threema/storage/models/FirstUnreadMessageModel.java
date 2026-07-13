@@ -1,9 +1,9 @@
 package ch.threema.storage.models;
 
-import java.util.Date;
+import java.time.Instant;
 
 /**
- * Only for the the divider
+ * Only for the divider
  */
 public class FirstUnreadMessageModel extends AbstractMessageModel {
     @Override
@@ -57,12 +57,12 @@ public class FirstUnreadMessageModel extends AbstractMessageModel {
     }
 
     @Override
-    public Date getModifiedAt() {
+    public Instant getModifiedAt() {
         return null;
     }
 
     @Override
-    public Date getPostedAt() {
+    public Instant getPostedAt() {
         return null;
     }
 

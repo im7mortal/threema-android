@@ -1,39 +1,37 @@
 package ch.threema.app.processors
 
 import android.Manifest
-import android.content.Intent
 import android.os.Build
 import androidx.annotation.CallSuper
 import androidx.test.rule.GrantPermissionRule
 import ch.threema.KoinTestRule
-import ch.threema.app.TestCoreServiceManager
-import ch.threema.app.ThreemaApplication
+import ch.threema.app.di.SessionScopeContainer
+import ch.threema.app.di.SessionScopeContainerHolder
 import ch.threema.app.di.modules.sessionScopedModule
-import ch.threema.app.managers.ListenerManager
+import ch.threema.app.eventbus.GlobalEventBuses
+import ch.threema.app.eventbus.events.ContactEvent
+import ch.threema.app.eventbus.events.GroupEvent
+import ch.threema.app.files.ProfilePictureFileHandleProvider
 import ch.threema.app.managers.ServiceManager
-import ch.threema.app.multidevice.MultiDeviceManagerImpl
 import ch.threema.app.services.FileService
 import ch.threema.app.services.LifetimeService
-import ch.threema.app.tasks.archive.TaskArchiverImpl
-import ch.threema.app.tasks.archive.recovery.TaskRecoveryManagerImpl
-import ch.threema.app.tasks.getDebugString
 import ch.threema.app.testutils.TestHelpers
 import ch.threema.app.testutils.TestHelpers.TestContact
 import ch.threema.app.testutils.TestHelpers.TestGroup
 import ch.threema.app.testutils.clearDatabaseAndCaches
-import ch.threema.app.utils.AppVersionProvider
 import ch.threema.app.utils.ForwardSecurityStatusSender
 import ch.threema.base.crypto.HashedNonce
 import ch.threema.base.crypto.Nonce
 import ch.threema.base.crypto.NonceFactory
 import ch.threema.base.crypto.NonceScope
 import ch.threema.base.crypto.NonceStore
-import ch.threema.data.models.GroupIdentity
+import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.domain.fs.DHSession
 import ch.threema.domain.helpers.DecryptTaskCodec
 import ch.threema.domain.helpers.InMemoryContactStore
 import ch.threema.domain.helpers.InMemoryDHSessionStore
 import ch.threema.domain.helpers.InMemoryNonceStore
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.BasicContact
 import ch.threema.domain.models.Contact
 import ch.threema.domain.models.GroupId
@@ -62,8 +60,9 @@ import ch.threema.domain.taskmanager.TaskManager
 import ch.threema.domain.taskmanager.toCspMessage
 import ch.threema.storage.DatabaseService
 import ch.threema.storage.factories.TaskArchiveFactory
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel
 import ch.threema.storage.models.group.GroupMemberModel
+import io.mockk.every
+import io.mockk.mockk
 import java.io.ByteArrayInputStream
 import java.util.Queue
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -78,9 +77,17 @@ import org.junit.Rule
 import org.junit.rules.Timeout
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
-import org.koin.dsl.module
+import org.koin.core.component.inject
 
 open class MessageProcessorProvider : KoinComponent {
+    private val globalEventBuses: GlobalEventBuses by inject()
+    private val profilePictureFileHandleProvider: ProfilePictureFileHandleProvider by inject()
+    private val sessionScopeContainer: SessionScopeContainer by lazy {
+        get<SessionScopeContainerHolder>().sessionScopeContainer!!
+    }
+    protected val serviceManager: ServiceManager
+        get() = sessionScopeContainer.serviceManager
+
     protected val myContact: TestContact = TestHelpers.TEST_CONTACT
     protected val contactA = TestContact("12345678")
     protected val contactB = TestContact("ABCDEFGH")
@@ -157,9 +164,6 @@ open class MessageProcessorProvider : KoinComponent {
             myContact.identity,
         )
 
-    protected val serviceManager: ServiceManager by lazy {
-        ThreemaApplication.requireServiceManager()
-    }
     private val contactStore: ContactStore = InMemoryContactStore().apply {
         addContact(myContact.contact)
         addContact(contactA.contact)
@@ -179,8 +183,6 @@ open class MessageProcessorProvider : KoinComponent {
             serviceManager.contactService,
             serviceManager.messageService,
             APIConnector(
-                /* ipv6 = */
-                false,
                 /* serverAddressProvider = */
                 null,
                 /* isWork = */
@@ -240,8 +242,6 @@ open class MessageProcessorProvider : KoinComponent {
      */
     private lateinit var originalTaskManager: TaskManager
 
-    private lateinit var taskManager: TaskManager
-
     /**
      * The local task codec is used for running tasks directly in the tests. We can use this to
      * check that messages are being sent inside the directly run task. Note that the test task
@@ -297,13 +297,9 @@ open class MessageProcessorProvider : KoinComponent {
             GrantPermissionRule.grant()
         }
 
-    private val instrumentedTestModule = module {
-        factory<TaskManager> { taskManager }
-    }
-
     @get:Rule
     val koinTestRule = KoinTestRule(
-        modules = listOf(sessionScopedModule, instrumentedTestModule),
+        modules = listOf(sessionScopedModule),
     )
 
     /**
@@ -312,17 +308,13 @@ open class MessageProcessorProvider : KoinComponent {
     @BeforeTest
     @CallSuper
     open fun setup() {
-        TestHelpers.setIdentity(
-            ThreemaApplication.requireServiceManager(),
-            TestHelpers.TEST_CONTACT,
-        )
+        TestHelpers.setIdentity(serviceManager, TestHelpers.TEST_CONTACT)
 
         // Delete persisted tasks as they are not needed for tests
         get<TaskArchiveFactory>().deleteAll()
 
         // Replace original task manager (save a copy of it)
-        originalTaskManager = serviceManager.taskManager
-
+        originalTaskManager = sessionScopeContainer.taskManager
         val mockTaskManager = object : TaskManager {
             override fun <R> schedule(task: Task<R, TaskCodec>): Deferred<R> {
                 val deferred = CompletableDeferred<R>()
@@ -340,9 +332,6 @@ open class MessageProcessorProvider : KoinComponent {
                 // Nothing to do
             }
         }
-
-        taskManager = mockTaskManager
-
         setTaskManager(mockTaskManager)
 
         disableLifetimeService()
@@ -420,7 +409,7 @@ open class MessageProcessorProvider : KoinComponent {
         }
 
         // Remove files
-        serviceManager.fileService.removeAllAvatars()
+        profilePictureFileHandleProvider.deleteAll()
 
         // Unblock contacts
         val blockedIdentitiesService = serviceManager.blockedIdentitiesService
@@ -430,45 +419,13 @@ open class MessageProcessorProvider : KoinComponent {
     }
 
     private fun setTaskManager(taskManager: TaskManager) {
-        val serviceManager = ThreemaApplication.requireServiceManager()
-        val coreServiceManager = TestCoreServiceManager(
-            version = AppVersionProvider.appVersion,
-            databaseProvider = get(),
-            databaseService = serviceManager.databaseService,
-            preferenceStore = serviceManager.preferenceStore,
-            encryptedPreferenceStore = serviceManager.encryptedPreferenceStore,
-            taskArchiver = TaskArchiverImpl(get(), TaskRecoveryManagerImpl(), getDebugString),
-            deviceCookieManager = serviceManager.deviceCookieManager,
-            taskManager = taskManager,
-            multiDeviceManager = serviceManager.multiDeviceManager as MultiDeviceManagerImpl,
-            identityStore = serviceManager.identityStore,
-            nonceFactory = serviceManager.nonceFactory,
-        )
-
-        val field = ServiceManager::class.java.getDeclaredField("coreServiceManager")
-        field.isAccessible = true
-        field.set(ThreemaApplication.getServiceManager(), coreServiceManager)
+        sessionScopeContainer.taskManagerOverride = taskManager
     }
 
     private fun disableLifetimeService() {
-        val field = ServiceManager::class.java.getDeclaredField("lifetimeService")
-        field.isAccessible = true
-        field.set(
-            ThreemaApplication.getServiceManager(),
-            object : LifetimeService {
-                override fun acquireConnection(sourceTag: String, unpauseable: Boolean) = Unit
-                override fun acquireConnection(source: String) = Unit
-                override fun acquireUnpauseableConnection(source: String) = Unit
-                override fun releaseConnection(sourceTag: String) = Unit
-                override fun releaseConnectionLinger(sourceTag: String, timeoutMs: Long) = Unit
-                override fun ensureConnection() = Unit
-                override fun alarm(intent: Intent?) = Unit
-                override fun isActive(): Boolean = true
-                override fun pause() = Unit
-                override fun unpause() = Unit
-                override fun addListener(listener: LifetimeService.LifetimeServiceListener?) = Unit
-            },
-        )
+        sessionScopeContainer.lifetimeServiceOverride = mockk<LifetimeService>(relaxed = true) {
+            every { isActive } returns true
+        }
     }
 
     /**
@@ -485,7 +442,7 @@ open class MessageProcessorProvider : KoinComponent {
                 it,
                 databaseService,
                 contactStore,
-                AcquaintanceLevel.GROUP,
+                AcquaintanceLevel.GROUP_OR_DELETED,
             )
         }
 
@@ -498,15 +455,15 @@ open class MessageProcessorProvider : KoinComponent {
         contactStore: ContactStore,
         acquaintanceLevel: AcquaintanceLevel = AcquaintanceLevel.DIRECT,
     ) {
-        databaseService.contactModelFactory.createOrUpdate(
+        databaseService.contactModelFactory.create(
             testContact.contactModel.setAcquaintanceLevel(acquaintanceLevel)
                 .setFeatureMask(ThreemaFeature.FORWARD_SECURITY),
         )
 
         contactStore.addCachedContact(testContact.toBasicContact())
 
-        // We trigger the listeners to invalidate the cache of the new contact model.
-        ListenerManager.contactListeners.handle { it.onModified(testContact.identity) }
+        // We trigger the event bus to invalidate the cache of the new contact model.
+        globalEventBuses.contacts.emit(ContactEvent.ContactUpdated.javaCreate(testContact.identity))
     }
 
     private fun addGroupToDatabase(
@@ -534,12 +491,9 @@ open class MessageProcessorProvider : KoinComponent {
             )
         }
 
-        // We trigger the listeners to invalidate the cache of the new group model.
-        ListenerManager.groupListeners.handle {
-            it.onUpdate(
-                GroupIdentity(testGroup.groupCreator.identity, testGroup.apiGroupId.toLong()),
-            )
-        }
+        // We notify the event bus to invalidate the cache of the new group model.
+        val groupIdentity = GroupIdentity(testGroup.groupCreator.identity, testGroup.apiGroupId.toLong())
+        globalEventBuses.groups.emit(GroupEvent.GroupUpdated(groupIdentity))
     }
 
     /**
@@ -556,7 +510,12 @@ open class MessageProcessorProvider : KoinComponent {
         )
 
         // Process the group message
-        val messageProcessor = IncomingMessageProcessorImpl(serviceManager)
+        val messageProcessor = IncomingMessageProcessorImpl(
+            serviceManager,
+            serverMessageModelRepository = mockk(relaxed = true),
+            globalEventBuses,
+            typingIndicatorManager = mockk(),
+        )
 
         messageProcessor.processIncomingCspMessage(messageBox, localTaskCodec)
 
@@ -624,7 +583,7 @@ open class MessageProcessorProvider : KoinComponent {
         featureMask = ThreemaFeature.Builder()
             .audio(true)
             .group(true)
-            .ballot(true)
+            .poll(true)
             .file(true)
             .voip(true)
             .videocalls(true)
@@ -634,7 +593,7 @@ open class MessageProcessorProvider : KoinComponent {
             .deleteMessages(true)
             .build().toULong(),
         identityState = IdentityState.ACTIVE,
-        identityType = IdentityType.NORMAL,
+        identityType = IdentityType.REGULAR,
         verificationLevel = VerificationLevel.UNVERIFIED,
         workVerificationLevel = WorkVerificationLevel.NONE,
         jobTitle = null,

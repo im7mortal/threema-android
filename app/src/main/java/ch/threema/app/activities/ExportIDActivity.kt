@@ -3,6 +3,7 @@ package ch.threema.app.activities
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import ch.threema.android.buildActivityIntent
@@ -16,9 +17,9 @@ import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.UserService
 import ch.threema.app.startup.finishAndRestartLaterIfNotReady
 import ch.threema.app.utils.DialogUtil
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.domain.identitybackup.IdentityBackup
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -40,6 +41,7 @@ class ExportIDActivity : AppCompatActivity(), PasswordEntryDialogClickListener {
         if (finishAndRestartLaterIfNotReady()) {
             return
         }
+        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
 
         val dialogFragment = PasswordEntryDialog.newInstance(
             /* title = */
@@ -64,6 +66,8 @@ class ExportIDActivity : AppCompatActivity(), PasswordEntryDialogClickListener {
             0,
             /* showForgotPwHint = */
             PasswordEntryDialog.ForgotHintType.NONE,
+            /* requestKey = */
+            null,
         )
         dialogFragment.show(supportFragmentManager, DIALOG_TAG_SET_ID_BACKUP_PW)
     }

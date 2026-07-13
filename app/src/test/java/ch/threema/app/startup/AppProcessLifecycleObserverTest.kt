@@ -5,7 +5,7 @@ import ch.threema.app.AppConstants
 import ch.threema.app.services.LifetimeService
 import ch.threema.app.test.mockAppNotReady
 import ch.threema.app.test.mockAppReady
-import ch.threema.app.test.testDispatcherProvider
+import ch.threema.testhelpers.testDispatcherProvider
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -38,6 +38,7 @@ class AppProcessLifecycleObserverTest : ClosingKoinTest {
 
         // Act
         val appProcessLifecycleObserver = AppProcessLifecycleObserver(
+            globalAppState = mockk(relaxed = true),
             reloadAppRestrictions = {},
             dispatcherProvider = testDispatcherProvider(),
         )
@@ -73,6 +74,7 @@ class AppProcessLifecycleObserverTest : ClosingKoinTest {
 
         // Act
         val appProcessLifecycleObserver = AppProcessLifecycleObserver(
+            globalAppState = mockk(relaxed = true),
             reloadAppRestrictions = {},
             dispatcherProvider = testDispatcherProvider(),
         )
@@ -107,6 +109,7 @@ class AppProcessLifecycleObserverTest : ClosingKoinTest {
 
         // Act
         val appProcessLifecycleObserver = AppProcessLifecycleObserver(
+            globalAppState = mockk(relaxed = true),
             reloadAppRestrictions = {},
             dispatcherProvider = testDispatcherProvider(),
         )

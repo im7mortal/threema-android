@@ -1,7 +1,7 @@
 package ch.threema.localcrypto
 
 import ch.threema.base.crypto.NaCl
-import ch.threema.base.utils.Base64
+import ch.threema.common.Base64
 import ch.threema.common.toCryptographicByteArray
 import ch.threema.domain.libthreema.LibthreemaHttpClient
 import ch.threema.domain.models.UserCredentials
@@ -36,7 +36,7 @@ class RemoteSecretClientTest {
                 val request = firstArg<HttpsRequest>()
                 val body = request.body.toString(Charsets.UTF_8)
                 if (request.url == "${WORK_URL}api-client/v1/remote-secret" && request.method == HttpsMethod.POST) {
-                    assertTrue(Base64.encodeBytes(AUTH_TOKEN.value) in body)
+                    assertTrue(Base64.encode(AUTH_TOKEN.value) in body)
                     HttpsResult.Response(
                         v1 = HttpsResponse(
                             status = 200.toUShort(),
@@ -93,7 +93,7 @@ class RemoteSecretClientTest {
                                    }"""
                             } else {
                                 """{
-                                       "challengePublicKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+                                       "challengePublicKey": "BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
                                        "challenge": "bWVvdw=="
                                    }"""
                             }
@@ -156,7 +156,7 @@ class RemoteSecretClientTest {
                             status = 200.toUShort(),
                             body = """
                                 {
-                                    "challengePublicKey": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+                                    "challengePublicKey": "BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
                                     "challenge": "bWVvdw=="
                                 }
                         """.toByteArray(),

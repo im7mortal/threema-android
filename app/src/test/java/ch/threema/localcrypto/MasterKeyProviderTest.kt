@@ -1,6 +1,8 @@
 package ch.threema.localcrypto
 
+import app.cash.turbine.test
 import ch.threema.localcrypto.exceptions.MasterKeyLockedException
+import ch.threema.testhelpers.expectItem
 import io.mockk.mockk
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
@@ -60,5 +62,22 @@ class MasterKeyProviderTest {
             masterKeyFlow.value = null
         }
         masterKeyProvider.awaitLocked()
+    }
+
+    @Test
+    fun `watch master key`() = runTest {
+        val masterKeyFlow = MutableStateFlow<MasterKey?>(null)
+        val masterKeyProvider = MasterKeyProvider(masterKeyFlow)
+
+        masterKeyProvider.watchMasterKey().test {
+            expectItem(null)
+
+            val masterKeyMock = mockk<MasterKey>()
+            masterKeyFlow.value = masterKeyMock
+            expectItem(masterKeyMock)
+
+            masterKeyFlow.value = null
+            expectItem(null)
+        }
     }
 }

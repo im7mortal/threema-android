@@ -32,6 +32,12 @@
     <string name="title_job_title">Посада</string>
     <string name="title_department">Відділ</string>
     <string name="send">Надіслати</string>
+    <string name="prefs_linked_devices">Зв\'язані пристрої</string>
+    <string name="prefs_community_and_sharing">Спільнота та спільне використання</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <string name="prefs_advanced">Розширені налаштування</string>
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
+    <string name="prefs_about">Про додаток</string>
     <string name="prefs_privacy">Конфіденційність</string>
     <string name="prefs_notifications">Звуки та сповіщення</string>
     <string name="prefs_chatdisplay">Чат</string>
@@ -84,8 +90,11 @@
     <string name="prefs_sum_threema_push_off">Отримувати push-сповіщення про нові повідомлення через системний сервіс</string>
     <string name="prefs_logging">Журналювання</string>
     <string name="prefs_title_message_log_switch">Записувати журнал у файл</string>
-    <string name="prefs_title_sum_message_log_on">Події та мережева інформація записуватимуться у файл debug_log.txt</string>
-    <string name="prefs_title_sum_message_log_off">Події не записуватимуться</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_on_since">Системна активність записується з %1$s (%2$s)</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <string name="prefs_title_sum_message_log_forced_on">Системна активність записується. Видаліть файл \"%1$s\", щоб вимкнути записування. (%2$s)</string>
+    <string name="prefs_title_sum_message_log_off">Системна активність не записується</string>
     <string name="prefs_reset_push">Скинути маркер сповіщень</string>
     <string name="prefs_sum_reset_push">Повторно зареєструвати пристрій для отримання push-сповіщень через FCM або HMS</string>
     <string name="prefs_notification_preview">Показувати текст повідомлень</string>
@@ -197,9 +206,10 @@
     <string name="masterkey_passphrase_hint">Парольна фраза</string>
     <string name="master_key_locked_want_exit">Головний ключ досі заблоковано. Повторити спробу?</string>
     <string name="click_here_to_change_passphrase">Натисніть тут, щоб змінити парольну фразу</string>
-    <string name="attach_camera">Камера системи</string>
+    <string name="attach_camera">Камера</string>
     <string name="menu_restore">Відновити з рез. копії</string>
-    <string name="restore_id_hint">Введіть або вставте текстовий рядок експортованого ID, який потрібно відновити</string>
+    <string name="restore_id_hint">Введіть текстовий рядок експортованого ID, який потрібно відновити, або відскануйте QR-код із ним.</string>
+    <string name="restore_id_string_label">Текстовий рядок експортованого ID</string>
     <string name="location_placeholder">Розташування</string>
     <string name="video_placeholder">Відео</string>
     <string name="audio_placeholder">Аудіо</string>
@@ -357,8 +367,11 @@
     <string name="status_rename_group">Групу перейменовано на \"%1$s\"</string>
     <string name="status_group_new_photo">Фото групи оновлено.</string>
     <string name="status_group_new_member">Контакт \"%1$s\" додано до групи.</string>
+    <string name="status_group_you_were_added">Вас додано до групи.</string>
     <string name="status_group_member_left">Контакт \"%1$s\" вийшов з групи.</string>
+    <string name="status_group_you_left">Ви покинули групу.</string>
     <string name="status_group_member_kicked">Контакт \"%1$s\" вилучено з групи.</string>
+    <string name="status_group_you_were_removed">Вас вилучено з групи.</string>
     <string name="can_not_send_no_group_members">Неможливо надіслати повідомлення в порожню групу</string>
     <string name="you_are_not_a_member_of_this_group">Ви не є учасником цієї групи</string>
     <string name="title_public_nickname">Псевдонім</string>
@@ -496,6 +509,7 @@
     <string name="ballot_result_final">Остаточні результати</string>
     <string name="invalid_cannot_send">Ви не можете надсилати повідомлення недійсному контакту</string>
     <string name="ballot_answer_count_error">Введіть принаймні два варіанти відповіді для опитування.</string>
+    <string name="ballot_removed">Опитування вилучено</string>
     <string name="contact_state_inactive">Неактивний</string>
     <string name="contact_state_invalid">Недійсний</string>
     <string name="back">Назад</string>
@@ -704,7 +718,7 @@
 		допомагає ідентифікувати вас користувачам, які ще не додали ваші контактні дані у свою телефонну книгу. Радимо
 		вказувати справжнє або вигадане ім\'я без прізвища. Якщо ви не додасте псевдонім, замість нього показуватиметься ваш ID ${app_name_short}.</string>
     <string name="not_linked">не зв\'язано</string>
-    <string name="linked">зв\'язано</string>
+    <string name="linked">Зв\'язано</string>
     <string name="pending_sms_verification_notice">Ваш номер телефону ще не підтверджено.</string>
     <string name="no_sms_received">Не отримали SMS?</string>
     <string name="really_cancel_verify">Справді скасувати підтвердження номера телефону?</string>
@@ -718,7 +732,6 @@
     <string name="new_wizard_anonymous_confirm">Ви не зв\'язали номер телефону або адресу ел. пошти з ID ${app_name_short}, а тому не з\'явитесь у списках контактів своїх друзів. Справді використовувати ${app_name} анонімно?</string>
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_anonymous_confirm_phone_only">Ви не зв\'язали номер телефону з ID ${app_name_short}, а тому не з\'явитесь у списках контактів своїх друзів. Справді використовувати ${app_name} анонімно?</string>
-    <string name="new_wizard_scan_id_backup">Відсканувати QR-код</string>
     <string name="error_saving_file">Не вдалося зберегти файл. Перевірте дозволи.</string>
     <string name="wait_one_minute">Якщо SMS не надійде протягом 10 хвилин, зробіть запит на дзвінок.</string>
     <string name="backup_id">Експортований ID</string>
@@ -801,7 +814,8 @@
     <string name="prefs_language_override">Мова</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
     <string name="threema_channel_intro">Канал ${app_name_short} Channel публікує новини про все, що стосується ${app_name_short}. Підписатися на ${app_name_short} Channel і додати канал у контакти? Це безкоштовно, і ви завжди можете відписатися.</string>
-    <string name="quote">Цитувати</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
+    <string name="reply_to_message">Відповісти</string>
     <string name="contacts_deleted">Контакти видалено</string>
     <string name="take_photo">Зробити фото</string>
     <string name="select_from_gallery">Вибрати з галереї</string>
@@ -1243,7 +1257,10 @@
     <string name="max_selectable_media_exceeded">Максимальна кількість об\'єктів для одночасного надсилання: %d.</string>
     <string name="error_unable_loading_media_thumb">Помилка. Не вдалося завантажити ескіз медіафайлу.</string>
     <string name="filter_list">Фільтрувати список</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
+    <string name="search_list">Шукати в списку</string>
     <string name="hint_filter_list">Введіть текст</string>
+    <string name="hint_search_list">Введіть текст, який шукаєте</string>
     <string name="add">Додати</string>
     <string name="only_images_or_videos">Можна вибрати лише зображення або відео</string>
     <string name="media_gallery_gifs">Файли GIF</string>
@@ -1603,10 +1620,11 @@
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="error_reporting_summary_always_ask">Запитувати щоразу, чи надсилати ${company_name} повідомлення про помилку</string>
     <string name="error_detected_dialog_title">Надіслати анонімне повідомлення</string>
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
-    <string name="crash_detected_dialog_text">Схоже, що додаток ${app_name_short} нещодавно аварійно завершив роботу. Надіслати анонімне повідомлення про помилку?</string>
+    <string name="crash_detected_dialog_text">Схоже, нещодавно виникла проблема. Надіслати анонімний звіт про помилку?</string>
     <string name="crash_detected_dialog_remember_choice">Запам\'ятати мій вибір</string>
     <string name="crash_detected_dialog_send_button">Надіслати</string>
+    <string name="error_reporting_learn_more_button">Докладніше</string>
+    <string name="error_reporting_details_button">Технічні відомості</string>
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
     <string name="prefs_error_reporting_id">Анонімний ID пристрою</string>
     <!-- The %s is a placeholder for an ID. It must be left as-is. -->
@@ -1637,6 +1655,7 @@
     <!-- Button label on dialog when configuring a backup, shown on dialog that lets the user choose how they want to select the backup folder. This option lets them bypass the file picker and use the default Documents folder instead -->
     <string name="backup_path_selection_documents">Використовувати папку \"Documents\"</string>
     <!-- accessibility -->
+    <string name="cd_menu_more">Додаткові параметри</string>
     <string name="cd_edited">повідомлення відредаговано</string>
     <string name="cd_created_at">створено о %s</string>
     <string name="cd_edited_at">відредаговано о %s</string>
@@ -1783,7 +1802,6 @@
     <string name="edit_availability_status_modal_optional_message_placeholder">На зустрічі</string>
     <string name="edit_availability_status_modal_optional_message_description">Налаштуйте власне повідомлення для статусів \"Не турбувати\" та \"Не на зв\'язку\".</string>
     <string name="edit_availability_status_modal_optional_message_too_long">Текст задовгий, скоротіть його</string>
-    <string name="edit_availability_status_did_change">Статус доступності змінено</string>
     <string name="tooltip_title_availability_status">Статус доступності</string>
     <string name="tooltip_text_availability_status_in_chat">Перевірте, чи зайнята людина та чи на зв\'язку вона, перш ніж надсилати їй повідомлення. Ви можете встановити власний статус у своєму профілі.</string>
     <string name="tooltip_text_availability_status_in_profile">Установіть статус, щоб інші бачили, коли ви зайняті або не на зв\'язку.</string>
@@ -1869,6 +1887,8 @@
         <item quantity="many">%d повідомлень видалено</item>
         <item quantity="other">%d повідомлення видалено</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
+    <string name="notifications_for_one_week">На 1 тиждень</string>
     <plurals name="notifications_for_x_hours">
         <item quantity="one">На %d годину</item>
         <item quantity="few">На %d години</item>

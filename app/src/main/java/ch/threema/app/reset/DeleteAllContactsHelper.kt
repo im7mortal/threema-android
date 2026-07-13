@@ -14,7 +14,7 @@ import ch.threema.app.services.WallpaperService
 import ch.threema.app.services.notification.NotificationService
 import ch.threema.app.utils.executor.CoroutineBackgroundExecutor
 import ch.threema.data.repositories.ContactModelRepository
-import ch.threema.domain.stores.DHSessionStoreInterface
+import ch.threema.domain.stores.DHSessionStore
 import ch.threema.storage.factories.ContactModelFactory
 
 /**
@@ -31,7 +31,7 @@ class DeleteAllContactsHelper(
     private val wallpaperService: WallpaperService,
     private val fileService: FileService,
     private val excludedSyncIdentitiesService: ExcludedSyncIdentitiesService,
-    private val dhSessionStore: DHSessionStoreInterface,
+    private val dhSessionStore: DHSessionStore,
     private val notificationService: NotificationService,
     private val contactModelFactory: ContactModelFactory,
     private val coroutineBackgroundExecutor: CoroutineBackgroundExecutor,

@@ -10,20 +10,21 @@ import org.slf4j.Logger;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import java.util.Date;
+import java.time.Instant;
 
 import ch.threema.app.utils.TextUtil;
 import ch.threema.data.datatypes.AvailabilityStatus;
 import ch.threema.data.datatypes.ContactNameFormat;
+import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverride;
+import ch.threema.data.datatypes.ConversationVisibility;
 import ch.threema.data.datatypes.IdColor;
 import ch.threema.base.crypto.NaCl;
-import ch.threema.data.datatypes.NotificationTriggerPolicyOverride;
 import ch.threema.app.preference.service.PreferenceService;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
+import ch.threema.domain.models.AcquaintanceLevel;
 import ch.threema.domain.models.Contact;
-import ch.threema.domain.models.ContactReceiverIdentifier;
 import ch.threema.domain.models.IdentityState;
 import ch.threema.domain.models.IdentityType;
 import ch.threema.domain.models.VerificationLevel;
@@ -54,36 +55,21 @@ public class ContactModel extends Contact implements ReceiverModel {
     public static final String COLUMN_TYPE = "type";
     public static final String COLUMN_PROFILE_PIC_BLOB_ID = "profilePicBlobID"; /* the blob ID of the profile pic that was last sent to this contact */
     public static final String COLUMN_CREATED_AT = "dateCreated"; /* date when this contact was created locally */
-    public static final String COLUMN_LAST_UPDATE = "lastUpdateAt"; /* date when the conversation was last updated */
-    public static final String COLUMN_ACQUAINTANCE_LEVEL = "acquaintanceLevel"; /* 0: DIRECT, 1: GROUP */
+    public static final String COLUMN_LAST_UPDATE_AT = "lastUpdateAt"; /* date when the conversation was last updated */
+    public static final String COLUMN_ACQUAINTANCE_LEVEL = "acquaintanceLevel";
     public static final String COLUMN_IS_RESTORED = "isRestored"; /* whether this contact has been restored from a backup and not yet been contacted */
-    public static final String COLUMN_IS_ARCHIVED = "isArchived"; /* whether this contact has been archived by user */
+    public static final String COLUMN_CONVERSATION_VISIBILITY = "conversationVisibility";
     public static final String COLUMN_READ_RECEIPTS = "readReceipts"; /* whether read receipts should be sent to this contact */
     public static final String COLUMN_TYPING_INDICATORS = "typingIndicators"; /* whether typing indicators should be sent to this contact */
     public static final String COLUMN_FORWARD_SECURITY_STATE = "forwardSecurityState"; /* current state of forward security with this contact */
     public static final String COLUMN_SYNC_STATE = "syncState"; /* contact synchronization state, 0: INITIAL, 1: IMPORTED, 2: CUSTOM */
     public static final String COLUMN_JOB_TITLE = "jobTitle";
     public static final String COLUMN_DEPARTMENT = "department";
-    public static final String COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE = "notificationTriggerPolicyOverride";
+    public static final String COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_POLICY = "notificationTriggerPolicyOverridePolicy";
+    public static final String COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_EXPIRES_AT = "notificationTriggerPolicyOverrideExpiresAt";
     public static final String COLUMN_WORK_LAST_FULL_SYNC_AT = "workLastFullSyncAt";
 
     public static final byte[] NO_PROFILE_PICTURE_BLOB_ID = new byte[0];
-
-    /**
-     * Acquaintance level of the contact.
-     */
-    public enum AcquaintanceLevel {
-        /**
-         * The contact was explicitly added by the user or a 1:1 conversation with the contact
-         * has been initiated.
-         */
-        DIRECT,
-        /**
-         * The contact is part of a group the user is also part of. The contact was not explicitly
-         * added and no 1:1 conversation has been initiated.
-         */
-        GROUP
-    }
 
     /**
      * Policy for sending read receipts or typing indicators
@@ -117,10 +103,12 @@ public class ContactModel extends Contact implements ReceiverModel {
     private String androidContactId;
     private long featureMask;
     private @NonNull IdColor idColor = IdColor.invalid();
-    private boolean isWork, isRestored, isArchived;
+    private boolean isWork, isRestored;
+    @NonNull
+    private ConversationVisibility conversationVisibility = ConversationVisibility.NORMAL;
     private AcquaintanceLevel acquaintanceLevel = AcquaintanceLevel.DIRECT;
-    private Date localAvatarExpires, dateCreated;
-    private @Nullable Date lastUpdate;
+    private Instant localAvatarExpires, dateCreated;
+    private @Nullable Instant lastUpdate;
     private byte[] profilePicBlobID;
     private @Nullable IdentityType type;
     private @OverridePolicy int readReceipts, typingIndicators;
@@ -128,7 +116,7 @@ public class ContactModel extends Contact implements ReceiverModel {
     private int forwardSecurityState;
     private @Nullable String jobTitle;
     private @Nullable String department;
-    private @Nullable Long notificationTriggerPolicyOverride;
+    private @Nullable ContactNotificationTriggerPolicyOverride notificationTriggerPolicyOverride;
     private @NonNull AvailabilityStatus availabilityStatus = AvailabilityStatus.None.INSTANCE;
 
     private ContactModel(String identity, @NonNull byte[] publicKey) {
@@ -259,7 +247,7 @@ public class ContactModel extends Contact implements ReceiverModel {
      * Get the expiration date of a local avatar (either a gateway contact avatar,
      * or the avatar of a contact linked to an Android system contact).
      */
-    public @Nullable Date getLocalAvatarExpires() {
+    public @Nullable Instant getLocalAvatarExpires() {
         return localAvatarExpires;
     }
 
@@ -267,7 +255,7 @@ public class ContactModel extends Contact implements ReceiverModel {
      * Update the expiration date of a local avatar (either a gateway contact avatar,
      * or the avatar of a contact linked to an Android system contact).
      */
-    public @NonNull ContactModel setLocalAvatarExpires(@Nullable Date avatarExpires) {
+    public @NonNull ContactModel setLocalAvatarExpires(@Nullable Instant avatarExpires) {
         this.localAvatarExpires = avatarExpires;
         return this;
     }
@@ -335,14 +323,8 @@ public class ContactModel extends Contact implements ReceiverModel {
 
     @Override
     public boolean isHidden() {
-        // Hide chat if acquaintance level with this contact is set to GROUP
-        return this.acquaintanceLevel == AcquaintanceLevel.GROUP;
-    }
-
-    @NonNull
-    @Override
-    public ContactReceiverIdentifier getIdentifier() {
-        return new ContactReceiverIdentifier(getIdentity());
+        // Hide chat if acquaintance level with this contact is set to GROUP_OR_DELETED
+        return this.acquaintanceLevel == AcquaintanceLevel.GROUP_OR_DELETED;
     }
 
     public ContactModel setIsRestored(boolean isRestored) {
@@ -365,23 +347,23 @@ public class ContactModel extends Contact implements ReceiverModel {
         return this;
     }
 
-    public ContactModel setDateCreated(Date dateCreated) {
+    public ContactModel setDateCreated(Instant dateCreated) {
         this.dateCreated = dateCreated;
         return this;
     }
 
-    public @Nullable Date getDateCreated() {
+    public @Nullable Instant getDateCreated() {
         return dateCreated;
     }
 
     @Override
-    public ContactModel setLastUpdate(@Nullable Date lastUpdate) {
+    public ContactModel setLastUpdate(@Nullable Instant lastUpdate) {
         this.lastUpdate = lastUpdate;
         return this;
     }
 
     @Override
-    public @Nullable Date getLastUpdate() {
+    public @Nullable Instant getLastUpdate() {
         return this.lastUpdate;
     }
 
@@ -402,11 +384,16 @@ public class ContactModel extends Contact implements ReceiverModel {
 
     @Override
     public boolean isArchived() {
-        return isArchived;
+        return conversationVisibility == ConversationVisibility.ARCHIVED;
     }
 
-    public ContactModel setArchived(boolean archived) {
-        isArchived = archived;
+    @NonNull
+    public ConversationVisibility getConversationVisibility() {
+        return this.conversationVisibility;
+    }
+
+    public ContactModel setConversationVisibility(@NonNull ConversationVisibility conversationVisibility) {
+        this.conversationVisibility = conversationVisibility;
         return this;
     }
 
@@ -474,16 +461,11 @@ public class ContactModel extends Contact implements ReceiverModel {
     }
 
     @Nullable
-    public Long getNotificationTriggerPolicyOverride() {
+    public ContactNotificationTriggerPolicyOverride getNotificationTriggerPolicyOverride() {
         return notificationTriggerPolicyOverride;
     }
 
-    @NonNull
-    public NotificationTriggerPolicyOverride currentNotificationTriggerPolicyOverride() {
-        return NotificationTriggerPolicyOverride.fromDbValueContact(notificationTriggerPolicyOverride);
-    }
-
-    public ContactModel setNotificationTriggerPolicyOverride(@Nullable Long notificationTriggerPolicyOverride) {
+    public ContactModel setNotificationTriggerPolicyOverride(@Nullable ContactNotificationTriggerPolicyOverride notificationTriggerPolicyOverride) {
         this.notificationTriggerPolicyOverride = notificationTriggerPolicyOverride;
         return this;
     }
@@ -496,32 +478,6 @@ public class ContactModel extends Contact implements ReceiverModel {
     public ContactModel setAvailabilityStatus(@NonNull AvailabilityStatus availabilityStatus) {
         this.availabilityStatus = availabilityStatus;
         return this;
-    }
-
-    public Object[] getModifiedValueCandidates() {
-        return new Object[]{
-            this.getPublicKey(),
-            this.getFirstName(),
-            this.getLastName(),
-            this.publicNickName,
-            this.verificationLevel,
-            this.androidContactId,
-            this.idColor,
-            this.state,
-            this.featureMask,
-            this.localAvatarExpires,
-            this.isWork,
-            this.profilePicBlobID,
-            this.type,
-            this.dateCreated,
-            this.acquaintanceLevel,
-            this.lastUpdate,
-            this.isRestored,
-            this.isArchived,
-            this.readReceipts,
-            this.typingIndicators,
-            this.forwardSecurityState
-        };
     }
 
     @Override

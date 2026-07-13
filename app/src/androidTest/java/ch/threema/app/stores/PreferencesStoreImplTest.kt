@@ -1,10 +1,9 @@
 package ch.threema.app.stores
 
+import android.content.Context
 import androidx.core.content.edit
-import androidx.preference.PreferenceManager
+import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
-import ch.threema.app.ThreemaApplication
-import ch.threema.common.emptyByteArray
 import ch.threema.testhelpers.expectItem
 import java.time.Instant
 import kotlin.test.BeforeTest
@@ -13,29 +12,22 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
-import org.json.JSONArray
-import org.json.JSONObject
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.get
 
-class PreferencesStoreImplTest : KoinComponent {
+class PreferencesStoreImplTest {
 
-    private var onChangedCalled = false
+    private val sharedPreferences = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("preferences-store-test", 0)
     private lateinit var store: PreferenceStore
 
     @BeforeTest
     fun setUp() {
         store = PreferenceStoreImpl(
-            sharedPreferences = get(),
-            onChanged = { _, _ -> onChangedCalled = true },
+            sharedPreferences = sharedPreferences,
             commit = true,
         )
         store.clear()
-        onChangedCalled = false
     }
 
     @Test
@@ -71,7 +63,6 @@ class PreferencesStoreImplTest : KoinComponent {
         store.save("foo", "Hello Wörld")
 
         assertEquals("Hello Wörld", store.getString("foo"))
-        assertTrue(onChangedCalled)
     }
 
     @Test
@@ -81,7 +72,6 @@ class PreferencesStoreImplTest : KoinComponent {
         store.save("foo", 123)
 
         assertEquals(123, store.getInt("foo"))
-        assertTrue(onChangedCalled)
     }
 
     @Test
@@ -92,7 +82,6 @@ class PreferencesStoreImplTest : KoinComponent {
         store.save("foo", Instant.ofEpochMilli(1_766_407_316_000L))
 
         assertEquals(Instant.ofEpochMilli(1_766_407_316_000L), store.getInstant("foo"))
-        assertTrue(onChangedCalled)
 
         store.save("foo", null as Instant?)
 
@@ -107,7 +96,6 @@ class PreferencesStoreImplTest : KoinComponent {
         store.save("foo", true)
 
         assertEquals(true, store.getBoolean("foo"))
-        assertTrue(onChangedCalled)
     }
 
     @Test
@@ -117,7 +105,6 @@ class PreferencesStoreImplTest : KoinComponent {
         store.save("foo", 123_000_000_000_000L)
 
         assertEquals(123_000_000_000_000L, store.getLong("foo"))
-        assertTrue(onChangedCalled)
     }
 
     @Test
@@ -127,7 +114,6 @@ class PreferencesStoreImplTest : KoinComponent {
         store.save("foo", 123.456f)
 
         assertEquals(123.456f, store.getFloat("foo", -1f))
-        assertTrue(onChangedCalled)
     }
 
     @Test
@@ -137,37 +123,6 @@ class PreferencesStoreImplTest : KoinComponent {
         store.save("foo", bytes)
 
         assertContentEquals(bytes, store.getBytes("foo"))
-        assertTrue(onChangedCalled)
-    }
-
-    @Test
-    fun saveAndRestoreJsonArray() {
-        val jsonArray = JSONArray(arrayOf<Any>(1, true, "Hello"))
-
-        store.save("foo", jsonArray)
-
-        val readJsonArray = store.getJSONArray("foo")
-
-        assertEquals(3, readJsonArray.length())
-        assertEquals(1, readJsonArray.getInt(0))
-        assertEquals(true, readJsonArray.getBoolean(1))
-        assertEquals("Hello", readJsonArray.getString(2))
-        assertTrue(onChangedCalled)
-    }
-
-    @Test
-    fun saveAndRestoreJsonObject() {
-        val jsonObject = JSONObject(mapOf("a" to "Hello", "b" to 123))
-
-        store.save("foo", jsonObject)
-
-        val readJsonObject = store.getJSONObject("foo")
-
-        assertNotNull(readJsonObject)
-        assertEquals(setOf("a", "b"), readJsonObject.keys().asSequence().toSet())
-        assertEquals("Hello", readJsonObject.getString("a"))
-        assertEquals(123, readJsonObject.getInt("b"))
-        assertTrue(onChangedCalled)
     }
 
     @Test
@@ -177,17 +132,6 @@ class PreferencesStoreImplTest : KoinComponent {
         store.save("foo", strings)
 
         assertContentEquals(strings, store.getStringArray("foo"))
-        assertTrue(onChangedCalled)
-    }
-
-    @Test
-    fun saveAndRestoreStringQuietlyArray() {
-        val strings = arrayOf("Hello", "World")
-
-        store.saveQuietly("foo", strings)
-
-        assertContentEquals(strings, store.getStringArray("foo"))
-        assertFalse(onChangedCalled)
     }
 
     @Test
@@ -197,7 +141,6 @@ class PreferencesStoreImplTest : KoinComponent {
         store.save("foo", map)
 
         assertEquals(map, store.getMap("foo"))
-        assertTrue(onChangedCalled)
     }
 
     @Test
@@ -209,19 +152,24 @@ class PreferencesStoreImplTest : KoinComponent {
         assertEquals(false, store.getBoolean("foo"))
         assertNull(store.getStringArray("foo"))
         assertEquals(emptyMap(), store.getMap("foo"))
-        assertContentEquals(emptyByteArray(), store.getBytes("foo"))
-        assertEquals(JSONArray(), store.getJSONArray("foo"))
-        assertNull(store.getJSONObject("foo"))
+        assertNull(store.getBytes("foo"))
     }
 
     @Test
     fun restorePreviouslyStoredValue() {
-        PreferenceManager.getDefaultSharedPreferences(ThreemaApplication.getAppContext())
-            .edit {
-                putString("test", "Hello")
-            }
+        sharedPreferences.edit {
+            putInt("int", 123)
+            putString("string", "Hello")
+            putString("map", """[["A","a"],["B","b"],["C"],["D",null]]""")
+            putString("string-array", "A;B;C")
+            putStringSet("string-set", setOf("A", "B", "C"))
+        }
 
-        assertEquals("Hello", store.getString("test"))
+        assertEquals(123, store.getInt("int"))
+        assertEquals("Hello", store.getString("string"))
+        assertEquals(mapOf("A" to "a", "B" to "b", "C" to null, "D" to null), store.getMap("map"))
+        assertContentEquals(arrayOf("A", "B", "C"), store.getStringArray("string-array"))
+        assertEquals(setOf("A", "B", "C"), store.getStringSet("string-set"))
     }
 
     @Test
@@ -269,6 +217,135 @@ class PreferencesStoreImplTest : KoinComponent {
             // Changing the value
             store.save(key, true)
             expectItem(true)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun watchLongShouldEmitCorrectValueChangesToKey() = runTest {
+        val key = "number_of_things"
+        store.watchLong(key, -1L).test {
+            // Expect the defined default value (as the key does not exist on disk right now)
+            expectItem(-1L)
+
+            // Change the value
+            store.save(key, 1L)
+            expectItem(1L)
+
+            // Should emit the defined default value when removing the preference
+            store.remove(key)
+            expectItem(-1L)
+
+            // Add the key again
+            store.save(key, 2L)
+            expectItem(2L)
+
+            // Expect no distinct change
+            store.save(key, 2L)
+            expectNoEvents()
+
+            // Change the value (to the default value)
+            store.save(key, -1L)
+            expectItem(-1L)
+
+            // Expecting no distinct change, as the last saved value was already the default value
+            store.remove(key)
+            expectNoEvents()
+
+            // Adding the key again (with its default value)
+            store.save(key, -1L)
+            expectNoEvents()
+
+            // Changing the value
+            store.save(key, 3L)
+            expectItem(3L)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun watchIntShouldEmitCorrectValueChangesToKey() = runTest {
+        val key = "number_of_things"
+        store.watchInt(key, -1).test {
+            // Expect the defined default value (as the key does not exist on disk right now)
+            expectItem(-1)
+
+            // Change the value
+            store.save(key, 1)
+            expectItem(1)
+
+            // Should emit the defined default value when removing the preference
+            store.remove(key)
+            expectItem(-1)
+
+            // Add the key again
+            store.save(key, 2)
+            expectItem(2)
+
+            // Expect no distinct change
+            store.save(key, 2)
+            expectNoEvents()
+
+            // Change the value (to the default value)
+            store.save(key, -1)
+            expectItem(-1)
+
+            // Expecting no distinct change, as the last saved value was already the default value
+            store.remove(key)
+            expectNoEvents()
+
+            // Adding the key again (with its default value)
+            store.save(key, -1)
+            expectNoEvents()
+
+            // Changing the value
+            store.save(key, 3)
+            expectItem(3)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun watchInstantShouldEmitCorrectValueChangesToKey() = runTest {
+        val key = "some_time"
+        store.watchInstant(key).test {
+            // Expect null initially (as the key does not exist on disk right now)
+            expectItem(null)
+
+            // Change the value
+            store.save(key, Instant.ofEpochMilli(123))
+            expectItem(Instant.ofEpochMilli(123))
+
+            // Should emit the defined default value when removing the preference
+            store.remove(key)
+            expectItem(null)
+
+            // Add the key again
+            store.save(key, Instant.ofEpochMilli(456))
+            expectItem(Instant.ofEpochMilli(456))
+
+            // Expect no distinct change
+            store.save(key, Instant.ofEpochMilli(456))
+            expectNoEvents()
+
+            // Change the value (to the default value)
+            store.save(key, null as Instant?)
+            expectItem(null)
+
+            // Expecting no distinct change, as the last saved value was already null
+            store.remove(key)
+            expectNoEvents()
+
+            // Adding the key again (with null as the value)
+            store.save(key, null as Instant?)
+            expectNoEvents()
+
+            // Changing the value
+            store.save(key, Instant.ofEpochMilli(789))
+            expectItem(Instant.ofEpochMilli(789))
 
             cancelAndIgnoreRemainingEvents()
         }

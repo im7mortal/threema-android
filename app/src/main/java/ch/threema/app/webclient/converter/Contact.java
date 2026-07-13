@@ -18,6 +18,7 @@ import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.ContactUtil;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.app.webclient.exceptions.ConversionException;
+import ch.threema.data.datatypes.ContactConversationId;
 import ch.threema.data.datatypes.ContactNameFormat;
 import ch.threema.domain.models.IdentityState;
 import ch.threema.domain.models.IdentityType;
@@ -93,7 +94,9 @@ public class Contact extends Converter {
             // TODO(ANDR-2708): Remove
             builder.put(FEATURE_LEVEL, ThreemaFeature.featureMaskToLevel(featureMask));
 
-            boolean isPrivateChat = getConversationCategoryService().isPrivateChat(ContactUtil.getUniqueIdString(contact.getIdentity()));
+            final boolean isPrivateChat = getConversationCategoryService().isMarkedAsPrivate(
+                new ContactConversationId(contact.getIdentity())
+            );
             builder.put(Receiver.LOCKED, isPrivateChat);
             builder.put(Receiver.VISIBLE, !isPrivateChat || !getPreferenceService().arePrivateChatsHidden());
 
@@ -196,8 +199,12 @@ public class Contact extends Converter {
     }
 
     public static MsgpackObjectBuilder getArguments(ContactModel contact) throws ConversionException {
+        return fromIdentity(getId(contact));
+    }
+
+    public static MsgpackObjectBuilder fromIdentity(String contactIdentity) throws ConversionException {
         MsgpackObjectBuilder args = new MsgpackObjectBuilder();
-        args.put(Receiver.ID, getId(contact));
+        args.put(Receiver.ID, contactIdentity);
         return args;
     }
 
@@ -264,5 +271,4 @@ public class Contact extends Converter {
     private static Context getAppContext() {
         return ThreemaApplication.getAppContext();
     }
-
 }

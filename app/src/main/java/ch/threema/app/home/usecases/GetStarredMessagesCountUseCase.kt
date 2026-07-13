@@ -1,8 +1,8 @@
 package ch.threema.app.home.usecases
 
 import ch.threema.app.services.MessageService
-import ch.threema.app.utils.DispatcherProvider
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import kotlinx.coroutines.withContext
 
 private val logger = getThreemaLogger("GetStarredMessagesCountUseCase")

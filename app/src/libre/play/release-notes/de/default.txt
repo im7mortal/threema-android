@@ -1,1 +1,5 @@
+- Anhebung des Android-SDK-Levels auf 36 (Android 16)
+- Behebung eines Fehlers im Zusammenhang mit reproduzierbaren Builds
+- Behebung eines Fehlers im Zusammenhang mit der Vertrauensstufe von bekannten Threema-Kontakten
+- Verschiedene UX-Verbesserungen
 - Verbesserungen und Behebung verschiedener Fehler

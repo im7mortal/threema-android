@@ -1,6 +1,6 @@
 package ch.threema.app.processors
 
-import ch.threema.app.AppConstants
+import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.processors.incomingcspmessage.ReceiveStepsResult
@@ -15,21 +15,21 @@ import ch.threema.app.protocolsteps.SpecialContact
 import ch.threema.app.protocolsteps.UserContact
 import ch.threema.app.protocolsteps.ValidContactsLookupSteps
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.ContactServiceImpl
 import ch.threema.app.services.MessageService
 import ch.threema.app.tasks.ActiveComposableTask
+import ch.threema.app.typingindicator.TypingIndicatorManager
 import ch.threema.base.crypto.Nonce
 import ch.threema.base.crypto.NonceFactory
 import ch.threema.base.crypto.NonceScope
-import ch.threema.base.utils.Utils
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.common.now
+import ch.threema.data.datatypes.PredefinedContact.Companion.SPECIAL_CONTACT_3MAPUSH_IDENTITY
+import ch.threema.data.datatypes.PredefinedContact.Companion.SPECIAL_CONTACT_3MAW0RK_IDENTITY
 import ch.threema.data.models.ContactModelData
 import ch.threema.data.models.ModelDeletedException
 import ch.threema.data.repositories.ContactModelRepository
+import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.MessageId
-import ch.threema.domain.models.VerificationLevel
 import ch.threema.domain.protocol.api.APIConnector
 import ch.threema.domain.protocol.connection.data.CspMessage
 import ch.threema.domain.protocol.csp.ProtocolDefines
@@ -54,8 +54,7 @@ import ch.threema.domain.taskmanager.catchAllExceptNetworkException
 import ch.threema.domain.taskmanager.catchExceptNetworkException
 import ch.threema.domain.taskmanager.getEncryptedIncomingMessageEnvelope
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.ContactModel.AcquaintanceLevel
-import java.util.Date
+import java.time.Instant
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -64,6 +63,8 @@ private val logger = getThreemaLogger("IncomingMessageTask")
 class IncomingMessageTask(
     private val messageBox: MessageBox,
     private val serviceManager: ServiceManager,
+    private val globalEventBuses: GlobalEventBuses,
+    private val typingIndicatorManager: TypingIndicatorManager,
 ) : ActiveComposableTask<Unit>, KoinComponent {
     private val contactService: ContactService by inject()
     private val contactModelRepository: ContactModelRepository by inject()
@@ -93,7 +94,7 @@ class IncomingMessageTask(
             // If we catch a network related exception, we throw a protocol exception to trigger a
             // reconnect by the task manager.
             if (e is APIConnector.HttpConnectionException || e is APIConnector.NetworkException) {
-                logger.error("Could not process message {} from {}}", messageId, fromIdentity, e)
+                logger.error("Could not process message {} from {}", messageId, fromIdentity, e)
                 throw ProtocolException(e.message ?: "")
             }
 
@@ -184,7 +185,7 @@ class IncomingMessageTask(
                 }
             }
 
-            if (message.fromIdentity == ProtocolDefines.SPECIAL_CONTACT_PUSH) {
+            if (message.fromIdentity == SPECIAL_CONTACT_3MAPUSH_IDENTITY) {
                 // Handle messages from special push contact
                 when (message) {
                     is WebSessionResumeMessage -> IncomingWebSessionResumeMessageTask(
@@ -198,7 +199,7 @@ class IncomingMessageTask(
                         throw DiscardMessageException(message)
                     }
                 }.run(handle)
-            } else if (message.fromIdentity == AppConstants.THREEMA_WORK_SYNC_IDENTITY) {
+            } else if (message.fromIdentity == SPECIAL_CONTACT_3MAW0RK_IDENTITY) {
                 // Handle messages from special work delta sync contact
                 when (message) {
                     is WorkSyncDeltaMessage -> IncomingWorkSyncDeltaMessageTask(
@@ -229,7 +230,7 @@ class IncomingMessageTask(
                     } else if (contactOrInit is Contact) {
                         // Change acquaintance level of contact if it is group or deleted
                         val contactModelData = contactOrInit.contactModel.data!!
-                        if (contactModelData.acquaintanceLevel == AcquaintanceLevel.GROUP) {
+                        if (contactModelData.acquaintanceLevel == AcquaintanceLevel.GROUP_OR_DELETED) {
                             // Note that it is ok to set it _from local_ because we do not await its completion inside the incoming message task
                             contactOrInit.contactModel.setAcquaintanceLevelFromLocal(
                                 acquaintanceLevel = AcquaintanceLevel.DIRECT,
@@ -264,10 +265,10 @@ class IncomingMessageTask(
                 logger.info("Reflecting incoming message {}", message.messageId)
                 reflectMessage(message, messageBox.nonce, handle)
             } else {
-                now().time.toULong()
+                System.currentTimeMillis().toULong()
             }
 
-        updateReceivedTimestamp(message, receivedTimestamp ?: now().time.toULong())
+        updateReceivedTimestamp(message, receivedTimestamp ?: System.currentTimeMillis().toULong())
 
         // If the message type requires automatic delivery receipts and the message does not contain
         // the "no delivery receipt" flag, schedule the sending of a delivery receipt
@@ -278,7 +279,7 @@ class IncomingMessageTask(
                 contactService.createReceiver(contactModel).sendDeliveryReceipt(
                     ProtocolDefines.DELIVERYRECEIPT_MSGRECEIVED,
                     arrayOf(message.messageId),
-                    now().time,
+                    Instant.now().toEpochMilli(),
                 )
                 logger.info(
                     "Enqueued delivery receipt (delivered) message for message ID {} from {}",
@@ -299,8 +300,8 @@ class IncomingMessageTask(
 
     private fun logReceivedUnexpectedMessageFromSpecialIdentity(message: AbstractMessage) {
         logger.warn(
-            "Received unexpected message {} from {}",
-            Utils.byteToHex(message.type.toByte(), true, true),
+            "Received unexpected message 0x{} from {}",
+            message.type.toByte().toHexString(HexFormat.UpperCase),
             message.fromIdentity,
         )
     }
@@ -320,11 +321,11 @@ class IncomingMessageTask(
         }
 
         logger.info(
-            "Incoming message {} from {} to {} (type {})",
+            "Incoming message {} from {} to {} (type 0x{})",
             messageBox.messageId,
             messageBox.fromIdentity,
             messageBox.toIdentity,
-            Utils.byteToHex(encapsulatedMessage.type.toByte(), true, true),
+            encapsulatedMessage.type.toByte().toHexString(HexFormat.UpperCase),
         )
 
         // Decapsulate fs message if it is an fs envelope message
@@ -337,11 +338,11 @@ class IncomingMessageTask(
         }
 
         logger.info(
-            "Processing decrypted message {} from {} to {} (type {})",
+            "Processing decrypted message {} from {} to {} (type 0x{})",
             message.messageId,
             message.fromIdentity,
             message.toIdentity,
-            Utils.byteToHex(message.type.toByte(), true, true),
+            message.type.toByte().toHexString(HexFormat.UpperCase),
         )
 
         return Pair(message, peerRatchetIdentifier)
@@ -465,19 +466,10 @@ class IncomingMessageTask(
         nickname: String?,
         handle: ActiveTaskCodec,
     ) {
-        // TODO(ANDR-3105): Remove this once predefined contacts are implemented correctly
-        val verificationLevel =
-            if (ContactServiceImpl.TRUSTED_PUBLIC_KEYS.contains(contactModelData.publicKey)) {
-                VerificationLevel.FULLY_VERIFIED
-            } else {
-                contactModelData.verificationLevel
-            }
-
         // Create new contact
         contactModelRepository.createFromRemote(
             contactModelData = contactModelData.copy(
                 nickname = nickname,
-                verificationLevel = verificationLevel,
             ),
             handle = handle,
         )
@@ -488,7 +480,7 @@ class IncomingMessageTask(
         handle: ActiveTaskCodec,
     ) {
         val result = try {
-            getSubTaskFromMessage(message, TriggerSource.REMOTE, serviceManager).run(handle)
+            getSubTaskFromMessage(message, TriggerSource.REMOTE, serviceManager, globalEventBuses, typingIndicatorManager).run(handle)
         } catch (e: Exception) {
             when (e) {
                 // If a network exception is thrown, we cancel processing the message to start over
@@ -519,7 +511,7 @@ class IncomingMessageTask(
             messageService.getContactMessageModel(message.messageId, message.fromIdentity)
         }?.let {
             // Note that for incoming messages the received timestamp is stored in 'createdAt'
-            it.createdAt = Date(receivedTimestamp.toLong())
+            it.createdAt = Instant.ofEpochMilli(receivedTimestamp.toLong())
             messageService.save(it)
         }
     }

@@ -17,8 +17,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import ch.threema.app.R
-import ch.threema.app.compose.common.ThemedText
 import ch.threema.app.compose.common.buttons.ButtonIconInfo
+import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.dimens.GridUnit
 
@@ -84,7 +84,7 @@ fun ExtendedFloatingActionButtonPrimary(
 @Composable
 private fun FloatingActionButtonPrimaryIcon(icon: ButtonIconInfo) {
     Icon(
-        painter = painterResource(icon.icon),
+        painter = painterResource(icon.iconRes),
         contentDescription = icon.contentDescription?.let { stringRes ->
             stringResource(stringRes)
         },
@@ -102,8 +102,7 @@ private fun Preview_FloatingActionPrimaryButton() {
             FloatingActionButtonPrimary(
                 modifier = Modifier.padding(GridUnit.x2),
                 icon = ButtonIconInfo(
-                    icon = R.drawable.ic_chat_bubble,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_chat_bubble,
                 ),
                 onClick = {},
             )
@@ -123,8 +122,7 @@ private fun Preview_FloatingActionPrimaryButton_Dark() {
             FloatingActionButtonPrimary(
                 modifier = Modifier.padding(GridUnit.x2),
                 icon = ButtonIconInfo(
-                    icon = R.drawable.ic_chat_bubble,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_chat_bubble,
                 ),
                 onClick = {},
             )
@@ -142,8 +140,7 @@ private fun Preview_ExtendedFloatingActionButtonPrimary() {
             ExtendedFloatingActionButtonPrimary(
                 modifier = Modifier.padding(GridUnit.x2),
                 icon = ButtonIconInfo(
-                    icon = R.drawable.ic_chat_bubble,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_chat_bubble,
                 ),
                 text = "Start Chat",
                 onClick = {},
@@ -164,8 +161,7 @@ private fun Preview_ExtendedFloatingActionButtonPrimary_Dark() {
             ExtendedFloatingActionButtonPrimary(
                 modifier = Modifier.padding(GridUnit.x2),
                 icon = ButtonIconInfo(
-                    icon = R.drawable.ic_chat_bubble,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_chat_bubble,
                 ),
                 text = "Start Chat",
                 onClick = {},
@@ -184,8 +180,7 @@ private fun Preview_ExtendedFloatingActionButtonPrimary_Long() {
             ExtendedFloatingActionButtonPrimary(
                 modifier = Modifier.padding(GridUnit.x2),
                 icon = ButtonIconInfo(
-                    icon = R.drawable.ic_chat_bubble,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_chat_bubble,
                 ),
                 text = "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna",
                 onClick = {},
@@ -205,8 +200,7 @@ private fun Preview_ExtendedFloatingActionButtonPrimary_Collapsed() {
                 modifier = Modifier.padding(GridUnit.x2),
                 expanded = false,
                 icon = ButtonIconInfo(
-                    icon = R.drawable.ic_chat_bubble,
-                    contentDescription = null,
+                    iconRes = R.drawable.ic_chat_bubble,
                 ),
                 text = "Start chat",
                 onClick = {},

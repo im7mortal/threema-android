@@ -21,10 +21,10 @@ class OnPremServerAddressProvider(
     }
 
     @Throws(ThreemaException::class)
-    override fun getChatServerNamePrefix(ipv6: Boolean) = ""
+    override fun getChatServerNamePrefix() = ""
 
     @Throws(ThreemaException::class)
-    override fun getChatServerNameSuffix(ipv6: Boolean): String =
+    override fun getChatServerNameSuffix(): String =
         fetch().chat.hostname
 
     @Throws(ThreemaException::class)
@@ -43,11 +43,11 @@ class OnPremServerAddressProvider(
         fetch().chat.publicKey
 
     @Throws(ThreemaException::class)
-    override fun getDirectoryServerUrl(ipv6: Boolean): String =
+    override fun getDirectoryServerUrl(): String =
         fetch().directory.url
 
     @Throws(ThreemaException::class)
-    override fun getWorkServerUrlLegacy(ipv6: Boolean): String =
+    override fun getWorkServerUrlLegacy(): String =
         fetch().work.url
 
     @Throws(ThreemaException::class)
@@ -55,15 +55,15 @@ class OnPremServerAddressProvider(
         fetch().work.url
 
     @Throws(ThreemaException::class)
-    override fun getBlobServerDownloadUrl(useIpV6: Boolean): BlobUrl =
+    override fun getBlobServerDownloadUrl(): BlobUrl =
         fetch().blob.downloadUrl
 
     @Throws(ThreemaException::class)
-    override fun getBlobServerUploadUrl(useIpV6: Boolean): String =
+    override fun getBlobServerUploadUrl(): String =
         fetch().blob.uploadUrl
 
     @Throws(ThreemaException::class)
-    override fun getBlobServerDoneUrl(useIpV6: Boolean): BlobUrl =
+    override fun getBlobServerDoneUrl(): BlobUrl =
         fetch().blob.doneUrl
 
     @Throws(ThreemaException::class)
@@ -79,11 +79,11 @@ class OnPremServerAddressProvider(
         fetchMediatorConfig().blob.doneUrl
 
     @Throws(ThreemaException::class)
-    override fun getAvatarServerUrl(ipv6: Boolean): String =
+    override fun getAvatarServerUrl(): String =
         fetch().avatar.url
 
     @Throws(ThreemaException::class)
-    override fun getSafeServerUrl(ipv6: Boolean): String =
+    override fun getSafeServerUrl(): String =
         fetch().safe.url
 
     @Throws(ThreemaException::class)

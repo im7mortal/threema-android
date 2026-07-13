@@ -21,9 +21,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import ch.threema.app.R
-import ch.threema.app.ThreemaApplication
 import ch.threema.app.activities.ThreemaToolbarActivity
 import ch.threema.app.emojis.EmojiTextView
+import ch.threema.app.managers.ServiceManager
 import ch.threema.app.services.UserService
 import ch.threema.app.utils.IntentDataUtil
 import ch.threema.app.utils.logScreenVisibility
@@ -78,7 +78,7 @@ class EmojiReactionsOverviewActivity : ThreemaToolbarActivity() {
             overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, 0)
         }
 
-        val serviceManager = ThreemaApplication.requireServiceManager()
+        val serviceManager = ServiceManager.require()
         val messageService = serviceManager.messageService
 
         messageModel = IntentDataUtil.getAbstractMessageModel(intent, messageService)

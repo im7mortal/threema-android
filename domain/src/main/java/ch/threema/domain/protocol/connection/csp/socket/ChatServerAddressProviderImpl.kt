@@ -18,7 +18,6 @@ class ChatServerAddressProviderImpl(
     private val identityStore: IdentityStore = configuration.identityStore
     private val serverAddressProvider: ServerAddressProvider = configuration.serverAddressProvider
     private val hostResolver: HostResolver = configuration.hostResolver
-    private val ipv6 = configuration.ipv6
 
     private val lock = ReentrantLock()
 
@@ -82,14 +81,14 @@ class ChatServerAddressProviderImpl(
         }
 
     private fun getServerHost(): String {
-        val serverNamePrefix = serverAddressProvider.getChatServerNamePrefix(ipv6)
+        val serverNamePrefix = serverAddressProvider.getChatServerNamePrefix()
         val serverHost = if (serverNamePrefix.isNotEmpty()) {
             val serverGroup = if (serverAddressProvider.getChatServerUseServerGroups()) identityStore.getServerGroup() else "."
             "$serverNamePrefix$serverGroup"
         } else {
             ""
         }
-        return "$serverHost${serverAddressProvider.getChatServerNameSuffix(ipv6)}"
+        return "$serverHost${serverAddressProvider.getChatServerNameSuffix()}"
     }
 
     private fun getAddressesWithProxy(serverHost: String): List<InetSocketAddress> {

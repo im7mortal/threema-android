@@ -3,7 +3,6 @@ package ch.threema.storage.factories;
 import android.content.ContentValues;
 import android.database.Cursor;
 
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
@@ -95,7 +94,7 @@ public class DistributionListMessageModelFactory extends AbstractMessageModelFac
     public long countByTypes(MessageType[] messageTypes) {
         String[] args = new String[messageTypes.length];
         for (int n = 0; n < messageTypes.length; n++) {
-            args[n] = String.valueOf(messageTypes[n].ordinal());
+            args[n] = String.valueOf(messageTypes[n].serializedValue);
         }
         Cursor c = getReadableDatabase().rawQuery(
             "SELECT COUNT(*) FROM " + this.getTableName() + " "

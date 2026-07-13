@@ -69,10 +69,7 @@ class MessageId(
          * @throws ThreemaException If the message id is `null` or has an invalid length
          */
         @JvmStatic
-        fun fromString(messageId: MessageIdString?): MessageId {
-            if (messageId == null) {
-                throw ThreemaException("Message id is null")
-            }
+        fun fromString(messageId: MessageIdString): MessageId {
             try {
                 return MessageId(messageId.hexToByteArray())
             } catch (e: IllegalArgumentException) {

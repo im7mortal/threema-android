@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.SystemClock;
 
+import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
@@ -21,7 +22,6 @@ import ch.threema.app.GlobalAppState;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.backuprestore.csv.BackupService;
 import ch.threema.app.backuprestore.csv.RestoreService;
-import ch.threema.app.exceptions.NoIdentityException;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.receivers.AlarmManagerBroadcastReceiver;
 import ch.threema.app.utils.IntentDataUtil;
@@ -154,8 +154,8 @@ public class LifetimeServiceImpl implements LifetimeService {
 
         // Start connection
         try {
-            ThreemaApplication.getServiceManager().startConnection();
-        } catch (NoIdentityException e) {
+            ServiceManager.get().startConnection();
+        } catch (ServiceManager.NoIdentityException e) {
             logger.info("ensureConnection: not starting, no identity found");
             return;
         } catch (Exception e) {
@@ -245,10 +245,11 @@ public class LifetimeServiceImpl implements LifetimeService {
             long curTime = SystemClock.elapsedRealtime();
 
             DownloadService downloadService = getDownloadService();
+            GlobalAppState globalAppState = KoinJavaComponent.get(GlobalAppState.class);
 
             if (!this.active) {
                 logger.info("cleanupConnection: Connection not active");
-            } else if (lingerUntil > curTime && !GlobalAppState.isDeviceIdle()) {
+            } else if (lingerUntil > curTime && !globalAppState.isDeviceIdle()) {
                 logger.info("cleanupConnection: Connection must linger for another {} milliseconds", lingerUntil - curTime);
             } else if (downloadService != null && downloadService.isDownloading()) {
                 logger.info("cleanupConnection: Still downloading - linger on");
@@ -257,7 +258,7 @@ public class LifetimeServiceImpl implements LifetimeService {
                 releaseConnectionLinger("ongoingDownload", MESSAGE_SEND_TIME);
             } else {
                 try {
-                    ThreemaApplication.getServiceManager().stopConnection();
+                    ServiceManager.get().stopConnection();
                 } catch (InterruptedException e) {
                     logger.error("Interrupted while stopping connection");
                     interrupted = true;
@@ -326,10 +327,8 @@ public class LifetimeServiceImpl implements LifetimeService {
 
     private void lockApp() {
         try {
-            final LockAppService lockAppService = ThreemaApplication.getServiceManager().getLockAppService();
-            if (lockAppService != null) {
-                lockAppService.lock();
-            }
+            final LockAppService lockAppService = ServiceManager.get().getLockAppService();
+            lockAppService.lock();
         } catch (Exception e) {
             logger.warn("Exception: Could not lock app ", e);
         }
@@ -337,7 +336,7 @@ public class LifetimeServiceImpl implements LifetimeService {
 
     @Nullable
     private DownloadService getDownloadService() {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager != null) {
             try {
                 return serviceManager.getDownloadService();
@@ -351,7 +350,7 @@ public class LifetimeServiceImpl implements LifetimeService {
 
     @Nullable
     private TaskManager getTaskManager() {
-        ServiceManager serviceManager = ThreemaApplication.getServiceManager();
+        ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager != null) {
             return serviceManager.getTaskManager();
         }

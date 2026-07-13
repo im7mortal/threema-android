@@ -15,12 +15,14 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.app.ServiceCompat;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.activities.DummyActivity;
+import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.notifications.NotificationChannels;
 import ch.threema.app.notifications.NotificationGroups;
-import ch.threema.app.utils.ConfigUtils;
+import ch.threema.app.notifications.NotificationRequestCodes;
 import ch.threema.app.webclient.activities.SessionsActivity;
+
+import static ch.threema.app.notifications.NotificationIDs.WEBCLIENT_ACTIVE_NOTIFICATION_ID;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING;
@@ -28,7 +30,6 @@ import static android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESS
 @MainThread
 public class SessionAndroidService extends Service {
     private static final Logger logger = getThreemaLogger("SessionAndroidService");
-    private static final int WEBCLIENT_ACTIVE_NOTIFICATION_ID = 23329;
 
     public static final String ACTION_START = "start";
     public static final String ACTION_STOP = "stop";
@@ -73,7 +74,7 @@ public class SessionAndroidService extends Service {
 
         // Instantiate session service
         try {
-            sessionService = ThreemaApplication.getServiceManager().getWebClientServiceManager().getSessionService();
+            sessionService = ServiceManager.require().getWebClientServiceManager().getSessionService();
         } catch (Exception e) {
             logger.error("Session service could not be initialized (passphrase locked?). Can't start web client", e);
             stopSelf();
@@ -160,14 +161,24 @@ public class SessionAndroidService extends Service {
     private Notification getNotification() {
         int amountOfRunningSessions = (int) sessionService.getRunningSessionsCount();
         Intent contentIntent = new Intent(this, SessionsActivity.class);
-        PendingIntent contentPendingIntent = PendingIntent.getActivity(this, (int) System.currentTimeMillis(), contentIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent contentPendingIntent = PendingIntent.getActivity(
+            this,
+            NotificationRequestCodes.WEBCLIENT_SESSIONS,
+            contentIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
 
         Intent stopIntent = new Intent(this, StopSessionsAndroidService.class);
-        PendingIntent stopPendingIntent = PendingIntent.getService(this, (int) System.currentTimeMillis(), stopIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent stopPendingIntent = PendingIntent.getService(
+            this,
+            NotificationRequestCodes.WEBCLIENT_STOP_SESSION,
+            stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, NotificationChannels.NOTIFICATION_CHANNEL_WEBCLIENT)
             .setContentTitle(getString(R.string.webclient))
-            .setContentText(ConfigUtils.getSafeQuantityString(this, R.plurals.webclient_running_sessions, amountOfRunningSessions, amountOfRunningSessions))
+            .setContentText(getResources().getQuantityString(R.plurals.webclient_running_sessions, amountOfRunningSessions, amountOfRunningSessions))
             .setSmallIcon(R.drawable.ic_web_notification)
             .setPriority(Notification.PRIORITY_LOW)
             .setContentIntent(contentPendingIntent)

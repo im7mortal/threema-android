@@ -19,8 +19,8 @@ import io.mockk.every
 import io.mockk.mockk
 import java.util.function.Supplier
 import kotlin.test.Test
+import kotlin.test.assertIs
 import kotlin.test.assertSame
-import kotlin.test.assertTrue
 import okhttp3.OkHttpClient
 
 class CspD2mDualConnectionSupplierTest {
@@ -29,7 +29,7 @@ class CspD2mDualConnectionSupplierTest {
         val connectionSupplier = createSupplier(MdActiveHandle())
 
         val connection = connectionSupplier.get()
-        assertTrue(connection is CspConnection)
+        assertIs<CspConnection>(connection)
         // subsequent call must return the same instance
         assertSame(connection, connectionSupplier.get())
     }
@@ -39,7 +39,7 @@ class CspD2mDualConnectionSupplierTest {
         val connectionSupplier = createSupplier(MdActiveHandle(true))
 
         val connection = connectionSupplier.get()
-        assertTrue(connection is D2mConnection)
+        assertIs<D2mConnection>(connection)
         // subsequent call must return the same instance
         assertSame(connection, connectionSupplier.get())
     }
@@ -49,11 +49,11 @@ class CspD2mDualConnectionSupplierTest {
         val handle = MdActiveHandle(false)
         val connectionSupplier = createSupplier(handle)
 
-        assertTrue(connectionSupplier.get() is CspConnection)
+        assertIs<CspConnection>(connectionSupplier.get())
         handle.isMdActive = true
-        assertTrue(connectionSupplier.get() is D2mConnection)
+        assertIs<D2mConnection>(connectionSupplier.get())
         handle.isMdActive = false
-        assertTrue(connectionSupplier.get() is CspConnection)
+        assertIs<CspConnection>(connectionSupplier.get())
     }
 
     @Test
@@ -61,47 +61,33 @@ class CspD2mDualConnectionSupplierTest {
         val handle = MdActiveHandle(true)
         val connectionSupplier = createSupplier(handle)
 
-        assertTrue(connectionSupplier.get() is D2mConnection)
+        assertIs<D2mConnection>(connectionSupplier.get())
         handle.isMdActive = false
-        assertTrue(connectionSupplier.get() is CspConnection)
+        assertIs<CspConnection>(connectionSupplier.get())
         handle.isMdActive = true
-        assertTrue(connectionSupplier.get() is D2mConnection)
+        assertIs<D2mConnection>(connectionSupplier.get())
     }
 
-    private fun createSupplier(mdActiveHandle: MdActiveHandle): Supplier<ServerConnection> {
-        val powerManager = mockk<PowerManager>()
-        val multiDeviceManager = mockk<MultiDeviceManager>()
-        val propertiesProvider = mockk<MultiDevicePropertyProvider>()
-        val socketCloseListener = mockk<D2mSocketCloseListener>()
-        every { multiDeviceManager.isMultiDeviceActive } answers { mdActiveHandle.isMdActive }
-        every { multiDeviceManager.propertiesProvider } returns propertiesProvider
-        every { multiDeviceManager.socketCloseListener } returns socketCloseListener
-        val incomingMessageProcessor = mockk<IncomingMessageProcessor>()
-        val taskManager = mockk<TaskManager>()
-        val deviceCookieManager = mockk<DeviceCookieManager>()
-        val serverAddressProviderService = mockk<ServerAddressProviderService>()
-        val serverAddressProvider = mockk<ServerAddressProvider>()
-        every { serverAddressProviderService.serverAddressProvider } returns serverAddressProvider
-        val identityStore = mockk<IdentityStore>()
-        val version = Version()
-        val isIpv6Preferred = true
-        val isTestBuild = false
-
-        return CspD2mDualConnectionSupplier(
-            powerManager,
-            multiDeviceManager,
-            incomingMessageProcessor,
-            taskManager,
-            deviceCookieManager,
-            serverAddressProviderService,
-            identityStore,
-            version,
-            isIpv6Preferred,
-            mockk<OkHttpClient>(),
-            mockk<AppStartupMonitor>(),
-            isTestBuild,
+    private fun createSupplier(mdActiveHandle: MdActiveHandle): Supplier<ServerConnection> =
+        CspD2mDualConnectionSupplier(
+            powerManager = mockk<PowerManager>(),
+            multiDeviceManager = mockk<MultiDeviceManager> {
+                every { isMultiDeviceActive } answers { mdActiveHandle.isMdActive }
+                every { propertiesProvider } returns mockk<MultiDevicePropertyProvider>()
+                every { socketCloseListener } returns mockk<D2mSocketCloseListener>()
+            },
+            incomingMessageProcessor = mockk<IncomingMessageProcessor>(),
+            taskManager = mockk<TaskManager>(),
+            deviceCookieManager = mockk<DeviceCookieManager>(),
+            serverAddressProviderService = mockk<ServerAddressProviderService> {
+                every { serverAddressProvider } returns mockk<ServerAddressProvider>()
+            },
+            identityStore = mockk<IdentityStore>(),
+            version = Version(),
+            okHttpClient = mockk<OkHttpClient>(),
+            appStartupMonitor = mockk<AppStartupMonitor>(),
+            isTestBuild = false,
         )
-    }
 
     class MdActiveHandle(var isMdActive: Boolean = false)
 }

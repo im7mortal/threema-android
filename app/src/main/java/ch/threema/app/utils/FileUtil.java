@@ -23,30 +23,26 @@ import android.widget.Toast;
 import org.slf4j.Logger;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.lang.reflect.Array;
-import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.stream.Stream;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.WorkerThread;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import ch.threema.app.AppConstants;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
-import ch.threema.app.camera.CameraActivity;
 import ch.threema.app.filepicker.FilePickerActivity;
-import ch.threema.app.services.FileService;
 import ch.threema.app.ui.MediaItem;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.storage.models.AbstractMessageModel;
@@ -55,7 +51,7 @@ import ch.threema.storage.models.data.media.FileDataModel;
 import static ch.threema.app.AppConstants.MAX_BLOB_SIZE;
 import static ch.threema.app.filepicker.FilePickerActivity.INTENT_DATA_DEFAULT_PATH;
 import static ch.threema.app.utils.StreamUtilKt.getFromUri;
-import static ch.threema.common.JavaCompat.copyStream;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class FileUtil {
     private static final Logger logger = getThreemaLogger("FileUtil");
@@ -192,32 +188,6 @@ public class FileUtil {
         }
     }
 
-    public static boolean getCameraFile(Activity activity, Fragment fragment, File cameraFile, int requestCode, FileService fileService, boolean preferInternal) {
-        try {
-            Intent cameraIntent;
-
-            if (preferInternal) {
-                cameraIntent = new Intent(fragment != null ? fragment.getActivity() : activity, CameraActivity.class);
-                cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, cameraFile.getCanonicalPath());
-                cameraIntent.putExtra(CameraActivity.EXTRA_NO_VIDEO, true);
-            } else {
-                cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, fileService.getShareFileUri(cameraFile, null));
-                cameraIntent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-            }
-
-            if (fragment != null) {
-                fragment.startActivityForResult(cameraIntent, requestCode);
-            } else {
-                activity.startActivityForResult(cameraIntent, requestCode);
-            }
-            return true;
-        } catch (Exception e) {
-            logger.error("Exception", e);
-        }
-        return false;
-    }
-
     public static void forwardMessages(Context context, Class<?> targetActivity, List<AbstractMessageModel> messageModels) {
         Intent intent = new Intent(context, targetActivity);
 
@@ -337,7 +307,7 @@ public class FileUtil {
                 mimeType = MimeUtil.MIME_TYPE_APPLE_PKPASS;
             }
         }
-        if (TestUtil.isEmptyOrNull(mimeType)) {
+        if (isNullOrEmpty(mimeType)) {
             return MimeUtil.MIME_TYPE_DEFAULT;
         }
         return mimeType;
@@ -349,7 +319,7 @@ public class FileUtil {
             ContentResolver contentResolver = context.getContentResolver();
             String type = contentResolver.getType(uri);
 
-            if (TestUtil.isEmptyOrNull(type) || MimeUtil.MIME_TYPE_DEFAULT.equals(type)) {
+            if (isNullOrEmpty(type) || MimeUtil.MIME_TYPE_DEFAULT.equals(type)) {
                 String filename = FileUtil.getFilenameFromUri(contentResolver, uri);
 
                 return getMimeTypeFromPath(filename);
@@ -531,13 +501,19 @@ public class FileUtil {
     }
 
     public static @NonNull String getMediaFilenamePrefix(@NonNull AbstractMessageModel messageModel) {
-        SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.getDefault());
-        return "threema-" + format.format(messageModel.getCreatedAt()) + "-" + messageModel.getApiMessageId();
+        var time = messageModel.getCreatedAt() != null ? messageModel.getCreatedAt() : Instant.now();
+        var timestamp = getFileNameTimestamp(time);
+        return "threema-" + timestamp + "-" + messageModel.getApiMessageId();
     }
 
     public static @NonNull String getMediaFilenamePrefix() {
-        SimpleDateFormat format = new SimpleDateFormat("yyyyMMdd-HHmmssSSS", Locale.getDefault());
-        return "threema-" + format.format(System.currentTimeMillis());
+        var timestamp = getFileNameTimestamp(Instant.now());
+        return "threema-" + timestamp;
+    }
+
+    private static @NonNull String getFileNameTimestamp(@NonNull Instant instant) {
+        var formatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
+        return formatter.format(instant.atZone(ZoneId.systemDefault()));
     }
 
     /**
@@ -547,7 +523,7 @@ public class FileUtil {
      * @return a filename with an extension
      */
     public static @NonNull String getDefaultFilename(@Nullable String mimeType) {
-        if (TestUtil.isEmptyOrNull(mimeType)) {
+        if (isNullOrEmpty(mimeType)) {
             mimeType = MimeUtil.MIME_TYPE_DEFAULT;
         }
 
@@ -556,24 +532,10 @@ public class FileUtil {
     }
 
     public static String sanitizeFileName(String filename) {
-        if (!TestUtil.isEmptyOrNull(filename)) {
+        if (!isNullOrEmpty(filename)) {
             return filename.replaceAll("[:/*\"?|<>' ]|\\.{2}", "_");
         }
         return null;
-    }
-
-    @WorkerThread
-    public static boolean copyFile(@NonNull Uri source, @NonNull File dest, @NonNull ContentResolver contentResolver) {
-        try (InputStream inputStream = contentResolver.openInputStream(source);
-             OutputStream outputStream = new FileOutputStream(dest)) {
-            if (inputStream != null) {
-                copyStream(inputStream, outputStream);
-                return true;
-            }
-        } catch (Exception e) {
-            logger.error("Exception", e);
-        }
-        return false;
     }
 
     /**
@@ -593,61 +555,6 @@ public class FileUtil {
         if (!file.delete()) {
             logger.warn("Could not delete {}", description);
         }
-    }
-
-    /**
-     * See {@link #deleteFileOrWarn(File, String, Logger)}
-     */
-    public static void deleteFileOrWarn(
-        @NonNull String path,
-        @Nullable String description,
-        @NonNull Logger logger
-    ) {
-        FileUtil.deleteFileOrWarn(new File(path), description, logger);
-    }
-
-    /**
-     * Create a new file or re-use existing file. Log if file already exists.
-     *
-     * @param file   The file that should be created or re-used
-     * @param logger The logger facility to use
-     */
-    public static void createNewFileOrLog(
-        @NonNull File file,
-        @NonNull Logger logger
-    ) throws IOException {
-        if (!file.createNewFile()) {
-            logger.debug("File {} already exists", file.getAbsolutePath());
-        }
-    }
-
-    /**
-     * Try to generated a File with the given filename in the given path
-     * If a file of the same name exists, add a number to the filename (possibly between name and extension)
-     *
-     * @param destPath     Destination path
-     * @param destFilename Desired filename
-     * @return File object
-     */
-    public static File getUniqueFile(String destPath, String destFilename) {
-        File destFile = new File(destPath, destFilename);
-
-        String extension = MimeTypeMap.getFileExtensionFromUrl(destFilename);
-        if (!TestUtil.isEmptyOrNull(extension)) {
-            extension = "." + extension;
-        }
-        String filePart = destFilename.substring(0, destFilename.length() - extension.length());
-
-        int i = 0;
-        while (destFile.exists()) {
-            i++;
-            destFile = new File(destPath, filePart + " (" + i + ")" + extension);
-            if (!destFile.exists()) {
-                break;
-            }
-        }
-
-        return destFile;
     }
 
     /**
@@ -805,7 +712,7 @@ public class FileUtil {
      * Check if the file at the provided Uri is an animation. Currently, only animated WebP and (possibly static) GIFs are supported
      *
      * @param uri A File Uri pointing to an image file
-     * @return true if the file an animated image
+     * @return true if the file is an animated image
      */
     public static boolean isAnimatedImageFile(@NonNull Uri uri, String mimeType) {
         return isAnimatedWebPFile(uri) || MimeUtil.isGifFile(mimeType);

@@ -29,6 +29,8 @@
     <string name="menu_done">Kész</string>
     <string name="compose_message_and_enter">Üzenet beírása</string>
     <string name="send">Küldés</string>
+    <!-- Title of section on "Settings" screen, for advanced settings -->
+    <!-- Title of section on "Settings" screen, for information and other options about the app -->
     <string name="prefs_privacy">Adatvédelem</string>
     <string name="prefs_notifications">Hangok  &amp; értesítések</string>
     <string name="prefs_chatdisplay">Csevegőablak</string>
@@ -74,7 +76,8 @@
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="prefs_logging">Naplózás</string>
     <string name="prefs_title_message_log_switch">Fájlba naplózás</string>
-    <string name="prefs_title_sum_message_log_on">Az események és a hálózati információk a debug_log.txt fájlba lesznek naplózva</string>
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the time since when the logging is enabled, %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
+    <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
     <string name="prefs_title_sum_message_log_off">Az események nem lesznek naplózva</string>
     <string name="prefs_reset_push">Push-token visszaállítása</string>
     <string name="prefs_sum_reset_push">Az egység újbóli regisztrálása az FCM//HMS-ben</string>
@@ -642,7 +645,6 @@
     <string name="restore">Visszaállítás</string>
     <!-- Shown in prompt dialog during the setup wizard. Only used for work builds (i.e. Threema Work and OnPrem). ${app_name} and ${app_name_short} are placeholders for the app's name, they must be kept as-is and not translated. -->
     <!-- ${app_name} and ${app_name_short} are placeholders for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
-    <string name="new_wizard_scan_id_backup">Vagy szkennelje be az ID export QR-kódját.</string>
     <string name="error_saving_file">Hiba mentés közben. Nincs engedélye?</string>
     <string name="wait_one_minute">Kérjük, várjon legalább 10 percet az SMS-re, mielőtt visszahívást kérne.</string>
     <string name="backup_id">ID export</string>
@@ -706,7 +708,7 @@
     <string name="prefs_language_override">Nyelv</string>
     <!-- ${app_name_short} are placeholders for the app's name, e.g. "Threema". They must be left as-is and not translated. -->
     <string name="threema_channel_intro">A ${app_name_short} Channel a ${app_name_short}-ról szóló hírekkel látja el Önt. Szeretne feliratkozni a ${app_name_short} Channelre és hozzáadni a névjegyzékbe? Ingyenes, és bármikor leiratkozhatsz róla.</string>
-    <string name="quote">Idéz</string>
+    <!-- Name of action in context menu for a chat message, which lets the user write a reply to that message -->
     <string name="contacts_deleted">A névjegyek törölve lettek</string>
     <string name="take_photo">Fotózás</string>
     <string name="select_from_gallery">Galériából választás</string>
@@ -1113,6 +1115,7 @@
     <string name="max_selectable_media_exceeded">Egyszerre legfeljebb %d objektum küldhető.</string>
     <string name="error_unable_loading_media_thumb">Az előnézet nem tölthető be</string>
     <string name="filter_list">Lista szűrése</string>
+    <!-- A hint/placeholder text that is shown when a search field appears. The user needs to enter a search query -->
     <string name="hint_filter_list">Szűrő kifejezés megadása</string>
     <string name="add">Hozzáadás</string>
     <string name="only_images_or_videos">Csak képek és videók választhatók ki</string>
@@ -1255,7 +1258,6 @@ Ha új eszközre vált, kérjük, távolítsa el vagy deaktiválja a %s-t a rég
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
-    <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- Shown in the advanced settings, shows the user their own Device's uniquely generated ID, which is used for sending error reports -->
     <!-- The %s is a placeholder for an ID. It must be left as-is. -->
     <!-- Message shown in dialog when the user starts configuring a backup, but we detected that there might be a problem and thus offer a workaround option to choose from -->
@@ -1315,4 +1317,5 @@ Ha új eszközre vált, kérjük, távolítsa el vagy deaktiválja a %s-t a rég
         <item quantity="one">%d kép kiválasztva</item>
         <item quantity="other">%d kép kiválasztva</item>
     </plurals>
+    <!-- Used for indicating for how long the notifications of a chat are muted -->
 </resources>

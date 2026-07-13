@@ -9,6 +9,8 @@ mod external_crate_false_positives {
     use getrandom as _;
 }
 
+pub mod config;
+pub mod create_identity;
 pub mod crypto;
 pub mod d2d_rendezvous;
 pub mod https;

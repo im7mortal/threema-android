@@ -1,7 +1,6 @@
 package ch.threema.app.fragments.wizard;
 
 import android.app.Activity;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -17,10 +16,12 @@ import android.view.inputmethod.EditorInfo;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.SpinnerAdapter;
 import android.widget.TextView;
 
+import com.google.android.material.textfield.TextInputLayout;
 import com.google.i18n.phonenumbers.AsYouTypeFormatter;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 
@@ -38,16 +39,18 @@ import java.util.Objects;
 import java.util.Set;
 
 import androidx.annotation.NonNull;
+import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.R;
 import ch.threema.app.activities.wizard.WizardBaseActivity;
-import ch.threema.app.ui.SimpleTextWatcher;
+import ch.threema.android.textwatchers.SimpleTextWatcher;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.EditTextUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.app.utils.TestUtil;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 /**
  * Example:
@@ -61,16 +64,19 @@ import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 public class WizardFragment3 extends WizardFragment {
     private static final Logger logger = getThreemaLogger("WizardFragment3");
 
-    private EditText prefixText, emailEditText, phoneText;
+    private EditText phonePrefixEditText, phoneEditText, emailEditText;
     private CountryListAdapter countryListAdapter;
     private Spinner countrySpinner;
     private AsYouTypeFormatter phoneNumberFormatter;
-    private AsyncTask<Void, Void, ArrayList<Map<String, String>>> countryListTask;
+    private LifecycleAwareAsyncTask<Void, ArrayList<Map<String, String>>> countryListTask;
     public static final int PAGE_ID = 3;
 
     @Override
-    public View onCreateView(LayoutInflater inflater, final ViewGroup container,
-                             Bundle savedInstanceState) {
+    public View onCreateView(
+        LayoutInflater inflater,
+        final ViewGroup container,
+        Bundle savedInstanceState
+    ) {
         View rootView = Objects.requireNonNull(super.onCreateView(inflater, container, savedInstanceState));
 
         TextView title = rootView.findViewById(R.id.wizard_title);
@@ -83,20 +89,27 @@ public class WizardFragment3 extends WizardFragment {
         WizardFragment4.SettingsInterface callback = (WizardFragment4.SettingsInterface) requireActivity();
 
         countrySpinner = rootView.findViewById(R.id.country_spinner);
+
+        final LinearLayout phoneInputContainer = rootView.findViewById(R.id.phone_input_container);
+
+        final TextInputLayout phonePrefixEditTextLayout = rootView.findViewById(R.id.wizard_prefix_layout);
+        final TextInputLayout phoneEditTextLayout = rootView.findViewById(R.id.wizard_phone_layout);
+        phonePrefixEditText = rootView.findViewById(R.id.wizard_prefix);
+        phonePrefixEditText.setText("+");
+        phoneEditText = rootView.findViewById(R.id.wizard_phone);
+
+        final TextInputLayout emailEditTextLayout = rootView.findViewById(R.id.wizard_email_layout);
         emailEditText = rootView.findViewById(R.id.wizard_email);
-        prefixText = rootView.findViewById(R.id.wizard_prefix);
-        prefixText.setText("+");
-        phoneText = rootView.findViewById(R.id.wizard_phone);
 
         if (!ConfigUtils.isWorkBuild()) {
-            rootView.findViewById(R.id.wizard_email_layout).setVisibility(View.GONE);
+            emailEditTextLayout.setVisibility(View.GONE);
             ((TextView) rootView.findViewById(R.id.scooter)).setText(getString(R.string.new_wizard_link_mobile_only));
         }
 
         if (callback.isReadOnlyProfile()) {
-            emailEditText.setEnabled(false);
-            prefixText.setEnabled(false);
-            phoneText.setEnabled(false);
+            emailEditTextLayout.setEnabled(false);
+            phonePrefixEditTextLayout.setEnabled(false);
+            phoneEditTextLayout.setEnabled(false);
             countrySpinner.setEnabled(false);
             rootView.findViewById(R.id.disabled_by_policy).setVisibility(View.VISIBLE);
         } else {
@@ -109,13 +122,13 @@ public class WizardFragment3 extends WizardFragment {
                 }
             });
 
-            prefixText.addTextChangedListener(new SimpleTextWatcher() {
+            phonePrefixEditText.addTextChangedListener(new SimpleTextWatcher() {
                 @Override
                 public void afterTextChanged(@NonNull Editable editable) {
                     String prefixString = editable.toString();
                     if (!prefixString.startsWith("+")) {
-                        prefixText.setText("+");
-                        Selection.setSelection(prefixText.getText(), prefixText.getText().length());
+                        phonePrefixEditText.setText("+");
+                        Selection.setSelection(phonePrefixEditText.getText(), phonePrefixEditText.getText().length());
                     } else if (prefixString.length() > 1 && countryListAdapter != null) {
                         try {
                             int countryCode = Integer.parseInt(prefixString.substring(1));
@@ -125,7 +138,7 @@ public class WizardFragment3 extends WizardFragment {
                             if (position > -1) {
                                 countrySpinner.setSelection(position);
                                 setPhoneNumberFormatter(countryCode);
-                                ((OnSettingsChangedListener) requireActivity()).onPrefixSet(prefixText.getText().toString());
+                                ((OnSettingsChangedListener) requireActivity()).onPrefixSet(phonePrefixEditText.getText().toString());
                             }
                         } catch (NumberFormatException e) {
                             logger.error("Exception", e);
@@ -134,7 +147,7 @@ public class WizardFragment3 extends WizardFragment {
                 }
             });
 
-            phoneText.addTextChangedListener(new SimpleTextWatcher() {
+            phoneEditText.addTextChangedListener(new SimpleTextWatcher() {
                 @Override
                 public void afterTextChanged(@NonNull Editable editable) {
                     if (!TextUtils.isEmpty(editable) && phoneNumberFormatter != null) {
@@ -159,8 +172,8 @@ public class WizardFragment3 extends WizardFragment {
             });
 
             if (!ConfigUtils.isWorkBuild()) {
-                this.phoneText.setImeOptions(EditorInfo.IME_ACTION_GO);
-                this.phoneText.setOnKeyListener((v, keyCode, event) -> {
+                this.phoneEditText.setImeOptions(EditorInfo.IME_ACTION_GO);
+                this.phoneEditText.setOnKeyListener((v, keyCode, event) -> {
                     if (event.getAction() == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_ENTER) {
                         if (getActivity() != null && isAdded()) {
                             ((WizardBaseActivity) getActivity()).nextPage();
@@ -175,29 +188,26 @@ public class WizardFragment3 extends WizardFragment {
         TextView presetEmailText = rootView.findViewById(R.id.preset_email_text);
         TextView presetPhoneText = rootView.findViewById(R.id.preset_phone_text);
 
-        if (!TestUtil.isEmptyOrNull(callback.getPresetEmail())) {
-            emailEditText.setVisibility(View.GONE);
-            presetEmailText.setText(R.string.linked);
+        if (!isNullOrEmpty(callback.getPresetEmail())) {
+            emailEditTextLayout.setVisibility(View.GONE);
             presetEmailText.setVisibility(View.VISIBLE);
         }
 
-        if (!TestUtil.isEmptyOrNull(callback.getPresetPhone())) {
-            phoneText.setVisibility(View.GONE);
-            prefixText.setVisibility(View.GONE);
+        if (!isNullOrEmpty(callback.getPresetPhone())) {
+            phoneInputContainer.setVisibility(View.GONE);
             countrySpinner.setVisibility(View.GONE);
-            presetPhoneText.setText(R.string.linked);
             presetPhoneText.setVisibility(View.VISIBLE);
         } else {
             // load country list
-            countryListTask = new AsyncTask<Void, Void, ArrayList<Map<String, String>>>() {
+            countryListTask = new LifecycleAwareAsyncTask<>() {
                 final PhoneNumberUtil phoneNumberUtil = PhoneNumberUtil.getInstance();
 
                 @Override
-                protected ArrayList<Map<String, String>> doInBackground(Void... params) {
+                protected ArrayList<Map<String, String>> doInBackground(Void params) {
                     Set<String> regions = phoneNumberUtil.getSupportedRegions();
-                    ArrayList<Map<String, String>> results = new ArrayList<Map<String, String>>(regions.size());
+                    ArrayList<Map<String, String>> results = new ArrayList<>(regions.size());
                     for (String region : regions) {
-                        Map<String, String> data = new HashMap<String, String>(2);
+                        Map<String, String> data = new HashMap<>(2);
                         data.put("name", getCountryName(region));
                         data.put("prefix", "+" + PhoneNumberUtil.getInstance().getCountryCodeForRegion(region));
                         results.add(data);
@@ -205,7 +215,7 @@ public class WizardFragment3 extends WizardFragment {
                     Collections.sort(results, new CountryNameComparator());
 
 
-                    Map<String, String> data = new HashMap<String, String>(2);
+                    Map<String, String> data = new HashMap<>(2);
                     data.put("name", getString(R.string.new_wizard_select_country));
                     data.put("prefix", "");
                     results.add(data);
@@ -223,32 +233,32 @@ public class WizardFragment3 extends WizardFragment {
                         public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                             if (position < result.size() - 1) {
                                 String prefixString = result.get(position).get("prefix");
-                                prefixText.setText(prefixString);
+                                phonePrefixEditText.setText(prefixString);
 
-                                if (!TestUtil.isEmptyOrNull(prefixString) && prefixString.length() > 1) {
+                                if (!isNullOrEmpty(prefixString) && prefixString.length() > 1) {
                                     setPhoneNumberFormatter(Integer.parseInt(prefixString.substring(1)));
                                 }
-                                phoneText.requestFocus();
+                                phoneEditText.requestFocus();
                             }
                         }
 
                         @Override
                         public void onNothingSelected(AdapterView<?> parent) {
-                            prefixText.setText("+");
+                            phonePrefixEditText.setText("+");
                         }
                     });
 
-                    if (prefixText.getText().length() <= 1) {
+                    if (phonePrefixEditText.getText().length() <= 1) {
                         String countryCode = localeService.getCountryCodePhonePrefix();
-                        if (!TestUtil.isEmptyOrNull(countryCode)) {
-                            prefixText.setText(countryCode);
-                            ((OnSettingsChangedListener) getActivity()).onPrefixSet(prefixText.getText().toString());
-                            phoneText.requestFocus();
+                        if (!isNullOrEmpty(countryCode)) {
+                            phonePrefixEditText.setText(countryCode);
+                            ((OnSettingsChangedListener) getActivity()).onPrefixSet(phonePrefixEditText.getText().toString());
+                            phoneEditText.requestFocus();
                         }
                     }
                 }
             };
-            countryListTask.execute();
+            countryListTask.execute(WizardFragment3.this, null);
         }
 
         return rootView;
@@ -259,12 +269,19 @@ public class WizardFragment3 extends WizardFragment {
         return ConfigUtils.isWorkBuild() ? R.string.new_wizard_info_link : R.string.new_wizard_info_link_phone_only;
     }
 
-    private void showEditTextError(EditText editText, boolean show) {
-        editText.setCompoundDrawablesWithIntrinsicBounds(0, 0, show ? R.drawable.ic_error_red_24dp : 0, 0);
+    private void showEditTextError(@NonNull EditText editText, boolean show) {
+        editText.setCompoundDrawablesWithIntrinsicBounds(
+            0,
+            0,
+            show
+                ? R.drawable.ic_error_red_24dp
+                : 0,
+            0
+        );
     }
 
     private String getCountryName(String region) {
-        if (!TestUtil.isEmptyOrNull(region)) {
+        if (!isNullOrEmpty(region)) {
             return new Locale("", region).getDisplayCountry(Locale.getDefault());
         } else {
             return "";
@@ -275,7 +292,7 @@ public class WizardFragment3 extends WizardFragment {
         PhoneNumberUtil phoneNumberUtil = PhoneNumberUtil.getInstance();
         String regionCode = phoneNumberUtil.getRegionCodeForCountryCode(countryCode);
 
-        if (!TestUtil.isEmptyOrNull(regionCode)) {
+        if (!isNullOrEmpty(regionCode)) {
             this.phoneNumberFormatter = phoneNumberUtil.getAsYouTypeFormatter(regionCode);
         } else {
             this.phoneNumberFormatter = null;
@@ -366,7 +383,7 @@ public class WizardFragment3 extends WizardFragment {
 
         // make sure asynctask is cancelled before detaching fragment
         if (countryListTask != null) {
-            countryListTask.cancel(true);
+            countryListTask.cancel();
         }
     }
 
@@ -376,18 +393,18 @@ public class WizardFragment3 extends WizardFragment {
 
         new Handler(Looper.getMainLooper()).postDelayed(() -> RuntimeUtil.runOnUiThread(() -> {
             initValues();
-            if (phoneText != null) {
-                phoneText.requestFocus();
-                EditTextUtil.showSoftKeyboard(phoneText);
+            if (phoneEditText != null) {
+                phoneEditText.requestFocus();
+                EditTextUtil.showSoftKeyboard(phoneEditText);
             }
         }), 50);
     }
 
     @Override
     public void onPause() {
-        if (this.phoneText != null) {
-            this.phoneText.clearFocus();
-            EditTextUtil.hideSoftKeyboard(this.phoneText);
+        if (this.phoneEditText != null) {
+            this.phoneEditText.clearFocus();
+            EditTextUtil.hideSoftKeyboard(this.phoneEditText);
         }
         super.onPause();
     }
@@ -397,14 +414,14 @@ public class WizardFragment3 extends WizardFragment {
             WizardFragment4.SettingsInterface callback = (WizardFragment4.SettingsInterface) requireActivity();
             emailEditText.setText(callback.getEmail());
 
-            if (TestUtil.isEmptyOrNull(callback.getPresetEmail())) {
-                showEditTextError(emailEditText, !TestUtil.isEmptyOrNull(callback.getEmail()) && !Patterns.EMAIL_ADDRESS.matcher(callback.getEmail()).matches());
+            if (isNullOrEmpty(callback.getPresetEmail())) {
+                showEditTextError(emailEditText, !isNullOrEmpty(callback.getEmail()) && !Patterns.EMAIL_ADDRESS.matcher(callback.getEmail()).matches());
             }
 
-            prefixText.setText(callback.getPrefix());
-            phoneText.setText(callback.getNumber());
-            if (TestUtil.isEmptyOrNull(callback.getPresetPhone())) {
-                showEditTextError(phoneText, !TestUtil.isEmptyOrNull(callback.getNumber()) && TestUtil.isEmptyOrNull(callback.getPhone()));
+            phonePrefixEditText.setText(callback.getPrefix());
+            phoneEditText.setText(callback.getNumber());
+            if (isNullOrEmpty(callback.getPresetPhone())) {
+                showEditTextError(phoneEditText, !isNullOrEmpty(callback.getNumber()) && isNullOrEmpty(callback.getPhone()));
             }
         }
     }

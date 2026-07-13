@@ -30,13 +30,13 @@ public class ThreemaFeatureTest {
         Assertions.assertTrue(ThreemaFeature.canGroupChat(2));
         Assertions.assertTrue(ThreemaFeature.canGroupChat(3));
 
-        // Test Ballot Flag
-        Assertions.assertFalse(ThreemaFeature.canBallot(0x00));
-        Assertions.assertFalse(ThreemaFeature.canBallot(0x00 | 0x01 | 0x02));
-        Assertions.assertTrue(ThreemaFeature.canBallot(0x04));
-        Assertions.assertTrue(ThreemaFeature.canBallot(0xfa | 0x04));
-        Assertions.assertTrue(ThreemaFeature.canBallot(4));
-        Assertions.assertTrue(ThreemaFeature.canBallot(5));
+        // Test Poll Flag
+        Assertions.assertFalse(ThreemaFeature.canPoll(0x00));
+        Assertions.assertFalse(ThreemaFeature.canPoll(0x00 | 0x01 | 0x02));
+        Assertions.assertTrue(ThreemaFeature.canPoll(0x04));
+        Assertions.assertTrue(ThreemaFeature.canPoll(0xfa | 0x04));
+        Assertions.assertTrue(ThreemaFeature.canPoll(4));
+        Assertions.assertTrue(ThreemaFeature.canPoll(5));
 
         // Test File Flag
         Assertions.assertFalse(ThreemaFeature.canFile(0x00));

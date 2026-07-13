@@ -138,7 +138,7 @@ internal class GroupCallContext(
     private fun createCallState(): CallState {
         return GroupCallState(
             localParticipant.id,
-            Date().time.toULong(),
+            System.currentTimeMillis().toULong(),
             getAllCallParticipants(),
         ).toProtobuf()
     }
@@ -162,6 +162,8 @@ data class P2PContexts(
     val local: LocalP2PContext,
     val remote: RemoteP2PContext,
 ) {
+    // Note that this may throw an exception in case the public key of the remote is all zeros. But in this case it is not possible to complete the
+    // handshake and therefore no P2P context is created.
     private val naCl: NaCl by lazy {
         NaCl(
             local.pckPrivate,
