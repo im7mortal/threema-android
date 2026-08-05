@@ -64,8 +64,8 @@
 ⤴️|nahoru|šipka doprava stáčející se nahoru|šipka vpravo zatáčející nahoru
 ⤵️|dolů|šipka doprava stáčející se dolů|šipka vpravo zatáčející dolů
 〰️|čára|dlouhá vlnovka|interpunkce|interpunkční|pomlčka|vlnitá|vlnovka|vlny|znaménka
-㊗️|blahopřání|blahopřejeme|gratulace|gratulovat|ideogram|japonský kruhový ideogram gratulace|japonština|štěstí|štítek s japonským znakem blahopřání|祝
-㊙️|ideogram|japonský kruhový ideogram tajemství|japonština|štítek s japonským znakem tajné|tajemství|utajení|秘
+㊗️|blahopřání|blahopřejeme|gratulace|gratulovat|ideogram|japonský kruhový ideogram gratulace|japonština|štěstí|štítek s japonským znakem blahopřání
+㊙️|ideogram|japonský kruhový ideogram tajemství|japonština|štítek s japonským znakem tajné|tajemství|utajení
 😀|obličej|radostný|smajlík|smát se|smích|spokojený|šťastný|tvář|úšklebek|úsměv|veselý|výraz se širokým úsměvem|vysmátý|zubící se obličej|zuby
 😃|hlasitý smích|jupí|obličej|otevřený|paráda|smajlík|spokojený|šťastný|super|tvář|úsměv|ústa|výraz s úsměvem s otevřenou pusou|zubící se obličej s velkýma očima|zuby
 😄|hlasitý smích|křenit se|lol|obličej|oko|otevřený|řehtat se|smajlík|smát se|tvář|úsměv|ústa|výraz s úsměvem s otevřenou pusou a rozzářenýma očima|zubící se obličej s usměvavýma očima
@@ -150,6 +150,7 @@
 😯|obličej se zaraženým výrazem|ohromený|omg|páni|překvapený|smajlík|šokovaný|tichý|tvář|tyjo|výraz tváře beze slov|wow|zaražený
 😲|naprosto|nekecej|nemožné|není možné|nevěřícný|obličej|ohromený|omg|smajlík|šok|to snad ne|tvář|udivený|úplně|úžas|užaslý|výraz ohromení|wtf|zaskočený
 😳|bože|červenat|cože|ohromený|páni|překvapení|překvapený|provinilý|rozpaky|šílené|stydět|stydlivý|trapas|trapné|údiv|udivený|výraz|wow|zrudnout
+🫪|nafouklý|obličej|panika|překvapený|smajlík|šokovaný|úzkost|zranitelný
 🥺|milost|obličej|pěkně prosím|proč ne|prosba|prosebný obličej|prosící|prosit|psí oči|škemrat|slitování|smajlík|smutné oči|smutný|žadonění|žadonit
 🥹|aww|dojetí|emoce|hněv|hrdost|obdiv|obličej se slzami na krajíčku|pěkně prosím|pláč|pocity|prosík|psí oči|rozpaky|sebeovládání|slzičky|slzy na krajíčku|slzy štěstí|smutek|vděčnost
 😦|cože|obličej|otevřený|polekat se|překvapení|smajlík|tvář|úlek|ústa|vyděšený|vylekaný|výraz zamračení s otevřenou pusou|vystrašený|zamračení|zamračený obličej s otevřenou pusou|zaražený|zděšený
@@ -220,6 +221,7 @@
 💋|city|láska|otisk rtů|polibek|pusa|pusinka|rande|romance|romantika|rty|sexy|srdce
 💯|100|ano|na jedničku|opravdu|pecka|plný počet|rozhodně|skóre|souhlas|sto bodů|stoprocentní|že váháš
 💢|hněv|japonský symbol hněvu|komiksový|manga|naštvaný|rozzlobený|úder|vztek|žíly|zloba|zlost
+🫯|debata|hádka|nesouhlas|povyk|roztržka|spor|zápas
 💥|bomba|bum|exploze|komiks|náraz|obrázek|rána|srážka|třesk|vybouchnout|výbuch
 💫|hvězda|hvězdička|hvězdičky|kometa|komiks|padající hvězda|zářivý|závrať
 💦|cákání|cákat|cvičení|kapat|kapičky|kapky potu|komiks|obrázek|odkapávat|pot|šplouchat|stříkající|trénink|voda
@@ -452,6 +454,7 @@
 🧟‍♂️|chodící|ghúl|mrtvola|mrtvý|nemrtvý muž|zombie|zombík
 🧟‍♀️|chodící|ghúl|mrtvá|mrtvola|nemrtvá žena|zombice|zombie
 🧌|fantasy|monstrum|nestvůra|obluda|obr|pohádka|příšera|trollovat|zlobr
+🫈|bigfoot|chlupatý|divý člověk|kryptid|les|obr|seskveč|tajemný tvor|yetti
 💆|bolest hlavy|masáž hlavy a obličeje|napětí|obličej|osoba na masáži obličeje|relaxační|salon|salón|spa|tvář|ukliňující|wellness|žena
 💆‍♂️|bolest hlavy|člověk|masáž hlavy a obličeje|muž dostává masáž|muž na masáži obličeje|napětí|obličej|relaxační|salon|salón|tvář|uklidňující|výraz
 💆‍♀️|masáž|obličej|tvář|žena na masáži obličeje
@@ -479,6 +482,7 @@
 🏃|běh|běžec|běžící člověk|běžící osoba|chvátat|honem|maraton|rychlost|spěchat|tempo|závod
 🏃‍♂️|běh|běžící muž|maraton|muž|závod
 🏃‍♀️|běh|běžící žena|běžkyně|chvátat|člověk|honem|kvapit|maraton|pádit|rychle|rychlost|spěchat|už jdu|závod|žena
+🧑‍🩰|baletka|baletní tanečník|tanečník
 💃|člověk|elegantní|flamenco|ples|salsa|slavnostní|smím prosit|tančící žena|tancovat|tanec|tanečnice|tango|žena
 🕺|člověk|elegantní|flamenco|muž|salsa|slavnostní|smím prosit|talent|tančící muž|tancovat|tanec|tanečnice|tanečník|tango|žena
 🕴️|business|byznys|levitující byznysmen|manažer|muž|oblek|podnikání|povolání|práce
@@ -656,6 +660,7 @@
 🐳|moře|obličej|oceán|odfukující|pláž|smajlík|stříkající|tvář|velryba stříkající vodu|vodotrysk|výraz|zvíře
 🐋|kytovec|moře|oceán|pláž|plejtvák|příroda|savec|velryba|zvíře
 🐬|delfínek|moře|oceán|pláž|ploutev|skákající|zvíře
+🫍|mořský|oceán|velryba
 🦭|lachtan|lvoun|moře|mořský lev|mrož|oceán|tuleň|živočich|zvíře
 🐟|horoskop|moře|rybaření|rybařit|rybička|rybka|rybolov|ryby|večeře|znamení ryb|zvěrokruh|zvíře
 🐠|akvarijní|ryba|rybička|rybka|tropická ryba|tropický|zvíře
@@ -853,6 +858,7 @@
 🧭|buzola|jih|kompas|magnetický|navigace|orientace|orientační běh|sever|směr|východ|západ
 🏔️|chladno|hora|sníh|studený|zasněžená hora|zima
 ⛰️|hora|horský|hory|kopec|pohoří|příroda|štít|vrch
+🛘|hora|kamení|katastrofa|lavina|nebezpečí|padající kamení|pohroma|sesuv půdy|zemětřesení
 🌋|erupce|hora|láva|příroda|sopka|vulkán|výbuch
 🗻|fudži|fuji|hora|japonsko|příroda|sopka
 🏕️|cestování|dovolená|kempování|prázdniny|příroda|stanování|tábor|táboření|tábořiště
@@ -1198,10 +1204,11 @@
 🎧|hudba|poslouchat|sluchátka|zvuk
 📻|hudba|muzika|rádio|radiopřijímač|retro|rozhlas|tranzistorové|zábava|zvuk
 🎷|dechový|hudba|hudební nástroj|nástroj|saxofon|tón|žestě|žesťový
+🎺|dechový|hudba|hudební nástroj|nástroj|trubka|trumpeta|žestě|žesťový
+🪊|hudba|jazz|nástroj|posouvání|smutná|žesťové|žesťový
 🪗|akordeon|dršťky|harmonika|hudba|hudební|klávesy|koncertina|muzika|nástroj|tahací|zednické piano
 🎸|elektrická kytara|fender|hudba|hudební nástroj|kytara|nástroj|stratocaster
 🎹|hrát|hudba|hudební nástroj|klávesy|klaviatura|klavír|nástroj|piano|zvuk
-🎺|dechový|hudba|hudební nástroj|nástroj|trubka|trumpeta|žestě|žesťový
 🎻|housle|hudba|hudební nástroj|nástroj|skřipky|smyčec|stradivárky
 🪕|banjo|bendžo|brnkat|hudba|hudební|nástroj|strunný
 🥁|bubenické|bubnovat|hudba|hudební nástroj|paličky
@@ -1261,8 +1268,9 @@
 📑|ouška|ouško|papíry s poznámkami|poznámky|stránky se záložkami|záložka|značka
 🔖|karta|označení|poznačit|záložka|značka
 🏷️|cedulka|cenovka|jmenovka|štítek|visačka
-💰|banka|boháč|bohatý|cash|cena|dolary|hotovost|měšec|milion|peněz|peníze|platit|poklad|pytel|sázka|skrblík|váček|vak|vyhrát|zlato
 🪙|bohatý|dolar|euro|kov|mince|peníze|poklad|prachy|stříbro|zlato
+💰|banka|boháč|bohatý|cash|cena|dolary|hotovost|měšec|milion|peněz|peníze|platit|poklad|pytel|sázka|skrblík|váček|vak|vyhrát|zlato
+🪎|bohatství|cena|cennosti|drahokam|klenoty|lup|odměna|peníze|šperky|stříbro|zlato
 💴|banka|bankovka|čína|hotovost|jenová bankovka|měna|peníze|yen
 💵|banka|bankovka|dolarová bankovka|měna|peníze
 💶|100|banka|bankovka|bohatý|eurobankovka|eurová|evropa|hotovost|měna|peníze
@@ -1505,21 +1513,21 @@
 🆘|morseova abeceda|morseovka|pomoc|sos|štítek sos|tlačítko sos|značka sos
 🆙|nahoru|štítek up!|up|značka up!
 🆚|proti|štítek vs|tlačítko vs|versus|vs|značka versus
-🈁|japonská značka katakana koko|japonský|japonština|katakana|štítek s japonským znakem zde|tady|zde|ココ
-🈂️|bezplatně|japonská značka katakana sa|japonský|japonština|katakana|manipulační poplatek|poplatek za službu|služba|štítek – japonský znak pozornost podniku|zdarma|サ
-🈷️|ideogram|japonský čtvercový ideogram měsíce|japonština|měsíc|měsíčně|měsíční|štítek s japonským znakem měsíc|月
-🈶|ideogram|japonský čtvercový ideogram existence|japonština|majetek|není zdarma|poplatek|štítek s japonským znakem není zdarma|vlastnictví|有
-🈯|ideogram|japonský čtvercový ideogram rezervace|japonština|obsazeno|prst|rezervováno|směr|štítek s japonským znakem rezervováno|指
-🉐|ideogram|japonský kruhový ideogram výhodnosti|japonský kruhový ideogram vyjednávání|japonština|koupě|štítek – japonský znak výhodná koupě|výhodná|výhodnost|得
-🈹|akce|ideogram|japonský čtvercový ideogram slev|japonština|sleva|štítek s japonským znakem sleva|výprodej|割
-🈚|bezplatně|ideogram|japonský čtvercový ideogram bezplatnosti|japonština|negace|štítek s japonským znakem zdarma|zadarmo|zdarma|無
-🈲|ideogram|japonský čtvercový ideogram zákazu|japonština|štítek s japonským znakem zákaz|zákaz|zakázáno|禁
-🉑|ideogram|japonský kruhový ideogram přijetí|japonština|přijatelný|příjem|přijetí|štítek s japonským znakem přijatelné|可
-🈸|dotazy|ideogram|japonský čtvercový ideogram žádosti|japonština|kontakt|přihláška|štítek s japonským znakem žádost|žádost|申
+🈁|japonská značka katakana koko|japonský|japonština|katakana|štítek s japonským znakem zde|tady|zde
+🈂️|bezplatně|japonská značka katakana sa|japonský|japonština|katakana|manipulační poplatek|poplatek za službu|služba|štítek – japonský znak pozornost podniku|zdarma
+🈷️|ideogram|japonský čtvercový ideogram měsíce|japonština|měsíc|měsíčně|měsíční|štítek s japonským znakem měsíc
+🈶|ideogram|japonský čtvercový ideogram existence|japonština|majetek|není zdarma|poplatek|štítek s japonským znakem není zdarma|vlastnictví
+🈯|ideogram|japonský čtvercový ideogram rezervace|japonština|obsazeno|prst|rezervováno|směr|štítek s japonským znakem rezervováno
+🉐|ideogram|japonský kruhový ideogram výhodnosti|japonský kruhový ideogram vyjednávání|japonština|koupě|štítek – japonský znak výhodná koupě|výhodná|výhodnost
+🈹|akce|ideogram|japonský čtvercový ideogram slev|japonština|sleva|štítek s japonským znakem sleva|výprodej
+🈚|bezplatně|ideogram|japonský čtvercový ideogram bezplatnosti|japonština|negace|štítek s japonským znakem zdarma|zadarmo|zdarma
+🈲|ideogram|japonský čtvercový ideogram zákazu|japonština|štítek s japonským znakem zákaz|zákaz|zakázáno
+🉑|ideogram|japonský kruhový ideogram přijetí|japonština|přijatelný|příjem|přijetí|štítek s japonským znakem přijatelné
+🈸|dotazy|ideogram|japonský čtvercový ideogram žádosti|japonština|kontakt|přihláška|štítek s japonským znakem žádost|žádost
 🈴|dohoda|hodnocení|ideogram|japonský čtvercový ideogram jednoty|japonština|prospěl|štítek s japonským znakem prospěl|vyhověl|vyhovující|známka
-🈳|ideogram|japonský čtvercový ideogram neobsazenosti|japonština|neobsazenost|neobsazený|prázdný|štítek s japonským znakem volno|volno|volný|空
-🈺|ideogram|japonský čtvercový ideogram otevřenosti|japonština|otevřeno|provozní doba|štítek s japonským znakem otevřeno|v provozu|営
-🈵|ideogram|japonský čtvercový ideogram obsazenosti|japonština|obsazeno|plnost|štítek s japonským znakem obsazeno|žádná volná|žádné volné|満
+🈳|ideogram|japonský čtvercový ideogram neobsazenosti|japonština|neobsazenost|neobsazený|prázdný|štítek s japonským znakem volno|volno|volný
+🈺|ideogram|japonský čtvercový ideogram otevřenosti|japonština|otevřeno|provozní doba|štítek s japonským znakem otevřeno|v provozu
+🈵|ideogram|japonský čtvercový ideogram obsazenosti|japonština|obsazeno|plnost|štítek s japonským znakem obsazeno|žádná volná|žádné volné
 🔴|červená|červený kroužek|červený kruh|geometrie|kruh|tvar
 🟠|kolečko|kolo|kroužek|kruh|oranžová|oranžové kolečko|oranžový kroužek|oranžový kruh
 🟡|kolečko|kolo|kroužek|kruh|žlutá|žluté kolečko|žlutý kroužek|žlutý kruh
@@ -1610,6 +1618,7 @@
 🇨🇲|kamerun
 🇨🇳|čína
 🇨🇴|kolumbie
+🇨🇶|sark
 🇨🇷|kostarika
 🇨🇺|kuba
 🇨🇻|kapverdy

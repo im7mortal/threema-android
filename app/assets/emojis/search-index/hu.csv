@@ -64,8 +64,8 @@
 ⤴️|felfelé görbülő jobb nyíl|nyíl
 ⤵️|lefelé görbülő jobb nyíl|nyíl
 〰️|gondolatjel|hullámos|központozás|víz
-㊗️|gratuláció|bekarikázott gratuláció képírásjel|gratulálok|japán gratuláció gomb|képírásjel|祝
-㊙️|titok|bekarikázott titok képírásjel|japán titok gomb|képírásjel|秘
+㊗️|gratuláció|bekarikázott gratuláció képírásjel|gratulálok|japán gratuláció gomb|képírásjel
+㊙️|titok|bekarikázott titok képírásjel|japán titok gomb|képírásjel
 😀|arc|boldog|fogak|nevetés|nevető arc|szmájli|vidám
 😃|arc|boldog|fogak|mosoly|nagyra nyílt szemmel mosolygó arc|nevetés|nyitott szájjal mosolygó arc|szmájli|vidámság
 😄|arc|boldog|fogak|mosoly|nevető arc mosolygó szemmel|nyitott szájjal mosolygó arc mosolygó szemmel|örül|száj|szem|szmájli|vidám szem
@@ -150,6 +150,7 @@
 😯|arc|döbbent|elképedt|meglepett|meglepődött|szmájli|tátott száj|tátva maradt a szája
 😲|arc|csodálkozó|döbbent|elcsodálkozott|elképedt|lenyűgözött|megdöbbent|szmájli
 😳|arc|elképedt|elpirult arc|elvörösödik|hitetlen|kellemetlen|kételkedő|kétkedő|kidülledt szemek|kipirult|melege van|mi|okol|szmájli|zavarban van
+🫪|aggodalmas|felpuffadt|lesokkolt|meglepődött|pánikoló|sebezhető
 🥺|arc|bociszemek|esedező arc|kegyelem|kerek szem|kérlek szépen|kérlelő|kiskutyaszemek|könyörgős|könyörög|lécci|légyszi|megszán|miért ne|sóvárog|szomorú
 🥹|büszke|dühös|ellenáll|könnyeivel küszködő arc|örömteli|sír|szomorú
 😦|arc|ijedt|ijesztő|meglepett|nyitott száj|rosszallás|rosszalló arc nyitott szájjal|szmájli
@@ -220,6 +221,7 @@
 💋|ajkak|csóknyom|romantika|rúzsfolt|rúzsnyom|szenvedély
 💯|100|a+|aha|egyértelműen|egyetértés|hűséges|igazság|megtartás|mindenképpen|mutatás|remek|száz|találat|teljes|tökéletes
 💢|a düh szimbóluma|dühös|képregény|mérges
+🫯|birkózás|csetepaté|dulakodás|egyet nem értés|verekedés|vita
 💥|bumm|csattanás|képregény|robbanás|ütközés
 💫|csillagokat lát|fényes|hullócsillag|képregény|szédülés
 💦|cseppek|csobbanás|edzés|fröccsenés|izzadságcseppek|képregény|víz
@@ -452,6 +454,7 @@
 🧟‍♂️|élőhalott|élőholt|férfi zombi|sétáló halott
 🧟‍♀️|élőhalott|élőholt|női zombi|sétáló halott
 🧌|képzelet|szörny|troll|tündérmese
+🫈|erdő|jeti|nagyláb|óriás|sasquatch|vadember
 💆|arcmasszázs|fejfájás|feszültség|kozmetika|masszázs|masszíroz|relaxáció|relaxál|szalon|szépségszalon
 💆‍♂️|arcmasszázs|enyhít|fejfájás|férfi arcmasszázson|feszültség|kozmetika|masszázs|masszíroz|relaxáció|relaxál|szalon|szépségszalon
 💆‍♀️|arc|masszázs|nő arcmasszázson
@@ -479,6 +482,7 @@
 🏃|futás|futó|gyors|maraton|siet|sport
 🏃‍♂️|férfi|futás|futó férfi|maraton|verseny
 🏃‍♀️|futás|futónő|gyorsaság|maraton|női futó|sebesség|siet|sport|verseny
+🧑‍🩰|balett|táncos
 💃|nő|salsa|táncoló|táncosnő|tangó
 🕺|férfi|flamenco|salsa|táncoló férfi|táncos|tangó
 🕴️|lebegő ember|öltönyös, lebegő ember|üzletember
@@ -656,6 +660,7 @@
 🐳|állat|bálna|fej|fröcskölés|fröcskölő bálna
 🐋|állat|bálna|óceán|tengerpart
 🐬|állat|delfin|flipper|óceán|tengerpart
+🫍|bálna|óceán|tengeri állat
 🦭|állat|fóka|oroszlánfóka|tenger
 🐟|állatöv|csillagjegy|étel|halak|halászat|halászik|horoszkóp
 🐠|állat|díszhal|hal|trópusi
@@ -853,6 +858,7 @@
 🧭|iránytű|mágneses|navigáció|tájékozódás
 🏔️|hegy hótakaróval|hideg|hó
 ⛰️|hegység
+🛘|földrengés|hegy|katasztrófa|lavina|sárlavina|sziklák|veszély
 🌋|katasztrófa|kitörés|természet|tűzhányó|vulkánkitörés
 🗻|fudzsi-hegy|hegy
 🏕️|kempingezés|sátorozás
@@ -1198,10 +1204,11 @@
 🎧|fülhallgató|zenehallgatás
 📻|rádiókészülék
 🎷|hangszer|szaxi|szaxofon|zene
+🎺|hangszer|trombita|zene
+🪊|hangszer|jazz|rézfúvós|szomorú|zene
 🪗|hangszer|harmonika|tangóharmonika|zene
 🎸|elektromos gitár|gitár|hangszer|zene
 🎹|billentyűzet|hangszer|szintetizátor|zenei billentyűzet|zongora
-🎺|hangszer|trombita|zene
 🎻|hangszer|hegedű|zene
 🪕|bendzsó|húros|zene
 🥁|dobol|dobverő|hangszer|zene
@@ -1261,8 +1268,9 @@
 📑|fülek|jelzés|könyvjelzők
 🔖|könyvjelző
 🏷️|árcédula|cédula|címke
-💰|bank|dollár|drága|fizet|gazdag|nyer|pénzeszsák|zsák
 🪙|arany|dollár|érme|euró|ezüst|fém|kincs|pénz
+💰|bank|dollár|drága|fizet|gazdag|nyer|pénzeszsák|zsák
+🪎|arany|drágakő|ékszerek|érték|ezüst|gazdagság|jutalom|pénz|zsákmány
 💴|bankjegy|bankó|jen|köteg|papírpénz|pénznem|valuta
 💵|bankjegy|bankó|dollár|köteg|papírpénz|pénznem|valuta
 💶|bankjegy|bankó|euró|gazdag|papírpénz|pénznem|valuta
@@ -1505,21 +1513,21 @@
 🆘|gomb|segélykérés|segítség|sos
 🆙|up! gomb|fel|jel
 🆚|bekeretezett vs rövidítés|ellenfél|kontra|szemben|versus|vs gomb
-🈁|itt|bekeretezett itt katakana|japán itt gomb|katakana|ココ
-🈂️|szervizdíj|szervízköltség|bekeretezett szervízköltség katakana|japán szervizdíj gomb|katakana|サ
-🈷️|havi összeg|bekeretezett havi összeg képírásjel|gomb|japán havi összeg gomb|képírásjel|月
-🈶|nem ingyenes|bekeretezett nem díjmentes képírásjel|fizetős|gomb|japán nem ingyenes gomb|képírásjel|nem díjmentes|有
-🈯|foglalt|bekeretezett foglalt képírásjel|japán foglalt gomb|képírásjel|指
-🉐|alkalmi vétel|alku|bekarikázott alku képírásjel|japán alkalmi vétel gomb|képírásjel|得
-🈹|engedmény|bekeretezett engedmény képírásjel|japán engedmény gomb|képírásjel|割
-🈚|díjmentes|ingyenes|bekeretezett díjmentes képírásjel|japán ingyenes gomb|képírásjel|無
-🈲|tiltott|bekeretezett tiltás képírásjel|japán tiltott gomb|képírásjel|tilos|禁
-🉑|elfogadás|elfogadható|bekarikázott elfogadás képírásjel|japán elfogadás gomb|képírásjel|可
-🈸|alkalmazás|bekeretezett alkalmazás képírásjel|gomb|japán|képírásjel|申
-🈴|minimális pontszám|bekeretezett megfelelt képírásjel|japán minimális pontszám gomb|képírásjel|合
-🈳|megüresedés|bekeretezett üres képírásjel|japán megüresedés gomb|képírásjel|空
-🈺|működik|bekeretezett működik képírásjel|gomb|japán|képírásjel|nyitva|営
-🈵|megtelt|bekeretezett teli képírásjel|japán megtelt gomb|képírásjel|満
+🈁|itt|bekeretezett itt katakana|japán itt gomb|katakana
+🈂️|szervizdíj|szervízköltség|bekeretezett szervízköltség katakana|japán szervizdíj gomb|katakana
+🈷️|havi összeg|bekeretezett havi összeg képírásjel|gomb|japán havi összeg gomb|képírásjel
+🈶|nem ingyenes|bekeretezett nem díjmentes képírásjel|fizetős|gomb|japán nem ingyenes gomb|képírásjel|nem díjmentes
+🈯|foglalt|bekeretezett foglalt képírásjel|japán foglalt gomb|képírásjel
+🉐|alkalmi vétel|alku|bekarikázott alku képírásjel|japán alkalmi vétel gomb|képírásjel
+🈹|engedmény|bekeretezett engedmény képírásjel|japán engedmény gomb|képírásjel
+🈚|díjmentes|ingyenes|bekeretezett díjmentes képírásjel|japán ingyenes gomb|képírásjel
+🈲|tiltott|bekeretezett tiltás képírásjel|japán tiltott gomb|képírásjel|tilos
+🉑|elfogadás|elfogadható|bekarikázott elfogadás képírásjel|japán elfogadás gomb|képírásjel
+🈸|alkalmazás|bekeretezett alkalmazás képírásjel|gomb|japán|képírásjel
+🈴|minimális pontszám|bekeretezett megfelelt képírásjel|japán minimális pontszám gomb|képírásjel
+🈳|megüresedés|bekeretezett üres képírásjel|japán megüresedés gomb|képírásjel
+🈺|működik|bekeretezett működik képírásjel|gomb|japán|képírásjel|nyitva
+🈵|megtelt|bekeretezett teli képírásjel|japán megtelt gomb|képírásjel
 🔴|alakzat|kör|piros
 🟠|kör|narancssárga
 🟡|kör|sárga
@@ -1610,6 +1618,7 @@
 🇨🇲|kamerun
 🇨🇳|kína
 🇨🇴|kolumbia
+🇨🇶|sark
 🇨🇷|costa rica
 🇨🇺|kuba
 🇨🇻|zöld-foki köztársaság
@@ -1812,4 +1821,3 @@
 🏴󠁧󠁢󠁥󠁮󠁧󠁿|anglia
 🏴󠁧󠁢󠁳󠁣󠁴󠁿|skócia
 🏴󠁧󠁢󠁷󠁬󠁳󠁿|wales
-🇨🇶|sark

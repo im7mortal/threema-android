@@ -150,6 +150,7 @@
 😯|şaşırmış|şaşkın yüz|şok olmuş|yüz
 😲|afallamış|şaşkın|şoke olmuş|tamamen şoke olmuş|yüz
 😳|kızarmış ve şaşkın yüz|şaşırmış|şaşkınlık içinde|şok|tuhaf|yüz
+🫪|kaygı|panik|şaşırmış|şaşkın|savunmasız|şişkin
 🥺|acıklı bakışlar|af dilemek|gözleri dolmak|koca göz|lütfen|merhamet|pişmanlık|üzgün|yalvaran gözler|yalvarırım|yüz ifadesi
 🥹|ağlamaklı|direnme|duygusal|gözyaşı|gurur|ifade|kızgın|mutlu|sevinç gözyaşları|sulugöz|üzgün|yüz ifadesi
 😦|açık ağızlı hoşnutsuz yüz|ağzı açık|boş bulunmuş|hoşnutsuz|korkmuş|yüz
@@ -220,6 +221,7 @@
 💋|aşk|dudaklar|öpücük izi|romantizm|seksi
 💯|100 puan|skor|yuz|yüz puan
 💢|çizgi roman|duygu|öfke işareti|öfke simgesi|öfkeli
+🫯|anlaşmazlık|arbede|çekişme|dövüş|güreş|kavga|tartışma
 💥|bomba|bum|çarpışma işareti|çizgi roman|duygu|patlama
 💫|baş dönmesi|çizgi roman|dilek|duygu|gece|gökyüzü|kayan yıldız|uzay|yıldızları görme
 💦|çizgi roman|damla|duygu|fışkır|su|ter damlası|terli
@@ -452,6 +454,7 @@
 🧟‍♂️|erkek zombi|hortlak|yürüyen ölü
 🧟‍♀️|hortlak|kadın zombi|yürüyen ölü
 🧌|canavar|dev|fantezi|gerçek dışı|hayali|hulk|ork|peri masalı|trol|yaratık|yeşil dev
+🫈|dev|efsanevi yaratık|koca ayak|orman|tüylü|yeti
 💆|baş ağrısı|gerginlik|kişi|masaj yaptıran kişi|rahatlama|salon|spa|terapi|yüz masajı
 💆‍♂️|adam|erkek|masaj|yüz masajı yaptıran erkek
 💆‍♀️|bayan|kadın|masaj|yüz masajı yaptıran kadın
@@ -479,6 +482,7 @@
 🏃|acele|çabuk|hızlı|kişi|koşan kişi|koşucu|maraton|spor|vücut|yarış
 🏃‍♂️|adam|erkek|koşan erkek|koşma|maraton|yarış
 🏃‍♀️|bayan|kadın|koşan kadın|koşma|maraton|yarış
+🧑‍🩰|bale|dansçı
 💃|dans eden kadın|dansçı|festival|kadın dansçı|kişiler|meslek|tango
 🕺|adam|dans eden adam|meslek
 🕴️|erkek|havalanan takım elbiseli adam|işadamı|takım elbise|yukarıda süzülen takım elbiseli iş adamı
@@ -656,6 +660,7 @@
 🐳|balina|deniz|hayvan|mavi balina|okyanus|su püskürten balina
 🐋|balina|hayvan|okyanus
 🐬|balık|deniz|hayvan|mavi yunus|okyanus|yunus
+🫍|balina|deniz|okyanus
 🦭|ayı balığı|balık|bıyıklı|deniz aslanı|denizaslanı|fok balığı|hayvan|okyanus
 🐟|balık|burç|deniz|hayvan|mavi balık
 🐠|balık|hayvan|okyanus|tropikal balık
@@ -853,6 +858,7 @@
 🧭|hedef bulma|kaybolmak|manyetik|navigasyon|oryantiring|pusula|yön bulma
 🏔️|dağ|karla kaplı dağ|soğuk|uludağ
 ⛰️|dağ
+🛘|çığ|dağ|deprem|felaket|kayalar|taşlar|tehlike|toprak kayması
 🌋|dağ|doğa|volkan|yanardağ patlaması
 🗻|dağ|fuji dağı
 🏕️|kamp yapma
@@ -1198,10 +1204,11 @@
 🎧|eğlence|kulaklık|müzik
 📻|radyo|video
 🎷|alet|müzik aleti|saksafon
+🎺|alet|müzik aleti|trompet
+🪊|bakır|çalgı|caz|enstrüman|hüzünlü|müzik|sürgü|üzgün
 🪗|akordeon|akordiyon|armonika|çalmak|enstrüman|eşya|körük|müzik aleti|tuş
 🎸|alet|elektrik gitar|gitar|müzik aleti
 🎹|alet|klavye|müzik aleti|müzik klavyesi|piyano
-🎺|alet|müzik aleti|trompet
 🎻|alet|keman|müzik aleti
 🪕|banjo|müzik|yaylı
 🥁|bateri|davul|müzik|ramazan davulu|tokmak
@@ -1261,8 +1268,9 @@
 📑|ayraçlar|işaretçi|sayfa ayraçları|sayfa işareti
 🔖|defter|işaret|kitap|not|yer işareti
 🏷️|etiket
-💰|çanta|dolar çantası|para çuvalı|para torbası|zengin
 🪙|altın|avro|bozuk para|dolar|gümüş|hazine|jeton|madeni para|metal|para|sikke|zengin
+💰|çanta|dolar çantası|para çuvalı|para torbası|zengin
+🪎|altın|değerli|ganimet|gümüş|mücevher|ödül|para|zenginlik
 💴|banknot|döviz|para|yen
 💵|banknot|dolar|döviz|fatura|para
 💶|avro|banknot|döviz|euro|fatura|para
@@ -1610,6 +1618,7 @@
 🇨🇲|kamerun
 🇨🇳|çin
 🇨🇴|kolombiya
+🇨🇶|sark
 🇨🇷|kosta rika
 🇨🇺|küba
 🇨🇻|cabo verde

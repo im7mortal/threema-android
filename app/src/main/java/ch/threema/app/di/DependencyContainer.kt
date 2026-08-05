@@ -5,6 +5,7 @@ import ch.threema.app.emojis.EmojiService
 import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.preference.service.SynchronizedSettingsService
+import ch.threema.app.protocolsteps.ApplicationSetupSteps
 import ch.threema.app.protocolsteps.ValidContactsLookupSteps
 import ch.threema.app.qrcodes.QrCodeGenerator
 import ch.threema.app.restrictions.AppRestrictions
@@ -62,6 +63,7 @@ import org.koin.core.component.inject
  */
 class DependencyContainer : KoinComponent {
     val apiConnector: APIConnector by inject()
+    val applicationSetupSteps: ApplicationSetupSteps by inject()
     val appRestrictions: AppRestrictions by inject()
     val blockedIdentitiesService: BlockedIdentitiesService by inject()
     val contactModelFactory: ContactModelFactory by inject()

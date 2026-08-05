@@ -24,7 +24,7 @@ class EmojiSearchIndex(
     private var searchIndexVersion = preferenceService.getEmojiSearchIndexVersion()
 
     private companion object {
-        const val SEARCH_INDEX_VERSION = 11
+        const val SEARCH_INDEX_VERSION = 12
         const val INDEX_FILE_EXTENSION = ".csv"
         const val EMOJI_ORDERS_FILE = "orders.csv"
         const val EMOJI_DIVERSITIES_FILE = "diversities.csv"

@@ -64,8 +64,8 @@
 ⤴️|flèche courbe haut|flèche courbe vers la droite et le haut|courbe vers le haut|flèche courbe vers le haut
 ⤵️|bas|flèche courbe bas|courbe vers le bas|flèche courbe vers le bas
 〰️|ligne ondulée|ponctuation|tiret|trait d’union ondulé|vague
-㊗️|bouton félicitations en japonais|félicitations|idéogramme|japonais|symbole japonais signifiant « félicitations »|祝
-㊙️|bouton secret en japonais|idéogramme|japonais|secret|symbole japonais signifiant « secret »|秘
+㊗️|bouton félicitations en japonais|félicitations|idéogramme|japonais|symbole japonais signifiant « félicitations »
+㊙️|bouton secret en japonais|idéogramme|japonais|secret|symbole japonais signifiant « secret »
 😀|content|dents|émoticône|grand sourire|heureux|joyeux|rire|sourire|super|visage rieur|visage très souriant|large sourire|visage avec large sourire
 😃|content|dents|émoticône|formidable|grand sourire|heureux|sourire|super|visage souriant avec de grands yeux|visage très souriant avec la bouche ouverte|bouche ouverte|visage souriant les yeux grands ouverts
 😄|content|émoticône|grand sourire|heureux|joyeux|lol|mdr|rire|sourire mignon|visage avec la bouche ouverte et les yeux souriants|visage très souriant aux yeux rieurs|bouche ouverte|œil|visage avec large sourire et yeux rieurs
@@ -150,6 +150,7 @@
 😯|émoticône|incroyable|omd|sans voix|stupéfait|stupeur|surpris|visage à la bouche ouverte|visage ébahi|visage sans voix|ébahi
 😲|choc|choqué|émoticône|étonné|impossible|incroyable|omd|stupéfait|visage|surpris
 😳|chaud|comment|ébahi|émoticône|étonné|gêné|impressionné|incrédule|incroyable|quoi|rouge|visage qui rougit|rougissant|stupéfait|wow
+🫪|anxiété|bouffi|choc|gonflé|panique|surprise|vulnérabilité
 🥺|embarrassé|excuse|gros yeux|pardon|pitié|s’il te plaît|supplication|supplie|visage implorant|yeux de chiens battus|implorant|yeux de chiot
 🥹|admiration|ému|fierté|gratitude|larmes de joie|pleurs|retenir ses larmes|triste|visage retenant ses larmes
 😦|bouche|déçu|effrayé|émoticône|ouverte|peur|pris au dépourvu|surpris|visage déçu avec bouche ouverte|visage mécontent avec bouche ouverte|béante|renfrogné
@@ -220,6 +221,7 @@
 💋|baiser|bise|bisou|bouche|embrasser|lèvres|rendez-vous|rouge|sexy|trace de rouge à lèvres
 💯|100|cent points|score|marque
 💢|bande dessinée|bd|colère|dessin|furieux|symbole de colère
+🫯|bagarre|combat|désaccord|discussion|dispute|grabuge|lutte
 💥|bande dessinée|bd|bombe|boum|collision|détonation|étincelles|explosion
 💫|bande dessinée|bd|étincelles|étoile filante|étourdissement|tournis|voir des étoiles
 💦|bande dessinée|bd|eau|éclabousser|éclaboussures|effort|entraînement|gouttes de sueur|sueur
@@ -452,6 +454,7 @@
 🧟‍♂️|mort-vivant|zombie homme|homme
 🧟‍♀️|morte-vivante|zombie femme|femme
 🧌|conte de fées|légende|monstre|mythe|troller
+🫈|bigfoot|cryptide|forêt|géant|homme sauvage|poilu|sasquatch|yéti
 💆|détente|femme qui se fait masser|fermer les yeux|massage|personne qui se fait masser|relaxation|repos|salon|tête|thérapie|visage|zen
 💆‍♂️|apaiser|homme qui se fait masser le visage|mal de tête|massage|migraine|relaxation|salon|tension|visage
 💆‍♀️|femme qui se fait masser|massage|visage
@@ -479,6 +482,7 @@
 🏃|arriver|coureur|courir|course à pied|homme qui court|jogging|marathonien|personne qui court|pressé|rapide|sportif|vite
 🏃‍♂️|course à pied|homme qui court|jogging|marathon|courir
 🏃‍♀️|course à pied|femme qui court|joggeuse|jogging|marathon|running|se dépêcher|vitesse|courir
+🧑‍🩰|ballerine|ballet|danse classique|danseuse
 💃|danseuse|femme qui danse|fête|flamenco|rythme|salsa|sortir danser|tango
 🕺|danseur|femme|fête|flamenco|homme qui danse|rythme|salsa
 🕴️|affaires|costume|homme d’affaires en lévitation|complet|lévitation
@@ -656,6 +660,7 @@
 🐳|animal|baleine avec évent|baleine soufflant par son évent|mer|océan|plage|souffle|baleine qui expulse de l’eau|expulse de l’eau
 🐋|animal|baleine|mer|océan|plage
 🐬|animal|dauphin|flipper|mer|océan|plage
+🫍|baleine|marin|océan|épaulard|gibard
 🦭|animal|lion de mer|océan|otarie|phoque
 🐟|alimentation|animal|astrologie|horoscope|manger|nourriture|poissons|repas|zodiaque
 🐠|animal|poisson tropical|tropical
@@ -853,6 +858,7 @@
 🧭|boussole|compas|direction|magnétique|navigation|orientation
 🏔️|froid|montagne enneigée|neige|sommet|voyage|enneigée
 ⛰️|montagne|nature|sommet|voyage
+🛘|avalanche|catastrophe|coulée de boue|danger|glissement de terrain|montagne|rochers|tremblement de terre
 🌋|éruption|lave|nature|volcan|montagne
 🗻|mont fuji|montagne|nature|sommet|voyage|fuji
 🏕️|camping|nature|tente avec un sapin|voyage
@@ -1198,10 +1204,11 @@
 🎧|écouteurs|musique|son|casque d’écoute
 📻|actualités|communication|loisirs|musique|radio|vidéo
 🎷|instrument|musique|saxophone
+🎺|instrument|musique|trompette
+🪊|instrument|musique|trombone
 🪗|accordéon|bandonéon|concertina|instrument|mélodie|musique|piano à bretelles
 🎸|guitare électrique|instrument|musique
 🎹|clavier|instrument|musique|piano|touches
-🎺|instrument|musique|trompette
 🎻|instrument|musique|violon
 🪕|banjo|cordes|instrument à cordes|musique
 🥁|baguettes|batterie|musique|tambour
@@ -1261,8 +1268,9 @@
 📑|marqueur|onglets|signets
 🔖|marque-page|marqueur|signet
 🏷️|étiquette
-💰|argent|avare|banque|dollar|parier|payer|sac d’argent|sac plein d’argent
 🪙|argent|euro|fortune|métal|or|pièce de monnaie|riche|sou|trésor|monnaie
+💰|argent|avare|banque|dollar|parier|payer|sac d’argent|sac plein d’argent
+🪎|argenterie|bijoux|butin|objets de valeur|or|pierre précieuse|richesse
 💴|argent|billet de banque|billet en yens|payer|yens
 💵|argent|billet de banque|billet en dollars|dollar|payer
 💶|argent|billet de banque|billet en euros|euros|payer
@@ -1508,18 +1516,18 @@
 🈁|bouton ici en japonais|ici|idéogramme katakana ici|japonais|katakana
 🈂️|bouton frais de service en japonais|frais de service|idéogramme katakana|japonais
 🈷️|bouton montant mensuel en japonais|idéogramme|japonais|montant mensuel
-🈶|bouton pas gratuit en japonais|idéogramme|japonais|pas gratuit|payant|symbole japonais signifiant « payant »|有
-🈯|bouton réservé en japonais|idéogramme|japonais|réservé|symbole japonais signifiant « réservé »|指
-🉐|bonne affaire|bouton bonne affaire en japonais|idéogramme avantage|japonais|aubaine|symbole japonais signifiant « aubaine »|指
-🈹|bouton réduction en japonais|idéogramme|japonais|rabais|réduction|symbole japonais signifiant « rabais »|割
+🈶|bouton pas gratuit en japonais|idéogramme|japonais|pas gratuit|payant|symbole japonais signifiant « payant »
+🈯|bouton réservé en japonais|idéogramme|japonais|réservé|symbole japonais signifiant « réservé »
+🉐|bonne affaire|bouton bonne affaire en japonais|idéogramme avantage|japonais|aubaine|symbole japonais signifiant « aubaine »
+🈹|bouton réduction en japonais|idéogramme|japonais|rabais|réduction|symbole japonais signifiant « rabais »
 🈚|bouton gratuit en japonais|gratuit|idéogramme|japonais
 🈲|bouton interdit en japonais|idéogramme interdit|japonais|interdit
 🉑|acceptable|accepter|bouton accepter en japonais|idéogramme|japonais
 🈸|application|bouton application en japonais|idéogramme appliquer|japonais
 🈴|bouton note pour réussir en japonais|idéogramme|japonais|note de passage|note pour réussir|passage
 🈳|bouton chambres disponibles en japonais|chambres disponibles|idéogramme vide|japonais
-🈺|bouton ouvert pour affaires en japonais|idéogramme|japonais|ouvert pour affaires|symbole japonais signifiant « ouvert »|営
-🈵|bouton complet en japonais|complet|idéogramme plénitude|japonais|symbole japonais signifiant « complet »|満
+🈺|bouton ouvert pour affaires en japonais|idéogramme|japonais|ouvert pour affaires|symbole japonais signifiant « ouvert »
+🈵|bouton complet en japonais|complet|idéogramme plénitude|japonais|symbole japonais signifiant « complet »
 🔴|cercle|disque rouge|forme géométrique|géométrie|rond|rouge|sphère
 🟠|cercle|disque orange|forme géométrique|géométrie|orange|rond|sphère
 🟡|cercle|disque jaune|forme géométrique|géométrie|jaune|rond|sphère
@@ -1610,6 +1618,7 @@
 🇨🇲|cameroun
 🇨🇳|chine
 🇨🇴|colombie
+🇨🇶|sercq
 🇨🇷|costa rica
 🇨🇺|cuba
 🇨🇻|cap-vert

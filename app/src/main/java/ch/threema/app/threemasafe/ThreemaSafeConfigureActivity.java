@@ -292,7 +292,7 @@ public class ThreemaSafeConfigureActivity extends ThreemaToolbarActivity impleme
     }
 
     @Override
-    public void onYes(String tag, ThreemaSafeServerInfo serverInfo) {
+    public void onYes(String tag, @NonNull ThreemaSafeServerInfo serverInfo) {
         this.serverInfo = serverInfo;
     }
 

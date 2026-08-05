@@ -1,5 +1,2 @@
-- Anhebung des Android-SDK-Levels auf 36 (Android 16)
-- Behebung eines Fehlers im Zusammenhang mit reproduzierbaren Builds
-- Behebung eines Fehlers im Zusammenhang mit der Vertrauensstufe von bekannten Threema-Kontakten
-- Verschiedene UX-Verbesserungen
+- Unterstützung für Emojis der Version 17.0
 - Verbesserungen und Behebung verschiedener Fehler

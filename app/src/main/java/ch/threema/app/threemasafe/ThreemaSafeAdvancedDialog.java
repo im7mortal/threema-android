@@ -71,7 +71,7 @@ public class ThreemaSafeAdvancedDialog extends ThreemaDialogFragment implements 
     }
 
     public interface WizardDialogCallback {
-        void onYes(String tag, ThreemaSafeServerInfo serverInfo);
+        void onYes(String tag, @NonNull ThreemaSafeServerInfo serverInfo);
 
         void onNo(String tag);
     }

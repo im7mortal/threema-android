@@ -626,6 +626,13 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
+        // distorted face (1faea)
+        EmojiInfo(
+            "\uD83E\uDEEA",
+            DIVERSITY_NONE,
+            null,
+            DISPLAY_YES,
+        ),
         // pleading face (1f97a)
         EmojiInfo(
             "\uD83E\uDD7A",
@@ -1133,6 +1140,13 @@ object EmojiSpritemap {
         // anger symbol (1f4a2)
         EmojiInfo(
             "\uD83D\uDCA2",
+            DIVERSITY_NONE,
+            null,
+            DISPLAY_YES,
+        ),
+        // fight cloud (1faef)
+        EmojiInfo(
+            "\uD83E\uDEEF",
             DIVERSITY_NONE,
             null,
             DISPLAY_YES,
@@ -10478,6 +10492,13 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
+        // hairy creature (1fac8)
+        EmojiInfo(
+            "\uD83E\uDEC8",
+            DIVERSITY_NONE,
+            null,
+            DISPLAY_YES,
+        ),
         // person getting massage (1f486)
         EmojiInfo(
             "\uD83D\uDC86",
@@ -10856,126 +10877,126 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
-        // person walking facing right (1f6b6-200d-27a1-fe0f)
+        // person walking: facing right (1f6b6-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83D\uDEB6\uD83C\uDFFB\u200D\u27A1\uFE0F", "\uD83D\uDEB6\uD83C\uDFFC\u200D\u27A1\uFE0F", "\uD83D\uDEB6\uD83C\uDFFD\u200D\u27A1\uFE0F", "\uD83D\uDEB6\uD83C\uDFFE\u200D\u27A1\uFE0F", "\uD83D\uDEB6\uD83C\uDFFF\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // person walking facing right (1f6b6-1f3fb-200d-27a1-fe0f)
+        // person walking: light skin tone, facing right (1f6b6-1f3fb-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\uD83C\uDFFB\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person walking facing right (1f6b6-1f3fc-200d-27a1-fe0f)
+        // person walking: medium-light skin tone, facing right (1f6b6-1f3fc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\uD83C\uDFFC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person walking facing right (1f6b6-1f3fd-200d-27a1-fe0f)
+        // person walking: medium skin tone, facing right (1f6b6-1f3fd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\uD83C\uDFFD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person walking facing right (1f6b6-1f3fe-200d-27a1-fe0f)
+        // person walking: medium-dark skin tone, facing right (1f6b6-1f3fe-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\uD83C\uDFFE\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person walking facing right (1f6b6-1f3ff-200d-27a1-fe0f)
+        // person walking: dark skin tone, facing right (1f6b6-1f3ff-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\uD83C\uDFFF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman walking facing right (1f6b6-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman walking: facing right (1f6b6-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83D\uDEB6\uD83C\uDFFB\u200D\u2640\uFE0F\u200D\u27A1\uFE0F", "\uD83D\uDEB6\uD83C\uDFFC\u200D\u2640\uFE0F\u200D\u27A1\uFE0F", "\uD83D\uDEB6\uD83C\uDFFD\u200D\u2640\uFE0F\u200D\u27A1\uFE0F", "\uD83D\uDEB6\uD83C\uDFFE\u200D\u2640\uFE0F\u200D\u27A1\uFE0F", "\uD83D\uDEB6\uD83C\uDFFF\u200D\u2640\uFE0F\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // woman walking facing right (1f6b6-1f3fb-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman walking: light skin tone, facing right (1f6b6-1f3fb-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\uD83C\uDFFB\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman walking facing right (1f6b6-1f3fc-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman walking: medium-light skin tone, facing right (1f6b6-1f3fc-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\uD83C\uDFFC\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman walking facing right (1f6b6-1f3fd-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman walking: medium skin tone, facing right (1f6b6-1f3fd-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\uD83C\uDFFD\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman walking facing right (1f6b6-1f3fe-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman walking: medium-dark skin tone, facing right (1f6b6-1f3fe-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\uD83C\uDFFE\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman walking facing right (1f6b6-1f3ff-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman walking: dark skin tone, facing right (1f6b6-1f3ff-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\uD83C\uDFFF\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man walking facing right (1f6b6-200d-2642-fe0f-200d-27a1-fe0f)
+        // man walking: facing right (1f6b6-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83D\uDEB6\uD83C\uDFFB\u200D\u2642\uFE0F\u200D\u27A1\uFE0F", "\uD83D\uDEB6\uD83C\uDFFC\u200D\u2642\uFE0F\u200D\u27A1\uFE0F", "\uD83D\uDEB6\uD83C\uDFFD\u200D\u2642\uFE0F\u200D\u27A1\uFE0F", "\uD83D\uDEB6\uD83C\uDFFE\u200D\u2642\uFE0F\u200D\u27A1\uFE0F", "\uD83D\uDEB6\uD83C\uDFFF\u200D\u2642\uFE0F\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // man walking facing right (1f6b6-1f3fb-200d-2642-fe0f-200d-27a1-fe0f)
+        // man walking: light skin tone, facing right (1f6b6-1f3fb-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\uD83C\uDFFB\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man walking facing right (1f6b6-1f3fc-200d-2642-fe0f-200d-27a1-fe0f)
+        // man walking: medium-light skin tone, facing right (1f6b6-1f3fc-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\uD83C\uDFFC\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man walking facing right (1f6b6-1f3fd-200d-2642-fe0f-200d-27a1-fe0f)
+        // man walking: medium skin tone, facing right (1f6b6-1f3fd-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\uD83C\uDFFD\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man walking facing right (1f6b6-1f3fe-200d-2642-fe0f-200d-27a1-fe0f)
+        // man walking: medium-dark skin tone, facing right (1f6b6-1f3fe-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\uD83C\uDFFE\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man walking facing right (1f6b6-1f3ff-200d-2642-fe0f-200d-27a1-fe0f)
+        // man walking: dark skin tone, facing right (1f6b6-1f3ff-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDEB6\uD83C\uDFFF\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
@@ -11234,126 +11255,126 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
-        // person kneeling facing right (1f9ce-200d-27a1-fe0f)
+        // person kneeling: facing right (1f9ce-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83E\uDDCE\uD83C\uDFFB\u200D\u27A1\uFE0F", "\uD83E\uDDCE\uD83C\uDFFC\u200D\u27A1\uFE0F", "\uD83E\uDDCE\uD83C\uDFFD\u200D\u27A1\uFE0F", "\uD83E\uDDCE\uD83C\uDFFE\u200D\u27A1\uFE0F", "\uD83E\uDDCE\uD83C\uDFFF\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // person kneeling facing right (1f9ce-1f3fb-200d-27a1-fe0f)
+        // person kneeling: light skin tone, facing right (1f9ce-1f3fb-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\uD83C\uDFFB\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person kneeling facing right (1f9ce-1f3fc-200d-27a1-fe0f)
+        // person kneeling: medium-light skin tone, facing right (1f9ce-1f3fc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\uD83C\uDFFC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person kneeling facing right (1f9ce-1f3fd-200d-27a1-fe0f)
+        // person kneeling: medium skin tone, facing right (1f9ce-1f3fd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\uD83C\uDFFD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person kneeling facing right (1f9ce-1f3fe-200d-27a1-fe0f)
+        // person kneeling: medium-dark skin tone, facing right (1f9ce-1f3fe-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\uD83C\uDFFE\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person kneeling facing right (1f9ce-1f3ff-200d-27a1-fe0f)
+        // person kneeling: dark skin tone, facing right (1f9ce-1f3ff-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\uD83C\uDFFF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman kneeling facing right (1f9ce-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman kneeling: facing right (1f9ce-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83E\uDDCE\uD83C\uDFFB\u200D\u2640\uFE0F\u200D\u27A1\uFE0F", "\uD83E\uDDCE\uD83C\uDFFC\u200D\u2640\uFE0F\u200D\u27A1\uFE0F", "\uD83E\uDDCE\uD83C\uDFFD\u200D\u2640\uFE0F\u200D\u27A1\uFE0F", "\uD83E\uDDCE\uD83C\uDFFE\u200D\u2640\uFE0F\u200D\u27A1\uFE0F", "\uD83E\uDDCE\uD83C\uDFFF\u200D\u2640\uFE0F\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // woman kneeling facing right (1f9ce-1f3fb-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman kneeling: light skin tone, facing right (1f9ce-1f3fb-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\uD83C\uDFFB\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman kneeling facing right (1f9ce-1f3fc-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman kneeling: medium-light skin tone, facing right (1f9ce-1f3fc-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\uD83C\uDFFC\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman kneeling facing right (1f9ce-1f3fd-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman kneeling: medium skin tone, facing right (1f9ce-1f3fd-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\uD83C\uDFFD\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman kneeling facing right (1f9ce-1f3fe-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman kneeling: medium-dark skin tone, facing right (1f9ce-1f3fe-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\uD83C\uDFFE\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman kneeling facing right (1f9ce-1f3ff-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman kneeling: dark skin tone, facing right (1f9ce-1f3ff-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\uD83C\uDFFF\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man kneeling facing right (1f9ce-200d-2642-fe0f-200d-27a1-fe0f)
+        // man kneeling: facing right (1f9ce-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83E\uDDCE\uD83C\uDFFB\u200D\u2642\uFE0F\u200D\u27A1\uFE0F", "\uD83E\uDDCE\uD83C\uDFFC\u200D\u2642\uFE0F\u200D\u27A1\uFE0F", "\uD83E\uDDCE\uD83C\uDFFD\u200D\u2642\uFE0F\u200D\u27A1\uFE0F", "\uD83E\uDDCE\uD83C\uDFFE\u200D\u2642\uFE0F\u200D\u27A1\uFE0F", "\uD83E\uDDCE\uD83C\uDFFF\u200D\u2642\uFE0F\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // man kneeling facing right (1f9ce-1f3fb-200d-2642-fe0f-200d-27a1-fe0f)
+        // man kneeling: light skin tone, facing right (1f9ce-1f3fb-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\uD83C\uDFFB\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man kneeling facing right (1f9ce-1f3fc-200d-2642-fe0f-200d-27a1-fe0f)
+        // man kneeling: medium-light skin tone, facing right (1f9ce-1f3fc-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\uD83C\uDFFC\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man kneeling facing right (1f9ce-1f3fd-200d-2642-fe0f-200d-27a1-fe0f)
+        // man kneeling: medium skin tone, facing right (1f9ce-1f3fd-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\uD83C\uDFFD\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man kneeling facing right (1f9ce-1f3fe-200d-2642-fe0f-200d-27a1-fe0f)
+        // man kneeling: medium-dark skin tone, facing right (1f9ce-1f3fe-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\uD83C\uDFFE\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man kneeling facing right (1f9ce-1f3ff-200d-2642-fe0f-200d-27a1-fe0f)
+        // man kneeling: dark skin tone, facing right (1f9ce-1f3ff-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDCE\uD83C\uDFFF\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
@@ -11402,42 +11423,42 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
-        // person with white cane facing right (1f9d1-200d-1f9af-200d-27a1-fe0f)
+        // person with white cane: facing right (1f9d1-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83E\uDDD1\uD83C\uDFFB\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F", "\uD83E\uDDD1\uD83C\uDFFC\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F", "\uD83E\uDDD1\uD83C\uDFFD\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F", "\uD83E\uDDD1\uD83C\uDFFE\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F", "\uD83E\uDDD1\uD83C\uDFFF\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // person with white cane facing right (1f9d1-1f3fb-200d-1f9af-200d-27a1-fe0f)
+        // person with white cane: light skin tone, facing right (1f9d1-1f3fb-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\uD83C\uDFFB\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person with white cane facing right (1f9d1-1f3fc-200d-1f9af-200d-27a1-fe0f)
+        // person with white cane: medium-light skin tone, facing right (1f9d1-1f3fc-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\uD83C\uDFFC\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person with white cane facing right (1f9d1-1f3fd-200d-1f9af-200d-27a1-fe0f)
+        // person with white cane: medium skin tone, facing right (1f9d1-1f3fd-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\uD83C\uDFFD\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person with white cane facing right (1f9d1-1f3fe-200d-1f9af-200d-27a1-fe0f)
+        // person with white cane: medium-dark skin tone, facing right (1f9d1-1f3fe-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\uD83C\uDFFE\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person with white cane facing right (1f9d1-1f3ff-200d-1f9af-200d-27a1-fe0f)
+        // person with white cane: dark skin tone, facing right (1f9d1-1f3ff-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\uD83C\uDFFF\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
@@ -11486,42 +11507,42 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
-        // man with white cane facing right (1f468-200d-1f9af-200d-27a1-fe0f)
+        // man with white cane: facing right (1f468-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83D\uDC68\uD83C\uDFFB\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F", "\uD83D\uDC68\uD83C\uDFFC\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F", "\uD83D\uDC68\uD83C\uDFFD\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F", "\uD83D\uDC68\uD83C\uDFFE\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F", "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // man with white cane facing right (1f468-1f3fb-200d-1f9af-200d-27a1-fe0f)
+        // man with white cane: light skin tone, facing right (1f468-1f3fb-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\uD83C\uDFFB\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man with white cane facing right (1f468-1f3fc-200d-1f9af-200d-27a1-fe0f)
+        // man with white cane: medium-light skin tone, facing right (1f468-1f3fc-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\uD83C\uDFFC\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man with white cane facing right (1f468-1f3fd-200d-1f9af-200d-27a1-fe0f)
+        // man with white cane: medium skin tone, facing right (1f468-1f3fd-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\uD83C\uDFFD\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man with white cane facing right (1f468-1f3fe-200d-1f9af-200d-27a1-fe0f)
+        // man with white cane: medium-dark skin tone, facing right (1f468-1f3fe-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\uD83C\uDFFE\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man with white cane facing right (1f468-1f3ff-200d-1f9af-200d-27a1-fe0f)
+        // man with white cane: dark skin tone, facing right (1f468-1f3ff-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
@@ -11570,42 +11591,42 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
-        // woman with white cane facing right (1f469-200d-1f9af-200d-27a1-fe0f)
+        // woman with white cane: facing right (1f469-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83D\uDC69\uD83C\uDFFB\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F", "\uD83D\uDC69\uD83C\uDFFC\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F", "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F", "\uD83D\uDC69\uD83C\uDFFE\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F", "\uD83D\uDC69\uD83C\uDFFF\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // woman with white cane facing right (1f469-1f3fb-200d-1f9af-200d-27a1-fe0f)
+        // woman with white cane: light skin tone, facing right (1f469-1f3fb-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\uD83C\uDFFB\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman with white cane facing right (1f469-1f3fc-200d-1f9af-200d-27a1-fe0f)
+        // woman with white cane: medium-light skin tone, facing right (1f469-1f3fc-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\uD83C\uDFFC\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman with white cane facing right (1f469-1f3fd-200d-1f9af-200d-27a1-fe0f)
+        // woman with white cane: medium skin tone, facing right (1f469-1f3fd-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman with white cane facing right (1f469-1f3fe-200d-1f9af-200d-27a1-fe0f)
+        // woman with white cane: medium-dark skin tone, facing right (1f469-1f3fe-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\uD83C\uDFFE\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman with white cane facing right (1f469-1f3ff-200d-1f9af-200d-27a1-fe0f)
+        // woman with white cane: dark skin tone, facing right (1f469-1f3ff-200d-1f9af-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\uD83C\uDFFF\u200D\uD83E\uDDAF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
@@ -11654,42 +11675,42 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
-        // person in motorized wheelchair facing right (1f9d1-200d-1f9bc-200d-27a1-fe0f)
+        // person in motorized wheelchair: facing right (1f9d1-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83E\uDDD1\uD83C\uDFFB\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F", "\uD83E\uDDD1\uD83C\uDFFC\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F", "\uD83E\uDDD1\uD83C\uDFFD\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F", "\uD83E\uDDD1\uD83C\uDFFE\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F", "\uD83E\uDDD1\uD83C\uDFFF\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // person in motorized wheelchair facing right (1f9d1-1f3fb-200d-1f9bc-200d-27a1-fe0f)
+        // person in motorized wheelchair: light skin tone, facing right (1f9d1-1f3fb-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\uD83C\uDFFB\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person in motorized wheelchair facing right (1f9d1-1f3fc-200d-1f9bc-200d-27a1-fe0f)
+        // person in motorized wheelchair: medium-light skin tone, facing right (1f9d1-1f3fc-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\uD83C\uDFFC\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person in motorized wheelchair facing right (1f9d1-1f3fd-200d-1f9bc-200d-27a1-fe0f)
+        // person in motorized wheelchair: medium skin tone, facing right (1f9d1-1f3fd-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\uD83C\uDFFD\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person in motorized wheelchair facing right (1f9d1-1f3fe-200d-1f9bc-200d-27a1-fe0f)
+        // person in motorized wheelchair: medium-dark skin tone, facing right (1f9d1-1f3fe-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\uD83C\uDFFE\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person in motorized wheelchair facing right (1f9d1-1f3ff-200d-1f9bc-200d-27a1-fe0f)
+        // person in motorized wheelchair: dark skin tone, facing right (1f9d1-1f3ff-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\uD83C\uDFFF\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
@@ -11738,42 +11759,42 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
-        // man in motorized wheelchair facing right (1f468-200d-1f9bc-200d-27a1-fe0f)
+        // man in motorized wheelchair: facing right (1f468-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83D\uDC68\uD83C\uDFFB\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F", "\uD83D\uDC68\uD83C\uDFFC\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F", "\uD83D\uDC68\uD83C\uDFFD\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F", "\uD83D\uDC68\uD83C\uDFFE\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F", "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // man in motorized wheelchair facing right (1f468-1f3fb-200d-1f9bc-200d-27a1-fe0f)
+        // man in motorized wheelchair: light skin tone, facing right (1f468-1f3fb-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\uD83C\uDFFB\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man in motorized wheelchair facing right (1f468-1f3fc-200d-1f9bc-200d-27a1-fe0f)
+        // man in motorized wheelchair: medium-light skin tone, facing right (1f468-1f3fc-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\uD83C\uDFFC\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man in motorized wheelchair facing right (1f468-1f3fd-200d-1f9bc-200d-27a1-fe0f)
+        // man in motorized wheelchair: medium skin tone, facing right (1f468-1f3fd-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\uD83C\uDFFD\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man in motorized wheelchair facing right (1f468-1f3fe-200d-1f9bc-200d-27a1-fe0f)
+        // man in motorized wheelchair: medium-dark skin tone, facing right (1f468-1f3fe-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\uD83C\uDFFE\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man in motorized wheelchair facing right (1f468-1f3ff-200d-1f9bc-200d-27a1-fe0f)
+        // man in motorized wheelchair: dark skin tone, facing right (1f468-1f3ff-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
@@ -11822,42 +11843,42 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
-        // woman in motorized wheelchair facing right (1f469-200d-1f9bc-200d-27a1-fe0f)
+        // woman in motorized wheelchair: facing right (1f469-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83D\uDC69\uD83C\uDFFB\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F", "\uD83D\uDC69\uD83C\uDFFC\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F", "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F", "\uD83D\uDC69\uD83C\uDFFE\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F", "\uD83D\uDC69\uD83C\uDFFF\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // woman in motorized wheelchair facing right (1f469-1f3fb-200d-1f9bc-200d-27a1-fe0f)
+        // woman in motorized wheelchair: light skin tone, facing right (1f469-1f3fb-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\uD83C\uDFFB\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman in motorized wheelchair facing right (1f469-1f3fc-200d-1f9bc-200d-27a1-fe0f)
+        // woman in motorized wheelchair: medium-light skin tone, facing right (1f469-1f3fc-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\uD83C\uDFFC\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman in motorized wheelchair facing right (1f469-1f3fd-200d-1f9bc-200d-27a1-fe0f)
+        // woman in motorized wheelchair: medium skin tone, facing right (1f469-1f3fd-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman in motorized wheelchair facing right (1f469-1f3fe-200d-1f9bc-200d-27a1-fe0f)
+        // woman in motorized wheelchair: medium-dark skin tone, facing right (1f469-1f3fe-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\uD83C\uDFFE\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman in motorized wheelchair facing right (1f469-1f3ff-200d-1f9bc-200d-27a1-fe0f)
+        // woman in motorized wheelchair: dark skin tone, facing right (1f469-1f3ff-200d-1f9bc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\uD83C\uDFFF\u200D\uD83E\uDDBC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
@@ -11906,42 +11927,42 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
-        // person in manual wheelchair facing right (1f9d1-200d-1f9bd-200d-27a1-fe0f)
+        // person in manual wheelchair: facing right (1f9d1-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83E\uDDD1\uD83C\uDFFB\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F", "\uD83E\uDDD1\uD83C\uDFFC\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F", "\uD83E\uDDD1\uD83C\uDFFD\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F", "\uD83E\uDDD1\uD83C\uDFFE\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F", "\uD83E\uDDD1\uD83C\uDFFF\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // person in manual wheelchair facing right (1f9d1-1f3fb-200d-1f9bd-200d-27a1-fe0f)
+        // person in manual wheelchair: light skin tone, facing right (1f9d1-1f3fb-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\uD83C\uDFFB\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person in manual wheelchair facing right (1f9d1-1f3fc-200d-1f9bd-200d-27a1-fe0f)
+        // person in manual wheelchair: medium-light skin tone, facing right (1f9d1-1f3fc-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\uD83C\uDFFC\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person in manual wheelchair facing right (1f9d1-1f3fd-200d-1f9bd-200d-27a1-fe0f)
+        // person in manual wheelchair: medium skin tone, facing right (1f9d1-1f3fd-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\uD83C\uDFFD\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person in manual wheelchair facing right (1f9d1-1f3fe-200d-1f9bd-200d-27a1-fe0f)
+        // person in manual wheelchair: medium-dark skin tone, facing right (1f9d1-1f3fe-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\uD83C\uDFFE\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person in manual wheelchair facing right (1f9d1-1f3ff-200d-1f9bd-200d-27a1-fe0f)
+        // person in manual wheelchair: dark skin tone, facing right (1f9d1-1f3ff-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83E\uDDD1\uD83C\uDFFF\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
@@ -11990,42 +12011,42 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
-        // man in manual wheelchair facing right (1f468-200d-1f9bd-200d-27a1-fe0f)
+        // man in manual wheelchair: facing right (1f468-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83D\uDC68\uD83C\uDFFB\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F", "\uD83D\uDC68\uD83C\uDFFC\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F", "\uD83D\uDC68\uD83C\uDFFD\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F", "\uD83D\uDC68\uD83C\uDFFE\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F", "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // man in manual wheelchair facing right (1f468-1f3fb-200d-1f9bd-200d-27a1-fe0f)
+        // man in manual wheelchair: light skin tone, facing right (1f468-1f3fb-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\uD83C\uDFFB\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man in manual wheelchair facing right (1f468-1f3fc-200d-1f9bd-200d-27a1-fe0f)
+        // man in manual wheelchair: medium-light skin tone, facing right (1f468-1f3fc-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\uD83C\uDFFC\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man in manual wheelchair facing right (1f468-1f3fd-200d-1f9bd-200d-27a1-fe0f)
+        // man in manual wheelchair: medium skin tone, facing right (1f468-1f3fd-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\uD83C\uDFFD\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man in manual wheelchair facing right (1f468-1f3fe-200d-1f9bd-200d-27a1-fe0f)
+        // man in manual wheelchair: medium-dark skin tone, facing right (1f468-1f3fe-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\uD83C\uDFFE\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man in manual wheelchair facing right (1f468-1f3ff-200d-1f9bd-200d-27a1-fe0f)
+        // man in manual wheelchair: dark skin tone, facing right (1f468-1f3ff-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
@@ -12074,42 +12095,42 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
-        // woman in manual wheelchair facing right (1f469-200d-1f9bd-200d-27a1-fe0f)
+        // woman in manual wheelchair: facing right (1f469-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83D\uDC69\uD83C\uDFFB\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F", "\uD83D\uDC69\uD83C\uDFFC\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F", "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F", "\uD83D\uDC69\uD83C\uDFFE\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F", "\uD83D\uDC69\uD83C\uDFFF\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // woman in manual wheelchair facing right (1f469-1f3fb-200d-1f9bd-200d-27a1-fe0f)
+        // woman in manual wheelchair: light skin tone, facing right (1f469-1f3fb-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\uD83C\uDFFB\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman in manual wheelchair facing right (1f469-1f3fc-200d-1f9bd-200d-27a1-fe0f)
+        // woman in manual wheelchair: medium-light skin tone, facing right (1f469-1f3fc-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\uD83C\uDFFC\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman in manual wheelchair facing right (1f469-1f3fd-200d-1f9bd-200d-27a1-fe0f)
+        // woman in manual wheelchair: medium skin tone, facing right (1f469-1f3fd-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman in manual wheelchair facing right (1f469-1f3fe-200d-1f9bd-200d-27a1-fe0f)
+        // woman in manual wheelchair: medium-dark skin tone, facing right (1f469-1f3fe-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\uD83C\uDFFE\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman in manual wheelchair facing right (1f469-1f3ff-200d-1f9bd-200d-27a1-fe0f)
+        // woman in manual wheelchair: dark skin tone, facing right (1f469-1f3ff-200d-1f9bd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83D\uDC69\uD83C\uDFFF\u200D\uD83E\uDDBD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
@@ -12242,128 +12263,170 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
-        // person running facing right (1f3c3-200d-27a1-fe0f)
+        // person running: facing right (1f3c3-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83C\uDFC3\uD83C\uDFFB\u200D\u27A1\uFE0F", "\uD83C\uDFC3\uD83C\uDFFC\u200D\u27A1\uFE0F", "\uD83C\uDFC3\uD83C\uDFFD\u200D\u27A1\uFE0F", "\uD83C\uDFC3\uD83C\uDFFE\u200D\u27A1\uFE0F", "\uD83C\uDFC3\uD83C\uDFFF\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // person running facing right (1f3c3-1f3fb-200d-27a1-fe0f)
+        // person running: light skin tone, facing right (1f3c3-1f3fb-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\uD83C\uDFFB\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person running facing right (1f3c3-1f3fc-200d-27a1-fe0f)
+        // person running: medium-light skin tone, facing right (1f3c3-1f3fc-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\uD83C\uDFFC\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person running facing right (1f3c3-1f3fd-200d-27a1-fe0f)
+        // person running: medium skin tone, facing right (1f3c3-1f3fd-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\uD83C\uDFFD\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person running facing right (1f3c3-1f3fe-200d-27a1-fe0f)
+        // person running: medium-dark skin tone, facing right (1f3c3-1f3fe-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\uD83C\uDFFE\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // person running facing right (1f3c3-1f3ff-200d-27a1-fe0f)
+        // person running: dark skin tone, facing right (1f3c3-1f3ff-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\uD83C\uDFFF\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman running facing right (1f3c3-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman running: facing right (1f3c3-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83C\uDFC3\uD83C\uDFFB\u200D\u2640\uFE0F\u200D\u27A1\uFE0F", "\uD83C\uDFC3\uD83C\uDFFC\u200D\u2640\uFE0F\u200D\u27A1\uFE0F", "\uD83C\uDFC3\uD83C\uDFFD\u200D\u2640\uFE0F\u200D\u27A1\uFE0F", "\uD83C\uDFC3\uD83C\uDFFE\u200D\u2640\uFE0F\u200D\u27A1\uFE0F", "\uD83C\uDFC3\uD83C\uDFFF\u200D\u2640\uFE0F\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // woman running facing right (1f3c3-1f3fb-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman running: light skin tone, facing right (1f3c3-1f3fb-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\uD83C\uDFFB\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman running facing right (1f3c3-1f3fc-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman running: medium-light skin tone, facing right (1f3c3-1f3fc-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\uD83C\uDFFC\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman running facing right (1f3c3-1f3fd-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman running: medium skin tone, facing right (1f3c3-1f3fd-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\uD83C\uDFFD\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman running facing right (1f3c3-1f3fe-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman running: medium-dark skin tone, facing right (1f3c3-1f3fe-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\uD83C\uDFFE\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // woman running facing right (1f3c3-1f3ff-200d-2640-fe0f-200d-27a1-fe0f)
+        // woman running: dark skin tone, facing right (1f3c3-1f3ff-200d-2640-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\uD83C\uDFFF\u200D\u2640\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man running facing right (1f3c3-200d-2642-fe0f-200d-27a1-fe0f)
+        // man running: facing right (1f3c3-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_PARENT,
             arrayOf("\uD83C\uDFC3\uD83C\uDFFB\u200D\u2642\uFE0F\u200D\u27A1\uFE0F", "\uD83C\uDFC3\uD83C\uDFFC\u200D\u2642\uFE0F\u200D\u27A1\uFE0F", "\uD83C\uDFC3\uD83C\uDFFD\u200D\u2642\uFE0F\u200D\u27A1\uFE0F", "\uD83C\uDFC3\uD83C\uDFFE\u200D\u2642\uFE0F\u200D\u27A1\uFE0F", "\uD83C\uDFC3\uD83C\uDFFF\u200D\u2642\uFE0F\u200D\u27A1\uFE0F"),
             DISPLAY_YES,
         ),
-        // man running facing right (1f3c3-1f3fb-200d-2642-fe0f-200d-27a1-fe0f)
+        // man running: light skin tone, facing right (1f3c3-1f3fb-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\uD83C\uDFFB\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man running facing right (1f3c3-1f3fc-200d-2642-fe0f-200d-27a1-fe0f)
+        // man running: medium-light skin tone, facing right (1f3c3-1f3fc-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\uD83C\uDFFC\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man running facing right (1f3c3-1f3fd-200d-2642-fe0f-200d-27a1-fe0f)
+        // man running: medium skin tone, facing right (1f3c3-1f3fd-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\uD83C\uDFFD\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man running facing right (1f3c3-1f3fe-200d-2642-fe0f-200d-27a1-fe0f)
+        // man running: medium-dark skin tone, facing right (1f3c3-1f3fe-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\uD83C\uDFFE\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
-        // man running facing right (1f3c3-1f3ff-200d-2642-fe0f-200d-27a1-fe0f)
+        // man running: dark skin tone, facing right (1f3c3-1f3ff-200d-2642-fe0f-200d-27a1-fe0f)
         EmojiInfo(
             "\uD83C\uDFC3\uD83C\uDFFF\u200D\u2642\uFE0F\u200D\u27A1\uFE0F",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // ballet dancer (1f9d1-200d-1fa70)
+        EmojiInfo(
+            "\uD83E\uDDD1\u200D\uD83E\uDE70",
+            DIVERSITY_PARENT,
+            arrayOf("\uD83E\uDDD1\uD83C\uDFFB\u200D\uD83E\uDE70", "\uD83E\uDDD1\uD83C\uDFFC\u200D\uD83E\uDE70", "\uD83E\uDDD1\uD83C\uDFFD\u200D\uD83E\uDE70", "\uD83E\uDDD1\uD83C\uDFFE\u200D\uD83E\uDE70", "\uD83E\uDDD1\uD83C\uDFFF\u200D\uD83E\uDE70"),
+            DISPLAY_YES,
+        ),
+        // ballet dancer: light skin tone (1f9d1-1f3fb-200d-1fa70)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFB\u200D\uD83E\uDE70",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // ballet dancer: medium-light skin tone (1f9d1-1f3fc-200d-1fa70)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFC\u200D\uD83E\uDE70",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // ballet dancer: medium skin tone (1f9d1-1f3fd-200d-1fa70)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFD\u200D\uD83E\uDE70",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // ballet dancer: medium-dark skin tone (1f9d1-1f3fe-200d-1fa70)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFE\u200D\uD83E\uDE70",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // ballet dancer: dark skin tone (1f9d1-1f3ff-200d-1fa70)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFF\u200D\uD83E\uDE70",
             DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
@@ -12497,23 +12560,548 @@ object EmojiSpritemap {
         // people with bunny ears (1f46f)
         EmojiInfo(
             "\uD83D\uDC6F",
-            DIVERSITY_NONE,
+            DIVERSITY_PARENT,
+            arrayOf("\uD83D\uDC6F\uD83C\uDFFB", "\uD83D\uDC6F\uD83C\uDFFC", "\uD83D\uDC6F\uD83C\uDFFD", "\uD83D\uDC6F\uD83C\uDFFE", "\uD83D\uDC6F\uD83C\uDFFF"),
+            DISPLAY_YES,
+        ),
+        // people with bunny ears: light skin tone (1f46f-1f3fb)
+        EmojiInfo(
+            "\uD83D\uDC6F\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // people with bunny ears: medium-light skin tone (1f46f-1f3fc)
+        EmojiInfo(
+            "\uD83D\uDC6F\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // people with bunny ears: medium skin tone (1f46f-1f3fd)
+        EmojiInfo(
+            "\uD83D\uDC6F\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // people with bunny ears: medium-dark skin tone (1f46f-1f3fe)
+        EmojiInfo(
+            "\uD83D\uDC6F\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // people with bunny ears: dark skin tone (1f46f-1f3ff)
+        EmojiInfo(
+            "\uD83D\uDC6F\uD83C\uDFFF",
+            DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
         // men with bunny ears (1f46f-200d-2642-fe0f)
         EmojiInfo(
             "\uD83D\uDC6F\u200D\u2642\uFE0F",
-            DIVERSITY_NONE,
+            DIVERSITY_PARENT,
+            arrayOf("\uD83D\uDC6F\uD83C\uDFFB\u200D\u2642\uFE0F", "\uD83D\uDC6F\uD83C\uDFFC\u200D\u2642\uFE0F", "\uD83D\uDC6F\uD83C\uDFFD\u200D\u2642\uFE0F", "\uD83D\uDC6F\uD83C\uDFFE\u200D\u2642\uFE0F", "\uD83D\uDC6F\uD83C\uDFFF\u200D\u2642\uFE0F"),
+            DISPLAY_YES,
+        ),
+        // men with bunny ears: light skin tone (1f46f-1f3fb-200d-2642-fe0f)
+        EmojiInfo(
+            "\uD83D\uDC6F\uD83C\uDFFB\u200D\u2642\uFE0F",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // men with bunny ears: medium-light skin tone (1f46f-1f3fc-200d-2642-fe0f)
+        EmojiInfo(
+            "\uD83D\uDC6F\uD83C\uDFFC\u200D\u2642\uFE0F",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // men with bunny ears: medium skin tone (1f46f-1f3fd-200d-2642-fe0f)
+        EmojiInfo(
+            "\uD83D\uDC6F\uD83C\uDFFD\u200D\u2642\uFE0F",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // men with bunny ears: medium-dark skin tone (1f46f-1f3fe-200d-2642-fe0f)
+        EmojiInfo(
+            "\uD83D\uDC6F\uD83C\uDFFE\u200D\u2642\uFE0F",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // men with bunny ears: dark skin tone (1f46f-1f3ff-200d-2642-fe0f)
+        EmojiInfo(
+            "\uD83D\uDC6F\uD83C\uDFFF\u200D\u2642\uFE0F",
+            DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
         // women with bunny ears (1f46f-200d-2640-fe0f)
         EmojiInfo(
             "\uD83D\uDC6F\u200D\u2640\uFE0F",
-            DIVERSITY_NONE,
+            DIVERSITY_PARENT,
+            arrayOf("\uD83D\uDC6F\uD83C\uDFFB\u200D\u2640\uFE0F", "\uD83D\uDC6F\uD83C\uDFFC\u200D\u2640\uFE0F", "\uD83D\uDC6F\uD83C\uDFFD\u200D\u2640\uFE0F", "\uD83D\uDC6F\uD83C\uDFFE\u200D\u2640\uFE0F", "\uD83D\uDC6F\uD83C\uDFFF\u200D\u2640\uFE0F"),
+            DISPLAY_YES,
+        ),
+        // women with bunny ears: light skin tone (1f46f-1f3fb-200d-2640-fe0f)
+        EmojiInfo(
+            "\uD83D\uDC6F\uD83C\uDFFB\u200D\u2640\uFE0F",
+            DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
+        ),
+        // women with bunny ears: medium-light skin tone (1f46f-1f3fc-200d-2640-fe0f)
+        EmojiInfo(
+            "\uD83D\uDC6F\uD83C\uDFFC\u200D\u2640\uFE0F",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // women with bunny ears: medium skin tone (1f46f-1f3fd-200d-2640-fe0f)
+        EmojiInfo(
+            "\uD83D\uDC6F\uD83C\uDFFD\u200D\u2640\uFE0F",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // women with bunny ears: medium-dark skin tone (1f46f-1f3fe-200d-2640-fe0f)
+        EmojiInfo(
+            "\uD83D\uDC6F\uD83C\uDFFE\u200D\u2640\uFE0F",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // women with bunny ears: dark skin tone (1f46f-1f3ff-200d-2640-fe0f)
+        EmojiInfo(
+            "\uD83D\uDC6F\uD83C\uDFFF\u200D\u2640\uFE0F",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // people with bunny ears: light skin tone, medium-light skin tone (1f9d1-1f3fb-200d-1f430-200d-1f9d1-1f3fc)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFB\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: light skin tone, medium skin tone (1f9d1-1f3fb-200d-1f430-200d-1f9d1-1f3fd)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFB\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: light skin tone, medium-dark skin tone (1f9d1-1f3fb-200d-1f430-200d-1f9d1-1f3fe)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFB\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: light skin tone, dark skin tone (1f9d1-1f3fb-200d-1f430-200d-1f9d1-1f3ff)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFB\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: medium-light skin tone, light skin tone (1f9d1-1f3fc-200d-1f430-200d-1f9d1-1f3fb)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFC\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: medium-light skin tone, medium skin tone (1f9d1-1f3fc-200d-1f430-200d-1f9d1-1f3fd)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFC\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: medium-light skin tone, medium-dark skin tone (1f9d1-1f3fc-200d-1f430-200d-1f9d1-1f3fe)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFC\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: medium-light skin tone, dark skin tone (1f9d1-1f3fc-200d-1f430-200d-1f9d1-1f3ff)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFC\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: medium skin tone, light skin tone (1f9d1-1f3fd-200d-1f430-200d-1f9d1-1f3fb)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFD\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: medium skin tone, medium-light skin tone (1f9d1-1f3fd-200d-1f430-200d-1f9d1-1f3fc)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFD\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: medium skin tone, medium-dark skin tone (1f9d1-1f3fd-200d-1f430-200d-1f9d1-1f3fe)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFD\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: medium skin tone, dark skin tone (1f9d1-1f3fd-200d-1f430-200d-1f9d1-1f3ff)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFD\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: medium-dark skin tone, light skin tone (1f9d1-1f3fe-200d-1f430-200d-1f9d1-1f3fb)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFE\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: medium-dark skin tone, medium-light skin tone (1f9d1-1f3fe-200d-1f430-200d-1f9d1-1f3fc)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFE\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: medium-dark skin tone, medium skin tone (1f9d1-1f3fe-200d-1f430-200d-1f9d1-1f3fd)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFE\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: medium-dark skin tone, dark skin tone (1f9d1-1f3fe-200d-1f430-200d-1f9d1-1f3ff)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFE\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: dark skin tone, light skin tone (1f9d1-1f3ff-200d-1f430-200d-1f9d1-1f3fb)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFF\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: dark skin tone, medium-light skin tone (1f9d1-1f3ff-200d-1f430-200d-1f9d1-1f3fc)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFF\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: dark skin tone, medium skin tone (1f9d1-1f3ff-200d-1f430-200d-1f9d1-1f3fd)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFF\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people with bunny ears: dark skin tone, medium-dark skin tone (1f9d1-1f3ff-200d-1f430-200d-1f9d1-1f3fe)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFF\u200D\uD83D\uDC30\u200D\uD83E\uDDD1\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: light skin tone, medium-light skin tone (1f468-1f3fb-200d-1f430-200d-1f468-1f3fc)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFB\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: light skin tone, medium skin tone (1f468-1f3fb-200d-1f430-200d-1f468-1f3fd)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFB\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: light skin tone, medium-dark skin tone (1f468-1f3fb-200d-1f430-200d-1f468-1f3fe)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFB\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: light skin tone, dark skin tone (1f468-1f3fb-200d-1f430-200d-1f468-1f3ff)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFB\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: medium-light skin tone, light skin tone (1f468-1f3fc-200d-1f430-200d-1f468-1f3fb)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFC\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: medium-light skin tone, medium skin tone (1f468-1f3fc-200d-1f430-200d-1f468-1f3fd)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFC\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: medium-light skin tone, medium-dark skin tone (1f468-1f3fc-200d-1f430-200d-1f468-1f3fe)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFC\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: medium-light skin tone, dark skin tone (1f468-1f3fc-200d-1f430-200d-1f468-1f3ff)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFC\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: medium skin tone, light skin tone (1f468-1f3fd-200d-1f430-200d-1f468-1f3fb)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFD\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: medium skin tone, medium-light skin tone (1f468-1f3fd-200d-1f430-200d-1f468-1f3fc)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFD\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: medium skin tone, medium-dark skin tone (1f468-1f3fd-200d-1f430-200d-1f468-1f3fe)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFD\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: medium skin tone, dark skin tone (1f468-1f3fd-200d-1f430-200d-1f468-1f3ff)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFD\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: medium-dark skin tone, light skin tone (1f468-1f3fe-200d-1f430-200d-1f468-1f3fb)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFE\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: medium-dark skin tone, medium-light skin tone (1f468-1f3fe-200d-1f430-200d-1f468-1f3fc)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFE\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: medium-dark skin tone, medium skin tone (1f468-1f3fe-200d-1f430-200d-1f468-1f3fd)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFE\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: medium-dark skin tone, dark skin tone (1f468-1f3fe-200d-1f430-200d-1f468-1f3ff)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFE\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: dark skin tone, light skin tone (1f468-1f3ff-200d-1f430-200d-1f468-1f3fb)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: dark skin tone, medium-light skin tone (1f468-1f3ff-200d-1f430-200d-1f468-1f3fc)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: dark skin tone, medium skin tone (1f468-1f3ff-200d-1f430-200d-1f468-1f3fd)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men with bunny ears: dark skin tone, medium-dark skin tone (1f468-1f3ff-200d-1f430-200d-1f468-1f3fe)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83D\uDC30\u200D\uD83D\uDC68\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: light skin tone, medium-light skin tone (1f469-1f3fb-200d-1f430-200d-1f469-1f3fc)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFB\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: light skin tone, medium skin tone (1f469-1f3fb-200d-1f430-200d-1f469-1f3fd)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFB\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: light skin tone, medium-dark skin tone (1f469-1f3fb-200d-1f430-200d-1f469-1f3fe)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFB\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: light skin tone, dark skin tone (1f469-1f3fb-200d-1f430-200d-1f469-1f3ff)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFB\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: medium-light skin tone, light skin tone (1f469-1f3fc-200d-1f430-200d-1f469-1f3fb)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFC\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: medium-light skin tone, medium skin tone (1f469-1f3fc-200d-1f430-200d-1f469-1f3fd)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFC\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: medium-light skin tone, medium-dark skin tone (1f469-1f3fc-200d-1f430-200d-1f469-1f3fe)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFC\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: medium-light skin tone, dark skin tone (1f469-1f3fc-200d-1f430-200d-1f469-1f3ff)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFC\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: medium skin tone, light skin tone (1f469-1f3fd-200d-1f430-200d-1f469-1f3fb)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: medium skin tone, medium-light skin tone (1f469-1f3fd-200d-1f430-200d-1f469-1f3fc)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: medium skin tone, medium-dark skin tone (1f469-1f3fd-200d-1f430-200d-1f469-1f3fe)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: medium skin tone, dark skin tone (1f469-1f3fd-200d-1f430-200d-1f469-1f3ff)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: medium-dark skin tone, light skin tone (1f469-1f3fe-200d-1f430-200d-1f469-1f3fb)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFE\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: medium-dark skin tone, medium-light skin tone (1f469-1f3fe-200d-1f430-200d-1f469-1f3fc)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFE\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: medium-dark skin tone, medium skin tone (1f469-1f3fe-200d-1f430-200d-1f469-1f3fd)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFE\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: medium-dark skin tone, dark skin tone (1f469-1f3fe-200d-1f430-200d-1f469-1f3ff)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFE\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: dark skin tone, light skin tone (1f469-1f3ff-200d-1f430-200d-1f469-1f3fb)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFF\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: dark skin tone, medium-light skin tone (1f469-1f3ff-200d-1f430-200d-1f469-1f3fc)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFF\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: dark skin tone, medium skin tone (1f469-1f3ff-200d-1f430-200d-1f469-1f3fd)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFF\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women with bunny ears: dark skin tone, medium-dark skin tone (1f469-1f3ff-200d-1f430-200d-1f469-1f3fe)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFF\u200D\uD83D\uDC30\u200D\uD83D\uDC69\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
         ),
         // person in steamy room (1f9d6)
         EmojiInfo(
@@ -14002,23 +14590,548 @@ object EmojiSpritemap {
         // people wrestling (1f93c)
         EmojiInfo(
             "\uD83E\uDD3C",
-            DIVERSITY_NONE,
+            DIVERSITY_PARENT,
+            arrayOf("\uD83E\uDD3C\uD83C\uDFFB", "\uD83E\uDD3C\uD83C\uDFFC", "\uD83E\uDD3C\uD83C\uDFFD", "\uD83E\uDD3C\uD83C\uDFFE", "\uD83E\uDD3C\uD83C\uDFFF"),
+            DISPLAY_YES,
+        ),
+        // people wrestling: light skin tone (1f93c-1f3fb)
+        EmojiInfo(
+            "\uD83E\uDD3C\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // people wrestling: medium-light skin tone (1f93c-1f3fc)
+        EmojiInfo(
+            "\uD83E\uDD3C\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // people wrestling: medium skin tone (1f93c-1f3fd)
+        EmojiInfo(
+            "\uD83E\uDD3C\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // people wrestling: medium-dark skin tone (1f93c-1f3fe)
+        EmojiInfo(
+            "\uD83E\uDD3C\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // people wrestling: dark skin tone (1f93c-1f3ff)
+        EmojiInfo(
+            "\uD83E\uDD3C\uD83C\uDFFF",
+            DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
         // men wrestling (1f93c-200d-2642-fe0f)
         EmojiInfo(
             "\uD83E\uDD3C\u200D\u2642\uFE0F",
-            DIVERSITY_NONE,
+            DIVERSITY_PARENT,
+            arrayOf("\uD83E\uDD3C\uD83C\uDFFB\u200D\u2642\uFE0F", "\uD83E\uDD3C\uD83C\uDFFC\u200D\u2642\uFE0F", "\uD83E\uDD3C\uD83C\uDFFD\u200D\u2642\uFE0F", "\uD83E\uDD3C\uD83C\uDFFE\u200D\u2642\uFE0F", "\uD83E\uDD3C\uD83C\uDFFF\u200D\u2642\uFE0F"),
+            DISPLAY_YES,
+        ),
+        // men wrestling: light skin tone (1f93c-1f3fb-200d-2642-fe0f)
+        EmojiInfo(
+            "\uD83E\uDD3C\uD83C\uDFFB\u200D\u2642\uFE0F",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // men wrestling: medium-light skin tone (1f93c-1f3fc-200d-2642-fe0f)
+        EmojiInfo(
+            "\uD83E\uDD3C\uD83C\uDFFC\u200D\u2642\uFE0F",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // men wrestling: medium skin tone (1f93c-1f3fd-200d-2642-fe0f)
+        EmojiInfo(
+            "\uD83E\uDD3C\uD83C\uDFFD\u200D\u2642\uFE0F",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // men wrestling: medium-dark skin tone (1f93c-1f3fe-200d-2642-fe0f)
+        EmojiInfo(
+            "\uD83E\uDD3C\uD83C\uDFFE\u200D\u2642\uFE0F",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // men wrestling: dark skin tone (1f93c-1f3ff-200d-2642-fe0f)
+        EmojiInfo(
+            "\uD83E\uDD3C\uD83C\uDFFF\u200D\u2642\uFE0F",
+            DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
         ),
         // women wrestling (1f93c-200d-2640-fe0f)
         EmojiInfo(
             "\uD83E\uDD3C\u200D\u2640\uFE0F",
-            DIVERSITY_NONE,
+            DIVERSITY_PARENT,
+            arrayOf("\uD83E\uDD3C\uD83C\uDFFB\u200D\u2640\uFE0F", "\uD83E\uDD3C\uD83C\uDFFC\u200D\u2640\uFE0F", "\uD83E\uDD3C\uD83C\uDFFD\u200D\u2640\uFE0F", "\uD83E\uDD3C\uD83C\uDFFE\u200D\u2640\uFE0F", "\uD83E\uDD3C\uD83C\uDFFF\u200D\u2640\uFE0F"),
+            DISPLAY_YES,
+        ),
+        // women wrestling: light skin tone (1f93c-1f3fb-200d-2640-fe0f)
+        EmojiInfo(
+            "\uD83E\uDD3C\uD83C\uDFFB\u200D\u2640\uFE0F",
+            DIVERSITY_CHILD,
             null,
             DISPLAY_YES,
+        ),
+        // women wrestling: medium-light skin tone (1f93c-1f3fc-200d-2640-fe0f)
+        EmojiInfo(
+            "\uD83E\uDD3C\uD83C\uDFFC\u200D\u2640\uFE0F",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // women wrestling: medium skin tone (1f93c-1f3fd-200d-2640-fe0f)
+        EmojiInfo(
+            "\uD83E\uDD3C\uD83C\uDFFD\u200D\u2640\uFE0F",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // women wrestling: medium-dark skin tone (1f93c-1f3fe-200d-2640-fe0f)
+        EmojiInfo(
+            "\uD83E\uDD3C\uD83C\uDFFE\u200D\u2640\uFE0F",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // women wrestling: dark skin tone (1f93c-1f3ff-200d-2640-fe0f)
+        EmojiInfo(
+            "\uD83E\uDD3C\uD83C\uDFFF\u200D\u2640\uFE0F",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_YES,
+        ),
+        // people wrestling: light skin tone, medium-light skin tone (1f9d1-1f3fb-200d-1faef-200d-1f9d1-1f3fc)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFB\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: light skin tone, medium skin tone (1f9d1-1f3fb-200d-1faef-200d-1f9d1-1f3fd)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFB\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: light skin tone, medium-dark skin tone (1f9d1-1f3fb-200d-1faef-200d-1f9d1-1f3fe)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFB\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: light skin tone, dark skin tone (1f9d1-1f3fb-200d-1faef-200d-1f9d1-1f3ff)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFB\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: medium-light skin tone, light skin tone (1f9d1-1f3fc-200d-1faef-200d-1f9d1-1f3fb)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFC\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: medium-light skin tone, medium skin tone (1f9d1-1f3fc-200d-1faef-200d-1f9d1-1f3fd)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFC\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: medium-light skin tone, medium-dark skin tone (1f9d1-1f3fc-200d-1faef-200d-1f9d1-1f3fe)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFC\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: medium-light skin tone, dark skin tone (1f9d1-1f3fc-200d-1faef-200d-1f9d1-1f3ff)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFC\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: medium skin tone, light skin tone (1f9d1-1f3fd-200d-1faef-200d-1f9d1-1f3fb)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFD\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: medium skin tone, medium-light skin tone (1f9d1-1f3fd-200d-1faef-200d-1f9d1-1f3fc)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFD\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: medium skin tone, medium-dark skin tone (1f9d1-1f3fd-200d-1faef-200d-1f9d1-1f3fe)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFD\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: medium skin tone, dark skin tone (1f9d1-1f3fd-200d-1faef-200d-1f9d1-1f3ff)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFD\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: medium-dark skin tone, light skin tone (1f9d1-1f3fe-200d-1faef-200d-1f9d1-1f3fb)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFE\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: medium-dark skin tone, medium-light skin tone (1f9d1-1f3fe-200d-1faef-200d-1f9d1-1f3fc)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFE\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: medium-dark skin tone, medium skin tone (1f9d1-1f3fe-200d-1faef-200d-1f9d1-1f3fd)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFE\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: medium-dark skin tone, dark skin tone (1f9d1-1f3fe-200d-1faef-200d-1f9d1-1f3ff)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFE\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: dark skin tone, light skin tone (1f9d1-1f3ff-200d-1faef-200d-1f9d1-1f3fb)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFF\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: dark skin tone, medium-light skin tone (1f9d1-1f3ff-200d-1faef-200d-1f9d1-1f3fc)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFF\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: dark skin tone, medium skin tone (1f9d1-1f3ff-200d-1faef-200d-1f9d1-1f3fd)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFF\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // people wrestling: dark skin tone, medium-dark skin tone (1f9d1-1f3ff-200d-1faef-200d-1f9d1-1f3fe)
+        EmojiInfo(
+            "\uD83E\uDDD1\uD83C\uDFFF\u200D\uD83E\uDEEF\u200D\uD83E\uDDD1\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: light skin tone, medium-light skin tone (1f468-1f3fb-200d-1faef-200d-1f468-1f3fc)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFB\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: light skin tone, medium skin tone (1f468-1f3fb-200d-1faef-200d-1f468-1f3fd)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFB\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: light skin tone, medium-dark skin tone (1f468-1f3fb-200d-1faef-200d-1f468-1f3fe)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFB\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: light skin tone, dark skin tone (1f468-1f3fb-200d-1faef-200d-1f468-1f3ff)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFB\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: medium-light skin tone, light skin tone (1f468-1f3fc-200d-1faef-200d-1f468-1f3fb)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFC\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: medium-light skin tone, medium skin tone (1f468-1f3fc-200d-1faef-200d-1f468-1f3fd)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFC\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: medium-light skin tone, medium-dark skin tone (1f468-1f3fc-200d-1faef-200d-1f468-1f3fe)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFC\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: medium-light skin tone, dark skin tone (1f468-1f3fc-200d-1faef-200d-1f468-1f3ff)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFC\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: medium skin tone, light skin tone (1f468-1f3fd-200d-1faef-200d-1f468-1f3fb)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFD\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: medium skin tone, medium-light skin tone (1f468-1f3fd-200d-1faef-200d-1f468-1f3fc)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFD\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: medium skin tone, medium-dark skin tone (1f468-1f3fd-200d-1faef-200d-1f468-1f3fe)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFD\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: medium skin tone, dark skin tone (1f468-1f3fd-200d-1faef-200d-1f468-1f3ff)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFD\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: medium-dark skin tone, light skin tone (1f468-1f3fe-200d-1faef-200d-1f468-1f3fb)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFE\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: medium-dark skin tone, medium-light skin tone (1f468-1f3fe-200d-1faef-200d-1f468-1f3fc)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFE\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: medium-dark skin tone, medium skin tone (1f468-1f3fe-200d-1faef-200d-1f468-1f3fd)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFE\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: medium-dark skin tone, dark skin tone (1f468-1f3fe-200d-1faef-200d-1f468-1f3ff)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFE\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: dark skin tone, light skin tone (1f468-1f3ff-200d-1faef-200d-1f468-1f3fb)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: dark skin tone, medium-light skin tone (1f468-1f3ff-200d-1faef-200d-1f468-1f3fc)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: dark skin tone, medium skin tone (1f468-1f3ff-200d-1faef-200d-1f468-1f3fd)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // men wrestling: dark skin tone, medium-dark skin tone (1f468-1f3ff-200d-1faef-200d-1f468-1f3fe)
+        EmojiInfo(
+            "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83E\uDEEF\u200D\uD83D\uDC68\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: light skin tone, medium-light skin tone (1f469-1f3fb-200d-1faef-200d-1f469-1f3fc)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFB\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: light skin tone, medium skin tone (1f469-1f3fb-200d-1faef-200d-1f469-1f3fd)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFB\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: light skin tone, medium-dark skin tone (1f469-1f3fb-200d-1faef-200d-1f469-1f3fe)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFB\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: light skin tone, dark skin tone (1f469-1f3fb-200d-1faef-200d-1f469-1f3ff)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFB\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: medium-light skin tone, light skin tone (1f469-1f3fc-200d-1faef-200d-1f469-1f3fb)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFC\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: medium-light skin tone, medium skin tone (1f469-1f3fc-200d-1faef-200d-1f469-1f3fd)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFC\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: medium-light skin tone, medium-dark skin tone (1f469-1f3fc-200d-1faef-200d-1f469-1f3fe)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFC\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: medium-light skin tone, dark skin tone (1f469-1f3fc-200d-1faef-200d-1f469-1f3ff)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFC\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: medium skin tone, light skin tone (1f469-1f3fd-200d-1faef-200d-1f469-1f3fb)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: medium skin tone, medium-light skin tone (1f469-1f3fd-200d-1faef-200d-1f469-1f3fc)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: medium skin tone, medium-dark skin tone (1f469-1f3fd-200d-1faef-200d-1f469-1f3fe)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: medium skin tone, dark skin tone (1f469-1f3fd-200d-1faef-200d-1f469-1f3ff)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFD\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: medium-dark skin tone, light skin tone (1f469-1f3fe-200d-1faef-200d-1f469-1f3fb)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFE\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: medium-dark skin tone, medium-light skin tone (1f469-1f3fe-200d-1faef-200d-1f469-1f3fc)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFE\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: medium-dark skin tone, medium skin tone (1f469-1f3fe-200d-1faef-200d-1f469-1f3fd)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFE\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: medium-dark skin tone, dark skin tone (1f469-1f3fe-200d-1faef-200d-1f469-1f3ff)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFE\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFF",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: dark skin tone, light skin tone (1f469-1f3ff-200d-1faef-200d-1f469-1f3fb)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFF\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFB",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: dark skin tone, medium-light skin tone (1f469-1f3ff-200d-1faef-200d-1f469-1f3fc)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFF\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFC",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: dark skin tone, medium skin tone (1f469-1f3ff-200d-1faef-200d-1f469-1f3fd)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFF\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFD",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
+        ),
+        // women wrestling: dark skin tone, medium-dark skin tone (1f469-1f3ff-200d-1faef-200d-1f469-1f3fe)
+        EmojiInfo(
+            "\uD83D\uDC69\uD83C\uDFFF\u200D\uD83E\uDEEF\u200D\uD83D\uDC69\uD83C\uDFFE",
+            DIVERSITY_CHILD,
+            null,
+            DISPLAY_NO,
         ),
         // person playing water polo (1f93d)
         EmojiInfo(
@@ -17747,6 +18860,13 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
+        // orca (1facd)
+        EmojiInfo(
+            "\uD83E\uDECD",
+            DIVERSITY_NONE,
+            null,
+            DISPLAY_YES,
+        ),
         // seal (1f9ad)
         EmojiInfo(
             "\uD83E\uDDAD",
@@ -19142,6 +20262,13 @@ object EmojiSpritemap {
         // mountain (26f0-fe0f)
         EmojiInfo(
             "\u26F0\uFE0F",
+            DIVERSITY_NONE,
+            null,
+            DISPLAY_YES,
+        ),
+        // landslide (1f6d8)
+        EmojiInfo(
+            "\uD83D\uDED8",
             DIVERSITY_NONE,
             null,
             DISPLAY_YES,
@@ -21672,6 +22799,20 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
+        // trumpet (1f3ba)
+        EmojiInfo(
+            "\uD83C\uDFBA",
+            DIVERSITY_NONE,
+            null,
+            DISPLAY_YES,
+        ),
+        // trombone (1fa8a)
+        EmojiInfo(
+            "\uD83E\uDE8A",
+            DIVERSITY_NONE,
+            null,
+            DISPLAY_YES,
+        ),
         // accordion (1fa97)
         EmojiInfo(
             "\uD83E\uDE97",
@@ -21689,13 +22830,6 @@ object EmojiSpritemap {
         // musical keyboard (1f3b9)
         EmojiInfo(
             "\uD83C\uDFB9",
-            DIVERSITY_NONE,
-            null,
-            DISPLAY_YES,
-        ),
-        // trumpet (1f3ba)
-        EmojiInfo(
-            "\uD83C\uDFBA",
             DIVERSITY_NONE,
             null,
             DISPLAY_YES,
@@ -22120,6 +23254,13 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
+        // coin (1fa99)
+        EmojiInfo(
+            "\uD83E\uDE99",
+            DIVERSITY_NONE,
+            null,
+            DISPLAY_YES,
+        ),
         // money bag (1f4b0)
         EmojiInfo(
             "\uD83D\uDCB0",
@@ -22127,9 +23268,9 @@ object EmojiSpritemap {
             null,
             DISPLAY_YES,
         ),
-        // coin (1fa99)
+        // treasure chest (1fa8e)
         EmojiInfo(
-            "\uD83E\uDE99",
+            "\uD83E\uDE8E",
             DIVERSITY_NONE,
             null,
             DISPLAY_YES,

@@ -150,6 +150,7 @@
 😯|atònita|cara de sorpresa|déu meu|èpic|oh!|sorprès|sorpresa|sorprés
 😲|cara|déu meu!|escandalitzada|escandalitzat|estupefacta|estupefacte|i ara!|que coi!|totalment
 😳|apa!|avergonyida|avergonyit|cara|culpa|enrojolada|galtes vermelles|impressionada|impressionat|incòmoda|incòmode|incredulitat|vergonya
+🫪|ansietat|inflamat|pànic|sorprès|vulnerable|xoc
 🥺|cara de súplica|compassió|per què no|pietat|si us plau|sispli|súplica|suplicar|trista|ulls de cadell|ulls grans
 🥹|admiració|agraït|avergonyit|cara que s’aguanta les llàgrimes|dolor|emoció|enuig|gratitud|llàgrimes d’alegria|oh|orgull|resistir|sentiments|si us plau
 😦|agafar per sorpresa|apa!|arrufada|boca|cara emmurriada amb la boca oberta|emmurriada|esgarrifada|esgarrifat|espantada|espantat|oberta|què|sorpresa
@@ -220,6 +221,7 @@
 💋|aventura amorosa|cita|cor|emoció|fer un petó|llavis|marca de petó|petó|sexy
 💯|100|cent punts|cert|clarament|estic d’acord|punts|puntuació perfecta|sens dubte|sí|veritat
 💢|còmic|enfadada|enfadat|enuig|furiós|furiosa|malhumorada|malhumorat|símbol d’enuig|símbol d’ira
+🫯|baralla|batalla|debat|desacord|discussió|lluita
 💥|bomba|bum|col·lisió|col·lisionar|còmic|esclat|explotar
 💫|brillant|còmic|estel fugaç|estrella|estrelles|mareig|marejada|marejat
 💦|aigua|còmic|entrenament|entrenar-se|esquitxada|gota|gotes de suor|suor
@@ -452,6 +454,7 @@
 🧟‍♂️|home zombi|mort vivent
 🧟‍♀️|dona zombi|morta vivent
 🧌|conte|fades|fantasia|monstre|trol
+🫈|bigfoot|bosc|gegant|ieti|monstre|pèl|pelut|sasquatch
 💆|bellesa|calmar|cara|mal de cap|massatge de cap|massatge facial|persona que rep un massatge al cap|persona que rep un massatge facial|relaxació|relaxant|saló|spa|tensió
 💆‍♂️|calmar|cara|home que rep un massatge|mal de cap|masculí|massatge facial a un home|relaxant|saló|tensió
 💆‍♀️|cara|dona que rep un massatge|femení|massatge facial a una dona|relaxant
@@ -479,6 +482,7 @@
 🏃|corredora|corrent|cursa|esport|marató|persona que corre|pressa|ràpida|velocitat
 🏃‍♂️|córrer|cursa|home que corre|marató
 🏃‍♀️|afanyar-se|corredora|corrent|córrer|cursa|de pressa|dona que corre|marató|pressa|ràpid|velocitat
+🧑‍🩰|ballarí|ballet
 💃|ballant|ballarina|dansa|dona que balla|elegant|festiva|flamenca|ritme|salsa|talent|tango
 🕺|ballant|ballem|dansa|disco|elegant|flamenc|home que balla|música|ritme|salsa|talent|tango
 🕴️|home amb vestit de negocis que levita|home de negocis que levita|levitar|negocis|vestit
@@ -656,6 +660,7 @@
 🐳|aigua|animal|balena que treu aigua|cara|oceà|platja|sortir a raig
 🐋|animal|balena|oceà|platja
 🐬|aleta|animal|dofí|oceà|platja
+🫍|animal|balena|marí|oceà
 🦭|animal|foca|lleó marí|oceà
 🐟|animal|peixos|pesca|sopar|zodíac
 🐠|animal|peixos|tropical
@@ -853,6 +858,7 @@
 🧭|brúixola|direcció|magnètica|navegació|orientació
 🏔️|fred|muntanya amb neu al cim|muntanya nevada|neu
 ⛰️|muntanya
+🛘|allau|desastre|devessall|muntanya|perill|roques|terratrèmol
 🌋|erupció|muntanya|natura|volcà
 🗻|fuji|mont|muntanya|natura
 🏕️|acampada|campament|càmping
@@ -1198,10 +1204,11 @@
 🎧|auriculars|so
 📻|entreteniment|ràdio
 🎷|instrument|música|saxofon|saxòfon
+🎺|instrument|música|trompeta|vent
+🪊|instrument|jazz|metall|música|tristesa|vent
 🪗|acordió|concertina|instrument|música
 🎸|corda|guitarra|instrument|música|rock|stratocaster
 🎹|instrument|música|piano|teclat musical
-🎺|instrument|música|trompeta|vent
 🎻|corda|instrument|música|violí
 🪕|banjo|corda|de corda|música
 🥁|baquetes|música|tambor|timbal
@@ -1261,8 +1268,9 @@
 📑|fitxa|marcadors|punt de llibre|punts de llibre
 🔖|marcador|punt de llibre
 🏷️|etiqueta
-💰|banc|bossa de diners|cost|diners|dòlar|efectiu|rica
 🪙|diners|dòlar|euro|metall|moneda|or|plata|ric|tresor
+💰|banc|bossa de diners|cost|diners|dòlar|efectiu|rica
+🪎|bagul|botí|diners|gemma|joies|or|plata|premi|riquesa
 💴|banc|bitllets de ien|diners|divisa|ien|moneda|signe
 💵|banc|bitllet de dòlar|bitllets de dòlar|divisa|dòlar|moneda|signe
 💶|bitllets d’euro|euro|signe
@@ -1610,6 +1618,7 @@
 🇨🇲|camerun
 🇨🇳|xina
 🇨🇴|colòmbia
+🇨🇶|sark
 🇨🇷|costa rica
 🇨🇺|cuba
 🇨🇻|cap verd
@@ -1812,4 +1821,3 @@
 🏴󠁧󠁢󠁥󠁮󠁧󠁿|anglaterra
 🏴󠁧󠁢󠁳󠁣󠁴󠁿|escòcia
 🏴󠁧󠁢󠁷󠁬󠁳󠁿|gal·les
-🇨🇶|sark

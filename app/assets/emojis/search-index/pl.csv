@@ -150,6 +150,7 @@
 😯|buźka|o|zaskoczenie|zaskoczona buźka|zdumienie|zdumiona twarz|zdziwienie
 😲|buźka|och!|zadziwiona twarz|zaskoczenie|zaskoczona buźka|zdziwienie
 😳|buźka|rumieńce|twarz z rumieńcami|twarz z wypiekami|wow|wstyd|wypieki|zaskoczenie|zdziwienie
+🫪|bezradność|niepokój|opuchlizna|panika|szok|zaskoczenie
 🥺|błagać|błagająca twarz|błaganie|buźka|duże oczy|ładnie prosić|litość|oczy|poprosić|prosić|proszę|słodkie oczy|smutek|smutna|smutne|smutny|twarz|żebrać|żebranie
 🥹|duma|łzy szczęścia|łzy wzruszenia|opór|płacz|podziw|proszę|smutek|smutna twarz|twarz powstrzymująca łzy|uczucia|wdzięczność|wzruszenie|zawstydzenie|zdenerwowanie
 😦|buźka|co?|nie wierzę|opadła mi szczęka|opadła szczena|rozzłoszczona buźka|zachmurzona twarz z otwartymi ustami|zawód|zdziwienie
@@ -220,6 +221,7 @@
 💋|odcisk ust|pocałunek|ślad po pocałunku|usta
 💯|100|setka|sto punktów|stówa|stówka
 💢|gniew|komiks|symbol gniewu|złość
+🫯|awantura|dyskusja|kłótnia|raban|różnica zdań|walka
 💥|kolizja|komiks|wybuch|zderzenie
 💫|gwiazda|gwiazdka|kosmos|noc|orbita|spadająca gwiazda|zawroty głowy
 💦|deszcz|krople potu|pot|wilgoć|woda
@@ -452,6 +454,7 @@
 🧟‍♂️|chodzące trupy|halloween|horror|mężczyzna|nieumarli|strach|straszny|zombie
 🧟‍♀️|chodzące trupy|halloween|horror|kobieta|nieumarli|strach|straszny|zombie
 🧌|bajka|fantazja|potwór|troll
+🫈|człowiek z lasu|gigant|kryptyda|las|sasquatch|wielka stopa|włochate|yeti
 💆|ból głowy|masaż głowy|odprężenie|osoba|podczas masażu|relaks|salon masażu|spa
 💆‍♂️|ból głowy|masaż głowy|mężczyzna|odprężenie|podczas masażu|relaks|salon masażu|spa
 💆‍♀️|ból głowy|kobieta|masaż głowy|odprężenie|podczas masażu|relaks|salon masażu|spa
@@ -479,6 +482,7 @@
 🏃|biegaczka|bieganie|biegnąca|maraton|osoba|pośpiech|sport|szybko|w ruchu
 🏃‍♂️|biegacz|biegnący|maraton|mężczyzna|osoba|pośpiech|sport|szybko|w ruchu
 🏃‍♀️|biegaczka|biegnąca|kobieta|maraton|osoba|pośpiech|sport|szybko|w ruchu
+🧑‍🩰|balet|tancerka|tancerz
 💃|impreza|kobieta|tancerka|tańcząca|tańczyć|taniec|zabawa|zawód
 🕺|impreza|mężczyzna|tancerz|tańczący|tańczyć|taniec|zabawa|zawód
 🕴️|biznesmen|garnitur|lewitacja|lewitować|lewitujący mężczyzna w garniturze|mężczyzna
@@ -656,6 +660,7 @@
 🐳|fontanna|morze|ocean|strumień|tryskający wodą|wieloryb|woda|wody|zwierzę
 🐋|morze|ocean|wieloryb|zwierzę
 🐬|delfin|morze|ocean|zwierzę
+🫍|morski|ocean|wieloryb
 🦭|foczka|foka|lew|morski|ssak|zwierzę
 🐟|morze|ocean|ryba|rybka|ryby|woda|zodiak|zwierzę
 🐠|morze|ryba|rybka|tropikalna|tropiki|woda|zwierzę
@@ -853,6 +858,7 @@
 🧭|kierunek|kompas|magnetyczny|magnetyzm|nawigacja|orientacja w terenie|strony świata
 🏔️|góra|góry|śnieg|wycieczka|z czapą lodową|zima
 ⛰️|góra|góry|wycieczka
+🛘|góra|katastrofa|lawina błotna|niebezpieczeństwo|skały|trzęsienie ziemi
 🌋|erupcja|góra|lawa|wulkan
 🗻|fudżi|góra|natura
 🏕️|kamping|kemping|namiot|obóz|wakacje
@@ -1198,10 +1204,11 @@
 🎧|muzyka|słuchawka|słuchawki
 📻|odbiornik|radioodbiornik|radiowy
 🎷|instrument|muzyka|orkiestra|saksofon
+🎺|grać|instrument|muzyka|orkiestra|trąbka
+🪊|instrument dęty blaszany|jazz|muzyka|smutek|suwak
 🪗|akordeon|bajan|harmonia|instrument|klawisze|koncertyna|muzyka
 🎸|gitara|instrument|muzyka
 🎹|fortepian|instrument|keyboard|klawiatura|klawisze|muzyka|pianino
-🎺|grać|instrument|muzyka|orkiestra|trąbka
 🎻|altówka|grać|instrument|muzyczny|muzyka|orkiestra|skrzypce|smyczek|strunowy
 🪕|banjo|instrument|muzyka|strunowy
 🥁|bębenek|grać|muzyka
@@ -1261,8 +1268,9 @@
 📑|dokument|indeksujące|karta|karty|przekładka|przekładki|zakładek|zakładka|zakładki
 🔖|zakładka|zaznaczenie
 🏷️|breloczek|etykieta|plakietka|przywieszka
-💰|bogaty|dolary|kasa|pieniądze|pieniędzy|worek|z pieniędzmi
 🪙|bogactwo|dolar|euro|metalowa|moneta|pieniądze|skarb|srebrna|złota
+💰|bogaty|dolary|kasa|pieniądze|pieniędzy|worek|z pieniędzmi
+🪎|bogactwo|kamień szlachetny|klejnot|kosztowności|łup|nagroda|pieniądze|srebro|złoto
 💴|banknot jena|jeny|pieniądze|płacić|rachunek|waluta
 💵|banknot dolara|dolary|pieniądze|płacić|rachunek|waluta
 💶|banknot|euro|pieniądze|płacić|rachunek|waluta
@@ -1610,6 +1618,7 @@
 🇨🇲|kamerun
 🇨🇳|chiny
 🇨🇴|kolumbia
+🇨🇶|sark
 🇨🇷|kostaryka
 🇨🇺|kuba
 🇨🇻|republika zielonego przylądka

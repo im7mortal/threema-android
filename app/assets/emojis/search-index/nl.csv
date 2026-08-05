@@ -150,6 +150,7 @@
 😯|geschokt|gezicht|omg|smiley|verbaasd|verrast|verstomd|wauw|wow
 😲|geschokt|gezicht|kosten|nee|omg|totaal|verbaasd
 😳|beschaamd|blozend|dood|gek|gezicht|heet|hitte|jeetje|onder de indruk|ongeloof|ongemakkelijk|sjonge|verbaasd|verbijsterd|wat|wauw
+🫪|geschokt|kwetsbaar|onrust|opgeblazen|paniek|verrast
 🥺|alsjeblieft|genade|gezicht|grote ogen|smekend gezicht|smekende blik|smiley|verdrietig|waarom niet|zielig gezicht
 🥹|alsjeblieft|aww|beschaamd|bewondering|dankbaarheid|gevoelens|gezicht|houden|huilen|tegen|tranen|trots|verdrietig|vreugde|weerstaan
 😦|bang|betrapt|eng|fronsen|gezicht|hoede|mond|open|verrassing|wat|wauw
@@ -220,6 +221,7 @@
 💋|afdruk|daten|emotie|kusafdruk|liefde|lipafdruk|lippen|romantiek|sexy|zoen
 💯|100 punten|beste|cijfer|fantastisch|foutloos|getal|geweldig|maximumscore|score|top|zeker
 💢|boos|cartoonesk|kwaad|ontdaan|strip|symbool|teken|woedesymbool
+🫯|debat|onenigheid|ruzie|tumult|vechtpartij|woordenwisseling|worsteling
 💥|boem|bom|botsen|botsing|ontploffen|strip
 💫|cartoonesk|duizelig|ster|strip|vallende ster
 💦|druppels|spetteren|sporten|strip|water|work-out|zweetdruppels
@@ -452,6 +454,7 @@
 🧟‍♂️|lopende dode|mannelijke zombie|ondode
 🧟‍♀️|lopende dode|ondode|vrouwelijke zombie
 🧌|fantasie|monster|trollen
+🫈|bigfoot|cryptide|harig|reus|sasquatch|wildeman|woud|yeti
 💆|gespannen|gezichtsmassage|hoofdpijn|massage|ontspannen|persoon die hoofdmassage krijgt|relaxen|salon|spanning
 💆‍♂️|geduld|gezichtmassage|man die hoofdmassage krijgt|man krijgt gezichtsmassage|massage|masseren|ontspannend|persoon|relaxen|relaxing
 💆‍♀️|gezicht|massage|vrouw die hoofdmassage krijgt
@@ -479,6 +482,7 @@
 🏃|hardlopen|hardloper|hollen|joggen|man|marathon|persoon|rennen|snel|sport
 🏃‍♂️|hardlopen|man|marathon|rennende man
 🏃‍♀️|atleet|baan|beroep|haasten|hardlopen|kom eraan|marathon|persoon|rennende vrouw|snel|sport|vlug|vrouw|werk
+🧑‍🩰|ballet|danser
 💃|dansende vrouw met rode jurk|danseres|elegant|feest|flamenco|persoon|salsa|tango|vrouw
 🕺|dansende man|disco|feest|festival|flamenco|man|persoon|salsa|tango
 🕴️|pak|persoon|zaken|zwevend
@@ -656,6 +660,7 @@
 🐳|dier|gezicht|oceaan|spuitend|strand|walvis
 🐋|dier|oceaan|strand|walvis
 🐬|dier|dolfijn|flipper|oceaan|strand
+🫍|oceaan|walvis|zee
 🦭|dier|leeuw|oceaan|zeehond
 🐟|dier|eten|pisces|sterrenbeeld|vissen
 🐠|dier|tropisch|vissen
@@ -853,6 +858,7 @@
 🧭|kompas|magnetisch|navigatie|oriëntatielopen|oriënteringslopen|richting
 🏔️|berg met besneeuwde toppen|koud|sneeuw
 ⛰️|berg
+🛘|aardbeving|berg|gevaar|lawine|modderlawine|ramp|stenen
 🌋|berg|lava|magma|natuur|vulkaanuitbarsting
 🗻|berg|fuji|natuur|vulkaan
 🏕️|camping|kamperen|tent
@@ -1198,10 +1204,11 @@
 🎧|geluid|hoofdtelefoon|koptelefoon|oordopje
 📻|entertainment|muziek|radio
 🎷|instrument|muziekinstrument|saxofoon
+🎺|instrument|muziekinstrument|trompet
+🪊|droevig|instrument|jazz|koper|muziek|schuiven
 🪗|accordeon|bandoneon|concertina|instrument|muziek|trekzak
 🎸|gitaar|instrument|muziekinstrument|stratocaster
 🎹|instrument|keyboard|muziekinstrument|piano
-🎺|instrument|muziekinstrument|trompet
 🎻|instrument|muziekinstrument|stradivarius|viool
 🪕|banjo|besnaard|instrument|muziek|snaarinstrument|spelen
 🥁|drummen|drumsticks|muziekinstrument|trommelen|trommelstokken
@@ -1261,8 +1268,9 @@
 📑|bladwijzers|bladwijzertabs|markering|tabbladen|tabs
 🔖|bladwijzer|markering
 🏷️|label
-💰|dollar|geldzak|rijk|zak met geld
 🪙|dollar|euro|geld|goud|metaal|munt|rijk|schat|zilver
+💰|dollar|geldzak|rijk|zak met geld
+🪎|buit|edelsteen|geld|goud|juwelen|kostbaarheden|prijs|rijkdom|zilver
 💴|bankbiljet|biljet|briefgeld|briefje|geld|valuta|yenbiljet
 💵|bankbiljet|biljet|briefgeld|briefje|dollarbiljet|geld|valuta
 💶|bankbiljet|biljet|briefgeld|briefje|eurobiljet|geld|valuta
@@ -1610,6 +1618,7 @@
 🇨🇲|kameroen
 🇨🇳|china
 🇨🇴|colombia
+🇨🇶|sark
 🇨🇷|costa rica
 🇨🇺|cuba
 🇨🇻|kaapverdië
@@ -1812,4 +1821,3 @@
 🏴󠁧󠁢󠁥󠁮󠁧󠁿|engeland
 🏴󠁧󠁢󠁳󠁣󠁴󠁿|schotland
 🏴󠁧󠁢󠁷󠁬󠁳󠁿|wales
-🇨🇶|sark

@@ -17,7 +17,7 @@
 ☕|cafe|dampfend|getränk|heißgetränk|kaffee|tasse|tee|trinken|heissgetränk
 ☘️|grün|kleeblatt|pflanze
 ☠️|gekreuzt|gesicht|knochen|piratenflagge|schädel|tod|totenkopf
-☢️|radioaktivität
+☢️|radioaktiv
 ☣️|biogefährdung|zeichen
 ☦️|christentum|kreuz|orthodox|religion
 ☸️|buddhismus|dharma-rad
@@ -39,7 +39,7 @@
 ⚖️|gerechtigkeit|gewicht|waage|werkzeug|wiegen
 ⚗️|destillierapparat|werkzeug|labor
 ⚙️|werkzeug|zahnrad
-✂️|schere|schneiden|schnipp|basteln
+✂️|schere|schneiden|schnipp
 ✅|abgehakt|erledigt|weißes häkchen|weisses häkchen
 ✈️|flieger|flugzeug
 ✉️|briefumschlag|e-mail
@@ -67,11 +67,11 @@
 ㊗️|chinesisches schriftzeichen|gratulation|japanisches schriftzeichen|schriftzeichen für gratulation
 ㊙️|chinesisches schriftzeichen|geheimnis|japanisches schriftzeichen|schriftzeichen für geheimnis
 😀|froh|fröhlich|gesicht|grinsen|haha|lachen|lol|lustig|smiley
-😃|augen|fröhlich|gesicht|glücklich|große|lächeln|lachen|lol|lustig|mund|offen|smiley|grinsendes gesicht mit grossen augen
+😃|augen|fröhlich|gesicht|glücklich|grinsen|große|lächeln|lachen|lol|lustig|mund|offen|smiley|grosse
 😄|augen|fröhlich|geschlossen|gesicht|glücklich|grinsen|lächeln|lachen|lol|lustig|mund|offen|smiley|witzig
 😁|augen|fröhlich|gesicht|grinsen|happy|lächeln|lachen|lustig|smiley|strahlen|zähne
 😆|augen|geschlossen|gesicht|grinsegesicht|grinsen|haha|hehe|hihi|lachen|lol|lustig|mund|offen|smiley|witzig|zugekniffen|zusammengekniffen
-😅|gesicht|grinsen|lächeln|lustig|mund|nervös|offen|schweißtropfen|schwitzen|smiley|lachender smiley mit kaltem schweiss|schweiss
+😅|gesicht|grinsen|lächeln|lachen|lustig|mund|nervös|offen|schweißtropfen|schwitzen|smiley|schweisstropfen
 🤣|boden|gesicht|haha|hehe|lachen|lol|lustig|muahaha|rofl|smiley|tränen|wälzen|witzig
 😂|freudentränen|fröhlich|gesicht|haha|happy|hehe|hihi|lachen|lol|lustig|muahaha|rofl|smiley|tränen|witzig
 🙂|gesicht|lächeln|leicht|smiley
@@ -101,14 +101,14 @@
 🫣|auge|finger|gebannt|gesicht|hervorlugen|linsen|schüchtern|smiley|spähen|starren|verlegen
 🤫|ermahnen|finger|gesicht|leise|psst|pst|ruhe|ruhig|sch|smiley
 🤔|fragen|gesicht|grübeln|hm|komisch|nachdenken|nachdenklich|smiley|wundern
-🫡|gesicht|jawohl|jawoll|militär|ok|respekt|salutieren|smiley|zu befehl|aye aye|grüssendes gesicht|truppen
+🫡|aye|gesicht|jawohl|jawoll|militär|ok|respekt|salutieren|smiley|zu befehl
 🤐|geheimnis|gesicht|halten|mund|reißverschluss|schweigen|smiley|wahren|reissverschluss
 🤨|argwöhnisch|augenbrauen|gesicht|hochgezogen|misstrauen|skeptisch|smiley|stutzig|zweifel
 😐|ausdruckslos|gesicht|kommentarlos|neutral|smiley|todernst|unbeeindruckt
 😑|ausdruckslos|gesicht|kommentarlos|selbstgefällig|smiley|unbeeindruckt|unglaublich
 😶|gesicht|kein|mund|ohne|smiley|sprachlos
 🫥|depressiv|deprimiert|egal|gesicht|gestrichelt|introvertiert|smiley|traurig|unsichtbar|verschwinden|verstecken
-😶‍🌫️|geistesabwesend|gesicht im nebel|gesicht in wolken|kopf in wolken|abwesend|benebelt|geistig umnachtet|kopf in den wolken
+😶‍🌫️|geistesabwesend|gesicht im nebel|gesicht in wolken|kopf in wolken
 😏|feixen|flirten|gesicht|lächeln|mundwinkel|schief|smiley|süffisant
 😒|gesicht|langweilig|smiley|traurig|unglücklich|unzufrieden|verstimmt
 🙄|augen|genervt|gesicht|meinetwegen|nerv|ohje|rollen|smiley|verdrehen|verrollen
@@ -130,7 +130,7 @@
 🤢|ekel|eklig|erbrechen|gesicht|grün|igitt|smiley|übelkeit|übergeben|widerlich|würgen
 🤮|brechen|erbrechen|gesicht|kotzen|krank|schlecht|smiley|speien|spucken|übel|übergeben
 🤧|erkältet|erkältung|gesicht|gesundheit|grippe|hatschi|krank|nase|niesen|putzen|smiley|taschentuch
-🥵|fieber|fiebrig|gesicht|heiß|herausstrecken|hitzschlag|smiley|erhitztes gesicht|heiss|hitzeschlag|krank|rotes gesicht|schnaufend|schwitzendes gesicht|sterbend|übel|zunge herausstrecken|schweiss|schweiß
+🥵|erhitzt|fieber|fiebrig|gesicht|heiß|herausstrecken|hitze|hitzschlag|rot|schnaufen|schwitzen|smiley|zunge|heiss|schweiss|schweiß
 🥶|bibbern|blau|eisig|erfrieren|frieren|frösteln|frostig|gesicht|kalt|smiley|unter null|zähneklappern|zittern
 🥴|angeheitert|angeschwipst|angetrunken|benebelt|berauscht|beschwipst|betrunken|gewellt|mund|schwindelig|schwindlig|smiley
 😵|augen|benommen|gesicht|ko|krank|kreuze|schwindelig|schwindlig|smiley
@@ -142,7 +142,7 @@
 😎|cool|gesicht|lächeln|smiley|sonnenbrille
 🤓|brille|gesicht|intelligent|klug|nerd|schlaumeier|smart|smiley|strebergesicht
 🧐|elegant|gesicht|monokel|reich|smiley
-😕|gesicht|keine ahnung|smiley|traurig|verwirrt|verwundert|weiß nicht
+😕|gesicht|keine ahnung|smiley|traurig|verwirrt|verwundert|weiß nicht|weiss nicht
 🫤|enttäuscht|genervt|gesicht|hmpf|keine ahnung|langweilig|skeptisch|smiley|unsicher|zweifelnd
 😟|besorgt|gesicht|smiley|sorgen|traurig
 🙁|betrübt|gesicht|schade|smiley|traurig
@@ -150,12 +150,13 @@
 😯|erstaunt|gesicht|omg|smiley|sprachlos|verdutzt
 😲|erstaunt|gesicht|nee|omg|schockiert|smiley|verwundert
 😳|augen|erröten|gesicht|groß|peinlich|rot|scham|schämen|smiley|überrascht|verlegen|wangen|gross
-🥺|anflehen|augen|gesicht|groß|kulleraugen|smiley|traurig|welpenaugen|bettelndes gesicht|bittendes gesicht|flehendes gesicht|gnade|grosse augen|treuer blick|warum nicht
+🫪|angst|ängstlich|aufgedunsen|besorgt|panik|panisch|schockiert|überrascht
+🥺|anflehen|augen|bettelnd|bitten|flehend|gesicht|groß|kulleraugen|smiley|traurig|welpenaugen|gross
 🥹|aufgebracht|dankbar|freudentränen|gerührt|gesicht|rührung|smiley|stolz|tränen|weinen|zurückhalten
 😦|entsetzt|gesicht|mund|offen|schockiert|smiley|verwundert
 😧|arm|gesicht|leidend|qualvoll|smiley|vergessen|wow
 😨|angst|ängstlich|besorgt|gesicht
-😰|ängstlich|angstschweiß|besorgt|gesicht|mund|nervös|offen|schweiß|angstschweiss|kalter schweiss|schweiss
+😰|ängstlich|angstschweiß|besorgt|gesicht|mund|nervös|offen|schweiß|angstschweiss|schweiss
 😥|ängstlich|enttäuscht|erleichtert|gesicht|knapp|schweiß|traurig|schweiss
 😢|gesicht|smiley|träne|traurig|weinen
 😭|flennen|gesicht|heulen|schluchzen|smiley|tränenfluss|traurig|weinen
@@ -163,7 +164,7 @@
 😖|bestürzt|frustriert|gesicht|konfus|smiley|verwirrt|verzweifelt
 😣|ausdauernd|durchhalten|fokus|gesicht|konzentration|konzentrieren|kopfschmerzen
 😞|enttäuscht|gesicht|leider|schade|smiley|traurig|verloren
-😓|angstschweiß|augen|bedrückt|gesicht|kopfschmerzen|schweiß|geschlossene augen|smiley mit kaltem schweiss|schweiss
+😓|angstschweiß|augen|bedrückt|geschlossen|gesicht|kopfschmerzen|schweiß|smiley|angstschweiss|schweiss
 😩|erschöpft|fehlschlag|gesicht|hungrig|müde|nein|smiley|unglücklich
 😫|gesicht|müde|niesen|smiley|traurig
 🥱|gähnend|gelangweilt|gesicht|langweilig|müde|öde|schnarch|smiley|zzz
@@ -179,7 +180,7 @@
 👹|gesicht|gruselig|japanisch|märchen|maske|monster|oger|ungeheuer
 👺|gemein|gesicht|japanisch|kobold|märchen|maske|monster|tengu|ungeheuer|wütend
 👻|buh|fantasy|geist|gesicht|gespenst|gruselig|halloween|märchen|spuk|zunge
-👽|alien|all|außerirdischer|fantasy|gesicht|märchen|monster|ufo|weltraum|wesen|ausserirdischer|ausserirdisches wesen
+👽|alien|all|außerirdischer|fantasy|gesicht|märchen|monster|ufo|weltraum|wesen|ausserirdischer
 👾|computerspiel-monster|gesicht|monster|ufo
 🤖|gesicht|monster|robotergesicht|roboterkopf
 😺|gesicht|grinsen|katzengesicht|lachen|lol|lustig|mund|offen|smiley|tier
@@ -200,18 +201,18 @@
 💖|aufregung|funkeln|gefühl|glitzern|herz|liebe|morgen|nacht|rosa|xoxo
 💗|aufregung|gefühl|herzschlag|küsschen|küsse|liebe|nervös|nervosität|puls|wachsen|xoxo
 💓|gefühl|herzschlag|liebe|pulsieren|schlagen
-💞|emotion|gefühl|herzen|hochzeitstag|jahrestag|kreisen|liebe|süß
+💞|emotion|gefühl|herzen|hochzeitstag|jahrestag|kreisen|liebe|süß|süss
 💕|date|gefühl|herzen|hochzeitstag|jahrestag|küsschen|küsse|liebe|rendezvous|xoxo|zwei
-💟|deko|emotion|gefühl|herzdekoration|liebe|lila|violett|weiß
+💟|deko|emotion|gefühl|herzdekoration|liebe|lila|violett|weiß|weiss
 💔|allein|gebrochen|gefühl|herzschmerz|liebeskummer|schmerz|traurig|trennung|zerbrochen
-❤️‍🔥|brennendes herz|herz in flammen|leidenschaft|liebe|feuer
-❤️‍🩹|besserung|genesen|herz mit verband|erholen|gesund|gute besserung|heilen|herz mit pflaster|pflaster
-🩷|gefallen|gefällt|gefühl|herz|liebe|mag|mögen|niedlich|pink|rosa|süß|verliebt|flirten|süss
+❤️‍🔥|brennendes herz|herz in flammen|leidenschaft|liebe
+❤️‍🩹|besserung|genesen|herz mit verband
+🩷|gefallen|gefällt|gefühl|herz|liebe|mag|mögen|niedlich|pink|rosa|süß|verliebt|süss
 🧡|herz|liebe|orange
 💛|gefühl|gelb|herzlich|liebe
 💚|gefühl|grün|herz|liebe|romantisch
 💙|blau|gefühl|herz|liebe|romantisch
-🩵|aquamarin|emotion|gefallen|gefällt|gefühl|hdl|hellblau|herz|liebe|mag|mögen|niedlich|süß|türkis|zyan
+🩵|aquamarin|emotion|gefallen|gefällt|gefühl|hdl|hellblau|herz|liebe|mag|mögen|niedlich|süß|türkis|zyan|süss
 💜|beste|gefühl|hdl|herz|liebe|lilafarben|violett
 🤎|braunes herz|herz
 🖤|böse|herz|schwarzes herz
@@ -220,6 +221,7 @@
 💋|gefühl|knutsch|kussabdruck|küssen|liebe|lippenstift|romantisch|sexy
 💯|100 punkte|punktestand|volle punktzahl
 💢|ärger|comic|wut
+🫯|handgemenge|kampf|krawall|prügelei|rauferei|schlägerei|streit|wortgefecht
 💥|bombe|boom|comic|explodieren|explosion|kollidieren|kollision|zusammenstoßen|zusammenstossen
 💫|benommenheit|comic|komet|schwindlig|sterne|sternschnuppe
 💦|comic|feucht|nass|schweißtropfen|schwitzen|trainieren|training|tropfen|wasser|schweisstropfen
@@ -235,13 +237,13 @@
 🤚|erhobene hand von hinten|erhobener handrücken|hand
 🖐️|5|finger|fünf|gespreizt|hand mit gespreizten fingern
 ✋|5|erhoben|halt|handfläche|high five|schlag ein|stopp|warte
-🖖|finger|gruß|grüßen|hand|hände|spreizen|spock|vulkanier(in)|vulkanischer gruss
+🖖|finger|gruß|grüßen|hand|hände|spreizen|gruss|grüssen
 🫱|ausgestreckt|ausstrecken|hand|händeschütteln|rechts|reichen|schütteln|weisen
 🫲|ausgestreckt|ausstrecken|hand|händeschütteln|links|reichen|schütteln|weisen
 🫳|abweisen|fallen lassen|fallenlassen|handfläche|handgeste|hau ab|unten|verscheuchen|wegscheuchen|wegschicken
 🫴|anbieten|angebot|darbieten|einladen|entgegenstrecken|handfläche|handgeste|kommen|locken|oben|reichen
-🫷|drücken|halt|hand|high 5|high five|links|moment|nein|schieben|schluss|stopp|warte mal|warten|nach links drückende hand
-🫸|drücken|halt|hand|high 5|high five|moment|nein|rechts|schieben|schluss|stopp|warte mal|warten|nach rechts drückende hand
+🫷|drücken|halt|hand|high 5|high five|links|moment|nein|schieben|schluss|stopp|warte mal|warten
+🫸|drücken|halt|hand|high 5|high five|moment|nein|rechts|schieben|schluss|stopp|warte mal|warten
 👌|exzellent|finger|genial|hand|in ordnung|natürlich|ok-zeichen|perfekt|super
 🤌|bündelhand|fingerspitzen|gehts noch|geste|handgeste|italienisch|was|zusammengedrückt|zusammengelegt
 🤏|betrag|finger|gering|geste|hand|klein|menge|unbedeutend|wenig-geste|winzig
@@ -264,13 +266,13 @@
 👊|absolut|bro|faust|geballt|hand|korrekt|zustimmen
 🤛|faust|hand|nach links
 🤜|faust|hand|nach rechts
-👏|applaudieren|applaus|beifall|gratulation|großartig|gut|hand|hände|klatschend|toll
+👏|applaudieren|applaus|beifall|gratulation|großartig|gut|hand|hände|klatschend|toll|grossartig
 🙌|erhoben|feiern|geste|hände|handflächen|hurra|zwei
 🫶|<3|finger|geste|händeherz|handgeste|handherz|hdl|herz|liebe
 👐|hände|jazz|offen|umarmen|umarmung
 🤲|beten|gebet|hand|hände|nach oben|zusammen
 🤝|händeschütteln|handschlag|vereinbarung
-🙏|bitten|danken|gebet|gefaltet|grüßen|handflächen|betende hände|grüssen|zusammengelegte handflächen
+🙏|betend|bitten|danken|gebet|gefaltet|grüßen|handflächen|zusammengelegt|grüssen
 ✍️|hand|schreibend|stift
 💅|kosmetik|maniküre|nagellack|nagelpflege
 🤳|selfie|smartphone
@@ -278,20 +280,20 @@
 🦾|armprothese|barrierefreiheit|prothese
 🦿|barrierefreiheit|beinprothese|prothese
 🦵|bein|extremität|fuß|gebeugtes knie|gliedmaße|knie|körperglied|körperteil|treten|tritt|fuss|gliedmasse
-🦶|fuß|füße|kick|knöchel|körperteil|stampfen|treten|tritt|fuss
+🦶|fuß|füße|kick|knöchel|körperteil|stampfen|treten|tritt|fuss|füsse
 👂|hören|körperteil|ohr
 🦻|barrierefreiheit|gehörlos|hilfsgerät|hörgerät|hörhilfe|ohr|schwerhörig|taub
 👃|körperteil|nase|riechen
 🧠|gehirn|hirn|intelligent|intelligenz|klug|schlau
 🫀|anatomie|herzschlag|körperteil|mensch|organ|puls|schlagen
 🫁|atem|atmen|ausatmen|einatmen|körperteil|lungenflügel|mensch|organ
-🦷|perlweiß|weiß|zahnarzt|zahnärztin|zähne|weiss|zahn ziehen
+🦷|perlweiß|weiß|zahnarzt|zahnärztin|zähne|perlweiss|weiss
 🦴|hundeknochen|kauknochen|knochen|skelett
 👀|augen|gesicht|gucken|schauen|sehen
 👁️|auge|blick|körperteil|schauen|sehen
 👅|ätsch|hmm|körperteil|lecken|lecker|mmh|zunge
 👄|körperteil|kuss|lippenstift|mund
-🫦|angst|ängstlich|beißen|besorgt|flirtend|kuss|lippenstift|mund|nervös|sexy|unbehaglich|zähne|auf lippe beissen
+🫦|angst|ängstlich|beißen|besorgt|flirtend|kuss|lippenstift|mund|nervös|sexy|unbehaglich|zähne|beissen
 👶|baby|gesicht|jung|kind|kleinkind|locke
 🧒|enkelkind|jung|jünger|kind|munter|strahlend
 👦|enkelsohn|gesicht|junge|jünger|kind|munter|sohn|strahlend|männlich
@@ -305,16 +307,16 @@
 👩|erwachsen|frau|gesicht|weiblich
 🧔‍♀️|bart|frau mit bart|frau: bart
 👱‍♀️|blonde frau|frau: blond|gesicht|haar|weiblich
-🧓|alt|älter|erwachsen|großeltern|mensch|person|weise
-👴|alt|erwachsen|großeltern|großvater|mann|mensch|opa|senior|weise|älterer mann|gesicht|glatze|grossvater|männlich
-👵|alt|erwachsen|frau|großeltern|großmutter|mensch|oma|seniorin|weise|ältere frau|brille|dutt|gesicht|grossmutter|weiblich
+🧓|alt|älter|erwachsen|großeltern|mensch|person|weise|grosseltern
+👴|alt|älter|erwachsen|großeltern|großvater|mann|mensch|opa|senior|weise|grosseltern|grossvater|männlich
+👵|alt|älter|erwachsen|frau|großeltern|großmutter|mensch|oma|seniorin|weise|grosseltern|grossmutter|weiblich
 🙍|frustriert|gesicht|missmutig|person|runzeln|stirnrunzelnd|unzufrieden|verärgert
 🙍‍♂️|frustriert|gesicht|mann|missmutig|runzeln|stirnrunzelnd|unzufrieden|verärgert|männlich
 🙍‍♀️|frau|frustriert|gesicht|missmutig|runzeln|stirnrunzelnd|unzufrieden|verärgert|weiblich
 🙎|eingeschnappt|enttäuscht|jammerd|jammern|person|schmollend|verärgert
 🙎‍♂️|eingeschnappt|enttäuscht|jammerd|jammern|mann|schmollend|verärgert|männlich
 🙎‍♀️|eingeschnappt|enttäuscht|frau|jammerd|jammern|schmollend|verärgert|weiblich
-🙅|arme|gesicht|nein|nicht|überkreuzt|verbieten|verboten|ausschliessen|falsch|geste|keine chance|person mit überkreuzten armen|verschränkte arme|x
+🙅|arme|gesicht|nein|nicht|person|überkreuzt|verbieten|verboten
 🙅‍♂️|arme|gesicht|mann|nein|nicht|überkreuzt|verbieten|verboten|männlich
 🙅‍♀️|arme|frau mit überkreuzten armen|gesicht|weiblich
 🙆|geste|hände|oje|ok|omg|person|über kopf|übung
@@ -323,7 +325,7 @@
 💁|abgekippt|beleidigen|gerüchte|geste|hand|klatschen|person|sarkasmus|sarkastisch|tratschen
 💁‍♂️|abgekippt|beleidigen|gerüchte|geste|hand|klatschen|mann|sarkasmus|sarkastisch|tratschen|männlich
 💁‍♀️|auskunft|frau|informationen|infoschalter-mitarbeiterin|weiblich
-🙋|aufzeigen|drankommen|drannehmen|frage|geste|heben|hier|sich melden|wissen|erhobener arm|hand heben|hand hoch|ich weiss|nimm mich|person mit erhobenem arm|siegerpose
+🙋|aufzeigen|drankommen|drannehmen|frage|geste|hand|heben|hier|ich|person|sich melden|wissen
 🙋‍♂️|aufzeigen|drankommen|drannehmen|frage|geste|hand|heben|hier|ich|mann|sich melden|wissen|männlich
 🙋‍♀️|aufzeigen|drankommen|drannehmen|frage|frau|geste|hand|heben|hier|ich|sich melden|wissen|weiblich
 🧏|barrierefreiheit|gehörlos|hören|ohr|person|schwerhörig|taub
@@ -335,10 +337,10 @@
 🤦|fassen|frustriert|genervt|gesicht|kopf|oh nein|omg|person|unfassbar|unglaublich|verzweifelt
 🤦‍♂️|fassen|frustriert|genervt|gesicht|kopf|mann|oh nein|omg|unfassbar|unglaublich|verzweifelt|männlich
 🤦‍♀️|fassen|frau|frustriert|genervt|gesicht|kopf|oh nein|omg|unfassbar|unglaublich|verzweifelt|weiblich
-🤷|egal|gleichgültig|keine ahnung|person|schultern zucken|weiß nicht|zweifel|ich weiss nicht|schulterzuckende person|weiss nicht|wer weiss
-🤷‍♂️|egal|gleichgültig|keine ahnung|mann|schultern zucken|weiß nicht|zweifel|ich weiss nicht|person|schulterzuckender mann|weiss nicht|wer weiss|männlich
-🤷‍♀️|egal|frau|gleichgültig|keine ahnung|schultern zucken|weiß nicht|zweifel|ich weiss nicht|person|schulterzuckende frau|weiss nicht|weiblich
-🧑‍⚕️|arzt/ärztin|arztkittel|doktor(in)|gesundheitswesen|krankenpflegerin|therapeut
+🤷|egal|gleichgültig|keine ahnung|person|schultern zucken|schulterzuckend|weiß nicht|zweifel|weiss nicht
+🤷‍♂️|egal|gleichgültig|keine ahnung|mann|schultern zucken|schulterzuckend|weiß nicht|zweifel|weiss nicht|männlich
+🤷‍♀️|egal|frau|gleichgültig|keine ahnung|schultern zucken|schulterzuckend|weiß nicht|zweifel|weiss nicht|weiblich
+🧑‍⚕️|arzt/ärztin|arztkittel|doktor(in)
 👨‍⚕️|arztkittel|doktor|krankenpfleger|pfleger
 👩‍⚕️|ärztin|arztkittel|doktor|krankenschwester|pflegerin
 🧑‍🎓|absolvent(in)|doktorhut|student(in)|uni
@@ -356,12 +358,12 @@
 🧑‍🍳|koch/köchin|kochen
 👨‍🍳|kochen|restaurant
 👩‍🍳|kochen|köchin
-🧑‍🔧|elektriker(in)|klempner(in)|mechaniker(in)|add a translation elektriker(in)|sanitär(in)
+🧑‍🔧|elektriker(in)|klempner(in)|mechaniker(in)
 👨‍🔧|elektriker|handwerker|klempner|mann|mechaniker
 👩‍🔧|elektrikerin|frau|handwerkerin|klempnerin|mechanikerin
 🧑‍🏭|arbeiter(in)|fabrikarbeiter(in)|industriell|montage
-👨‍🏭|fabrikarbeiter|helm|arbeiter|industriell|montage
-👩‍🏭|fabrikarbeiterin|frau|helm|arbeiter|industriell|montage
+👨‍🏭|fabrikarbeiter|helm
+👩‍🏭|fabrikarbeiterin|frau|helm
 🧑‍💼|architekt(in)|büroangestellte(r)|business|manager(in)|schlips und kragen
 👨‍💼|angestellter|büroangestellter|manager|mann
 👩‍💼|angestellte|büroangestellte|frau|managerin|mangerin
@@ -421,7 +423,7 @@
 👨‍🍼|baby|flasche gebender mann|füttern|mann|männlich
 🧑‍🍼|baby|flasche gebende person|person
 👼|engel|gesicht|kind|märchen|putte
-🎅|weihnachten|weihnachtsmann|samichlaus
+🎅|weihnachten|weihnachtsmann
 🤶|weihnachten|weihnachtsfrau
 🧑‍🎄|gesicht mit hut|person|santa claus|weihnachten|weihnachtsfrau|weihnachtshut|weihnachtsmann|weihnachtsmütze|weihnachtsperson
 🦸|held|person|superheld(in)|superheldin|superkraft|superkräfte|superman|übermensch|umhang
@@ -452,13 +454,14 @@
 🧟‍♂️|männlicher zombie|untoter|wandelnder toter|zombie
 🧟‍♀️|untote|wandelnde tote|weiblicher zombie|zombie
 🧌|fantasy|gruslig|kobold|märchen|monster|ork|troll|ungeheuer
+🫈|bigfoot|fabelwesen|gigant|haarig|kryptid|riese|sasquatch|wald|wilder mann|woodwose|yeti
 💆|behandlung|die eine kopfmassage bekommt|entspannen|kopfmassage|kopfschmerzen|massage|migräne|person, die eine kopfmassage bekommt|salon|spa|therapie
 💆‍♂️|der eine kopfmassage bekommt|entspannen|kopfmassage|kopfschmerzen|mann, der eine kopfmassage bekommt|massage|salon|männlich
 💆‍♀️|behandlung|entspannend|frau|gesicht|kopfmassage|kopfschmerzen|kopfweh|lindern|massage|relaxen|salon|spa|therapie|verspannung|weiblich
-💇|friseurin|friseuse|frisörin|frisur|haare|haarschnitt|person beim haareschneiden|schere|coiffeur|friseur(in)|frisör(in)
-💇‍♂️|friseur|frisur|haarschnitt|mann beim haareschneiden|salon|schere|coiffeur|männlich
-💇‍♀️|frau beim haareschneiden|friseur|haarschnitt|schere|coiffeur|weiblich
-🚶|fußgänger(in)|fußgängerin|gehend|person|schlendern|schlurfen|wandern|fussgänger(in)
+💇|friseurin|friseuse|frisörin|frisur|haare|haarschnitt|person beim haareschneiden|schere
+💇‍♂️|friseur|frisur|haarschnitt|mann beim haareschneiden|salon|schere|männlich
+💇‍♀️|frau beim haareschneiden|friseur|haarschnitt|schere|weiblich
+🚶|fußgänger(in)|fußgängerin|gehend|person|schlendern|schlurfen|wandern|fussgänger(in)|fussgängerin
 🚶‍♂️|fußgänger|gehen|mann|spaziergang|fussgänger|männlich
 🚶‍♀️|frau|fußgängerin|gehen|schlendern|spazieren|spaziergang|fussgängerin|weiblich
 🧍|mensch|person|stand|stehende person
@@ -479,6 +482,7 @@
 🏃|eilig|joggen|laufende person|läuferin|marathon|person|rennen|schnell|sport
 🏃‍♂️|joggen|jogger|laufender mann|marathon|rennen|männlich
 🏃‍♀️|athletin|frau|joggen|joggerin|laufende frau|läuferin|marathon|rennen|rennerin|rennt|schell|weiblich
+🧑‍🩰|ballett|tänzerin
 💃|elegant|festlich|flair|flamenco|frau|salsa|schwung|tango|tanzen|tänzerin|weiblich
 🕺|elegant|festlich|flair|flamenco|mann|salsa|schwung|tango|tanzen|tänzer|männlich
 🕴️|anzug|geschäftlich|mann|schwebender mann im anzug|männlich
@@ -489,8 +493,8 @@
 🧖‍♂️|dampfsauna|mann in dampfsauna|sauna|männlich
 🧖‍♀️|dampfsauna|frau in dampfsauna|sauna|weiblich
 🧗|bergsteiger(in)|fels|kletterer|klettern|person|sport
-🧗‍♂️|bergsteiger|bergsteigen|kletterer|klettern
-🧗‍♀️|bergsteigerin|bergsteigen|kletterin|klettern
+🧗‍♂️|bergsteiger|klettern
+🧗‍♀️|bergsteigerin|klettern
 🤺|fechten|fechter(in)|schwert|sport
 🏇|jockey auf pferd|pferderennen|schnell|sport|um die wette|wetten
 ⛷️|schnee|skifahrer(in)|skifahrerin|sport
@@ -555,7 +559,7 @@
 🧑‍🧒|erwachsener|familie|kind
 🧑‍🧒‍🧒|erwachsener|familie|kind
 👣|abdruck|auf dem weg|fußabdruck|fußabdrücke|fussabdruck|fussabdrücke
-🫆|fingerabdruck|forensik|identität|sicherheit|abdruck|polizei|täterin
+🫆|fingerabdruck|forensik|identität|sicherheit
 🐵|affengesicht|banane|dschungel|gesicht|tier|zoo
 🐒|affe|tier
 🦍|affe|gesicht|gorilla|tier
@@ -577,7 +581,7 @@
 🐆|gepunktet|leopard|punkte|raubkatze|raubtier|tier|zoo
 🐴|gesicht|pferdegesicht|pferdekopf|tier
 🫎|elch|geweih|säugetier|tier
-🫏|austreten|dickschädel|dummkopf|esel|maultier|säugetier|störrisch|stur|tier|grautier
+🫏|austreten|dickschädel|dummkopf|esel|maultier|säugetier|störrisch|stur|tier
 🐎|pferd|rennen|rennpferd|tier
 🦄|einhorngesicht|gesicht
 🦓|streifen|tier|zebra
@@ -603,7 +607,7 @@
 🦏|nashorn|rhinozeros|tier
 🦛|flusspferd|hippo|nilpferd|tier
 🐭|gesicht|mäusegesicht|mausgesicht|nagetier|tier
-🐁|maus|nage|tier|weiss
+🐁|maus|nage|tier
 🐀|nagetier|ratte|tier
 🐹|gesicht|hamstergesicht|tier|haustier
 🐰|gesicht|hasengesicht|kaninchen|karnickel|langohr|mümmelmann|nager|nagetier|tier|haustier
@@ -643,7 +647,7 @@
 🪽|engelsflügel|federn|fliegen|flug|flügel|himmlisch|mythologie|vogel
 🐦‍⬛|amsel|krächzen|krähe|rabe|schnabel|schwarzer vogel|tier|vogel
 🪿|blöd|dumme gans|gans|gänserich|ganter|geflügel|schnattern|tier|vogel
-🐦‍🔥|asche|fabelwesen|fantasy|feuervogel|phönix|reinkarnation|tier|vogel|wiedergeburt|donnervogel
+🐦‍🔥|asche|fabelwesen|fantasy|feuervogel|phönix|reinkarnation|tier|vogel|wiedergeburt
 🐸|froschgesicht|gesicht|grün|quak|tier
 🐊|krokodil|reptil|schnappi|tier
 🐢|schildkröte|tier
@@ -656,6 +660,7 @@
 🐳|blasender wal|meer|ozean|tier|wal
 🐋|ozean|tier|wal
 🐬|delfin|meer|ozean|strand|tier
+🫍|meeressäuger|meerestier|orka|ozean|wal
 🦭|meer|ozean|robbe|seehund|seelöwe|tier
 🐟|aquarium|fische|meehr|sternzeichen|tierkreis
 🐠|fisch|tier|tropenfisch
@@ -713,7 +718,7 @@
 🪹|heim|leeres nest|nestbau|nisten|vogelnest|zuhause
 🪺|heim|nest mit blauen eiern|nest mit eiern|nestbau|nisten|vogelnest|zuhause
 🍄|fliegenpilz|giftig|pilz
-🪾|kahler baum|karg|trocken|winter|baum ohne blätter|blätterlos|dürre|herbst
+🪾|dürr|kahler baum|karg|trocken|winter
 🍇|frucht|obst|trauben|wein
 🍈|cantaloupe|frucht|honigmelone|melone|obst
 🍉|frucht|melone|obst|wassermelone
@@ -749,10 +754,10 @@
 🥜|erdnuss|essen
 🫘|bohnen|essen|gemüse|hülsenfrucht|kidney-bohne|kidneybohne|lebensmittel
 🌰|kastanie|marone
-🫚|gesund|gewürz|ginger ale|ingwerbier|scharf|wurzel|würzig|ginger beer|ingwerwurzel
+🫚|gesund|gewürz|ginger ale|ingwerbier|scharf|wurzel|würzig
 🫛|bohne|edamame|erbsenschote|essen|gemüse|hülsenfrucht|hülsenfrüchte|schote
 🍄‍🟫|braun|essen|fungus|gemüse|lebensmittel|natur|pflanze|pilz|wald
-🫜|bete|garten|gemüse|rote bete|rübe|wurzel|beete|randen|radieschen
+🫜|bete|garten|gemüse|rote bete|rübe|wurzel|radieschen
 🍞|brotlaib|essen|kohlenhydrate|laib brot|toast|weißbrot|weizen|weissbrot
 🥐|corissant|croissant|französisch|frühstückshörnchen|brot
 🥖|baguette|brot|französisch|frühstück
@@ -763,7 +768,7 @@
 🧇|essen|lebensmittel|nahrung|waffel mit butter
 🧀|käsestück
 🍖|fleischhachse|knochen|restaurant
-🍗|fleisch|geflügel|hähnchenschenkel|hühnerbein|restaurant|pouletschenkel
+🍗|fleisch|geflügel|hähnchenschenkel|hühnerbein|restaurant
 🥩|essen|fleischstück|kotelett|lammkotelett|rot|schnitzel|schweinekotelett|steak
 🥓|bacon|essen|frühstücksspeck|speckstreifen
 🍔|burger|fast food|hamburger|restaurant
@@ -793,8 +798,8 @@
 🍚|essen|reis in schüssel
 🍛|curry|reis mit curry
 🍜|chinesisches essen|dampfend|eiernudeln|nudeln|schüssel und essstäbchen|stäbchen|suppe
-🍝|essse|nudeln mit tomatensoße|pasta|restaurant|spaghetti|nudeln mit tomatensauce
-🍠|essen|gemüse|süßkartoffel|geröstete süsskartoffel|süsskartoffel
+🍝|essse|nudeln mit tomatensoße|pasta|restaurant|spaghetti|nudeln mit tomatensosse
+🍠|essen|gemüse|geröstet|süßkartoffel|süsskartoffel
 🍢|japanisches gericht|oden|restaurant
 🍣|japanisches gericht|restaurant|sushi
 🍤|frittierte garnele|garnele|restaurant|tempura
@@ -816,7 +821,7 @@
 🍫|essen|schokoladentafel|süßigkeit|süssigkeit
 🍬|bonbon|süßigkeit|süssigkeit
 🍭|lolli|lutscher|süßigkeit|süssigkeit
-🍮|dessert|flan|nachspeise|nachtisch|pudding|schokolade|soße|sauce
+🍮|dessert|flan|nachspeise|nachtisch|pudding|schokolade|soße|sosse
 🍯|honigtopf|süß|süss
 🍼|babyflasche|fläschchen|flasche|kind|milch|trinken|getränk
 🥛|getränk|glas|milch|trinken
@@ -829,9 +834,9 @@
 🍹|bar|cocktail|exotisches getränk|getränk
 🍺|bar|bierkrug|krug|oktoberfest|prost|weizenbier|getränk
 🍻|anstoßen|bierkrüge|oktoberfest|prosit|prost|weizen|anstossen|getränk
-🥂|anstoßen|feiern|getränk|gläser|prost|sektgläser|anstossen|champagner
+🥂|anstoßen|feiern|getränk|gläser|prost|sektgläser|anstossen
 🥃|bar|schnaps|trinkglas|whiskey|getränk
-🫗|ausgießen|ausleeren|flüssigkeit ausgießen|getränk|gießen|glas|leer|missgeschick|tropfende flüssigkeit|verschütten|ausgiessen|flüssigkeit ausgiessen|giessen|trinken
+🫗|ausgießen|ausleeren|flüssigkeit ausgießen|getränk|gießen|glas|leer|missgeschick|tropfende flüssigkeit|verschütten|ausgiessen|flüssigkeit ausgiessen|giessen
 🥤|becher mit strohhalm|brause|erfrischung|saft|selters|soda|strohhalm|trinken|trinkhalm|wasser|getränk
 🧋|blase|bubble tea|essen|getränk|lebensmittel|milch|perle|taiwan|tee
 🧃|fruchtsaft|getränk|obstsaft|saftpackung|trinkpäckchen
@@ -853,6 +858,7 @@
 🧭|himmelsrichtung|kompass|magnetisch|navigation|orientierung|richtung|windrose
 🏔️|berg|gebirge|kalt|schneebedeckter berg
 ⛰️|berg|gebirge
+🛘|berg|erdbeben|felsen|gefahr|katastrophe|lawine|murenabgang|murgang|schlammlawine
 🌋|ausbruch|berg|lava|vulkanausbruch|wetter
 🗻|berg|fuji|vulkan
 🏕️|campen|camping|zelten
@@ -923,7 +929,7 @@
 🚋|straßenbahnwagen|tramwagen|transport|verkehrsmittel|waggon|strassenbahnwagen
 🚌|bus|fahrzeug|schulbus
 🚍|bus von vorne|verkehrsmittel|vorderansicht bus
-🚎|oberleitungsbus|straßenbahn|trolleybus|strassenbahn|tram
+🚎|oberleitungsbus|straßenbahn|trolleybus|strassenbahn
 🚐|bus|fahrzeug|kleinbus
 🚑|ambulanz|krankenwagen|notfall
 🚒|brand|feuerwehrauto|löschfahrzeug
@@ -1134,7 +1140,7 @@
 🪢|achterknoten|binden|knoten|schnur|schnürsenkel|seemansknoten|segelboot|segeln|seil|verknoten|zusammendrehen
 👓|accessoire|brille
 🕶️|augen|brille|dunkel|sonnenbrille
-🥽|augenschutz|brille|schutzbrille|schweißen|schweißerbrille|schwimmen|tauchen|taucherbrille|schweissen
+🥽|augenschutz|brille|schutzbrille|schweißen|schweißerbrille|schwimmen|tauchen|taucherbrille|schweissen|schweisserbrille
 🥼|arztkittel|doc|doktor|experiment|kleidungsstück|laborkittel|labormantel|weiße jacke|weißer mantel|wissenschaftler|weisse jacke|weisser mantel
 🦺|kleidung|notfall|sicherheitsweste|weste
 👔|hemd mit krawatte|kleidung|kragen|schlips
@@ -1152,12 +1158,12 @@
 🩳|badebekleidung|badehose|boxershorts|kleidung|schwimmshorts|shorts
 👙|badeanzug|bikini|kleidung
 👚|bluse|damenmode|kleidung|oberbekleidung|shirt
-🪭|abkühlung|faltfächer|flirten|heiß|kühlen|luft zufächeln|schüchtern|spanisch|warm|fächern|flamenco|heiss|scheu|tanzen
+🪭|abkühlung|fächer|faltfächer|flirten|heiß|kühlen|luft zufächeln|schüchtern|spanisch|tanz|warm|heiss
 👛|accessoire|brieftasche|geldbörse|münzen|portemonnaie
 👜|accessoire|einkaufen|handtasche|tasche
 👝|accessoire|beutel|clutch|handtasche|kulturbeutel|tasche|waschtasche
 🛍️|einkaufen|einkaufstüten|shoppen|shopping|tasche|tüte
-🎒|ranzen|rucksack|schule|schulranzen|tornister|schulsack
+🎒|ranzen|rucksack|schule|schulranzen|tornister
 🩴|badelatschen|flipflops|latschen|sandalen|schuh|strandschuh|zehensandalen
 👞|gehen|herrenschuh|schuh
 👟|laufen|rennen|schuh|sneaker|sportlich|sportschuh|turnschuh
@@ -1198,16 +1204,17 @@
 🎧|kopfhörer|musik|unterhaltung
 📻|musik|radio
 🎷|instrument|musikinstrument|saxofon
+🎺|instrument|musikinstrument|trompete
+🪊|blasinstrument|blechbläser|blechblasinstrument|instrument|jazz|musik|schieben|traurig|ziehen|posaune
 🪗|akkordeons|concertina|harmonika|instrument|musikinstrument|quetschkommoden|schifferklavier|spielen|ziehharmonikas
 🎸|gitarre|instrument|musikinstrument
 🎹|instrument|klaviatur|klavier|musikinstrument|piano|tastatur|tasten
-🎺|instrument|musikinstrument|trompete
 🎻|geige|instrument|musikinstrument|violine
 🪕|banjo|instrument|musik|saiteninstrument|zupfinstrument
 🥁|drumsticks|instrument|musik|schlägel|sticks|trommelstöcke
 🪘|afrikanische trommel|conga|handtrommel|instrument|musikinstrument|rhythmus|trommeln
-🪇|cha-cha-cha|instrument|maracas|musikinstrument|musizieren|party|percussion|rasseln|tanzen|schütteln|trommel
-🪈|band|blaskapelle|flöte|holzblasinstrument|instrument|musikinstrument|musizieren|orchester|spielmannszug|blockflöte|pfeife
+🪇|cha-cha-cha|instrument|maracas|musikinstrument|musizieren|party|percussion|rasseln|tanzen
+🪈|band|blaskapelle|flöte|holzblasinstrument|instrument|musikinstrument|musizieren|orchester|spielmannszug
 🪉|amor|cupido|harfe|instrument|liebe|musik|orchester
 📱|handy|iphone|mobiltelefon|smartphone|telefonieren
 📲|anrufen|handy|iphone|kommunikation|mobiltelefon mit pfeil|pfeil|whatsapp
@@ -1261,8 +1268,9 @@
 📑|notizen|pagemarker
 🔖|etikett|lesen|lesezeichen
 🏷️|etikett|label|marke
-💰|geldsack|moneten|reich|sack
 🪙|bezahlen|dollar|euro|geld|goldesel|metall|münze|reich|schatz|silber|sparen
+💰|geldsack|moneten|reich|sack
+🪎|beute|edelstein|geld|gold|juwelen|preis|reichtum|silber|wertgegenstände
 💴|geldschein|yen-banknote
 💵|dollar-banknote|geldschein|währung
 💶|euro-banknote|euroschein|geldschein
@@ -1333,13 +1341,13 @@
 🗜️|schraubzwinge|werkzeug
 🦯|barrierefreiheit|behinderung|blindenstock|gehstock
 🔗|kettenglieder|linksymbol|verknüpfen|verknüpfungssymbol|zwei ringe
-⛓️‍💥|brechen|freiheit|gebrochene kette|handschellen|kette|zerbrechen|befreien|kaputte kette|losreissen|reissen
+⛓️‍💥|brechen|freiheit|gebrochene kette|handschellen|kette|zerbrechen
 ⛓️|eisen|ketten
 🪝|angelhaken|aufhaken|aufhängen|einhaken|haken|hängen|metallhaken
 🧰|box|handkasten|kasten|kiste|mechaniker|rote kiste|werkzeugkasten|werkzeugkiste|werkzeugkoffer
 🧲|anziehungskraft|hufeisen|magnetisch|pole|positiv negativ|u-form
 🪜|hochsteigen|holzleiter|klettern|leiter|sprosse|stufe
-🪏|graben|loch|schippe|spaten|ausgraben|schaufeln|vergraben
+🪏|graben|loch|schaufel|schippe|spaten
 🧪|chemie|chemikalie|chemiker|experiment|labor|reagenzglas|substanz|versuche|wissenschaft
 🧫|bakterienkultur|biologe|biologie|biologin|kultur|labor|petrischale|pipette|probe
 🧬|biologe|biologie|biologin|dna|dns|evolution|genetik|genmanipulation|leben
@@ -1373,7 +1381,7 @@
 🧻|hygiene|klopapier|küchenrolle|papierrolle|papiertücher|toilettenpapier|wc-papier
 🪣|behälter|bottich|eimer|kübel|wassereimer
 🧼|baden|putzen|reinigen|riegel|sauber machen|säubern|schaum|schäumen|seifenschale|seifenstück
-🫧|blasen|perlen|reinigen|schaum|schweben|seifenblasen|unter wasser|wasserblasen|sauber
+🫧|blasen|perlen|reinigen|schaum|schweben|seifenblasen|unter wasser|wasserblasen
 🪥|badezimmer|bürste|körperpflege|mundhygiene|putzen|sauber|zahnbürste|zähne|zahnhygiene
 🧽|absorbieren|aufsaugen|löchrig|porös|putzen|putzmittel|reinigen|sauber machen|schaum|schäumen|schwamm
 🧯|feuerlöscher|löschen
@@ -1386,7 +1394,7 @@
 🪬|amulett|auge in offener hand|fatima|glückssymbol|hamsa|hand|jüdisch|maria|muslimisch|schutz
 🗿|gesicht|maske|osterinsel|statue
 🪧|ankündigung|bekanntmachung|demonstration|hinweis|mahnwache|plakat|protestschild|schild
-🪪|ausweis|dokument|führerschein|karte|pass|personalausweis|plakette|reisepass|fahrausweis|id
+🪪|ausweis|dokument|führerschein|karte|pass|personalausweis|plakette|reisepass
 🏧|atm|geldautomat|symbol geldautomat
 🚮|abfall|mülleimer|sauberkeit|symbol papierkorb|wegschmeißen|wegwerfen|wegschmeissen|papierkorb
 🚰|trinkwasser|wasserhahn
@@ -1394,21 +1402,21 @@
 🚹|herrentoilette|wc
 🚺|damentoilette|wc
 🚻|toiletten|wc
-🚼|symbol baby|wickelraum|baby-symbol
+🚼|baby|symbol baby|wickelraum
 🚾|toilette|wc
 🛂|passkontrolle
 🛃|zollkontrolle
 🛄|gepäckausgabe
 🛅|gepäckaufbewahrung|schließfach|schliessfach
 ⚠️|achtung|dreieck|vorsicht|warnschild|warnung
-🚸|kinder überqueren die straße|kinder-queren-die-straße-schild|straßenschild|vorsicht|kinder-queren-die-strasse-schild
+🚸|kinder überqueren die straße|kinder-queren-die-straße-schild|straßenschild|vorsicht|kinder überqueren die strasse|kinder-queren-die-strasse-schild|strassenschild
 ⛔|einbahnstrasse|kein zutritt|keine durchfahrt|verboten|zutritt verboten|zutritt-verboten-schild|halt
 🚫|kein zutritt|kein-zutritt-zeichen|verboten|verbotszeichen
 🚳|fahhrad|fahrrad-verboten-schild|fahrräder verboten|radfahren verboten|verboten
 🚭|rauchen verboten|rauchverbot|zigarette
 🚯|abfall|müll-verboten-zeichen|verboten
 🚱|kein trinkwasser|verboten|verschmutzt|wasser
-🚷|fußgänger verboten|fußgänger-verboten-schild|verboten|fussgänger-verboten-schild
+🚷|fußgänger verboten|fußgänger-verboten-schild|verboten|fussgänger verboten|fussgänger-verboten-schild
 📵|handy|mobiltelefone verboten|verbot
 🔞|erwachsene|minderjährige verboten|mindestalter|nicht jugendfrei|zeichen mit durchgestrichener 18
 ⬆️|aufwärtspfeil|nach oben|norden|pfeil nach oben|hoch
@@ -1463,7 +1471,7 @@
 🔅|dimmen|gedimmt|helligkeit|schwache helligkeit|taste dimmen
 🔆|heller-taste|helligkeit|starke helligkeit
 📶|balkenförmige signalstärkenanzeige|empfang|mobilfunksignal|mobiltelefon|signalstärke
-🛜|computer|drahtlos|hotspot|internet|kabellos|netzwerk|router|verbindung|wi-fi|wlan|wifi
+🛜|computer|drahtlos|hotspot|internet|kabellos|netzwerk|router|verbindung|wi-fi|wlan
 📳|handy|kommunikation|mobiltelefon|symbol für vibrationsalarm|vibrationsmodus|vibrieren
 📴|ausschalten|handy aus|mobiltelefon aus
 ⚧️|symbol für transgender|transgender-symbol
@@ -1480,18 +1488,18 @@
 ⭕|großer kreis|hohler roter kreis|kreis|o|rot|grosser kreis
 ❌|abbrechen|durchgestrichen|kreuzzeichen|mal|multiplikation|multiplizieren|rotes kreuz|x
 ❎|angekreuztes feld|angekreuztes kästchen|feld|kreuzsymbol im quadrat|quadrat|x
-➰|schleife|looping
+➰|schleife
 ➿|blau|doppelschleife|rechteck|schleife
 〽️|japanisch|teilalternationszeichen|zeichensetzung
-🫟|farbe|fleck|holi|klecks|spritzer|tinte|farbklecks|kleckern|verschütten
-🔠|abcd|buchstaben|großbuchstaben|großschreiben|eingabesymbol lateinische grossbuchstaben|grossbuchstaben|lateinische grossbuchstaben
+🫟|farbe|fleck|holi|klecks|spritzer|tinte
+🔠|abcd|buchstaben|eingabesymbol|großbuchstaben|großschreiben|lateinisch|grossbuchstaben|grossschreiben
 🔡|eingabesymbol lateinische kleinbuchstaben|kleinbuchstaben|lateinische kleinbuchstaben
 🔢|1234|eingabesymbol|symbol|zahlen|ziffern
 🔣|&|%|♪|〒|eingabesymbol|keycap|sonderzeichen|symbol|tastenkappe
 🔤|abc|alphabet|buchstaben|eingabesymbol|lateinisch|symbol
-🅰️|a|blutgruppe|großbuchstabe|negativ|positiv|grossbuchstabe a in quadrat
+🅰️|a|blutgruppe|großbuchstabe|negativ|positiv|grossbuchstabe
 🆎|ab|blutgruppe|großbuchstaben ab in rotem quadrat|negativ|positiv|grossbuchstaben ab in rotem quadrat
-🅱️|blutgruppe|großbuchstabe|negativ|positiv|grossbuchstabe b in quadrat
+🅱️|blutgruppe|großbuchstabe|negativ|positiv|grossbuchstabe
 🆑|cl|großbuchstaben cl in rotem quadrat|grossbuchstaben cl in rotem quadrat
 🆒|cool|wort cool in blauem quadrat
 🆓|free|wort free in blauem quadrat
@@ -1499,12 +1507,12 @@
 Ⓜ️|buchstabe|eingekreist|großbuchstabe|kreis|m|grossbuchstabe
 🆕|neu|new|wort new in blauem quadrat
 🆖|großbuchstaben ng in blauem quadrat|ng|grossbuchstaben ng in blauem quadrat
-🅾️|0|blutgruppe|großbuchstabe|negativ|o|positiv|grossbuchstabe o in quadrat
-🆗|großbuchstaben|keycap|okay|tastenkappe|grossbuchstaben ok in blauem quadrat
-🅿️|großbuchstabe|parken|parkplatz|taste|grossbuchstabe p in quadrat|quadrat
+🅾️|0|blutgruppe|großbuchstabe|negativ|o|positiv|grossbuchstabe
+🆗|großbuchstaben|keycap|okay|tastenkappe|grossbuchstaben
+🅿️|großbuchstabe|parken|parkplatz|taste|grossbuchstabe
 🆘|hilfe|sos-zeichen
 🆙|keycap|tastenkappe|up!
-🆚|gegen|taste|versus|vs|grossbuchstaben vs in orangefarbenem quadrat
+🆚|gegen|taste|versus|vs
 🈁|koko|japanisches schriftzeichen|schriftzeichen koko
 🈂️|sa|japanisches schriftzeichen|schriftzeichen sa
 🈷️|japanisch|monatlich|monatsbetrag|mond|schriftzeichen|taste
@@ -1520,7 +1528,7 @@
 🈳|chinesisches schriftzeichen|japanisches schriftzeichen|leer|schriftzeichen für leer|schriftzeichen für zimmer frei|zimmer frei
 🈺|betrieb|chinesisches schriftzeichen|geöffnet|japanisches schriftzeichen|schriftzeichen für betrieb|schriftzeichen für geöffnet
 🈵|belegt|besetzt|chinesisches schriftzeichen|fülle|japanisches schriftzeichen|kanji|kein zimmer frei|schriftzeichen für fülle|schriftzeichen für kein zimmer frei
-🔴|ball|punkt|roter punkt|grosser roter kreis|kreis
+🔴|ball|punkt|roter punkt
 🟠|form|kreis|orange scheibe|oranger kreis|oranger punkt|punkt
 🟡|form|gelbe scheibe|gelber kreis|gelber punkt|kreis|punkt|scheibe
 🟢|form|grüne scheibe|grüner kreis|grüner punkt|kreis|punkt
@@ -1528,7 +1536,7 @@
 🟣|form|kreis|lila|punkt|scheibe|violett
 🟤|braune scheibe|brauner kreis|brauner punkt|form|kreis|punkt
 ⚫|ball|großer schwarzer kreis|kreis|punkt|rund|schwarzer punkt|grosser schwarzer kreis
-⚪|ball|großer weißer kreis|kreis|punkt|weißer punkt|grosser weisser kreis|weiss
+⚪|ball|großer weißer kreis|kreis|punkt|weißer punkt|grosser weisser kreis|weisser punkt
 🟥|form|quadrat|rotes quadrat|rotes viereck|viereck
 🟧|form|oranges quadrat|oranges viereck|quadrat|viereck
 🟨|form|gelbes quadrat|gelbes viereck|quadrat|viereck
@@ -1558,9 +1566,9 @@
 🚩|dreiecksflagge|flagge|rot|standortflagge|wimpel
 🎌|japanische flaggen|überkreuzte flaggen|flaggen
 🏴|fahne|schwarze fahne|schwarze flagge|wehende schwarze fahne|flagge
-🏳️|fahne|wehende weiße fahne|weiße fahne|weiße flagge|wehende weisse fahne|weisse fahne|flagge
+🏳️|fahne|wehende weiße fahne|weiße fahne|weiße flagge|wehende weisse fahne|weisse fahne|weisse flagge|flagge
 🏳️‍🌈|bisexuell|bunt|fahne|flagge|lesbisch|pride|queer|regenbogenflagge|schwul|trans|lgbtqia
-🏳️‍⚧️|flagge|transgender-flagge|hellblau|pink|transgenderflagge|weiss|lgbtqia
+🏳️‍⚧️|flagge|transgender-flagge|lgbtqia
 🏴‍☠️|jolly roger|piratenfahne|piratenflagge|schatz|flagge
 🇦🇩|andorra
 🇦🇪|vereinigte arabische emirate
@@ -1595,7 +1603,7 @@
 🇧🇷|brasilien
 🇧🇸|bahamas
 🇧🇹|bhutan
-🇧🇼|botsuana|botswana
+🇧🇼|botsuana
 🇧🇾|belarus
 🇧🇿|belize
 🇨🇦|kanada
@@ -1610,9 +1618,10 @@
 🇨🇲|kamerun
 🇨🇳|china
 🇨🇴|kolumbien
+🇨🇶|sark
 🇨🇷|costa rica
 🇨🇺|kuba
-🇨🇻|cabo verde|kapverden
+🇨🇻|cabo verde
 🇨🇼|curaçao
 🇨🇽|weihnachtsinsel
 🇨🇾|zypern
@@ -1754,7 +1763,7 @@
 🇷🇺|russland
 🇷🇼|ruanda
 🇸🇦|saudi-arabien
-🇸🇧|salomonen|salomon-inseln
+🇸🇧|salomonen
 🇸🇨|seychellen
 🇸🇩|sudan
 🇸🇪|schweden
@@ -1780,7 +1789,7 @@
 🇹🇭|thailand
 🇹🇯|tadschikistan
 🇹🇰|tokelau
-🇹🇱|timor-leste|osttimor
+🇹🇱|timor-leste
 🇹🇲|turkmenistan
 🇹🇳|tunesien
 🇹🇴|tonga
@@ -1808,7 +1817,7 @@
 🇾🇹|mayotte
 🇿🇦|südafrika
 🇿🇲|sambia
-🇿🇼|simbabwe|zimbabwe
+🇿🇼|simbabwe
 🏴󠁧󠁢󠁥󠁮󠁧󠁿|england
 🏴󠁧󠁢󠁳󠁣󠁴󠁿|schottland
 🏴󠁧󠁢󠁷󠁬󠁳󠁿|wales

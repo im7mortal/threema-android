@@ -21,6 +21,7 @@ import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.Px;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
@@ -29,6 +30,7 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentStatePagerAdapter;
 import androidx.lifecycle.LifecycleOwner;
+import androidx.viewpager.widget.PagerAdapter;
 import androidx.viewpager.widget.ViewPager;
 import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.R;
@@ -41,7 +43,6 @@ import ch.threema.app.fragments.wizard.WizardFragment1;
 import ch.threema.app.fragments.wizard.WizardFragment2;
 import ch.threema.app.fragments.wizard.WizardFragment3;
 import ch.threema.app.fragments.wizard.WizardFragment4;
-import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.routines.SynchronizeContactsRoutine;
 import ch.threema.app.services.UserService;
 import ch.threema.app.threemasafe.ThreemaSafeMDMConfig;
@@ -68,7 +69,6 @@ import ch.threema.domain.taskmanager.TriggerSource;
 
 import static ch.threema.app.AppConstants.PHONE_LINKED_PLACEHOLDER;
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
-import static ch.threema.app.protocolsteps.ApplicationSetupStepsKt.runApplicationSetupSteps;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 import static ch.threema.app.threemasafe.usecases.CheckBadPasswordUseCase.Result.BAD_PASSWORD;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
@@ -119,22 +119,22 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
     private boolean isSyncContacts = DEFAULT_SYNC_CONTACTS, userCannotChangeContactSync = false, skipWizard = false, readOnlyProfile = false;
     private ThreemaSafeMDMConfig safeConfig;
     private boolean errorRaised = false, isNewIdentity = false;
-    private WizardFragment4 fragment4;
     private final BackgroundExecutor backgroundExecutor = new BackgroundExecutor();
     private boolean workSyncPerformed = false;
 
     private final Handler finishHandler = new Handler();
     private final Handler dialogHandler = new Handler();
 
-    private final Runnable finishTask = new Runnable() {
-        @Override
-        public void run() {
-            RuntimeUtil.runOnUiThread(() -> {
-                fragment4.setContactsSyncInProgress(false, null);
+    private final Runnable finishTask = () ->
+        RuntimeUtil.runOnUiThread(
+            () -> {
+                final @Nullable WizardFragment4 wizardFragment4 = findWizardFragment4();
+                if (wizardFragment4 != null) {
+                    wizardFragment4.setContactsSyncInProgress(false, null);
+                }
                 prepareThreemaSafe();
-            });
-        }
-    };
+            }
+        );
 
     private Runnable showDialogDelayedTask(final int current, final int previous) {
         return () -> RuntimeUtil.runOnUiThread(() -> {
@@ -482,7 +482,7 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
      * @param v The view that was clicked.
      */
     @Override
-    public void onClick(View v) {
+    public void onClick(@NonNull View v) {
         if (v.equals(nextButton)) {
             nextPage();
         } else if (v.equals(prevButton)) {
@@ -491,9 +491,8 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
     }
 
     @Override
-    public void onWizardFinished(WizardFragment4 fragment) {
+    public void onWizardFinished() {
         errorRaised = false;
-        fragment4 = fragment;
 
         viewPager.lock(true);
         prevButton.setVisibility(View.GONE);
@@ -573,15 +572,17 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
     }
 
     @Override
-    public void onSafeServerInfoSet(ThreemaSafeServerInfo safeServerInfo) {
+    public void onSafeServerInfoSet(@NonNull ThreemaSafeServerInfo safeServerInfo) {
         this.safeServerInfo = safeServerInfo;
     }
 
+    @Nullable
     @Override
     public String getNickname() {
         return this.nickname;
     }
 
+    @Nullable
     @Override
     public String getPhone() {
         if (PHONE_LINKED_PLACEHOLDER.equals(this.number)) {
@@ -596,26 +597,31 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
         return "";
     }
 
+    @Nullable
     @Override
     public String getNumber() {
         return this.number;
     }
 
+    @Nullable
     @Override
     public String getPrefix() {
         return this.prefix;
     }
 
+    @NonNull
     @Override
     public String getEmail() {
         return (this.email != null && this.email.length() > 4) ? this.email : "";
     }
 
+    @Nullable
     @Override
     public String getPresetPhone() {
         return this.presetMobile;
     }
 
+    @Nullable
     @Override
     public String getPresetEmail() {
         return this.presetEmail;
@@ -641,11 +647,13 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
         return safeConfig.isBackupForced();
     }
 
+    @Nullable
     @Override
     public String getSafePassword() {
         return this.safePassword;
     }
 
+    @NonNull
     @Override
     public ThreemaSafeServerInfo getSafeServerInfo() {
         return this.safeServerInfo;
@@ -743,6 +751,7 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
             super(fm, FragmentStatePagerAdapter.BEHAVIOR_RESUME_ONLY_CURRENT_FRAGMENT);
         }
 
+        @Nullable
         @Override
         public Fragment getItem(int position) {
             switch (position) {
@@ -791,21 +800,24 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
         viewPager.post(() -> viewPager.setCurrentItem(WizardFragment4.PAGE_ID));
     }
 
-    @SuppressLint("StaticFieldLeak")
-    private void linkEmail(final WizardFragment4 fragment) {
-        final String newEmail = getEmail();
+    private void linkEmail() {
+        final @NonNull String newEmail = getEmail();
         if (isNullOrEmpty(newEmail)) {
             initSyncAndFinish();
             return;
         }
 
-        boolean isNewEmail = (!(presetEmail != null && presetEmail.equals(newEmail)));
+        final boolean isNewEmail = !(presetEmail != null && presetEmail.equals(newEmail));
+        final int currentEmailLinkingState = dependencies.getUserService().getEmailLinkingState();
 
-        if ((dependencies.getUserService().getEmailLinkingState() != UserService.LinkingState_LINKED) && isNewEmail) {
+        if (currentEmailLinkingState != UserService.LinkingState_LINKED && isNewEmail) {
             new LifecycleAwareAsyncTask<Void, String>() {
                 @Override
                 protected void onPreExecute() {
-                    fragment.setEmailLinkingInProgress(true);
+                    final @Nullable WizardFragment4 wizardFragment4 = findWizardFragment4();
+                    if (wizardFragment4 != null) {
+                        wizardFragment4.setEmailLinkingInProgress(true);
+                    }
                 }
 
                 @Override
@@ -823,12 +835,17 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
                 }
 
                 @Override
-                protected void onPostExecute(String result) {
+                protected void onPostExecute(@Nullable String result) {
                     if (result != null) {
-                        fragment.setEmailLinkingAlert(result);
                         errorRaised = true;
-                    } else {
-                        fragment.setEmailLinkingInProgress(false);
+                    }
+                    final @Nullable WizardFragment4 wizardFragment4 = findWizardFragment4();
+                    if (wizardFragment4 != null) {
+                        if (result != null) {
+                            wizardFragment4.setEmailLinkingAlert(result);
+                        } else {
+                            wizardFragment4.setEmailLinkingInProgress(false);
+                        }
                     }
                     initSyncAndFinish();
                 }
@@ -840,20 +857,24 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
 
     @SuppressLint("StaticFieldLeak")
     private void linkPhone() {
-        final String phone = getPhone();
+        final @Nullable String phone = getPhone();
         if (isNullOrEmpty(phone)) {
-            linkEmail(fragment4);
+            linkEmail();
             return;
         }
 
-        boolean isNewPhoneNumber = (presetMobile == null || !presetMobile.equals(phone));
+        final boolean isNewPhoneNumber = presetMobile == null || !presetMobile.equals(phone);
+        final int currentMobileLinkingState = dependencies.getUserService().getMobileLinkingState();
 
         // start linking activity only if not already linked
-        if ((dependencies.getUserService().getMobileLinkingState() != UserService.LinkingState_LINKED) && isNewPhoneNumber) {
+        if (currentMobileLinkingState != UserService.LinkingState_LINKED && isNewPhoneNumber) {
             new LifecycleAwareAsyncTask<Void, String>() {
                 @Override
                 protected void onPreExecute() {
-                    fragment4.setMobileLinkingInProgress(true);
+                    final @Nullable WizardFragment4 wizardFragment4 = findWizardFragment4();
+                    if (wizardFragment4 != null) {
+                        wizardFragment4.setMobileLinkingInProgress(true);
+                    }
                 }
 
                 @Override
@@ -871,18 +892,23 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
                 }
 
                 @Override
-                protected void onPostExecute(String result) {
+                protected void onPostExecute(@Nullable String result) {
                     if (result != null) {
-                        fragment4.setMobileLinkingAlert(result);
                         errorRaised = true;
-                    } else {
-                        fragment4.setMobileLinkingInProgress(false);
                     }
-                    linkEmail(fragment4);
+                    final @Nullable WizardFragment4 wizardFragment4 = findWizardFragment4();
+                    if (wizardFragment4 != null) {
+                        if (result != null) {
+                            wizardFragment4.setMobileLinkingAlert(result);
+                        } else {
+                            wizardFragment4.setMobileLinkingInProgress(false);
+                        }
+                    }
+                    linkEmail();
                 }
             }.execute(this, null);
         } else {
-            linkEmail(fragment4);
+            linkEmail();
         }
     }
 
@@ -895,7 +921,7 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
 
             @Override
             public Boolean runInBackground() {
-                return runApplicationSetupSteps(KoinJavaComponent.get(ServiceManager.class));
+                return dependencies.getApplicationSetupSteps().run();
             }
 
             @Override
@@ -922,13 +948,33 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
         });
     }
 
-    @SuppressLint({"StaticFieldLeak", "MissingPermission"})
+    @Nullable
+    private WizardFragment4 findWizardFragment4() {
+        if (viewPager == null) {
+            return null;
+        }
+        final @Nullable PagerAdapter pagerAdapter = viewPager.getAdapter();
+        if (pagerAdapter == null) {
+            return null;
+        }
+        final @Nullable Object fragment = pagerAdapter.instantiateItem(viewPager, WizardFragment4.PAGE_ID);
+        return fragment instanceof WizardFragment4
+            ? (WizardFragment4) fragment
+            : null;
+    }
+
     private void reallySyncContactsAndFinish() {
         if (dependencies.getSynchronizedSettingsService().isSyncContacts()) {
             new LifecycleAwareAsyncTask<Void, Void>() {
                 @Override
                 protected void onPreExecute() {
-                    fragment4.setContactsSyncInProgress(true, getString(R.string.wizard1_sync_contacts));
+                    final @Nullable WizardFragment4 wizardFragment4 = findWizardFragment4();
+                    if (wizardFragment4 != null) {
+                        wizardFragment4.setContactsSyncInProgress(
+                            true,
+                            getString(R.string.wizard1_sync_contacts)
+                        );
+                    }
                 }
 
                 @SuppressLint("MissingPermission")
@@ -936,7 +982,7 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
                 protected Void doInBackground(Void params) {
                     try {
                         var userService = dependencies.getUserService();
-                        // We need to create an account if there is no account yet. Therefore we need this call because of its side effect.
+                        // We need to create an account if there is no account yet. Therefore, we need this call because of its side effect.
                         userService.getAccount(true);
                         //disable
                         userService.enableAccountAutoSync(false);
@@ -948,10 +994,21 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
                             return null;
                         }
 
-                        routine.setOnStatusUpdate(x -> RuntimeUtil.runOnUiThread(() -> fragment4.setContactsSyncInProgress(false, x.getMessage())));
+                        routine.setOnStatusUpdate(exception ->
+                            RuntimeUtil.runOnUiThread(
+                                () -> {
+                                    final @Nullable WizardFragment4 wizardFragment4 = findWizardFragment4();
+                                    if (wizardFragment4 != null) {
+                                        wizardFragment4.setContactsSyncInProgress(false, exception.getMessage());
+                                    }
+                                }
+                            )
+                        );
 
                         //on finished, close the dialog
-                        routine.addOnFinished((success, modifiedAccounts, createdContacts, deletedAccounts) -> userService.enableAccountAutoSync(true));
+                        routine.addOnFinished((success, modifiedAccounts, createdContacts, deletedAccounts) ->
+                            userService.enableAccountAutoSync(true)
+                        );
 
                         routine.run();
                     } catch (Exception e) {
@@ -972,26 +1029,35 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
         }
     }
 
-    @SuppressLint("StaticFieldLeak")
     private void prepareThreemaSafe() {
         if (!isNullOrEmpty(getSafePassword())) {
             new LifecycleAwareAsyncTask<Void, byte[]>() {
                 @Override
                 protected void onPreExecute() {
-                    fragment4.setThreemaSafeInProgress(true, getString(R.string.preparing_threema_safe));
+                    final @Nullable WizardFragment4 wizardFragment4 = findWizardFragment4();
+                    if (wizardFragment4 != null) {
+                        wizardFragment4.setThreemaSafeInProgress(true, getString(R.string.preparing_threema_safe));
+                    }
                 }
 
                 @Override
                 protected byte[] doInBackground(Void params) {
-                    return dependencies.getThreemaSafeService().deriveMasterKey(getSafePassword(), dependencies.getUserService().getIdentity());
+                    return dependencies.getThreemaSafeService().deriveMasterKey(
+                        getSafePassword(),
+                        dependencies.getUserService().getIdentity()
+                    );
                 }
 
                 @Override
-                protected void onPostExecute(byte[] masterkey) {
-                    fragment4.setThreemaSafeInProgress(false, getString(R.string.menu_done));
+                protected void onPostExecute(@Nullable byte[] masterKey) {
 
-                    if (masterkey != null) {
-                        dependencies.getThreemaSafeService().storeMasterKey(masterkey);
+                    final @Nullable WizardFragment4 wizardFragment4 = findWizardFragment4();
+                    if (wizardFragment4 != null) {
+                        wizardFragment4.setThreemaSafeInProgress(false, getString(R.string.menu_done));
+                    }
+
+                    if (masterKey != null) {
+                        dependencies.getThreemaSafeService().storeMasterKey(masterKey);
                         dependencies.getPreferenceService().setThreemaSafeServerInfo(safeServerInfo);
                         dependencies.getThreemaSafeService().setEnabled(true);
                         dependencies.getThreemaSafeService().uploadNow(true);
@@ -1024,8 +1090,9 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
         // unlock UI to try again
         viewPager.lock(false);
         prevButton.setVisibility(View.VISIBLE);
-        if (fragment4 != null) {
-            fragment4.setFinishButtonEnabled(true);
+        final @Nullable WizardFragment4 wizardFragment4 = findWizardFragment4();
+        if (wizardFragment4 != null) {
+            wizardFragment4.setFinishButtonEnabled(true);
         }
     }
 

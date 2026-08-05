@@ -130,7 +130,7 @@ public class WizardFragment1 extends WizardFragment implements ThreemaSafeAdvanc
     }
 
     @Override
-    public void onYes(String tag, ThreemaSafeServerInfo serverInfo) {
+    public void onYes(String tag, @NonNull ThreemaSafeServerInfo serverInfo) {
         ((WizardFragment1.OnSettingsChangedListener) requireActivity()).onSafeServerInfoSet(serverInfo);
     }
 
@@ -185,7 +185,7 @@ public class WizardFragment1 extends WizardFragment implements ThreemaSafeAdvanc
     public interface OnSettingsChangedListener {
         void onSafePasswordSet(String password);
 
-        void onSafeServerInfoSet(ThreemaSafeServerInfo serverInfo);
+        void onSafeServerInfoSet(@NonNull ThreemaSafeServerInfo serverInfo);
     }
 
     @Override

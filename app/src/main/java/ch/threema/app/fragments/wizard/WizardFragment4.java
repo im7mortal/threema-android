@@ -17,11 +17,14 @@ import android.widget.TextView;
 import org.slf4j.Logger;
 
 import androidx.annotation.NonNull;
+
+import androidx.annotation.Nullable;
 import ch.threema.app.R;
 import ch.threema.app.ui.interop.ButtonPrimaryXml;
 import ch.threema.app.dialogs.WizardDialog;
 import ch.threema.app.threemasafe.ThreemaSafeServerInfo;
 import ch.threema.app.utils.ConfigUtils;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
@@ -34,10 +37,17 @@ public class WizardFragment4 extends WizardFragment implements View.OnClickListe
     private SettingsInterface callback;
     public static final int PAGE_ID = 4;
 
+    private static final String BUNDLE_FINISH_BUTTON_ENABLED = "finishButtonEnabled";
+    private boolean isFinishButtonEnabled = true;
+
     @Override
-    public void onCreate(Bundle savedInstanceState) {
+    public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         logScreenVisibility(this, logger);
+
+        if (savedInstanceState != null) {
+            isFinishButtonEnabled = savedInstanceState.getBoolean(BUNDLE_FINISH_BUTTON_ENABLED, true);
+        }
     }
 
     @Override
@@ -86,20 +96,34 @@ public class WizardFragment4 extends WizardFragment implements View.OnClickListe
     }
 
     void initValues() {
-        if (isResumed()) {
-            String email = isNullOrEmpty(callback.getEmail()) ? callback.getPresetEmail() : callback.getEmail();
-            String phone = isNullOrEmpty(callback.getPhone()) ? callback.getPresetPhone() : callback.getPhone();
-
-            nicknameText.setText(callback.getNickname());
-            emailText.setText(isNullOrEmpty(email) ?
-                getString(R.string.not_linked) :
-                (EMAIL_LINKED_PLACEHOLDER.equals(email) ? getString(R.string.unchanged) : email));
-            phoneText.setText(isNullOrEmpty(phone) ?
-                getString(R.string.not_linked) :
-                (PHONE_LINKED_PLACEHOLDER.equals(phone) ? getString(R.string.unchanged) : phone));
-            syncContactsText.setText(callback.getSyncContacts() ? R.string.on : R.string.off);
-            setThreemaSafeInProgress(false, null);
+        if (!isResumed()) {
+            return;
         }
+        final @Nullable String email = isNullOrEmpty(callback.getEmail())
+            ? callback.getPresetEmail()
+            : callback.getEmail();
+        final @Nullable String phone = isNullOrEmpty(callback.getPhone())
+            ? callback.getPresetPhone()
+            : callback.getPhone();
+
+        nicknameText.setText(callback.getNickname());
+        emailText.setText(
+            isNullOrEmpty(email)
+                ? getString(R.string.not_linked)
+                : (EMAIL_LINKED_PLACEHOLDER.equals(email) ? getString(R.string.unchanged) : email)
+        );
+        phoneText.setText(
+            isNullOrEmpty(phone)
+                ? getString(R.string.not_linked)
+                : (PHONE_LINKED_PLACEHOLDER.equals(phone) ? getString(R.string.unchanged) : phone)
+        );
+        syncContactsText.setText(
+            callback.getSyncContacts()
+                ? R.string.on
+                : R.string.off
+        );
+        setThreemaSafeInProgress(false, null);
+        setFinishButtonEnabled(isFinishButtonEnabled);
     }
 
     @Override
@@ -114,7 +138,14 @@ public class WizardFragment4 extends WizardFragment implements View.OnClickListe
         }
     }
 
+    @Override
+    public void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean(BUNDLE_FINISH_BUTTON_ENABLED, isFinishButtonEnabled);
+    }
+
     public void setFinishButtonEnabled(final boolean isEnabled) {
+        this.isFinishButtonEnabled = isEnabled;
         if (finishButtonCompose != null) {
             finishButtonCompose.setButtonEnabled(isEnabled);
         }
@@ -124,7 +155,7 @@ public class WizardFragment4 extends WizardFragment implements View.OnClickListe
         phoneText.setClickable(false);
         emailText.setClickable(false);
         setFinishButtonEnabled(false);
-        callback.onWizardFinished(WizardFragment4.this);
+        callback.onWizardFinished();
         phoneText.setClickable(true);
         emailText.setClickable(true);
     }
@@ -198,18 +229,26 @@ public class WizardFragment4 extends WizardFragment implements View.OnClickListe
     }
 
     public interface SettingsInterface {
+
+        @Nullable
         String getNickname();
 
+        @Nullable
         String getPhone();
 
+        @Nullable
         String getPrefix();
 
+        @Nullable
         String getNumber();
 
+        @NonNull
         String getEmail();
 
+        @Nullable
         String getPresetPhone();
 
+        @Nullable
         String getPresetEmail();
 
         boolean getSafeForcePasswordEntry();
@@ -220,8 +259,10 @@ public class WizardFragment4 extends WizardFragment implements View.OnClickListe
 
         boolean isSafeForced();
 
+        @Nullable
         String getSafePassword();
 
+        @NonNull
         ThreemaSafeServerInfo getSafeServerInfo();
 
         boolean getSyncContacts();
@@ -230,6 +271,6 @@ public class WizardFragment4 extends WizardFragment implements View.OnClickListe
 
         boolean isSkipWizard();
 
-        void onWizardFinished(WizardFragment4 fragment);
+        void onWizardFinished();
     }
 }

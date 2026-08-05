@@ -64,8 +64,8 @@
 ⤴️|arriba|curva|dirección|flecha derecha curvándose hacia arriba
 ⤵️|abajo|curva|dirección|flecha derecha curvándose hacia abajo
 〰️|guion|marca de sonido largo|ondulado|guión|línea ondulada|puntuación
-㊗️|enhorabuena|ideograma japonés para "enhorabuena"|japonés|kanji|felicidades|"enhorabuena"|祝
-㊙️|ideograma japonés para "secreto"|japonés|kanji|secreto|"secreto"|秘
+㊗️|enhorabuena|ideograma japonés para "enhorabuena"|japonés|kanji|felicidades|"enhorabuena"
+㊙️|ideograma japonés para "secreto"|japonés|kanji|secreto|"secreto"
 😀|cara sonriendo|divertido|feliz|sonrisa|contento|diente|felicidad
 😃|cara sonriendo con ojos grandes|divertido|risa|sonriendo|boca abierta|cara sonriente con boca abierta|sonrisa boca abierta|sonrisa con boca abierta|abierta
 😄|abierta|cara sonriendo con ojos sonrientes|boca abierta|boca y ojos sonrientes|cara feliz|dientes|divertido|ojos sonrientes|sonrisa ojos sonrientes|risa
@@ -150,6 +150,7 @@
 😯|alucinado|cara estupefacta|estupefacto|sorprendido|confusion|sorpresa|susto
 😲|alucinado|asombrado|cara asombrada|pasmado|asombro|cara de asombro|horrorizado|sorprendido|sorpresa|susto|totalmente pasmado|asombrada|asustado|horrorizada|sorprendida
 😳|cara sonrojada|colorado|sonrojado|asombro|aturdido|caliente|calor|ejercicio|guau|incredulidad|torpe|vergüenza|avergonzado|sorprendido|sorpresa
+🫪|ansiedad|conmocionado|hinchado|pánico|sorprendido|vulnerable|shock|sorpresa|susto|vulnerabilidad
 🥺|cara suplicante|implorar|ojos adorables|piedad|por favor|cara de ruego|ojos de cachorro|ojos grandes|ojos llorosos|rogar|ruego|triste|cara de por favor|cara de súplica|por qué no
 🥹|cara aguantándose las lágrimas|emoción|emocionado|llorar|orgulloso|resistir|agradecimiento|cara emocionada|emoticones y emociones|lágrimas de alegría|sentimientos|ternura|tristeza|vergüenza
 😦|boca abierta|cara con el ceño fruncido y la boca abierta|ceño fruncido con boca abierta|abierta|cara boquiabierta
@@ -220,6 +221,7 @@
 💋|beso|labios|marca de beso|romance|amor|labial|marca de labios|pintalabios|sexy
 💯|cien puntos|pleno|puntos|al 100|claramente|completo|de acuerdo|definitivamente|perfecto|puntaje|puntuación|100 puntos|calificación|total
 💢|enfadado|enfado|símbolo de enfado|cómics|emoción|enojo|señal de enfado|señal de enojo
+🫯|alboroto|altercado|bronca|desacuerdo|discusión|lucha|pelea|debate|forcejeo|gresca|trifulca
 💥|colisión|bomba|choque|emoción|explosion|explosión|fuegos artificiales|petardo|símbolo de colisión|cómics|comic
 💫|emoción|mareo|símbolo de mareo|brillar|estrella fugaz|estrellas|mareado|ver|cómics|comic
 💦|emoción|gotas de sudor|sudor|chorro de agua|cómics|salpicar|sudar|comic
@@ -452,6 +454,7 @@
 🧟‍♂️|caminante|muerto viviente|no muerto|zombi hombre
 🧟‍♀️|caminante|muerta viviente|no muerta|zombi mujer|zombi hombre
 🧌|cuento de hadas|fantasía|trol|gigante|monstruo verde
+🫈|bigfoot|bosque|críptido|gigante|monstruo|peludo|sasquatch|yeti|hombre de las nieves|pie grande
 💆|cara|facial|persona recibiendo masaje|salón|alivio|belleza|dolor de cabeza|masaje facial|relajación|relax|spa
 💆‍♂️|cara|facial|hombre recibiendo masaje|salón|alivio|belleza|dolor de cabeza|masaje facial|relajación|relax|spa
 💆‍♀️|cara|facial|mujer recibiendo masaje|salón|alivio|belleza|dolor de cabeza|masaje facial|relajación|relax|spa
@@ -479,6 +482,7 @@
 🏃|carrera|deporte|maratón|persona corriendo|corredor|correr|deportista|hombre corriendo|maratonista|voy
 🏃‍♂️|carrera|correr|hombre corriendo|maratón
 🏃‍♀️|carrera|correr|maratón|mujer corriendo|apuro|corredor|maraton|rapido|velocidad|veloz
+🧑‍🩰|bailarín|bailarina|ballet
 💃|mujer bailando|bailarín|bailarina|baile|flamenca|flamenco|persona|salsa
 🕺|hombre bailando|baile|elvis|bailarín
 🕴️|levitar|negocios|persona trajeada levitando|traje|persona en traje levitando
@@ -656,6 +660,7 @@
 🐳|ballena soltando un chorro|chorro de agua|animal|azul|ballena soltando chorro|ballena soplando un chorro de agua|marino|oceano
 🐋|ballena|cachalote|cetáceo|animal|marino|oceano|orca
 🐬|cetáceo|delfín|animal|flipper|mar|oceano|playa
+🫍|ballena|marino|océano|mamífero marino|orca
 🦭|foca|león marino|animal|fauna|lobo marino|mar|océano
 🐟|pececillo|pescado|pez|piscis|zodiaco|animal|cena|mar|pescar|picis
 🐠|pez|tropical|animal|mar|oceano|playa
@@ -853,6 +858,7 @@
 🧭|brújula|compás|magnético|navegación|orientación|dirección|magnetismo|punto cardinal|rumbo
 🏔️|frío|montaña con nieve|nieve|montañas nevadas|naturaleza
 ⛰️|monte|montañas|naturaleza
+🛘|avalancha|desastre|montaña|peligro|rocas|terremoto|alud de barro
 🌋|erupción volcánica|volcán|fuego|montaña|naturaleza
 🗻|fuji|montaña|naturaleza|monte fuji
 🏕️|acampada|campamento|camping|vacaciones|acampar|carpa
@@ -1198,10 +1204,11 @@
 🎧|cascos|audífonos|entretenimiento|música|auriculares
 📻|radio|música|transmisión|comunicación|estación de radio|noticias|entretenimiento|video
 🎷|instrumento musical|música|saxofón
+🎺|instrumento musical|música|trompeta
+🪊|instrumento|jazz|metal|música|triste|movimiento de la vara|viento-metal
 🪗|acordeón|concertina|bandoneón|fuelle|instrumento musical|música|musical|teclado|viento
 🎸|guitarra|instrumento musical|música|rock
 🎹|instrumento musical|música|piano|teclado musical
-🎺|instrumento musical|música|trompeta
 🎻|instrumento musical|música|violín|orquesta
 🪕|banjo|banyo|cuerda|instrumento|música
 🥁|baquetas|música|tambor|banda|palitos
@@ -1261,8 +1268,9 @@
 📑|marcadores|pestañas de marcador|etiquetas separadoras|marcapáginas
 🔖|marcador|marcapáginas|etiqueta|señalador|separador
 🏷️|etiqueta
-💰|bolsa de dinero|bolsa de dólares|dinero|banco|cash|plata
 🪙|dinero|metal|moneda|oro|plata|tesoro|dólar|euro|riqueza
+💰|bolsa de dinero|bolsa de dólares|dinero|banco|cash|plata
+🪎|botín|dinero|joyas|objetos de valor|oro|piedras preciosas|plata|premio|riqueza|gemas
 💴|billete de banco|billete de yen|dinero|yen|banco|cash|efectivo
 💵|billete de banco|billete de dólar|dinero|dólar|banco|fajo de billetes|moneda
 💶|billete de banco|billete de euro|dinero|euro|banco|cash|fajo de billetes
@@ -1505,20 +1513,20 @@
 🆘|ayuda|símbolo de socorro|socorro|sos|auxilio|cuadrado socorro|botón sos
 🆙|arriba|botón up!|información|novedad|up|cuadrado novedad|nueva información|símbolo novedad|boton up!|marca
 🆚|botón vs|contra|frente a|versus|vs|cuadrado versus|símbolo contra|símbolo frente a|símbolo versus
-🈁|aquí|ideograma japonés para "aquí"|japonés|katakana|ココ
-🈂️|cortesía|ideograma japonés para "de cortesía"|japonés|katakana|"cargo por servicio"|botón|ideograma japonés para "cargo por servicio"|サ
-🈷️|cantidad mensual|ideograma japonés para "cantidad mensual"|japonés|kanji|"cantidad mensual" en japonés|mensual|botón|ideograma japonés de "cantidad mensual"|月
-🈶|de pago|ideograma japonés para "de pago"|japonés|kanji|"no gratis"|ideograma japonés para "no gratis"|有
-🈯|ideograma japonés para "reservado"|japonés|kanji|reservado|"reservado"|指
-🉐|ganga|ideograma japonés para "ganga"|japonés|kanji|oferta|"ganga"|得
-🈹|descuento|ideograma japonés para "descuento"|japonés|kanji|"descuento"|割
-🈚|gratis|ideograma japonés para "gratis"|japonés|kanji|"gratis"|無
-🈲|ideograma japonés para "prohibido"|japonés|kanji|prohibido|"prohibido"|禁
-🉑|aceptable|ideograma japonés para "aceptable"|japonés|kanji|"aceptable"|可
-🈸|aplicación|ideograma japonés para "aplicación"|japonés|kanji|"aplicación"|申
-🈴|aprobado|ideograma japonés para "aprobado"|japonés|kanji|"aprobado"|合
-🈳|ideograma japonés para "vacante"|japonés|kanji|vacante|"vacante"|空
-🈺|abierto|ideograma japonés para "abierto"|japonés|kanji|"abierto"|ideograma japones para "abierto"|営
+🈁|aquí|ideograma japonés para "aquí"|japonés|katakana
+🈂️|cortesía|ideograma japonés para "de cortesía"|japonés|katakana|"cargo por servicio"|botón|ideograma japonés para "cargo por servicio"
+🈷️|cantidad mensual|ideograma japonés para "cantidad mensual"|japonés|kanji|"cantidad mensual" en japonés|mensual|botón|ideograma japonés de "cantidad mensual"
+🈶|de pago|ideograma japonés para "de pago"|japonés|kanji|"no gratis"|ideograma japonés para "no gratis"
+🈯|ideograma japonés para "reservado"|japonés|kanji|reservado|"reservado"
+🉐|ganga|ideograma japonés para "ganga"|japonés|kanji|oferta|"ganga"
+🈹|descuento|ideograma japonés para "descuento"|japonés|kanji|"descuento"
+🈚|gratis|ideograma japonés para "gratis"|japonés|kanji|"gratis"
+🈲|ideograma japonés para "prohibido"|japonés|kanji|prohibido|"prohibido"
+🉑|aceptable|ideograma japonés para "aceptable"|japonés|kanji|"aceptable"
+🈸|aplicación|ideograma japonés para "aplicación"|japonés|kanji|"aplicación"
+🈴|aprobado|ideograma japonés para "aprobado"|japonés|kanji|"aprobado"
+🈳|ideograma japonés para "vacante"|japonés|kanji|vacante|"vacante"
+🈺|abierto|ideograma japonés para "abierto"|japonés|kanji|"abierto"|ideograma japones para "abierto"
 🈵|completo|ideograma japonés para "completo"|japonés|kanji|lleno|ideograma japonés para "sin vacantes"|"no vacante"|ideograma japonés para "no vacante"
 🔴|geometría|rojo|círculo rojo grande|geometria|punto|geométrico
 🟠|círculo|naranja|anaranjado
@@ -1610,6 +1618,7 @@
 🇨🇲|camerún
 🇨🇳|china
 🇨🇴|colombia
+🇨🇶|sark
 🇨🇷|costa rica
 🇨🇺|cuba
 🇨🇻|cabo verde

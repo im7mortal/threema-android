@@ -55,7 +55,6 @@ import ch.threema.common.HttpResponseException;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
 
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
-import static ch.threema.app.protocolsteps.ApplicationSetupStepsKt.runApplicationSetupSteps;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
@@ -302,7 +301,7 @@ public class WizardSafeRestoreActivity extends ThreemaAppCompatActivity implemen
 
             @Override
             public Boolean runInBackground() {
-                return runApplicationSetupSteps(ServiceManager.require());
+                return dependencies.getApplicationSetupSteps().run();
             }
 
             @Override
@@ -398,7 +397,7 @@ public class WizardSafeRestoreActivity extends ThreemaAppCompatActivity implemen
     }
 
     @Override
-    public void onYes(String tag, ThreemaSafeServerInfo serverInfo) {
+    public void onYes(String tag, @NonNull ThreemaSafeServerInfo serverInfo) {
         this.serverInfo = serverInfo;
     }
 

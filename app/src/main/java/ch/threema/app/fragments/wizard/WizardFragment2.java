@@ -18,11 +18,13 @@ import org.slf4j.Logger;
 import java.util.Objects;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import ch.threema.app.R;
 import ch.threema.app.activities.wizard.WizardBaseActivity;
 import ch.threema.android.textwatchers.SimpleTextWatcher;
 import ch.threema.app.utils.EditTextUtil;
 import ch.threema.app.utils.RuntimeUtil;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.domain.models.Nickname;
@@ -116,21 +118,22 @@ public class WizardFragment2 extends WizardFragment {
     }
 
     private void initValues() {
-        if (isResumed()) {
-            WizardFragment4.SettingsInterface callback = (WizardFragment4.SettingsInterface) requireActivity();
-            String nickname = callback.getNickname();
-            // If the nickname is longer than allowed, we increase the maximum length of the
-            // nickname edit text because in this case the nickname comes from an external MDM as
-            // there are no other possibilities to add such a long nickname.
-            // Note: This is necessary to prevent a crash when calling 'setSelection'.
-            // TODO(ANDR-3180): Consolidate nickname length
-            if (nickname != null && nickname.length() > Nickname.MAX_BYTE_LENGTH) {
-                nicknameText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(nickname.length())});
-            }
-            nicknameText.setText(nickname);
-            if (!isNullOrEmpty(nickname)) {
-                nicknameText.setSelection(nickname.length());
-            }
+        if (!isResumed()) {
+            return;
+        }
+        WizardFragment4.SettingsInterface callback = (WizardFragment4.SettingsInterface) requireActivity();
+        final @Nullable String nickname = callback.getNickname();
+        // If the nickname is longer than allowed, we increase the maximum length of the
+        // nickname edit text because in this case the nickname comes from an external MDM as
+        // there are no other possibilities to add such a long nickname.
+        // Note: This is necessary to prevent a crash when calling 'setSelection'.
+        // TODO(ANDR-3180): Consolidate nickname length
+        if (nickname != null && nickname.length() > Nickname.MAX_BYTE_LENGTH) {
+            nicknameText.setFilters(new InputFilter[]{new InputFilter.LengthFilter(nickname.length())});
+        }
+        nicknameText.setText(nickname);
+        if (!isNullOrEmpty(nickname)) {
+            nicknameText.setSelection(nickname.length());
         }
     }
 }

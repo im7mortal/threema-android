@@ -150,6 +150,7 @@
 😯|faccina|incredulo|omg|sbalordito|sorpresa|sorpreso|wow
 😲|cosa?|davvero|faccina|non ci credo|oddio|omg|scioccato|sorpresa|sorpreso|stupito
 😳|confuso|faccina arrossata|faccina con guance rosse|faccina con occhi aperti|guance rosse|imbarazzato|occhi
+🫪|ansia|panico|scioccato|sconvolto|sorpresa|vulnerabile
 🥺|faccina implorante|faccina sull’orlo delle lacrime|lacrime|occhi da cucciolo|occhioni|per favore|per piacere|supplicare|triste
 🥹|ammirazione|faccina con gli occhi umidi|fiero|gioia|gratitudine|grato|imbarazzato|lacrime|orgoglioso|per favore|piangere|resistere|sentimenti|trattenere|triste
 😦|bocca aperta|corrucciata|faccina imbronciata con bocca aperta|male|noo|paura|sorpresa|wow
@@ -220,6 +221,7 @@
 💋|bacio|impronta della bocca|labbra|romanticismo|romantico|rossetto|segno delle labbra|sexy
 💯|100|cento|d’accordo|massimo|punteggio pieno|punti|sicuro|tutto
 💢|arrabbiato|emozione|fumetto|rabbia|simbolo
+🫯|confusione|dibattito|disaccordo|discussione|lotta|rissa|zuffa
 💥|bomba|boom|collisione|emozione|esplodere|esplosione|fumetto|simbolo collisione
 💫|fumetto|stella cadente|stella con scia|vertiginoso|vorticoso
 💦|acqua|allenamento|fumetto|gocce|gocciolare|schizzo|sudata|sudato|sudore
@@ -452,6 +454,7 @@
 🧟‍♂️|morto vivente|zombie uomo
 🧟‍♀️|morto vivente|zombie donna
 🧌|fantasia|favola|fiaba|mostro|troll
+🫈|bigfoot|criptide|foresta|gigante|peloso|sasquatch|scimmione|yeti
 💆|centro estetico|estetista|faccia|mal di testa|massaggio facciale|persona che riceve un massaggio|relax|spa|testa
 💆‍♂️|centro estetico|mal di testa|massaggio al viso per uomo|persona|relax|spa|tensione|testa|uomo che riceve un massaggio|viso
 💆‍♀️|donna che riceve un massaggio|faccia|massaggio al viso per donna|viso
@@ -479,6 +482,7 @@
 🏃|correre|corsa|di corsa|gara|jogging|maratona|persona che corre|sport
 🏃‍♂️|correre|corsa|sport|uomo che corre
 🏃‍♀️|correre|corsa|di corsa|donna che corre|maratona|persona|sport|veloce
+🧑‍🩰|ballerina|ballerino|balletto
 💃|ballare|ballerina|ballo|donna che balla|flamenco|lavoro|olé|salsa|tango
 🕺|ballare|ballo|discoteca|lavoro|uomo che balla
 🕴️|abbigliamento|abito|business man|cravatta|giacca|lavoro|persona|uomo con completo che levita|uomo elegante che levita|vestito elegante
@@ -656,6 +660,7 @@
 🐳|animale|animali|balena che spruzza acqua|balenottera|cetaceo|mare|oceano|spruzzare
 🐋|animale|animali|balena|cetaceo|mare|oceano
 🐬|animale|cetaceo|delfino|mare|oceano|spiaggia
+🫍|animale|cetaceo|marino|oceano
 🦭|animale|foca|leone marino|mare|oceano|otaria
 🐟|animale|animali|mare|oceano|pesce|pesci|segno zodiacale dei pesci
 🐠|animale|animali|mare|oceano|pesce tropicale
@@ -853,6 +858,7 @@
 🧭|bussola|direzione|magnetica|navigazione|orientamento
 🏔️|cima|ghiacciaio|inverno|montagna innevata|paesaggio
 ⛰️|arrampicata|cima|montagna|vetta
+🛘|disastro|montagna|pericolo|rocce|smottamento|terremoto|valanga
 🌋|eruzione|etna|lava|natura|vesuvio|vulcano in eruzione
 🗻|fuji|giappone|montagna|monte|natura|paesaggio
 🏕️|campeggio|lago|montagna|tenda|vacanza
@@ -1198,10 +1204,11 @@
 🎧|ascoltare|auricolari|cuffie|intrattenimento|musica|suono
 📻|ascoltare la radio|musica|radio|stazioni radio
 🎷|blues|jazz|musica|sassofono|sax|strumento musicale|suonare
+🎺|banda|blues|concerto|gruppo|jazz|musica|strumento musicale|tromba|trombone
+🪊|coulisse|jazz|musica|ottone|strumento|tiro
 🪗|concertina|fisarmonica|musica|organetto|strumento musicale
 🎸|band|basso|chitarra|corde|elettrica|musica|rock|strumento musicale|suonare
 🎹|classica|comporre|jazz|musica|pianoforte|strumento musicale|suonare|tastiera
-🎺|banda|blues|concerto|gruppo|jazz|musica|strumento musicale|tromba|trombone
 🎻|musica|orchestra|strumento musicale|suonare|violino
 🪕|banjo|musica|strumento a corde
 🥁|bacchette|banda|musica|percussioni|tamburello|tamburo
@@ -1261,8 +1268,9 @@
 📑|etichette segnalibro|linguette|segnalibro|ufficio
 🔖|etichetta|leggere|lettura|libro|segnalibro
 🏷️|etichetta|identificativo|prezzo|talloncino
-💰|banca|borsa|contanti|denaro|dollari|oro|pagare|ricchezza|ricco|sacco per soldi|soldi|tesoro
 🪙|argento|denaro|dollaro|euro|metallo|moneta|oro|ricco|soldi|tesoro
+💰|banca|borsa|contanti|denaro|dollari|oro|pagare|ricchezza|ricco|sacco per soldi|soldi|tesoro
+🪎|argento|bottino|denaro|gemme|gioielli|oro|premio|ricchezza|valori
 💴|banca|banconota|denaro|giappone|soldi|valuta|yen
 💵|banca|banconota|banconote|contanti|denaro|dollaro|moneta|soldi|valuta
 💶|banca|banconota|cash|crisi|denaro|euro|millionario|soldi|valuta
@@ -1505,7 +1513,7 @@
 🆘|aiuto|pulsante sos|segnale di sos|simbolo di sos|simbolo sos|soccorsi|soccorso|sos
 🆙|alto|in alto|pulsante|simbolo up!|sù|tasto up!|up!
 🆚|contro|pulsante|simbolo contro|tasto|versus|vs
-🈁|giapponese|katakana|parola|pulsante|qui|simbolo|tabelloni|tasto|ココ
+🈁|giapponese|katakana|parola|pulsante|qui|simbolo|tabelloni|tasto
 🈂️|ideogramma giapponese di costo del servizio|ideogramma katakana sa|katakana|parola|sa
 🈷️|cinese|giapponese|ideogramma giapponese di importo mensile|luna|mese
 🈶|esistere|giapponese|ideogramma giapponese di a pagamento
@@ -1610,6 +1618,7 @@
 🇨🇲|camerun
 🇨🇳|cina
 🇨🇴|colombia
+🇨🇶|sark
 🇨🇷|costa rica
 🇨🇺|cuba
 🇨🇻|capo verde

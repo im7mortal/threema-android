@@ -282,6 +282,7 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
         return this.identityStore.getPrivateKey();
     }
 
+    @NonNull
     @Override
     public String getLinkedEmail() {
         String email = this.preferenceStore.getString(PreferenceStore.PREFS_LINKED_EMAIL);

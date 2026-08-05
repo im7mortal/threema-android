@@ -15,6 +15,7 @@ import ch.threema.common.bytes
 import ch.threema.data.datatypes.ContactNameFormat
 import ch.threema.data.repositories.EmojiReactionsRepository
 import ch.threema.domain.protocol.csp.messages.fs.ForwardSecurityMode
+import ch.threema.domain.types.MessageUid
 import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.DistributionListMessageModel
 import ch.threema.storage.models.MessageState
@@ -24,7 +25,6 @@ import java.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -37,28 +37,6 @@ class MessageDetailsViewModel(
     private val messageId: Int,
     private val messageType: String,
 ) : ViewModel() {
-    init {
-        viewModelScope.launch {
-            // TODO(ANDR-4681): Instead of collecting message events, it would be better if we could subscribe to changes
-            //  directly from the MessageModel class (which does not exist yet at the time of this writing)
-            globalEventFlows.messages
-                .mapNotNull { event ->
-                    when (event) {
-                        is MessageEvent.NewMessage -> null
-                        is MessageEvent.MessagesUpdated -> event.messages.find { it.uid == uiState.value.message.uid }
-                        is MessageEvent.MessageRemovedLocally -> event.message
-                        is MessageEvent.MessageEdited -> event.message
-                        is MessageEvent.MessageDeletedForAll -> event.message
-                    }
-                }
-                .filter { message ->
-                    message.uid == uiState.value.message.uid
-                }
-                .collect { message ->
-                    refreshMessage(message)
-                }
-        }
-    }
 
     private val _uiState: MutableStateFlow<ChatMessageDetailsUiState> = let {
         val message = messageService.getMessageModelFromId(messageId, messageType)
@@ -73,6 +51,28 @@ class MessageDetailsViewModel(
         )
     }
     val uiState: StateFlow<ChatMessageDetailsUiState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            // TODO(ANDR-4681): Instead of collecting message events, it would be better if we could subscribe to changes
+            //  directly from the MessageModel class (which does not exist yet at the time of this writing)
+            globalEventFlows
+                .messages
+                .mapNotNull { event ->
+                    val currentMessageUid: MessageUid = uiState.value.message.uid
+                    val messageFromEvent = when (event) {
+                        is MessageEvent.NewMessage -> null
+                        is MessageEvent.MessagesUpdated -> event.messages.find { it.uid == currentMessageUid }
+                        is MessageEvent.MessageRemovedLocally -> event.message
+                        is MessageEvent.MessageEdited -> event.message
+                        is MessageEvent.MessageDeletedForAll -> event.message
+                    }
+                    messageFromEvent?.takeIf { it.uid == currentMessageUid }
+                }.collect { message ->
+                    refreshMessage(message)
+                }
+        }
+    }
 
     private fun AbstractMessageModel.hasReactions(): Boolean =
         emojiReactionsRepository.safeGetReactionsByMessage(this).isNotEmpty()
@@ -165,9 +165,8 @@ fun AbstractMessageModel.toUiModel(contactNameFormat: ContactNameFormat) = Messa
     editedAt = this.editedAt,
     isDeleted = this.isDeleted,
     isOutbox = this.isOutbox,
-    deliveryIconRes = StateBitmapUtil.getInstance()?.getStateDrawable(this.state),
-    deliveryIconContentDescriptionRes = StateBitmapUtil.getInstance()
-        ?.getStateDescription(this.state),
+    deliveryIconRes = StateBitmapUtil.getInstance().getStateDrawable(this.state),
+    deliveryIconContentDescriptionRes = StateBitmapUtil.getInstance().getStateDescription(this.state),
     messageTimestampsUiModel = this.toMessageTimestampsUiModel(),
     messageDetailsUiModel = this.toMessageDetailsUiModel(),
     type = this.type,

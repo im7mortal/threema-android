@@ -150,6 +150,7 @@
 😯|fjes|overrasket|stum
 😲|fjes|overrasket|sjokkert|stum
 😳|fjes|rødmer
+🫪|angst|oppblåst|overrasket|panikk|sårbar|sjokkert
 🥺|bedende fjes|nåde|trygler|valpeøyne
 🥹|ååå|beundring|følelser|glede|gråte|rørt|stolt|takknemlig|tårer|trist
 😦|fjes|oppgitt|overrasket|sjokkert med åpen munn
@@ -220,6 +221,7 @@
 💋|kyssemerke|lepper|romantikk
 💯|100|full pott|hundre poeng|poeng
 💢|følelse|sinnesymbol|sint|tegneserie
+🫯|bråk|bryting|diskusjon|krangel|slagsmål|slåssing|slåsskamp|uenighet
 💥|følelse|kollisjon|krasj|smell|tegneserie
 💫|se stjerner|stjerner|svimmel|tegneserie
 💦|dråper|sprutende|svettedråper|tegneserie
@@ -452,6 +454,7 @@
 🧟‍♂️|mannlig zombie|udød|vandød
 🧟‍♀️|kvinnelig zombie|udød|vandød
 🧌|eventyr|fantasi|fantasy|monster|nettroll|troll
+🫈|bigfoot|gigant|hårete|kjempe|kryptid|skog|uhyre|vesen|villmann|yeti
 💆|ansiktsmassasje|anspent|avslapning|hodepine|massasje|person|skjønnhetssalong|terapi
 💆‍♂️|ansikt|avslapning|hodemassasje|mann som får ansiktsmassasje|massasje|velvære
 💆‍♀️|ansikt|avslapning|hodemassasje|kvinne som får ansiktsmassasje|massasje|velvære
@@ -479,6 +482,7 @@
 🏃|fart|fort|idrett|jogger|jogging|løp|maraton|person|rask|sport
 🏃‍♂️|jogge|løpe|mannlig løper|maraton
 🏃‍♀️|jogge|kvinnelig løper|løpe|maraton
+🧑‍🩰|ballett|danser
 💃|dansende kvinne|kvinne
 🕺|dansende mann|mann
 🕴️|business|dress|forretningsmann|mann|svevende mann i dress
@@ -656,6 +660,7 @@
 🐳|dyr|hval|sprutende hval|spruter
 🐋|dyr|hval
 🐬|delfin|dyr|flipper|hav|strand
+🫍|hav|hval|sjø
 🦭|dyr|hav|sel|sjøløve
 🐟|dyr|fiskene|stjernebilde|stjernetegn
 🐠|dyr|fisk|tropisk
@@ -853,6 +858,7 @@
 🧭|kompass|magnetisk|navigasjon|orientering
 🏔️|fjell|kaldt|snødekt fjell
 ⛰️|berg|fjell
+🛘|fare|fjell|jordskjelv|katastrofe|lavine|skred|steiner|steinsprang
 🌋|utbrudd|vulkanutbrudd
 🗻|fjell|fuji-fjellet
 🏕️|camping|telttur
@@ -1198,10 +1204,11 @@
 🎧|headset|hodetelefoner|øretelefoner|underholdning
 📻|radiosignaler|teknologi
 🎷|instrument|musikkinstrument|saksofon|sax
+🎺|instrument|musikkinstrument|trompet
+🪊|brass|instrument|jazz|messing|musikk|trekkbasun|trist|trombone
 🪗|accordeon|concertina|danseband|gammaldans|gammeldans|musikk|spell|spill|trekkspill
 🎸|gitar|instrument|musikkinstrument
 🎹|instrument|keyboard|musikkinstrument|piano|tangenter
-🎺|instrument|musikkinstrument|trompet
 🎻|fele|fiolin|instrument|musikkinstrument
 🪕|banjo|musikk|strengeinstrument
 🥁|musikk|trommestikker
@@ -1261,8 +1268,9 @@
 📑|bokmerkefane|faner|markør|merker
 🔖|bokmerke|merke
 🏷️|etikett|merke
-💰|dollar|penger|pengesekk|sekk
 🪙|dollar|euro|gull|kroner|metall|mynt|penger|rikdom|skatt|sølv
+💰|dollar|penger|pengesekk|sekk
+🪎|edelstener|gull|juveler|penger|premie|rikdom|skattkiste|sølv|velstand|verdisaker
 💴|penger|seddel|yenseddel
 💵|dollarseddel|penger|seddel
 💶|euroseddel|penger|seddel
@@ -1610,6 +1618,7 @@
 🇨🇲|kamerun
 🇨🇳|kina
 🇨🇴|colombia
+🇨🇶|sark
 🇨🇷|costa rica
 🇨🇺|cuba
 🇨🇻|kapp verde
@@ -1812,4 +1821,3 @@
 🏴󠁧󠁢󠁥󠁮󠁧󠁿|england
 🏴󠁧󠁢󠁳󠁣󠁴󠁿|skottland
 🏴󠁧󠁢󠁷󠁬󠁳󠁿|wales
-🇨🇶|sark

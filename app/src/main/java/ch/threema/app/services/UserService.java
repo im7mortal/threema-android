@@ -62,6 +62,7 @@ public interface UserService {
 
     byte[] getPrivateKey();
 
+    @NonNull
     String getLinkedEmail();
 
     String getLinkedMobileE164();

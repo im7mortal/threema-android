@@ -13,7 +13,6 @@ import ch.threema.android.buildPeriodicWorkRequest
 import ch.threema.android.setConstraints
 import ch.threema.android.setInitialDelay
 import ch.threema.app.di.awaitAppFullyReadyWithTimeout
-import ch.threema.app.managers.ServiceManager
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.PollingHelper
@@ -122,18 +121,7 @@ class ContactUpdateWorker(
 
     companion object {
         @WorkerThread
-        fun sendFeatureMaskAndUpdateContacts(serviceManager: ServiceManager) =
-            sendFeatureMaskAndUpdateContacts(
-                serviceManager.modelRepositories.contacts,
-                serviceManager.contactService,
-                serviceManager.apiConnector,
-                serviceManager.userService,
-                serviceManager.preferenceService,
-                pollingHelper = null,
-            )
-
-        @WorkerThread
-        private fun sendFeatureMaskAndUpdateContacts(
+        fun sendFeatureMaskAndUpdateContacts(
             contactModelRepository: ContactModelRepository,
             contactService: ContactService,
             apiConnector: APIConnector,
