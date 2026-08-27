@@ -1,0 +1,105 @@
+name: Build FOSS APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      flavor:
+        description: "FOSS flavor to build"
+        type: choice
+        required: true
+        default: libre
+        options:
+          - libre
+          - none
+      universal_apk:
+        description: "Also build a universal APK"
+        type: boolean
+        required: true
+        default: false
+      publish_release:
+        description: "Publish APKs as a GitHub Release (long-term download)"
+        type: boolean
+        required: true
+        default: false
+      release_tag:
+        description: "Optional release tag (used when publish_release=true)"
+        type: string
+        required: false
+        default: ""
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    env:
+      FLAVOR: ${{ inputs.flavor }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: sdkmanager "ndk;28.2.13676358"
+
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Set up Rust toolchain
+        run: |
+          TOOLCHAIN=$(grep channel domain/libthreema/rust-toolchain.toml | cut -d'"' -f2)
+          rustup toolchain install "$TOOLCHAIN"
+          rustup target add --toolchain "$TOOLCHAIN" armv7-linux-androideabi aarch64-linux-android i686-linux-android x86_64-linux-android
+
+      - name: Build APK
+        run: |
+          set -euo pipefail
+          task_flavor="${FLAVOR^}"
+          gradle_flags=""
+          if [ "${{ inputs.universal_apk }}" = "true" ]; then
+            gradle_flags="-PbuildUniversalApk"
+          fi
+          ./gradlew ":app:assemble${task_flavor}Debug" $gradle_flags --stacktrace
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-${{ inputs.flavor }}-debug-${{ github.run_number }}
+          path: app/build/outputs/apk/${{ inputs.flavor }}/debug/*.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish GitHub Release
+        if: ${{ inputs.publish_release }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.release_tag }}"
+          if [ -z "$tag" ]; then
+            tag="foss-${FLAVOR}-$(date -u +%Y%m%d-%H%M%S)"
+          fi
+
+          title="FOSS ${FLAVOR} debug build ${GITHUB_RUN_NUMBER}"
+          notes="Automated build from ${GITHUB_SHA}"
+          apks=(app/build/outputs/apk/${FLAVOR}/debug/*.apk)
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "${apks[@]}" --clobber
+          else
+            gh release create "$tag" "${apks[@]}" --title "$title" --notes "$notes" --latest=false
+          fi
+
