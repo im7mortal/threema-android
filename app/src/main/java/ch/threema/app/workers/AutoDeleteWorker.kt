@@ -55,32 +55,7 @@ class AutoDeleteWorker(
     private val globalEventBuses: GlobalEventBuses by inject()
 
     override suspend fun doWork(): Result {
-        logger.info("Start auto delete work")
-        awaitAppFullyReadyWithTimeout(20.seconds)
-            ?: return Result.retry()
-
-        val graceDays: Int = inputData.getInt(
-            EXTRA_GRACE_DAYS,
-            ProtocolDefines.AUTO_DELETE_KEEP_MESSAGES_DAYS_OFF_VALUE,
-        )
-        if (graceDays <= ProtocolDefines.AUTO_DELETE_KEEP_MESSAGES_DAYS_OFF_VALUE) {
-            logger.info("Stopping auto delete with graceDays = {}", graceDays)
-            return Result.success()
-        }
-
-        logger.info("Performing auto delete with graceDays = {}", graceDays)
-
-        var numDeletedMessages = 0
-        val conversationModels = conversationService.getAll(true)
-        conversationModels.forEach {
-            numDeletedMessages += deleteMessagesThatExceededGraceTime(it, graceDays)
-        }
-
-        if (numDeletedMessages > 0) {
-            globalEventBuses.conversations.emit(ConversationEvent.AllConversationsUpdated)
-        }
-        logger.info("Auto delete finished. Number of cleared messages =  {}", numDeletedMessages)
-
+        logger.info("Auto delete disabled, skipping cleanup work")
         return Result.success()
     }
 
