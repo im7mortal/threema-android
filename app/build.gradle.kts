@@ -221,6 +221,31 @@ android {
         create("none") {
             setSentryConfig(null)
         }
+        create("localdev") {
+            versionName = "${appVersion}d$betaSuffix"
+            applicationId = "ch.threema.app.localdev"
+            testApplicationId = "$applicationId.test"
+            setProductNames(appName = "Threema Local Dev")
+            stringResValue("package_name", applicationId!!)
+            stringResValue("contacts_mime_type", "vnd.android.cursor.item/vnd.$applicationId.profile")
+            stringResValue("call_mime_type", "vnd.android.cursor.item/vnd.$applicationId.call")
+            stringBuildConfigField("MEDIA_PATH", "ThreemaLocalDev")
+            stringBuildConfigField("LOG_TAG", "3madev")
+
+            // Keep deep links isolated so local builds do not steal production links.
+            stringBuildConfigField("uriScheme", "threema-localdev")
+            stringBuildConfigField("actionUrl", "localdev.threema.ch")
+            stringBuildConfigField("contactActionUrl", "localdev.threema.id")
+
+            with(manifestPlaceholders) {
+                put("uriScheme", "threema-localdev")
+                put("actionUrl", "localdev.threema.ch")
+                put("contactActionUrl", "localdev.threema.id")
+                put("callMimeType", "vnd.android.cursor.item/vnd.$applicationId.call")
+            }
+
+            setSentryConfig(null)
+        }
         create("store_google") {
             setSentryConfig(SentryConfig.PRODUCTION)
         }
@@ -586,6 +611,10 @@ android {
         // Based on Google services
         getByName("none") {
             java.srcDir("src/google_services_based/java")
+        }
+        getByName("localdev") {
+            java.srcDir("src/google_services_based/java")
+            java.srcDir("src/store_google/java")
         }
         getByName("store_google") {
             java.srcDir("src/google_services_based/java")
@@ -985,6 +1014,7 @@ dependencies {
 
     // Google Play Services and related libraries
     "noneImplementation"(libs.playServices.base)
+    "localdevImplementation"(libs.playServices.base)
     "store_googleImplementation"(libs.playServices.base)
     "store_google_workImplementation"(libs.playServices.base)
     "store_threemaImplementation"(libs.playServices.base)
@@ -999,6 +1029,7 @@ dependencies {
         exclude(group = "com.google.firebase", module = "firebase-measurement-connector")
     }
     "noneImplementation"(libs.firebase.messaging) { excludeFirebaseDependencies() }
+    "localdevImplementation"(libs.firebase.messaging) { excludeFirebaseDependencies() }
     "store_googleImplementation"(libs.firebase.messaging) { excludeFirebaseDependencies() }
     "store_google_workImplementation"(libs.firebase.messaging) { excludeFirebaseDependencies() }
     "store_threemaImplementation"(libs.firebase.messaging) { excludeFirebaseDependencies() }
@@ -1009,6 +1040,7 @@ dependencies {
 
     // Google Assistant Voice Action verification library
     "noneImplementation"(group = "", name = "libgsaverification-client", ext = "aar")
+    "localdevImplementation"(group = "", name = "libgsaverification-client", ext = "aar")
     "store_googleImplementation"(group = "", name = "libgsaverification-client", ext = "aar")
     "store_google_workImplementation"(group = "", name = "libgsaverification-client", ext = "aar")
     "onpremImplementation"(group = "", name = "libgsaverification-client", ext = "aar")
@@ -1019,6 +1051,7 @@ dependencies {
 
     // Maplibre (may have transitive dependencies on Google location services)
     "noneImplementation"(libs.maplibre)
+    "localdevImplementation"(libs.maplibre)
     "store_googleImplementation"(libs.maplibre)
     "store_google_workImplementation"(libs.maplibre)
     "store_threemaImplementation"(libs.maplibre)
