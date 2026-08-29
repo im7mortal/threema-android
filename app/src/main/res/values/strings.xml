@@ -1590,6 +1590,10 @@
     <!-- Label on button to dismiss/hide a warning -->
     <string name="problemsolver_dismiss">Dismiss</string>
     <string name="prefs_advanced_options">Advanced settings</string>
+    <string name="prefs_lab">Lab</string>
+    <string name="prefs_title_message_deletion_disabled">Ignore message deletions</string>
+    <string name="prefs_sum_message_deletion_disabled_on">Keep received messages even if the sender deletes them. Auto-delete cleanup is also disabled.</string>
+    <string name="prefs_sum_message_deletion_disabled_off">Allow message deletions and auto-delete cleanup.</string>
     <string name="push_service">Push service</string>
     <string name="edit_and_send">Edit and send</string>
     <string name="media_gallery_animated_webps">Animated WebPs</string>

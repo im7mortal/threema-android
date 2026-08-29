@@ -18,7 +18,17 @@ fun runCommonDeleteMessageReceiveSteps(
     messageId: Long,
     receiver: MessageReceiver<*>,
     messageService: MessageService,
+    messageDeletionDisabled: Boolean,
 ): AbstractMessageModel? {
+    if (messageDeletionDisabled) {
+        logger.info(
+            "Delete Message: deletion disabled, ignoring delete request for message {} from {}",
+            MessageId(messageId),
+            deleteMessageSenderIdentity,
+        )
+        return null
+    }
+
     // Lookup the message with `message_id` originally sent by the sender within
     //  the associated conversation and let `message` be the result.
     val apiMessageId = MessageId(messageId).toString()

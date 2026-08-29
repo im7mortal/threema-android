@@ -44,6 +44,7 @@ class IncomingContactDeleteMessageTask(
             messageId = message.data.messageId,
             receiver = receiver,
             messageService = messageService,
+            messageDeletionDisabled = serviceManager.preferenceService.isMessageDeletionDisabled(),
         )
             ?: return ReceiveStepsResult.DISCARD
 

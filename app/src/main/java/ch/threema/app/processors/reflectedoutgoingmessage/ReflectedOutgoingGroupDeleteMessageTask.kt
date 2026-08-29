@@ -17,6 +17,7 @@ internal class ReflectedOutgoingGroupDeleteMessageTask(
 ) {
     private val messageService by lazy { serviceManager.messageService }
     private val identityStore by lazy { serviceManager.identityStore }
+    private val messageDeletionDisabled = serviceManager.preferenceService.isMessageDeletionDisabled()
 
     override fun processOutgoingMessage() {
         val myIdentity = identityStore.getIdentityString()
@@ -30,6 +31,7 @@ internal class ReflectedOutgoingGroupDeleteMessageTask(
             messageId = message.data.messageId,
             receiver = messageReceiver,
             messageService = messageService,
+            messageDeletionDisabled = messageDeletionDisabled,
         )?.let { validatedMessageModelToDelete ->
             messageService.deleteMessageContentsAndRelatedData(
                 validatedMessageModelToDelete,

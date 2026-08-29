@@ -967,6 +967,13 @@ class PreferenceServiceImpl(
         return AutoDeleteUtil.validateKeepMessageDays(autoDeleteDays)
     }
 
+    override fun setMessageDeletionDisabled(disabled: Boolean) {
+        preferenceStore.save(getKeyName(R.string.preferences__message_deletion_disabled), disabled)
+    }
+
+    override fun isMessageDeletionDisabled(): Boolean =
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__message_deletion_disabled), false)
+
     override fun getMediaGalleryContentTypes(): BooleanArray {
         val contentTypes = BooleanArray(SELECTABLE_CONTENT_TYPES.size) { true }
         preferenceStore.getString(getKeyName(R.string.preferences__media_gallery_content_types))
