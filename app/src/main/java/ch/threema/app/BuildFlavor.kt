@@ -14,6 +14,7 @@ sealed class BuildFlavor(
         val current: BuildFlavor by lazy {
             when (BuildConfig.FLAVOR) {
                 None.gradleName -> None
+                LocalDev.gradleName -> LocalDev
                 StoreGoogle.gradleName -> StoreGoogle
                 StoreThreema.gradleName -> StoreThreema
                 StoreGoogleWork.gradleName -> StoreGoogleWork
@@ -63,6 +64,14 @@ sealed class BuildFlavor(
         licenseType = LicenseType.NONE,
         buildEnvironment = BuildEnvironment.LIVE,
         displayName = "DEV",
+        desktopClientFlavor = DesktopClientFlavor.Consumer,
+    )
+
+    data object LocalDev : BuildFlavor(
+        gradleName = "localdev",
+        licenseType = LicenseType.SERIAL,
+        buildEnvironment = BuildEnvironment.LIVE,
+        displayName = "Local Dev",
         desktopClientFlavor = DesktopClientFlavor.Consumer,
     )
 
