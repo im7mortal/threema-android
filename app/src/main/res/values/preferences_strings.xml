@@ -228,6 +228,7 @@
     <string name="preferences__backup_warning_dismissed_time" translatable="false">pref_backup_warning_dismissed_time</string>
     <string name="preferences__starred_messages_sort_order" translatable="false">pref_starred_messages_sort_order</string>
     <string name="preferences__auto_delete_days" translatable="false">pref_auto_delete_days</string>
+    <string name="preferences__message_deletion_disabled" translatable="false">pref_message_deletion_disabled</string>
     <string name="preferences__ignore_bluetooth_permission_request" translatable="false">pref_ignore_bluetooth_permission_request</string>
     <string name="preferences__grant_bluetooth_permission" translatable="false">pref_grant_bluetooth_permission</string>
     <string name="preferences__media_gallery_content_types" translatable="false">pref_media_gallery_content_types</string>

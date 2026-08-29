@@ -48,6 +48,7 @@ class AutoDeleteWorker(
     workerParameters: WorkerParameters,
 ) : CoroutineWorker(context, workerParameters), KoinComponent {
 
+    private val preferenceService: PreferenceService by inject()
     private val conversationService: ConversationService by inject()
     private val messageService: MessageService by inject()
     private val fileService: FileService by inject()
@@ -56,6 +57,11 @@ class AutoDeleteWorker(
 
     override suspend fun doWork(): Result {
         logger.info("Start auto delete work")
+        if (preferenceService.isMessageDeletionDisabled()) {
+            logger.info("Auto delete disabled by lab preference, skipping cleanup work")
+            return Result.success()
+        }
+
         awaitAppFullyReadyWithTimeout(20.seconds)
             ?: return Result.retry()
 

@@ -122,6 +122,18 @@
             android:title="Contacts Diagnostics" />
     </PreferenceCategory>
     <PreferenceCategory
+        android:key="pref_key_lab"
+        android:title="@string/prefs_lab">
+        <CheckBoxPreference
+            android:defaultValue="false"
+            android:disableDependentsState="true"
+            android:key="@string/preferences__message_deletion_disabled"
+            android:summaryOff="@string/prefs_sum_message_deletion_disabled_off"
+            android:summaryOn="@string/prefs_sum_message_deletion_disabled_on"
+            android:title="@string/prefs_title_message_deletion_disabled"
+            android:widgetLayout="@layout/preference_switch_layout" />
+    </PreferenceCategory>
+    <PreferenceCategory
         android:key="pref_key_reset"
         android:title="@string/prefs_header_reset">
         <Preference

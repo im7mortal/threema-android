@@ -522,6 +522,10 @@ interface PreferenceService {
 
     fun getAutoDeleteDays(): Int
 
+    fun setMessageDeletionDisabled(disabled: Boolean)
+
+    fun isMessageDeletionDisabled(): Boolean
+
     fun getMediaGalleryContentTypes(): BooleanArray
 
     fun setMediaGalleryContentTypes(contentTypes: BooleanArray)
