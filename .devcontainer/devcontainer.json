@@ -1,0 +1,37 @@
+{
+  "name": "threema-android",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": false,
+  "runArgs": [
+    "--group-add=plugdev",
+    "--device-cgroup-rule='c 189:* rmw'"
+  ],
+  "mounts": [
+    "source=/dev/bus/usb,target=/dev/bus/usb,type=bind",
+    "source=/run/udev,target=/run/udev,type=bind,readonly",
+    "source=threema-android-gradle,target=/home/vscode/.gradle,type=volume",
+    "source=threema-android-adb,target=/home/vscode/.android,type=volume"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "vscjava.vscode-java-pack",
+        "fwcd.kotlin",
+        "rust-lang.rust-analyzer",
+        "ms-androidtools.vscode-android"
+      ]
+    }
+  },
+  "containerEnv": {
+    "ANDROID_SDK_ROOT": "/opt/android-sdk",
+    "ANDROID_HOME": "/opt/android-sdk",
+    "ANDROID_NDK_ROOT": "/opt/android-sdk/ndk/28.2.13676358"
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "postStartCommand": "bash -lc 'adb start-server >/dev/null 2>&1 || true; printf \"ADB (inside container): adb devices -l\\nBuild APK: ./gradlew assembleStore_googleDebug\\nInstrumented tests: ./gradlew connectedNoneDebugAndroidTest\\n\"'"
+}
