@@ -22,3 +22,30 @@ reproduce/
 **/.DS_Store
 .kotlin
 /app/lint-report.xml
+# Ignore build outputs in all modules and nested projects
+**/build/
+**/build/*
+/.gradle-user
+# Local Gradle home / cache directories (created during local dev or CI)
+.gradle-home/
+.gradle-user-home/
+**/.gradle/
+/scripts/local-build-debug.sh
+/scripts/rebase-and-resign.sh
+/scripts/sign-test.sh
+/scripts/verify-signing.sh
+/sign-test/app/src/main/AndroidManifest.xml
+/sign-test/app/build.gradle.kts
+/sign-test/gradle/wrapper/gradle-wrapper.jar
+/sign-test/gradle/wrapper/gradle-wrapper.properties
+/sign-test/gradle/libs.versions.toml
+/sign-test/build.gradle.kts
+/sign-test/gradle.properties
+/sign-test/gradlew
+/sign-test/settings.gradle.kts
+/ai_token_gh
+/ci-debug.keystore
+/ci-debug.keystore.b64
+/github-actions-secrets.env
+/resign-once.sh
+/.gradle-local/
