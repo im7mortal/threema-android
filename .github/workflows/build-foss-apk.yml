@@ -1,0 +1,192 @@
+name: Build Libre APK
+
+on:
+  push:
+    branches:
+      - main-release
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: Libre-apk
+    concurrency:
+      group: build-foss-apk-${{ github.ref }}
+      cancel-in-progress: true
+    permissions:
+      contents: write
+
+    env:
+      FLAVOR: libre
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android NDK
+        run: sdkmanager "ndk;28.2.13676358"
+
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Validate signing secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for key in \
+            ANDROID_KEYSTORE_BASE64 \
+            ANDROID_STORE_PASSWORD \
+            ANDROID_KEY_ALIAS \
+            ANDROID_KEY_PASSWORD; do
+            if [ -z "${!key:-}" ]; then
+              echo "Missing required secret: $key" >&2
+              exit 1
+            fi
+          done
+
+      - name: Install stable debug keystore
+        run: |
+          set -euo pipefail
+          # Must match buildSrc findKeystore(projectDir, "debug") -> <repo>/../keystore
+          keystore_dir="${GITHUB_WORKSPACE}/../keystore"
+          mkdir -p "$keystore_dir"
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$keystore_dir/debug.keystore"
+          cat > "$keystore_dir/debug.properties" <<EOF
+          storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
+
+      - name: Set up Rust toolchain
+        run: |
+          TOOLCHAIN=$(grep channel domain/libthreema/rust-toolchain.toml | cut -d'"' -f2)
+          rustup toolchain install "$TOOLCHAIN"
+          rustup target add --toolchain "$TOOLCHAIN" armv7-linux-androideabi aarch64-linux-android i686-linux-android x86_64-linux-android
+
+      - name: Build APK
+        run: |
+          set -euo pipefail
+          task_flavor="${FLAVOR^}"
+          # No -PbuildUniversalApk flag: keep ABI-split APKs only.
+          ./gradlew ":app:assemble${task_flavor}Debug" --stacktrace
+
+      - name: Generate APK sidecar files
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          apksigner_bin=$(command -v apksigner || true)
+          if [ -z "$apksigner_bin" ]; then
+            apksigner_bin=$(find "${ANDROID_SDK_ROOT:?}/build-tools" -name apksigner -type f | sort -V | tail -n1)
+          fi
+          if [ -z "$apksigner_bin" ] || [ ! -x "$apksigner_bin" ]; then
+            echo "Unable to locate apksigner" >&2
+            exit 1
+          fi
+
+          keystore_dir="${GITHUB_WORKSPACE}/../keystore"
+          tmp_dir=$(mktemp -d)
+          trap 'rm -rf "$tmp_dir"' EXIT
+
+          keytool -importkeystore -noprompt \
+            -srckeystore "$keystore_dir/debug.keystore" \
+            -srcstoretype PKCS12 \
+            -srcstorepass "$STORE_PASSWORD" \
+            -srcalias "$KEY_ALIAS" \
+            -srckeypass "$KEY_PASSWORD" \
+            -destkeystore "$tmp_dir/signing.p12" \
+            -deststoretype PKCS12 \
+            -deststorepass "$STORE_PASSWORD" \
+            -destkeypass "$KEY_PASSWORD" \
+            -destalias "$KEY_ALIAS" >/dev/null
+
+          openssl pkcs12 -in "$tmp_dir/signing.p12" \
+            -passin "pass:${STORE_PASSWORD}" \
+            -nocerts -nodes \
+            -out "$tmp_dir/signing-key.pem" >/dev/null 2>&1
+
+          for apk in app/build/outputs/apk/${FLAVOR}/debug/*.apk; do
+            tmp_apk="${apk%.apk}.v4tmp.apk"
+
+            # Re-sign with the stable CI key so a v4 sidecar (.idsig) is emitted.
+            "$apksigner_bin" sign \
+              --ks "$keystore_dir/debug.keystore" \
+              --ks-pass "pass:${STORE_PASSWORD}" \
+              --ks-key-alias "$KEY_ALIAS" \
+              --key-pass "pass:${KEY_PASSWORD}" \
+              --v4-signing-enabled true \
+              --out "$tmp_apk" \
+              "$apk"
+
+            mv "$tmp_apk" "$apk"
+            if [ -f "${tmp_apk}.idsig" ]; then
+              mv "${tmp_apk}.idsig" "${apk}.idsig"
+            elif [ ! -f "${apk}.idsig" ]; then
+              echo "Expected .idsig sidecar not produced for $apk" >&2
+              exit 1
+            fi
+
+            sha256sum "$apk" | awk '{print $1}' > "${apk}.sha256"
+            openssl dgst -sha256 -sign "$tmp_dir/signing-key.pem" \
+              -out "${apk}.sha256.sig" \
+              "${apk}.sha256"
+          done
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: apk-${{ env.FLAVOR }}-debug-${{ github.run_number }}
+          path: |
+            app/build/outputs/apk/${{ env.FLAVOR }}/debug/*.apk
+            app/build/outputs/apk/${{ env.FLAVOR }}/debug/*.apk.idsig
+            app/build/outputs/apk/${{ env.FLAVOR }}/debug/*.apk.sha256
+            app/build/outputs/apk/${{ env.FLAVOR }}/debug/*.apk.sha256.sig
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="ci-${FLAVOR}-$(date -u +%Y%m%d-%H%M%S)-r${GITHUB_RUN_NUMBER}"
+
+          title="CI ${FLAVOR} debug build ${GITHUB_RUN_NUMBER}"
+          notes="Automated build from ${GITHUB_SHA}"
+          shopt -s nullglob
+          assets=(
+            app/build/outputs/apk/${FLAVOR}/debug/*.apk
+            app/build/outputs/apk/${FLAVOR}/debug/*.apk.idsig
+            app/build/outputs/apk/${FLAVOR}/debug/*.apk.sha256
+            app/build/outputs/apk/${FLAVOR}/debug/*.apk.sha256.sig
+          )
+          if [ ${#assets[@]} -eq 0 ]; then
+            echo "No release assets found" >&2
+            exit 1
+          fi
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "${assets[@]}" --clobber
+          else
+            gh release create "$tag" "${assets[@]}" --title "$title" --notes "$notes"
+          fi
+
+
