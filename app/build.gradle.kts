@@ -525,7 +525,7 @@ android {
         keystores["debug"]
             ?.let { keystore ->
                 getByName("debug") {
-                    storeFile = keystore.storeFile
+                    apply(keystore)
                 }
             }
             ?: run {
