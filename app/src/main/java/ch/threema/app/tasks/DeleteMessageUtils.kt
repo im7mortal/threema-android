@@ -22,11 +22,10 @@ fun runCommonDeleteMessageReceiveSteps(
 ): AbstractMessageModel? {
     if (messageDeletionDisabled) {
         logger.info(
-            "Delete Message: deletion disabled, ignoring delete request for message {} from {}",
+            "Delete Message: deletion disabled, preserving message payload and only updating metadata for message {} from {}",
             MessageId(messageId),
             deleteMessageSenderIdentity,
         )
-        return null
     }
 
     // Lookup the message with `message_id` originally sent by the sender within

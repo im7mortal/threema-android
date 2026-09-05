@@ -390,7 +390,7 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
                 }
             } else {
                 boolean o = m.isOutbox();
-                if (m.isDeleted()) {
+                if (shouldShowDeletedPlaceholder(m)) {
                     return o ? TYPE_DELETED_SEND : TYPE_DELETED_RECV;
                 }
                 switch (m.getType()) {
@@ -629,6 +629,9 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
             decorator.setFilter(convListFilter.getFilterString());
         }
         decorator.decorate(holder, getContext(), position);
+        if (isUserMessage(itemType) && holder.messageBlockView != null) {
+            applyDeletedMessageBorder(holder, messageModel);
+        }
         holder.itemType = itemType;
 
         return itemView;
@@ -788,6 +791,21 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
             itemType != TYPE_FORWARD_SECURITY_STATUS);
     }
 
+    private boolean shouldShowDeletedPlaceholder(@NonNull AbstractMessageModel messageModel) {
+        return messageModel.isDeleted() && messageModel.getBody() == null && messageModel.getCaption() == null;
+    }
+
+    private void applyDeletedMessageBorder(@NonNull ComposeMessageHolder holder, @NonNull AbstractMessageModel messageModel) {
+        if (!messageModel.isDeleted() || shouldShowDeletedPlaceholder(messageModel)) {
+            holder.messageBlockView.setStrokeWidth(0);
+            return;
+        }
+        final int borderColor = ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorError);
+        final int borderWidth = Math.round(2f * getContext().getResources().getDisplayMetrics().density);
+        holder.messageBlockView.setStrokeColor(borderColor);
+        holder.messageBlockView.setStrokeWidth(borderWidth);
+    }
+
     public class ConversationListFilter extends Filter {
         @Nullable
         private String filterString = null;
@@ -872,7 +890,7 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
                 } else {
                     // filtering of matching messages by content
                     for (AbstractMessageModel messageModel : values) {
-                        if (messageModel.isDeleted()) {
+                        if (shouldShowDeletedPlaceholder(messageModel)) {
                             position++;
                             continue;
                         }

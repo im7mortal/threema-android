@@ -147,7 +147,7 @@ public class QuoteUtil {
             messageReceiver
         );
 
-        if (quotedMessageModel != null && !quotedMessageModel.isDeleted()) {
+        if (quotedMessageModel != null && (!quotedMessageModel.isDeleted() || quotedMessageModel.getBody() != null || quotedMessageModel.getCaption() != null)) {
             boolean receiverMatch = false;
             switch (messageReceiver.getType()) {
                 case Type_CONTACT:

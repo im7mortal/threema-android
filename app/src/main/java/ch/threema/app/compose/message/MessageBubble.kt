@@ -6,6 +6,7 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.annotation.StyleRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,6 +47,7 @@ fun MessageBubble(
     text: String,
     @StyleRes textAppearanceRes: Int = R.style.Threema_Bubble_Text_Body,
     messageBodyAlpha: Float = 1f,
+    isDeleted: Boolean = false,
     isOutbox: Boolean,
     linkifyListener: LinkifyUtil.LinkifyListener,
     shouldMarkupText: Boolean = true,
@@ -67,6 +69,17 @@ fun MessageBubble(
     }
     Column(
         modifier = modifier
+            .then(
+                if (isDeleted) {
+                    Modifier.border(
+                        width = 2.dp,
+                        color = colorReferenceResource(android.R.attr.colorError),
+                        shape = RoundedCornerShape(16.dp),
+                    )
+                } else {
+                    Modifier
+                }
+            )
             .background(
                 color = bubbleColor,
                 shape = RoundedCornerShape(16.dp),
@@ -101,7 +114,7 @@ fun CompleteMessageBubble(
     textSelectionCallback: CustomTextSelectionCallback? = null,
 ) {
     val cdMessage = stringResource(R.string.cd_message)
-    if (message.isDeleted) {
+    if (message.shouldShowDeletedPlaceholder) {
         DeletedMessageBubble(
             message.isOutbox,
             message.createdAt,
@@ -124,6 +137,7 @@ fun CompleteMessageBubble(
             },
             text = message.text.takeIf(String::isNotBlank)
                 ?: stringResource(R.string.edit_history_file_no_caption),
+            isDeleted = message.isDeleted && !message.shouldShowDeletedPlaceholder,
             isOutbox = message.isOutbox,
             linkifyListener = linkifyListener,
             shouldMarkupText = shouldMarkupText,

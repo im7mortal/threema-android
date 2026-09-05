@@ -125,7 +125,11 @@ class MessageUpdateHandler @AnyThread constructor(
         // split deleted messages to dispatch with different mode
         modifiedMessageModels
             .groupBy { message ->
-                if (message.isDeleted) Protocol.ARGUMENT_MODE_REMOVED else Protocol.ARGUMENT_MODE_MODIFIED
+                if (message.isDeleted && message.body == null && message.caption == null) {
+                    Protocol.ARGUMENT_MODE_REMOVED
+                } else {
+                    Protocol.ARGUMENT_MODE_MODIFIED
+                }
             }
             .forEach { (mode: String, modifiedMessages: List<AbstractMessageModel>) ->
                 dispatch(modifiedMessages, mode)

@@ -742,9 +742,9 @@ private fun SecondLineMessage(
     val latestMessagePreview: String = remember(
         key1 = latestMessageViewElement?.text,
         key2 = latestMessageViewElement?.placeholder,
-        key3 = latestMessageData.isDeleted,
+        key3 = latestMessageData.shouldShowDeletedPlaceholder,
     ) {
-        if (latestMessageData.isDeleted) {
+        if (latestMessageData.shouldShowDeletedPlaceholder) {
             context.getString(R.string.message_was_deleted)
         } else {
             latestMessageViewElement?.text
@@ -807,18 +807,18 @@ private fun SecondLineMessage(
 
         val fontWeightMessagePreview: FontWeight =
             when {
-                latestMessageData.isDeleted -> FontWeight.Normal
+                latestMessageData.shouldShowDeletedPlaceholder -> FontWeight.Normal
                 unreadState != null -> FontWeight.SemiBold
                 else -> FontWeight.Normal
             }
         val fontStyleMessagePreview: FontStyle =
-            if (latestMessageData.isDeleted) {
+            if (latestMessageData.shouldShowDeletedPlaceholder) {
                 FontStyle.Italic
             } else {
                 FontStyle.Normal
             }
         val textAlphaMessagePreview: Float =
-            if (latestMessageData.isDeleted) {
+            if (latestMessageData.shouldShowDeletedPlaceholder) {
                 0.6f
             } else {
                 1.0f
@@ -926,7 +926,7 @@ private fun ConversationUiModel.LatestMessageData.toMessageViewElement(
     messageViewElementFactory: MessageViewElementFactory,
     contactNameFormat: ContactNameFormat,
 ): MessageViewElement? {
-    if (isDeleted) {
+    if (shouldShowDeletedPlaceholder) {
         return null
     }
     return messageViewElementFactory.getViewElement(
@@ -942,6 +942,9 @@ private fun ConversationUiModel.LatestMessageData.toMessageViewElement(
         contactNameFormat,
     )
 }
+
+private val ConversationUiModel.LatestMessageData.shouldShowDeletedPlaceholder: Boolean
+    get() = isDeleted && body == null && caption == null
 
 private fun ConversationUiModel.LatestMessageData.getDisplayDate(context: Context): String =
     MessageUtil.getDisplayDate(

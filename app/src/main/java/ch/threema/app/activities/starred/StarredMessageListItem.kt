@@ -277,7 +277,7 @@ private fun RowScope.MessageBubbleContent(
             overflow = TextOverflow.Ellipsis,
         )
 
-        if (!starredMessageUiModel.messageModel.isDeleted) {
+        if (!starredMessageUiModel.messageModel.shouldShowDeletedPlaceholder()) {
             ConversationText(
                 rawInput = starredMessageUiModel.messageContent?.get() ?: "",
                 textStyle = MaterialTheme.typography.bodyMedium,
@@ -345,11 +345,14 @@ private fun RowScope.MessageBubbleContent(
 }
 
 private fun StarredMessageUiModel.showMediaPreview(): Boolean {
-    if (messageModel.isDeleted) {
+        if (messageModel.shouldShowDeletedPlaceholder()) {
         return false
     }
     return messageModel.type == MessageType.FILE || messageModel.type == MessageType.POLL
 }
+
+private fun AbstractMessageModel.shouldShowDeletedPlaceholder(): Boolean =
+    isDeleted && body == null && caption == null
 
 @Composable
 private fun MessageBubbleContentPrivate() {

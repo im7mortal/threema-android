@@ -792,6 +792,15 @@ public class MessageServiceImpl implements MessageService {
     public void deleteMessageContentsAndRelatedData(@NonNull AbstractMessageModel message, Instant deletedAt) {
         logger.info("deleteMessageContents = {}", message.getApiMessageId());
 
+        if (preferenceService.isMessageDeletionDisabled()) {
+            message.setDeletedAt(deletedAt);
+            save(message);
+
+            fireOnUpdatedMessage(message);
+            globalEventBuses.getMessages().emit(new MessageEvent.MessageDeletedForAll(message));
+            return;
+        }
+
         var messageUid = message.getUid();
         if (messageUid != null) {
             fileService.deleteMessageFiles(messageUid, false);
@@ -2440,7 +2449,7 @@ public class MessageServiceImpl implements MessageService {
             return new MessageString(context.getString(R.string.new_messages_locked));
         }
 
-        if (messageModel.isDeleted()) {
+        if (messageModel.isDeleted() && messageModel.getBody() == null && messageModel.getCaption() == null) {
             return new MessageString(context.getString(R.string.message_was_deleted));
         }
 
