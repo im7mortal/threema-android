@@ -312,7 +312,7 @@ internal class GroupCallControllerImpl(
                 myDisplayName = context.getString(R.string.me_myself_and_i),
                 sfuConnection = sfuConnection,
             ).process()
-            // This is only reached _after_ the call has been teared down
+            // This is only reached _after_ the call has been torn down
             callDisposedSignal.complete(Unit)
         } catch (e: Exception) {
             onError()

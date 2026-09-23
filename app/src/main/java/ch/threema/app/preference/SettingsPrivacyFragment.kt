@@ -23,7 +23,6 @@ import ch.threema.app.managers.ListenerManager
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.preference.service.SynchronizedSettingsService
 import ch.threema.app.restrictions.AppRestrictions
-import ch.threema.app.routines.SynchronizeContactsRoutine
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.LockAppService
 import ch.threema.app.services.SynchronizeContactsService
@@ -61,7 +60,7 @@ class SettingsPrivacyFragment :
 
     private val synchronizeContactsListener: SynchronizeContactsListener =
         object : SynchronizeContactsListener {
-            override fun onStarted(startedRoutine: SynchronizeContactsRoutine) {
+            override fun onStarted() {
                 RuntimeUtil.runOnUiThread {
                     updateView()
                     GenericProgressDialog.newInstance(
@@ -71,7 +70,7 @@ class SettingsPrivacyFragment :
                 }
             }
 
-            override fun onFinished(finishedRoutine: SynchronizeContactsRoutine) {
+            override fun onFinished() {
                 RuntimeUtil.runOnUiThread {
                     updateView()
                     if (this@SettingsPrivacyFragment.isAdded) {
@@ -84,7 +83,7 @@ class SettingsPrivacyFragment :
                 }
             }
 
-            override fun onError(finishedRoutine: SynchronizeContactsRoutine) {
+            override fun onError() {
                 RuntimeUtil.runOnUiThread {
                     updateView()
                     if (this@SettingsPrivacyFragment.isAdded) {

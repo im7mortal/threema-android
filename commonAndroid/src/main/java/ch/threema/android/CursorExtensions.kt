@@ -3,15 +3,23 @@ package ch.threema.android
 import android.database.Cursor
 
 /**
- * Iterates through the cursor starting at its next position and returns a list of the result of [transform] for each of the cursor's entries.
+ * Iterates through the cursor starting at its next position.
  *
- * Note that the cursor is closed afterwards.
+ * Note that the cursor is *closed* afterward.
  */
-fun <R, S> Cursor.map(readerCreator: (Cursor) -> S, transform: S.() -> R): List<R> = use {
-    val reader = readerCreator(this)
-    val results = mutableListOf<R>()
+fun Cursor.iterate(operation: (Cursor) -> Unit) = use {
     while (moveToNext()) {
-        results.add(transform(reader))
+        operation(this)
     }
-    return results
+}
+
+/**
+ * Iterates through the cursor starting at its next position and returns a list of the results of [transform] for each of the cursor's entries.
+ *
+ * Note that the cursor is *closed* afterward.
+ */
+fun <T> Cursor.map(transform: (Cursor) -> T): List<T> = buildList {
+    this@map.iterate { cursor ->
+        add(transform(cursor))
+    }
 }

@@ -697,8 +697,7 @@ public class FileUtil {
     private static boolean isAnimatedWebPFile(@NonNull Uri uri) {
         try (InputStream inputStream = getFromUri(ThreemaApplication.getAppContext(), uri)) {
             byte[] buffer = new byte[34];
-            return inputStream != null
-                && inputStream.read(buffer) == 34
+            return inputStream.read(buffer) == 34
                 && Arrays.equals(Arrays.copyOfRange(buffer, 0, 4), new byte[]{'R', 'I', 'F', 'F'})
                 && Arrays.equals(Arrays.copyOfRange(buffer, 8, 12), new byte[]{'W', 'E', 'B', 'P'})
                 && Arrays.equals(Arrays.copyOfRange(buffer, 12, 15), new byte[]{'V', 'P', '8'})

@@ -28,6 +28,7 @@ import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.taskmanager.TaskManager
 import ch.threema.domain.taskmanager.TaskManagerConfiguration
 import ch.threema.domain.taskmanager.TaskManagerProvider
+import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 
@@ -135,15 +136,15 @@ internal class CspConnectionTest : ServerConnectionTest() {
             ),
         )
         return CspConnectionConfiguration(
-            TestIdentityStore(),
-            serverAddressProvider,
-            Version(),
+            identityStore = TestIdentityStore(),
+            serverAddressProvider = serverAddressProvider,
+            version = Version(),
             assertDispatcherContext = true,
-            TestNoopDeviceCookieManager(),
-            incomingMessageProcessor,
-            taskManager,
-            { emptyArray() },
-            createSocketFactory(),
+            deviceCookieManager = TestNoopDeviceCookieManager(),
+            incomingMessageProcessor = incomingMessageProcessor,
+            taskManager = taskManager,
+            hostResolver = mockk(),
+            socketFactory = createSocketFactory(),
         )
     }
 

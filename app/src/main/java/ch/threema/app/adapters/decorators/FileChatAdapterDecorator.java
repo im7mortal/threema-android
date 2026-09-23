@@ -29,9 +29,15 @@ import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.data.media.FileDataModel;
 
+import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
+import static ch.threema.logging.ErrorReportingKt.logAndReportError;
+
+import org.slf4j.Logger;
 
 public class FileChatAdapterDecorator extends ChatAdapterDecorator {
+
+    private static final Logger logger = getThreemaLogger("FileChatAdapterDecorator");
 
     private static final String LISTENER_TAG = "FileChatDecorator";
 
@@ -60,9 +66,12 @@ public class FileChatAdapterDecorator extends ChatAdapterDecorator {
 
     @Override
     protected void configureChatMessage(final ComposeMessageHolder holder, Context context, final int position) {
-        FileMessagePlayer fileMessagePlayer = (FileMessagePlayer) messagePlayerFactory.create(getMessageModel(), null);
+        MessagePlayer messagePlayer = messagePlayerFactory.create(getMessageModel(), null);
+        if (!(messagePlayer instanceof FileMessagePlayer)) {
+            logAndReportError(logger, "Got MessagePlayer of wrong type: {}", messagePlayer.getClass());
+        }
 
-        holder.messagePlayer = fileMessagePlayer;
+        holder.messagePlayer = messagePlayer;
 
         FileDataModel fileData = getMessageModel().getFileData();
 
@@ -73,17 +82,17 @@ public class FileChatAdapterDecorator extends ChatAdapterDecorator {
             setControllerState(holder, fileData);
         });
 
-        setControllerClickListener(fileMessagePlayer, fileData, holder);
+        setControllerClickListener(messagePlayer, fileData, holder);
         setOnClickListener(view -> {
             if (
                 getMessageModel().getState() != MessageState.FS_KEY_MISMATCH &&
                     getMessageModel().getState() != MessageState.SENDFAILED
             ) {
-                prepareDownload(fileData, fileMessagePlayer);
+                prepareDownload(fileData, messagePlayer);
             }
         }, holder.messageBlockView);
 
-        configureFileMessagePlayer(fileMessagePlayer, holder, fileData, context, position);
+        configureFileMessagePlayer(messagePlayer, holder, fileData, context, position);
         configureBodyText(holder, fileData.getCaption());
         configureTertiaryText(holder, fileData);
         configureSecondaryText(holder, fileData);
@@ -150,14 +159,14 @@ public class FileChatAdapterDecorator extends ChatAdapterDecorator {
     }
 
     private void configureFileMessagePlayer(
-        @NonNull FileMessagePlayer fileMessagePlayer,
+        @NonNull MessagePlayer messagePlayer,
         @NonNull ComposeMessageHolder holder,
         @NonNull FileDataModel fileData,
         Context context,
         int position
     ) {
         Context applicationContext = context.getApplicationContext();
-        fileMessagePlayer
+        messagePlayer
             .addListener(LISTENER_TAG, new MessagePlayer.PlaybackListener() {
                 @Override
                 public void onPlay(AbstractMessageModel messageModel, boolean autoPlay) {
@@ -234,7 +243,7 @@ public class FileChatAdapterDecorator extends ChatAdapterDecorator {
     }
 
     private void setControllerClickListener(
-        @NonNull FileMessagePlayer fileMessagePlayer,
+        @NonNull MessagePlayer messagePlayer,
         @NonNull FileDataModel fileData,
         @NonNull ComposeMessageHolder holder
     ) {
@@ -251,13 +260,13 @@ public class FileChatAdapterDecorator extends ChatAdapterDecorator {
                         case ControllerView.STATUS_READY_TO_PLAY:
                         case ControllerView.STATUS_READY_TO_DOWNLOAD:
                         case ControllerView.STATUS_NONE:
-                            prepareDownload(fileData, fileMessagePlayer);
+                            prepareDownload(fileData, messagePlayer);
                             break;
                         case ControllerView.STATUS_PROGRESSING:
                             if (MessageUtil.isFileMessageBeingSent(getMessageModel())) {
                                 getMessageService().cancelMessageUpload(getMessageModel());
                             } else {
-                                fileMessagePlayer.cancel();
+                                messagePlayer.cancel();
                             }
                             break;
                         default:
@@ -269,20 +278,20 @@ public class FileChatAdapterDecorator extends ChatAdapterDecorator {
         }
     }
 
-    private void prepareDownload(final FileDataModel fileData, final FileMessagePlayer fileMessagePlayer) {
-        if (fileData != null && fileMessagePlayer != null) {
+    private void prepareDownload(final FileDataModel fileData, final MessagePlayer messagePlayer) {
+        if (fileData != null && messagePlayer != null) {
             if (fileData.isDownloaded()) {
-                fileMessagePlayer.open();
+                messagePlayer.open();
             } else {
                 final PreferenceService preferenceService = getPreferenceService();
 
                 if (preferenceService != null && !preferenceService.getFileSendInfoShown()) {
                     downloadAlertDialogListener.showPrepareDownloadDialog(() -> {
                         preferenceService.setFileSendInfoShown(true);
-                        fileMessagePlayer.open();
+                        messagePlayer.open();
                     });
                 } else {
-                    fileMessagePlayer.open();
+                    messagePlayer.open();
                 }
             }
         }

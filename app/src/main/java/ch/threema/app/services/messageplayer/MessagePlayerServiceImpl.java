@@ -200,6 +200,7 @@ public class MessagePlayerServiceImpl implements MessagePlayerService {
                     logger.debug("Keep downloading player {}", pair.getKey());
                 }
             }
+            messagePlayers.clear();
         }
     }
 

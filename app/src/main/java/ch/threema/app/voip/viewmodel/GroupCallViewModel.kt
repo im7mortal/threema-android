@@ -7,6 +7,7 @@ import androidx.annotation.UiThread
 import androidx.annotation.WorkerThread
 import androidx.lifecycle.*
 import ch.threema.app.R
+import ch.threema.app.framework.BaseViewModel
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.notification.NotificationService
 import ch.threema.app.utils.AudioDevice
@@ -17,24 +18,30 @@ import ch.threema.app.voip.groupcall.*
 import ch.threema.app.voip.groupcall.sfu.*
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.DispatcherProvider
+import ch.threema.common.awaitNonNull
 import ch.threema.data.datatypes.LocalGroupId
 import ch.threema.data.datatypes.localGroupId
 import ch.threema.storage.models.group.GroupModelOld
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.take
 import org.webrtc.EglBase
 
 private val logger = getThreemaLogger("GroupCallViewModel")
 
-@UiThread
 class GroupCallViewModel(
     private val appContext: Context,
     private val groupService: GroupService,
     private val groupCallManager: GroupCallManager,
     private val notificationService: NotificationService,
     private val dispatcherProvider: DispatcherProvider,
-) : ViewModel(),
+) : BaseViewModel<Unit, Unit>(),
     GroupCallObserver {
+
+    override suspend fun initialize() {
+        // TODO(ANDR-5279): This view model needs to be migrated to properly manage its state
+        //  the way BaseViewModel intends.
+    }
 
     enum class ConnectingState {
         IDLE,
@@ -59,7 +66,10 @@ class GroupCallViewModel(
     private val startTime = MutableLiveData<Long?>()
 
     private var joinJob: Job? = null
-    private lateinit var callController: GroupCallController
+    private val callControllerFlow = MutableStateFlow<GroupCallController?>(null)
+
+    private suspend fun awaitCallController(): GroupCallController =
+        callControllerFlow.awaitNonNull()
 
     private lateinit var audioManager: CallAudioManager
 
@@ -172,16 +182,9 @@ class GroupCallViewModel(
         }
     }
 
-    @UiThread
-    fun leaveCall() {
-        if (joinJob?.isCompleted == true) {
-            viewModelScope.launch {
-                callController.leave()
-            }
-        } else {
-            joinJob?.cancel()
-            logger.info("Join call aborted")
-        }
+    fun leaveCall() = runAction {
+        joinJob?.cancel()
+        callControllerFlow.value?.leave()
         completableFinishEvent.complete(getFinishEvent(FinishEvent.Reason.LEFT))
         callRunning.postValue(false)
     }
@@ -210,6 +213,7 @@ class GroupCallViewModel(
                         completableFinishEvent.complete(mapExceptionToFinishEvent(e))
                         callRunning.postValue(false)
                     }
+                    joinJob = null
                 }
             }
         }
@@ -239,12 +243,12 @@ class GroupCallViewModel(
 
     @WorkerThread
     private suspend fun completeJoining(controller: GroupCallController) {
-        callController = controller
+        callControllerFlow.value = controller
         connectingState.postValue(ConnectingState.COMPLETED)
         audioManager = groupCallManager.getAudioManager()
         callRunning.postValue(true)
         withContext(dispatcherProvider.main) {
-            initialiseValues()
+            initializeValues()
         }
     }
 
@@ -253,25 +257,25 @@ class GroupCallViewModel(
         audioManager.selectAudioDevice(device)
     }
 
-    @UiThread
-    fun muteMicrophone(muted: Boolean) {
+    fun muteMicrophone(muted: Boolean) = runAction {
         try {
             logger.trace("Mute {}", muted)
+            val callController = awaitCallController()
             callController.microphoneActive = !muted
             microphoneActive.postValue(callController.microphoneActive)
         } catch (_: GroupCallController.CallAlreadyEndedException) {
-            return
+            return@runAction
         }
         triggerCaptureStateUpdate()
     }
 
-    @UiThread
-    fun muteCamera(muted: Boolean) {
+    fun muteCamera(muted: Boolean) = runAction {
         try {
+            val callController = awaitCallController()
             callController.cameraActive = !muted
             cameraActive.postValue(callController.cameraActive)
         } catch (_: GroupCallController.CallAlreadyEndedException) {
-            return
+            return@runAction
         }
         triggerCaptureStateUpdate()
         // If camera is turned on, then don't use earpiece as output anymore as it is not convenient
@@ -281,11 +285,11 @@ class GroupCallViewModel(
         }
     }
 
-    fun flipCamera() = viewModelScope.launch {
+    fun flipCamera() = runAction {
         try {
-            callController.flipCamera()
+            awaitCallController().flipCamera()
         } catch (_: GroupCallController.CallAlreadyEndedException) {
-            return@launch
+            return@runAction
         }
         cameraFlipEvents.postValue(Unit)
     }
@@ -311,7 +315,7 @@ class GroupCallViewModel(
     }
 
     @UiThread
-    private fun initialiseValues() {
+    private fun initializeValues() {
         observeCallLeftSignal()
         initMicrophoneState()
         initCameraState()
@@ -325,7 +329,7 @@ class GroupCallViewModel(
         viewModelScope.launch {
             completableFinishEvent.complete(
                 try {
-                    callController.callLeftSignal.await()
+                    awaitCallController().callLeftSignal.await()
                     getFinishEvent(FinishEvent.Reason.LEFT)
                 } catch (e: Exception) {
                     logger.error("Call left with exception", e)
@@ -361,32 +365,28 @@ class GroupCallViewModel(
         reason: FinishEvent.Reason,
         exception: Exception? = null,
     ): FinishEvent {
-        val description =
-            if (exception is GroupCallException && exception.callDescription != null) {
-                exception.callDescription
-            } else if (this::callController.isInitialized) {
-                callController.description
-            } else {
-                null
-            }
+        val description = (exception as? GroupCallException)?.callDescription
+            ?: callControllerFlow.value?.description
         return FinishEvent(reason, description)
     }
 
     @UiThread
     private fun initMicrophoneState() {
-        val enableMicrophone = microphoneActiveDefault ?: callController.microphoneActive
+        val enableMicrophone = microphoneActiveDefault
+            ?: (callControllerFlow.value?.microphoneActive == true)
         muteMicrophone(!enableMicrophone)
         microphoneActiveDefault = null
     }
 
     @UiThread
     private fun initCameraState() {
-        cameraActive.postValue(callController.cameraActive)
+        cameraActive.postValue(callControllerFlow.value?.cameraActive == true)
     }
 
     @UiThread
     private fun observeParticipants() {
         viewModelScope.launch {
+            val callController = awaitCallController()
             callController.participants.collect { participants ->
                 eglBaseAndParticipants.value = callController.eglBase to participants
             }
@@ -396,6 +396,7 @@ class GroupCallViewModel(
     @UiThread
     private fun observeCaptureStateUpdates() {
         viewModelScope.launch {
+            val callController = awaitCallController()
             launch {
                 callController.captureStateUpdates
                     .collect {

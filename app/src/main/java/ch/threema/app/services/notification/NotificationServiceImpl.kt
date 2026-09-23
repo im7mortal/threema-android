@@ -11,7 +11,6 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
 import android.os.Build
-import android.os.DeadObjectException
 import android.provider.Settings
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -803,8 +802,13 @@ class NotificationServiceImpl(
         )
     }
     private fun notificationExists(notificationId: Int): Boolean =
-        notificationManagerCompat.activeNotifications.any { notification ->
-            notification.id == notificationId
+        try {
+            notificationManagerCompat.activeNotifications.any { notification ->
+                notification.id == notificationId
+            }
+        } catch (e: Exception) {
+            logger.warn("Failed to check if notification exists", e)
+            false
         }
 
     private fun cancelConversationNotification(conversationNotification: ConversationNotification) {
@@ -1301,8 +1305,8 @@ class NotificationServiceImpl(
     private fun cancel(notificationId: Int, tag: String? = null) {
         try {
             notificationManagerCompat.cancel(tag, notificationId)
-        } catch (e: DeadObjectException) {
-            logger.error("Failed to cancel notification", e)
+        } catch (e: Exception) {
+            logger.warn("Failed to cancel notification {}", notificationId, e)
         }
     }
 

@@ -214,17 +214,16 @@ public class WizardFragment3 extends WizardFragment {
                     }
                     Collections.sort(results, new CountryNameComparator());
 
-
-                    Map<String, String> data = new HashMap<>(2);
-                    data.put("name", getString(R.string.new_wizard_select_country));
-                    data.put("prefix", "");
-                    results.add(data);
-
                     return results;
                 }
 
                 @Override
                 protected void onPostExecute(final ArrayList<Map<String, String>> result) {
+                    Map<String, String> data = new HashMap<>(2);
+                    data.put("name", getString(R.string.new_wizard_select_country));
+                    data.put("prefix", "");
+                    result.add(data);
+
                     countryListAdapter = new CountryListAdapter(android.R.layout.simple_spinner_dropdown_item, result);
                     countrySpinner.setAdapter(countryListAdapter);
                     countrySpinner.setSelection(countryListAdapter.getCount());

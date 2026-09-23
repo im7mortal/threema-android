@@ -1,7 +1,6 @@
 package ch.threema.app.emojireactions
 
 import android.os.Bundle
-import android.os.Parcelable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -31,13 +30,11 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 
-private const val RECYCLER_VIEW_STATE = "recyclerViewState"
-
 private val logger = getThreemaLogger("EmojiReactionsOverviewFragment")
 
 class EmojiReactionsOverviewFragment(
-    val emojiSequence: String? = null,
-    val messageModel: AbstractMessageModel,
+    private val emojiSequence: String,
+    private val messageModel: AbstractMessageModel,
 ) : Fragment(), EmojiReactionsOverviewListAdapter.OnItemClickListener {
     init {
         logScreenVisibility(logger)
@@ -114,22 +111,6 @@ class EmojiReactionsOverviewFragment(
             }.onFailure { throwable ->
                 logger.logAndReportError("Could not send emoji reaction", throwable)
             }
-        }
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        super.onSaveInstanceState(outState)
-        outState.putParcelable(
-            RECYCLER_VIEW_STATE,
-            recyclerView.layoutManager?.onSaveInstanceState(),
-        )
-    }
-
-    override fun onViewStateRestored(savedInstanceState: Bundle?) {
-        super.onViewStateRestored(savedInstanceState)
-        @Suppress("DEPRECATION")
-        savedInstanceState?.getParcelable<Parcelable>(RECYCLER_VIEW_STATE)?.let {
-            recyclerView.layoutManager?.onRestoreInstanceState(it)
         }
     }
 }

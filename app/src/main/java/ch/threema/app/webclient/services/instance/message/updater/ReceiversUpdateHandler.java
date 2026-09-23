@@ -10,7 +10,6 @@ import java.util.List;
 
 import ch.threema.app.managers.ListenerManager;
 import ch.threema.app.preference.service.PreferenceService;
-import ch.threema.app.routines.SynchronizeContactsRoutine;
 import ch.threema.app.services.ContactService;
 import ch.threema.app.utils.executor.HandlerExecutor;
 import ch.threema.app.webclient.Protocol;
@@ -154,12 +153,12 @@ public class ReceiversUpdateHandler extends MessageUpdater {
     @AnyThread
     private class SynchronizeContactsListener implements ch.threema.app.listeners.SynchronizeContactsListener {
         @Override
-        public void onStarted(SynchronizeContactsRoutine startedRoutine) {
+        public void onStarted() {
             logger.debug("Contact sync started");
         }
 
         @Override
-        public void onFinished(SynchronizeContactsRoutine finishedRoutine) {
+        public void onFinished() {
             logger.debug("Contact sync finished, sending receivers update");
             handler.post(new Runnable() {
                 @Override
@@ -171,7 +170,7 @@ public class ReceiversUpdateHandler extends MessageUpdater {
         }
 
         @Override
-        public void onError(SynchronizeContactsRoutine finishedRoutine) {
+        public void onError() {
             logger.warn("Contact sync error, sending receivers update");
             handler.post(new Runnable() {
                 @Override

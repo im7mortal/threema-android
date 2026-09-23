@@ -59,6 +59,7 @@ public class AudioMessagePlayer extends MessagePlayer {
     @NonNull
     private final NotificationPreferenceService notificationPreferenceService;
     private final ConversationCategoryService conversationCategoryService;
+    @Nullable
     private final ListenableFuture<MediaController> mediaControllerFuture;
     @NonNull
     private final GlobalEventBuses globalEventBuses;
@@ -72,7 +73,7 @@ public class AudioMessagePlayer extends MessagePlayer {
         @NonNull ConversationCategoryService conversationCategoryService,
         @NonNull GlobalEventBuses globalEventBuses,
         @NonNull MessageReceiver<?> messageReceiver,
-        @NonNull ListenableFuture<MediaController> mediaControllerFuture,
+        @Nullable ListenableFuture<MediaController> mediaControllerFuture,
         @NonNull AbstractMessageModel messageModel
     ) {
         super(context, messageService, fileService, messageReceiver, messageModel);
@@ -467,7 +468,7 @@ public class AudioMessagePlayer extends MessagePlayer {
 
     @Nullable
     public MediaController getMediaController() {
-        if (mediaControllerFuture.isDone()) {
+        if (mediaControllerFuture != null && mediaControllerFuture.isDone()) {
             try {
                 return mediaControllerFuture.get();
             } catch (ExecutionException e) {

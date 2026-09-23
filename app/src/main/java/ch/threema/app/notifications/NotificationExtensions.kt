@@ -2,7 +2,6 @@ package ch.threema.app.notifications
 
 import android.content.SharedPreferences
 import android.net.Uri
-import android.os.DeadObjectException
 import androidx.core.app.NotificationChannelCompat
 import androidx.core.app.NotificationChannelGroupCompat
 import androidx.core.app.NotificationManagerCompat
@@ -26,7 +25,7 @@ fun SharedPreferences.getRingtoneUri(key: String): Uri? =
  * If a group with [groupId] already exists and the name has changed, rename it to the provided group name
  */
 fun NotificationManagerCompat.createGroup(groupId: String, name: String) {
-    val existingGroup = findNotificationChannelGroup(groupId)
+    val existingGroup = getNotificationChannelGroupCompat(groupId)
     if (existingGroup != null && name == existingGroup.name) {
         return
     }
@@ -35,13 +34,6 @@ fun NotificationManagerCompat.createGroup(groupId: String, name: String) {
         .build()
     createNotificationChannelGroup(notificationChannelGroup)
 }
-
-private fun NotificationManagerCompat.findNotificationChannelGroup(groupId: String): NotificationChannelGroupCompat? =
-    try {
-        getNotificationChannelGroupCompat(groupId)
-    } catch (e: DeadObjectException) {
-        notificationChannelGroupsCompat.firstOrNull { group -> group.id == groupId }
-    }
 
 fun NotificationManagerCompat.createChannel(
     channelId: String,

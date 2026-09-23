@@ -5,7 +5,6 @@ import ch.threema.app.BuildConfig
 import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.services.ServerAddressProviderService
 import ch.threema.app.startup.AppStartupMonitor
-import ch.threema.base.utils.AsyncResolver
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.protocol.Version
 import ch.threema.domain.protocol.connection.BaseServerConnectionConfiguration
@@ -16,6 +15,7 @@ import ch.threema.domain.protocol.connection.ServerConnection
 import ch.threema.domain.protocol.connection.ServerConnectionException
 import ch.threema.domain.protocol.connection.csp.CspConnectionConfiguration
 import ch.threema.domain.protocol.connection.csp.DeviceCookieManager
+import ch.threema.domain.protocol.connection.csp.socket.HostResolver
 import ch.threema.domain.protocol.connection.csp.socket.ProxyAwareSocketFactory
 import ch.threema.domain.protocol.connection.d2m.D2mConnectionConfiguration
 import ch.threema.domain.protocol.connection.util.ConnectionLoggingUtil
@@ -122,15 +122,15 @@ class CspD2mDualConnectionSupplier(
     private fun createCspConnectionConfiguration(): CspConnectionConfiguration {
         logger.info("Create csp connection configuration")
         return CspConnectionConfiguration(
-            identityStore,
-            serverAddressProviderService.serverAddressProvider,
-            version,
-            isTestBuild,
-            deviceCookieManager,
-            incomingMessageProcessor,
-            taskManager,
-            AsyncResolver::getAllByName,
-            ProxyAwareSocketFactory::makeSocket,
+            identityStore = identityStore,
+            serverAddressProvider = serverAddressProviderService.serverAddressProvider,
+            version = version,
+            assertDispatcherContext = isTestBuild,
+            deviceCookieManager = deviceCookieManager,
+            incomingMessageProcessor = incomingMessageProcessor,
+            taskManager = taskManager,
+            hostResolver = HostResolver(),
+            socketFactory = ProxyAwareSocketFactory::makeSocket,
         )
     }
 

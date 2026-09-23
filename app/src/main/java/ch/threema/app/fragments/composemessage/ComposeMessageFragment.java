@@ -802,7 +802,9 @@ public class ComposeMessageFragment extends Fragment implements
         final @Nullable GroupModel currentGroupModel = groupModelRepository.getByGroupIdentity(groupIdentityOfChangedGroup);
         if (currentGroupModel != null) {
             messageReceiver = groupService.createReceiver(groupModel);
-            composeMessageAdapter.setMessageReceiver(messageReceiver);
+            if (composeMessageAdapter != null) {
+                composeMessageAdapter.setMessageReceiver(messageReceiver);
+            }
         }
         return true;
     }
@@ -2310,7 +2312,7 @@ public class ComposeMessageFragment extends Fragment implements
     }
 
     public void onNewIntent(Intent intent) {
-        logger.debug("onNewIntent");
+        logger.info("onNewIntent");
 
         if (!requiredInstances()) {
             return;
@@ -2319,6 +2321,9 @@ public class ComposeMessageFragment extends Fragment implements
         if (this.messagePlayerService != null) {
             this.messagePlayerService.stopAll();
             this.messagePlayerService.release();
+        }
+        if (thumbnailCache != null) {
+            thumbnailCache.flush();
         }
 
         MediaController mediaController = getMedia3Controller();

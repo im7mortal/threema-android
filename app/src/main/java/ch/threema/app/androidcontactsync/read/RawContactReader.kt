@@ -1,7 +1,6 @@
 package ch.threema.app.androidcontactsync.read
 
 import android.net.Uri
-import ch.threema.app.androidcontactsync.read.RawContactCursor.Companion.CursorCreateException
 import ch.threema.app.androidcontactsync.types.LookupInfo
 import ch.threema.app.androidcontactsync.types.RawContact
 import ch.threema.app.androidcontactsync.types.RawContactId

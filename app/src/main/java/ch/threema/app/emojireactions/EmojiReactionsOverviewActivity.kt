@@ -20,10 +20,11 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
+import ch.threema.android.disableExitTransition
 import ch.threema.app.R
 import ch.threema.app.activities.ThreemaToolbarActivity
 import ch.threema.app.emojis.EmojiTextView
-import ch.threema.app.managers.ServiceManager
+import ch.threema.app.services.MessageService
 import ch.threema.app.services.UserService
 import ch.threema.app.utils.IntentDataUtil
 import ch.threema.app.utils.logScreenVisibility
@@ -50,6 +51,7 @@ class EmojiReactionsOverviewActivity : ThreemaToolbarActivity() {
     }
 
     private val userService: UserService by inject()
+    private val messageService: MessageService by inject()
     private val myIdentity by lazy { userService.identity }
 
     private lateinit var viewPager: ViewPager2
@@ -77,9 +79,6 @@ class EmojiReactionsOverviewActivity : ThreemaToolbarActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, 0)
         }
-
-        val serviceManager = ServiceManager.require()
-        val messageService = serviceManager.messageService
 
         messageModel = IntentDataUtil.getAbstractMessageModel(intent, messageService)
         messageModel?.let { message ->
@@ -347,11 +346,8 @@ class EmojiReactionsOverviewActivity : ThreemaToolbarActivity() {
     override fun finish() {
         try {
             super.finish()
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                @Suppress("DEPRECATION")
-                overridePendingTransition(0, 0)
-            }
-        } catch (ignored: Exception) {
+            disableExitTransition()
+        } catch (_: Exception) {
             // ignore
         }
     }
@@ -373,6 +369,14 @@ class EmojiReactionsOverviewActivity : ThreemaToolbarActivity() {
             onAvailable(maxHeight.coerceAtLeast(0))
             windowInsets
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        // We don't want to persist any state, as the fragments have no meaningful state anyway, and they can't be re-instantiated as
+        // they don't have a default constructor. Currently, this does not matter anyway as the conversation screen itself is likely
+        // closed immediately after.
+        outState.clear()
     }
 
     companion object {

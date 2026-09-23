@@ -17,18 +17,18 @@ object AdaptiveIconUtil {
      * Creates an adaptive icon from the given [bitmap].
      * The icon includes appropriate amounts of padding, such that on most systems it appears to fill the available
      * space of the used shape, by accepting small amounts of cropping.
-     * Returns `null` if adaptive icons are not supported by the system.
+     * Returns a regular (i.e. non-adaptive) icon, scaled down to an appropriate size, if adaptive icons are not supported by the system.
      */
     @JvmStatic
-    fun create(context: Context, bitmap: Bitmap): IconCompat? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            return null
-        }
-
+    fun create(context: Context, bitmap: Bitmap): IconCompat {
         val density = context.resources.displayMetrics.density
         val outerSize = (OUTER_SIZE * density).toInt()
         val innerSize = (INNER_SIZE * density).toInt()
         val offset = (outerSize - innerSize) / 2f
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return IconCompat.createWithBitmap(bitmap.scale(outerSize, outerSize))
+        }
 
         val options = BitmapFactory.Options()
         options.inPreferredConfig = Bitmap.Config.ARGB_8888

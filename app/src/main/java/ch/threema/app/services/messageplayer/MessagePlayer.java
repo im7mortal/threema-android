@@ -235,7 +235,8 @@ public abstract class MessagePlayer {
         this.messageReceiver = messageReceiver;
 
         //init the state
-        if (this.getData() != null && this.getData().isDownloaded()) {
+        var data = getData();
+        if (data != null && data.isDownloaded()) {
             this.state = State_DOWNLOADED;
         }
     }
@@ -355,30 +356,27 @@ public abstract class MessagePlayer {
 
     public boolean open(final boolean autoPlay) {
         final MediaMessageDataInterface data = this.getData();
-        if (data != null) {
-            if (data.isDownloaded()) {
-                this.play(autoPlay);
-            } else {
-                this.download(new InternalListener() {
-                    @Override
-                    public void onComplete(boolean ok) {
-                        if (ok) {
-                            data.isDownloaded(true);
-                            messageService.save(setData(data));
-
-                            if (autoPlay ||
-                                getMessageModel().getFileData().getRenderingType() != RENDERING_MEDIA ||
-                                FileUtil.isAudioFile(getMessageModel().getFileData())) {
-                                open(autoPlay);
-                            }
-                        }
-                    }
-                }, autoPlay);
-
-            }
-            return true;
+        if (data == null) {
+            return false;
         }
-        return false;
+        if (data.isDownloaded()) {
+            play(autoPlay);
+        } else {
+            download(ok -> {
+                if (ok) {
+                    data.setDownloaded(true);
+                    messageService.save(setData(data));
+
+                    if (autoPlay ||
+                        getMessageModel().getFileData().getRenderingType() != RENDERING_MEDIA ||
+                        FileUtil.isAudioFile(getMessageModel().getFileData())) {
+                        open(autoPlay);
+                    }
+                }
+            }, autoPlay);
+
+        }
+        return true;
     }
 
     public float togglePlaybackSpeed(float currentSpeed) {
@@ -571,6 +569,11 @@ public abstract class MessagePlayer {
             @Override
             public void run() {
                 try {
+                    // TODO(ANDR-5276) Mark a message as read when the user manually starts the download.
+                    //   This serves as a workaround for the problem that the message model instance
+                    //   may be stale by the time the download completes. A stale message model
+                    //   might have outdated data, in particular an outdated 'read' flag.
+                    messageModel.setRead(true);
                     boolean success = messageService.downloadMediaMessage(messageModel, new ProgressListener() {
                         @Override
                         public void updateProgress(final int progress) {

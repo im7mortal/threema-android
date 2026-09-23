@@ -6,8 +6,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.core.content.getSystemService
 import ch.threema.app.BuildFlavor
 import ch.threema.app.BuildFlavor.Companion.current
-import ch.threema.app.androidcontactsync.usecases.UpdateContactNameUseCase
-import ch.threema.app.apptaskexecutor.AppTaskExecutor
+import ch.threema.app.androidcontactsync.usecases.SynchronizeAndroidContactsUseCase
 import ch.threema.app.backuprestore.ExportConversationService
 import ch.threema.app.backuprestore.ExportConversationServiceImpl
 import ch.threema.app.connection.CspD2mDualConnectionSupplier
@@ -457,20 +456,12 @@ class SessionScopeContainer(
 
     val synchronizeContactsService: SynchronizeContactsService by lazyWithClosedCheck {
         SynchronizeContactsServiceImpl(
-            appContext,
-            apiConnector,
             contactService,
             modelRepositories.contacts,
             userService,
-            localeService,
-            excludedSyncIdentitiesService,
-            get<PreferenceService>(),
             synchronizedSettingsService,
             deviceService,
-            identityStore,
-            blockedIdentitiesService,
-            get<AppTaskExecutor>(),
-            get<UpdateContactNameUseCase>(),
+            get<SynchronizeAndroidContactsUseCase>(),
         )
     }
 

@@ -38,7 +38,6 @@ ENV ANDROID_SDK_ROOT=/opt/android
 # Install Android SDK
 RUN yes Y | /opt/android/cmdline-tools/tools/bin/sdkmanager --licenses
 RUN /opt/android/cmdline-tools/tools/bin/sdkmanager --install \
-    "tools" \
     "platform-tools" \
     "platforms;android-${SDK_VERSION}" \
     "ndk;${NDK_VERSION}" \

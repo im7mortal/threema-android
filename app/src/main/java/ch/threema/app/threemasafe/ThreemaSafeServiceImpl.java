@@ -31,7 +31,9 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -1129,14 +1131,18 @@ public class ThreemaSafeServiceImpl implements ThreemaSafeService {
     @Nullable
     public ArrayList<String> searchID(String phone, String email) {
         if (phone != null || email != null) {
-            Map<String, Object> phoneMap = new HashMap<>();
-            phoneMap.put(phone, null);
-
-            Map<String, Object> emailMap = new HashMap<>();
-            emailMap.put(email, null);
+            Set<String> phoneNumbers = Collections.singleton(phone);
+            Set<String> emailAddresses = Collections.singleton(email);
 
             try {
-                Map<String, APIConnector.MatchIdentityResult> results = apiConnector.matchIdentities(emailMap, phoneMap, localeService.getCountryIsoCode(), true, identityStore, null);
+                Map<String, APIConnector.MatchIdentityResult> results = apiConnector.matchIdentities(
+                    emailAddresses,
+                    phoneNumbers,
+                    localeService.getCountryIsoCode(),
+                    true,
+                    identityStore,
+                    null
+                );
                 if (!results.isEmpty()) {
                     return new ArrayList<>(results.keySet());
                 }

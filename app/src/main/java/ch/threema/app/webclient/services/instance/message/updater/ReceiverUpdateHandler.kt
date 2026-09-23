@@ -216,7 +216,7 @@ class ReceiverUpdateHandler @AnyThread constructor(
     }
 
     private fun onContactModified(identity: Identity) {
-        if (synchronizeContactsService.isFullSyncInProgress()) {
+        if (synchronizeContactsService.isSynchronizationInProgress()) {
             // A sync is currently in progress. This causes a *lot* of onModified
             // listeners to be called.
             // To avoid flooding the webclient with updates, we simply ignore the

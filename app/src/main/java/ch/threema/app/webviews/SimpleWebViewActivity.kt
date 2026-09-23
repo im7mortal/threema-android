@@ -33,6 +33,10 @@ abstract class SimpleWebViewActivity : ThreemaToolbarActivity(), DialogClickList
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // TODO(ANDR-4389): Improve this entrypoint
+        if (isFinishing) {
+            return
+        }
 
         val toolbar = findViewById<MaterialToolbar>(R.id.material_toolbar)
         toolbar.setNavigationOnClickListener { finish() }

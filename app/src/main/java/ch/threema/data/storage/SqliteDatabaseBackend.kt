@@ -11,6 +11,7 @@ import androidx.core.database.getStringOrNull
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteQueryBuilder
 import androidx.sqlite.db.transaction
+import ch.threema.android.map
 import ch.threema.app.BuildConfig
 import ch.threema.base.crypto.NaCl
 import ch.threema.base.utils.getThreemaLogger
@@ -30,6 +31,7 @@ import ch.threema.domain.models.VerificationLevel
 import ch.threema.domain.models.WorkVerificationLevel
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.types.GroupDatabaseId
+import ch.threema.domain.types.Identity
 import ch.threema.domain.types.IdentityString
 import ch.threema.storage.DatabaseProvider
 import ch.threema.storage.DatabaseUtil
@@ -41,6 +43,7 @@ import ch.threema.storage.models.IncomingGroupSyncRequestLogModel
 import ch.threema.storage.models.group.GroupMemberModel
 import ch.threema.storage.models.group.GroupMessageModel
 import ch.threema.storage.models.group.GroupModelOld
+import ch.threema.storage.runQuery
 import ch.threema.storage.runTransaction
 import java.time.Instant
 import java.util.Collections
@@ -811,6 +814,16 @@ class SqliteDatabaseBackend(
             return groups
         }
     }
+
+    override fun getGroupsByCreator(identity: Identity): Collection<DbGroup> =
+        databaseProvider.readableDatabase.runQuery(
+            table = GroupModelOld.TABLE,
+            selection = "${GroupModelOld.COLUMN_CREATOR_IDENTITY} = ?",
+            selectionArgs = arrayOf(identity.value),
+        )
+            .map { cursor ->
+                cursor.getGroup()
+            }
 
     override fun getGroupByGroupDatabaseId(groupDatabaseId: GroupDatabaseId): DbGroup? =
         getGroup { queryBuilder ->

@@ -1938,8 +1938,19 @@ public class MessageServiceImpl implements MessageService {
      */
     @Override
     public boolean shouldAutoDownload(@NonNull AbstractMessageModel messageModel) {
-        MessageType type = MessageType.FILE;
+        String serializedType = "8";
         FileDataModel fileDataModel = messageModel.getFileData();
+
+        // Temporary workaround to transform media types, already fixed by ANDR-5158
+        if (fileDataModel.getRenderingType() != FileData.RENDERING_DEFAULT) {
+            if (messageModel.getMessageContentsType() == MessageContentsType.IMAGE) {
+                serializedType = "1";
+            } else if (messageModel.getMessageContentsType() == MessageContentsType.VIDEO) {
+                serializedType = "2";
+            } else if (messageModel.getMessageContentsType() == MessageContentsType.VOICE_MESSAGE) {
+                serializedType = "3";
+            }
+        }
 
         if (preferenceService != null) {
             ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -1951,10 +1962,10 @@ public class MessageServiceImpl implements MessageService {
                     case ConnectivityManager.TYPE_ETHERNET:
                         // fallthrough
                     case ConnectivityManager.TYPE_WIFI:
-                        canDownload = preferenceService.getWifiAutoDownload().contains(String.valueOf(type.serializedValue));
+                        canDownload = preferenceService.getWifiAutoDownload().contains(serializedType);
                         break;
                     case ConnectivityManager.TYPE_MOBILE:
-                        canDownload = preferenceService.getMobileAutoDownload().contains(String.valueOf(type.serializedValue));
+                        canDownload = preferenceService.getMobileAutoDownload().contains(serializedType);
                         break;
                     default:
                         break;
@@ -2582,7 +2593,7 @@ public class MessageServiceImpl implements MessageService {
 
     private void setDownloadCompleted(@NonNull AbstractMessageModel mediaMessageModel, @NonNull MediaMessageDataInterface data) {
         if (mediaMessageModel.getType() == MessageType.FILE) {
-            mediaMessageModel.getFileData().isDownloaded(true);
+            mediaMessageModel.getFileData().setDownloaded(true);
         }
         mediaMessageModel.writeDataModelToBody();
 
@@ -3574,7 +3585,7 @@ public class MessageServiceImpl implements MessageService {
             case TYPE_IMAGE_CAM:
                 // cam images will always be sent in their original size. no scaling needed but possibly rotate and flip
                 try (InputStream inputStream = getFromUri(context, mediaItem.getUri())) {
-                    if (inputStream != null && inputStream.available() > 0) {
+                    if (inputStream.available() > 0) {
                         bitmap = BitmapFactory.decodeStream(new BufferedInputStream(inputStream), null, null);
                         if (bitmap != null) {
                             bitmap = adjustBitmapOrientation(bitmap, mediaItem, metaData);
@@ -4298,54 +4309,51 @@ public class MessageServiceImpl implements MessageService {
      * @return byte array of the media data or null if error occured
      */
     @WorkerThread
+    @Nullable
     private byte[] getContentData(MediaItem mediaItem) {
         try (InputStream inputStream = getFromUri(context, mediaItem.getUri())) {
-            if (inputStream != null) {
-                int fileLength = inputStream.available();
+            int fileLength = inputStream.available();
 
-                if (fileLength > MAX_BLOB_SIZE) {
+            if (fileLength > MAX_BLOB_SIZE) {
+                String errorMessage = context.getString(R.string.file_too_large, MAX_BLOB_SIZE_MB);
+                logger.info(errorMessage);
+                RuntimeUtil.runOnUiThread(() -> Toast.makeText(ThreemaApplication.getAppContext(), errorMessage, Toast.LENGTH_LONG).show());
+                return null;
+            }
+
+            if (fileLength == 0) {
+                // InputStream may not provide size
+                fileLength = MAX_BLOB_SIZE + 1;
+            }
+
+            if (!ConfigUtils.checkAvailableMemory(fileLength + NaCl.BOX_OVERHEAD_BYTES)) {
+                logger.warn("Not enough memory to create byte array.");
+                return null;
+            }
+            byte[] fileData = new byte[fileLength + NaCl.BOX_OVERHEAD_BYTES];
+
+            try {
+                int readCount = 0;
+                try {
+                    readCount = copyTo(inputStream, fileData, NaCl.BOX_OVERHEAD_BYTES, fileLength);
+                } catch (Exception e) {
+                    // it's OK to get an EOF
+                }
+
+                if (readCount > MAX_BLOB_SIZE) {
                     String errorMessage = context.getString(R.string.file_too_large, MAX_BLOB_SIZE_MB);
                     logger.info(errorMessage);
                     RuntimeUtil.runOnUiThread(() -> Toast.makeText(ThreemaApplication.getAppContext(), errorMessage, Toast.LENGTH_LONG).show());
                     return null;
                 }
 
-                if (fileLength == 0) {
-                    // InputStream may not provide size
-                    fileLength = MAX_BLOB_SIZE + 1;
+                if (readCount < fileLength) {
+                    return Arrays.copyOf(fileData, readCount + NaCl.BOX_OVERHEAD_BYTES);
                 }
 
-                if (ConfigUtils.checkAvailableMemory(fileLength + NaCl.BOX_OVERHEAD_BYTES)) {
-                    byte[] fileData = new byte[fileLength + NaCl.BOX_OVERHEAD_BYTES];
-
-                    try {
-                        int readCount = 0;
-                        try {
-                            readCount = copyTo(inputStream, fileData, NaCl.BOX_OVERHEAD_BYTES, fileLength);
-                        } catch (Exception e) {
-                            // it's OK to get an EOF
-                        }
-
-                        if (readCount > MAX_BLOB_SIZE) {
-                            String errorMessage = context.getString(R.string.file_too_large, MAX_BLOB_SIZE_MB);
-                            logger.info(errorMessage);
-                            RuntimeUtil.runOnUiThread(() -> Toast.makeText(ThreemaApplication.getAppContext(), errorMessage, Toast.LENGTH_LONG).show());
-                            return null;
-                        }
-
-                        if (readCount < fileLength) {
-                            return Arrays.copyOf(fileData, readCount + NaCl.BOX_OVERHEAD_BYTES);
-                        }
-
-                        return fileData;
-                    } catch (OutOfMemoryError e) {
-                        logger.error("Unable to create byte array", e);
-                    }
-                } else {
-                    logger.info("Not enough memory to create byte array.");
-                }
-            } else {
-                logger.info("Not enough memory to create byte array.");
+                return fileData;
+            } catch (OutOfMemoryError e) {
+                logger.error("Unable to create byte array", e);
             }
         } catch (IOException e) {
             logger.error("Unable to open file to send", e);

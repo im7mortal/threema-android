@@ -72,6 +72,7 @@ public class ListenerManager {
         }
     }
 
+    // TODO(ANDR-4436): Remove this listener.
     public static final TypedListenerManager<SynchronizeContactsListener> synchronizeContactsListeners = new TypedListenerManager<>();
     public static final TypedListenerManager<ContactSettingsListener> contactSettingsListeners = new TypedListenerManager<>();
     public static final TypedListenerManager<SMSVerificationListener> smsVerificationListeners = new TypedListenerManager<>();

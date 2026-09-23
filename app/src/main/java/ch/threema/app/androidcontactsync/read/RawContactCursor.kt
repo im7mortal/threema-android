@@ -200,11 +200,12 @@ class RawContactCursor private constructor(
         }
 
         /**
-         * Create a raw contact cursor to lookup the raw contact with [lookupInfo].
+         * Create a raw contact cursor to look up the raw contact with [lookupInfo].
          *
          * @throws [CursorCreateException] if the cursor could not be created
          * @throws [SecurityException] if there is no permission to read the contacts
          */
+        @Throws(CursorCreateException::class, SecurityException::class)
         fun createRawContactCursorForLookup(contentResolver: ContentResolver, lookupInfo: LookupInfo): RawContactCursor {
             val contactIdSelection = "${ContactsContract.Data.CONTACT_ID} = ?"
 
@@ -242,15 +243,7 @@ class RawContactCursor private constructor(
             throw CursorCreateException(cause = e)
         }
 
-        /**
-         * The cursor could not be created.
-         */
-        class CursorCreateException(message: String? = null, cause: Throwable? = null) : Throwable(
-            message = message,
-            cause = cause,
-        )
-
-        sealed class CursorException : Throwable() {
+        sealed class CursorException : Exception() {
             /**
              * Thrown if the mime type [mimeType] of the current row is invalid.
              */

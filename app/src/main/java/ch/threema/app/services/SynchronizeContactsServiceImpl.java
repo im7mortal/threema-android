@@ -3,177 +3,66 @@ package ch.threema.app.services;
 import android.accounts.Account;
 import android.accounts.AccountManagerCallback;
 import android.accounts.AccountManagerFuture;
-import android.content.ContentResolver;
-import android.content.Context;
 
 import org.slf4j.Logger;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import ch.threema.app.androidcontactsync.read.RawContactReader;
-import ch.threema.app.apptaskexecutor.AppTaskExecutor;
-import ch.threema.app.listeners.SynchronizeContactsListener;
-import ch.threema.app.managers.ListenerManager;
+import ch.threema.app.androidcontactsync.usecases.SynchronizeAndroidContactsUseCase;
 import ch.threema.app.preference.service.SynchronizedSettingsService;
-import ch.threema.app.preference.service.PreferenceService;
-import ch.threema.app.routines.SynchronizeContactsRoutine;
-import ch.threema.app.androidcontactsync.usecases.UpdateContactNameUseCase;
 import ch.threema.app.utils.AndroidContactUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.data.models.ModelDeletedException;
 import ch.threema.data.repositories.ContactModelRepository;
 import ch.threema.domain.models.VerificationLevel;
-import ch.threema.domain.protocol.api.APIConnector;
-import ch.threema.domain.stores.IdentityStore;
 
+@Deprecated
 public class SynchronizeContactsServiceImpl implements SynchronizeContactsService {
     private static final Logger logger = getThreemaLogger("SynchronizeContactsServiceImpl");
-
-    private final ContentResolver contentResolver;
-    private final APIConnector apiConnector;
     private final ContactService contactService;
     private final @NonNull ContactModelRepository contactModelRepository;
     private final UserService userService;
-    private final LocaleService localeService;
-    private final IdentityStore identityStore;
-
-    private final List<SynchronizeContactsRoutine> pendingRoutines = new ArrayList<>();
-    @NonNull
-    private final ExcludedSyncIdentitiesService excludedSyncIdentityListService;
-    @NonNull
-    private final PreferenceService preferenceService;
     @NonNull
     private final SynchronizedSettingsService synchronizedSettingsService;
     private final DeviceService deviceService;
-    private final Context context;
-    private final BlockedIdentitiesService blockedIdentitiesService;
     @NonNull
-    private final AppTaskExecutor appTaskExecutor;
-    @NonNull
-    private final UpdateContactNameUseCase updateContactNameUseCase;
+    private final SynchronizeAndroidContactsUseCase synchronizeAndroidContactsUseCase;
 
     public SynchronizeContactsServiceImpl(
-        Context context, APIConnector apiConnector,
         ContactService contactService,
         @NonNull ContactModelRepository contactModelRepository,
         UserService userService,
-        LocaleService localeService,
-        @NonNull ExcludedSyncIdentitiesService excludedSyncIdentityListService,
-        @NonNull PreferenceService preferenceService,
         @NonNull SynchronizedSettingsService synchronizedSettingsService,
         DeviceService deviceService,
-        IdentityStore identityStore,
-        @NonNull BlockedIdentitiesService blockedIdentitiesService,
-        @NonNull AppTaskExecutor appTaskExecutor,
-        @NonNull UpdateContactNameUseCase updateContactNameUseCase
-    ) {
-        this.excludedSyncIdentityListService = excludedSyncIdentityListService;
-        this.preferenceService = preferenceService;
+        @NonNull SynchronizeAndroidContactsUseCase synchronizeAndroidContactsUseCase
+        ) {
         this.synchronizedSettingsService = synchronizedSettingsService;
         this.deviceService = deviceService;
-        this.context = context;
-        this.contentResolver = context.getContentResolver();
-        this.apiConnector = apiConnector;
         this.contactService = contactService;
         this.contactModelRepository = contactModelRepository;
         this.userService = userService;
-        this.localeService = localeService;
-        this.identityStore = identityStore;
-        this.blockedIdentitiesService = blockedIdentitiesService;
-        this.appTaskExecutor = appTaskExecutor;
-        this.updateContactNameUseCase = updateContactNameUseCase;
+        this.synchronizeAndroidContactsUseCase = synchronizeAndroidContactsUseCase;
     }
 
     @Override
     public boolean instantiateSynchronizationAndRun() {
-        final SynchronizeContactsRoutine sync = this.instantiateSynchronization();
-
-        if (sync != null) {
             if (this.deviceService != null && this.deviceService.isOnline()) {
-                sync.addOnFinished((success, modifiedAccounts, createdContacts, deletedAccounts) ->
-                    // let user know that contact was added
-                    ListenerManager.newSyncedContactListener.handle(listener -> listener.onNew(createdContacts))
-                );
-
                 new Thread(() -> {
                     try {
-                        sync.run();
+                        synchronizeAndroidContactsUseCase.callBlocking();
                     } catch (SecurityException exception) {
                         logger.error("Could not run contact sync", exception);
                     }
                 }, "SynchronizeContactsRoutine").start();
                 return true;
-            } else {
-                this.finishedRoutine(sync);
             }
-        }
         return false;
     }
 
     @Override
-    @Nullable
-    public SynchronizeContactsRoutine instantiateSynchronization() {
-        return this.instantiateSynchronization(Collections.emptySet());
-    }
-
-    @Override
-    @Nullable
-    public SynchronizeContactsRoutine instantiateSynchronization(@NonNull Set<String> processingIdentities) {
-        Account account = this.userService.getAccount();
-        if (account == null) {
-            logger.error("Not instantiating synchronize contacts routine due to missing account");
-            return null;
-        }
-
-        logger.info("Running contact sync");
-
-        final SynchronizeContactsRoutine routine =
-            new SynchronizeContactsRoutine(
-                this.context,
-                this.apiConnector,
-                this.contactService,
-                this.contactModelRepository,
-                this.userService,
-                this.localeService,
-                this.contentResolver,
-                this.excludedSyncIdentityListService,
-                this.deviceService,
-                this.preferenceService,
-                this.synchronizedSettingsService,
-                this.identityStore,
-                this.blockedIdentitiesService,
-                this.appTaskExecutor,
-                this.updateContactNameUseCase,
-                processingIdentities
-            );
-
-        synchronized (this.pendingRoutines) {
-            this.pendingRoutines.add(routine);
-        }
-
-        routine.addOnFinished((success, modifiedAccounts, createdContacts, deletedAccounts) -> finishedRoutine(routine));
-
-        ListenerManager.synchronizeContactsListeners.handle(listener -> listener.onStarted(routine));
-
-        return routine;
-    }
-
-    @Override
     public boolean isSynchronizationInProgress() {
-        return !this.pendingRoutines.isEmpty();
-    }
-
-    @Override
-    public boolean isFullSyncInProgress() {
-        synchronized (this.pendingRoutines) {
-            return pendingRoutines.stream()
-                .anyMatch(routine -> routine.running() && routine.isFullSync());
-        }
+        return SynchronizeAndroidContactsUseCase.isRunning();
     }
 
     @Override
@@ -196,10 +85,12 @@ public class SynchronizeContactsServiceImpl implements SynchronizeContactsServic
     public boolean disableSyncFromLocal(final Runnable runAfterRemovedAccount) {
         logger.info("Disabling contact sync");
         if (this.userService != null) {
-            //cancel all syncs!
-            synchronized (this.pendingRoutines) {
-                for (int n = this.pendingRoutines.size() - 1; n >= 0; n--) {
-                    this.pendingRoutines.get(n).abort();
+            // TODO(ANDR-4436): This should be refactored.
+            while (SynchronizeAndroidContactsUseCase.isRunning()) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    return false;
                 }
             }
 
@@ -243,22 +134,5 @@ public class SynchronizeContactsServiceImpl implements SynchronizeContactsServic
         if (run != null) {
             run.run();
         }
-    }
-
-    private void finishedRoutine(final SynchronizeContactsRoutine routine) {
-        //remove from pending
-        synchronized (this.pendingRoutines) {
-            this.pendingRoutines.remove(routine);
-        }
-
-        logger.info("Contact sync finished");
-
-        //fire on finished
-        ListenerManager.synchronizeContactsListeners.handle(new ListenerManager.HandleListener<SynchronizeContactsListener>() {
-            @Override
-            public void handle(SynchronizeContactsListener listener) {
-                listener.onFinished(routine);
-            }
-        });
     }
 }

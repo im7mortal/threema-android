@@ -127,7 +127,7 @@ class WatchAvatarIterationsUseCaseTest {
 
             // A contact sync was completed
             ListenerManager.synchronizeContactsListeners.handle {
-                it.onFinished(null)
+                it.onFinished()
             }
             val nextIterationsMap3 = awaitItem()
                 .mapValues { mapEntry ->

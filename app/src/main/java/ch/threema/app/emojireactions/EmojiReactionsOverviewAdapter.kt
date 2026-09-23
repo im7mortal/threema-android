@@ -43,11 +43,8 @@ class EmojiReactionsOverviewAdapter(
         }
     }
 
-    override fun getItemCount(): Int {
-        return items.size
-    }
+    override fun getItemCount() = items.size
 
-    override fun createFragment(position: Int): Fragment {
-        return EmojiReactionsOverviewFragment(items[position].key, messageModel = messageModel)
-    }
+    override fun createFragment(position: Int): Fragment =
+        EmojiReactionsOverviewFragment(items[position].key, messageModel = messageModel)
 }

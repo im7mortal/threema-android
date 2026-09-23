@@ -98,9 +98,6 @@ class ChatServerAddressProviderImpl(
 
     private fun getAddressesWithoutProxy(serverHost: String): List<InetSocketAddress> {
         val inetAddresses = hostResolver.getAllByName(serverHost)
-        if (inetAddresses.isEmpty()) {
-            throw UnknownHostException()
-        }
         inetAddresses.sortWith { o1, o2 ->
             when {
                 o1 is Inet6Address && o2 is Inet6Address -> o1.hostAddress.compareTo(o2.hostAddress)

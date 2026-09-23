@@ -1,82 +1,10 @@
 package ch.threema.app.utils;
 
-import android.Manifest;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.UserManager;
 
-import org.slf4j.Logger;
-
-import java.util.Set;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.RequiresPermission;
-import ch.threema.app.ThreemaApplication;
-import ch.threema.app.managers.ServiceManager;
-import ch.threema.app.routines.SynchronizeContactsRoutine;
-import ch.threema.app.services.SynchronizeContactsService;
-import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-
 public class SynchronizeContactsUtil {
-    private static final Logger logger = getThreemaLogger("SynchronizeContactsUtil");
-
-    @RequiresPermission(allOf = {Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS})
-    public static void startDirectly() {
-        logger.info("Starting contact sync");
-        SynchronizeContactsRoutine routine = getSynchronizeContactsRoutine();
-        if (routine == null) {
-            logger.error("Could not start synchronize contacts routine directly");
-            return;
-        }
-        routine.run();
-    }
-
-    @RequiresPermission(allOf = {Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS})
-    public static void startDirectly(@NonNull String identity) {
-        logger.info("Starting single contact sync for identity {}", identity);
-        SynchronizeContactsRoutine routine = getSynchronizeContactsRoutine(Set.of(identity));
-        if (routine == null) {
-            logger.error("Could not start synchronize contacts routine directly for identity {}", identity);
-            return;
-        }
-        routine.run();
-    }
-
-    @Nullable
-    private static SynchronizeContactsService getSynchronizeContactsService() {
-        ServiceManager serviceManager = ServiceManager.get();
-        if (serviceManager == null) {
-            logger.error("Cannot get synchronize contacts service as service manager is null");
-            return null;
-        }
-        return serviceManager.getSynchronizeContactsService();
-    }
-
-    @Nullable
-    private static SynchronizeContactsRoutine getSynchronizeContactsRoutine() {
-        return getSynchronizeContactsRoutine(Set.of());
-    }
-
-    @Nullable
-    private static SynchronizeContactsRoutine getSynchronizeContactsRoutine(Set<String> identities) {
-        ServiceManager serviceManager = ServiceManager.get();
-        if (serviceManager == null) {
-            logger.error("Cannot get synchronize contacts routine as service manager is unavailable");
-            return null;
-        }
-
-        if (serviceManager.getSynchronizedSettingsService().isSyncContacts()) {
-            SynchronizeContactsService synchronizeContactsService = getSynchronizeContactsService();
-
-            if (synchronizeContactsService != null) {
-                return synchronizeContactsService.instantiateSynchronization(identities);
-            }
-        }
-
-        return null;
-    }
-
     public static boolean isRestrictedProfile(Context context) {
         UserManager um = (UserManager) context.getSystemService(Context.USER_SERVICE);
         Bundle restrictions = um.getUserRestrictions();

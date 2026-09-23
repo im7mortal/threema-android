@@ -4,6 +4,7 @@ import android.database.sqlite.SQLiteException
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.domain.types.GroupDatabaseId
+import ch.threema.domain.types.Identity
 import ch.threema.domain.types.IdentityString
 import java.time.Instant
 
@@ -90,6 +91,11 @@ interface DatabaseBackend {
      * Get all groups.
      */
     fun getAllGroups(): Collection<DbGroup>
+
+    /**
+     * Get all groups of a given creator.
+     */
+    fun getGroupsByCreator(identity: Identity): Collection<DbGroup>
 
     /**
      * Return the group with the specified [groupDatabaseId].

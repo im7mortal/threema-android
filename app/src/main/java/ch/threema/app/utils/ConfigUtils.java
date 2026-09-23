@@ -1376,6 +1376,7 @@ public class ConfigUtils {
 
     /**
      * Apply operations to content provider in small batches preventing TransactionTooLargeException
+     * TODO(ANDR-4326): Move this to ThreemaRawContactWriter and fix wrong back references in case several batches exist.
      *
      * @param authority                 Authority
      * @param contentProviderOperations Operations to apply in smaller batches

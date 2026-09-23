@@ -1,6 +1,6 @@
 package ch.threema.app.androidcontactsync.read
 
-sealed class AndroidContactLookupException : Throwable() {
+sealed class AndroidContactLookupException : Exception() {
     /**
      * There was a failure in getting the lookup information.
      */

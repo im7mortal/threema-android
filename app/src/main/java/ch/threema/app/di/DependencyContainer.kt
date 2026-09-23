@@ -28,7 +28,6 @@ import ch.threema.app.services.ProfilePictureRecipientsService
 import ch.threema.app.services.RingtoneService
 import ch.threema.app.services.SensorService
 import ch.threema.app.services.ServerAddressProviderService
-import ch.threema.app.services.SynchronizeContactsService
 import ch.threema.app.services.UserService
 import ch.threema.app.services.WallpaperService
 import ch.threema.app.services.license.LicenseService
@@ -99,7 +98,6 @@ class DependencyContainer : KoinComponent {
     val serverAddressProviderService: ServerAddressProviderService by inject()
     val serverConnection: ServerConnection by inject()
     val sessionService: SessionService by inject()
-    val synchronizeContactsService: SynchronizeContactsService by inject()
     val synchronizedSettingsService: SynchronizedSettingsService by inject()
     val taskCreator: TaskCreator by inject()
     val taskManager: TaskManager by inject()

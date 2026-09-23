@@ -151,7 +151,7 @@ public class FileDataModel implements MediaMessageDataInterface {
     }
 
     @Override
-    public void isDownloaded(boolean isDownloaded) {
+    public void setDownloaded(boolean isDownloaded) {
         this.isDownloaded = isDownloaded;
         if (isDownloaded && metaData != null && metaData.containsKey(METADATA_KEY_LEGACY_NONCE)) {
             // Once the file is downloaded, we don't need the nonce anymore and can discard it
@@ -159,11 +159,6 @@ public class FileDataModel implements MediaMessageDataInterface {
             newMetaData.remove(METADATA_KEY_LEGACY_NONCE);
             metaData = newMetaData;
         }
-    }
-
-    @Override
-    public byte[] getNonce() {
-        return new byte[0];
     }
 
     @NonNull

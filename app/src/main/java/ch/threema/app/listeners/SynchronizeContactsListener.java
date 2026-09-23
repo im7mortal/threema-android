@@ -1,15 +1,14 @@
 package ch.threema.app.listeners;
 
 import androidx.annotation.AnyThread;
-import ch.threema.app.routines.SynchronizeContactsRoutine;
 
 public interface SynchronizeContactsListener {
     @AnyThread
-    default void onStarted(SynchronizeContactsRoutine startedRoutine) {}
+    default void onStarted() {}
 
     @AnyThread
-    default void onFinished(SynchronizeContactsRoutine finishedRoutine) {}
+    default void onFinished() {}
 
     @AnyThread
-    default void onError(SynchronizeContactsRoutine finishedRoutine) {}
+    default void onError() {}
 }

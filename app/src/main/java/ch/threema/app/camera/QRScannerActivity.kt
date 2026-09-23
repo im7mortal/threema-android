@@ -8,9 +8,9 @@ import android.util.Size
 import android.view.MotionEvent
 import android.view.View
 import android.widget.TextView
-import android.widget.Toast
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.CameraUnavailableException
 import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
@@ -20,8 +20,10 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import ch.threema.android.ToastDuration
 import ch.threema.android.buildActivityIntent
 import ch.threema.android.buildIntent
+import ch.threema.android.showToast
 import ch.threema.app.R
 import ch.threema.app.activities.ThreemaActivity
 import ch.threema.app.ui.InsetSides
@@ -30,6 +32,7 @@ import ch.threema.app.ui.applyDeviceInsetsAsPadding
 import ch.threema.app.utils.SoundEffectPlayer
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.hasInCauseChain
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import org.koin.android.ext.android.inject
@@ -105,10 +108,19 @@ class QRScannerActivity : ThreemaActivity() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener(
             {
-                // CameraProvider
-                cameraProvider = cameraProviderFuture.get()
+                try {
+                    cameraProvider = cameraProviderFuture.get()
+                } catch (e: Exception) {
+                    if (e.hasInCauseChain<CameraUnavailableException>()) {
+                        showToast(R.string.no_camera_installed)
+                    } else {
+                        showToast(R.string.an_error_occurred)
+                    }
+                    logger.error("Failed to get camera provider", e)
+                    finish()
+                    return@addListener
+                }
 
-                // Build and bind the camera use cases
                 bindCameraUseCases()
             },
             ContextCompat.getMainExecutor(this),
@@ -124,7 +136,7 @@ class QRScannerActivity : ThreemaActivity() {
         }
 
         if (lensFacing == -1) {
-            Toast.makeText(this, R.string.no_camera_installed, Toast.LENGTH_SHORT).show()
+            showToast(R.string.no_camera_installed)
             logger.info("Back and front camera are unavailable")
             finish()
             return
@@ -162,7 +174,7 @@ class QRScannerActivity : ThreemaActivity() {
                                 logger.debug("Decoder Error")
                                 it.clearAnalyzer()
                                 runOnUiThread {
-                                    Toast.makeText(this, R.string.qr_code, Toast.LENGTH_LONG).show()
+                                    showToast(R.string.an_error_occurred, ToastDuration.LONG)
                                     returnData(
                                         qrCodeData = null,
                                         success = false,

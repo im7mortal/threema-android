@@ -43,7 +43,6 @@ public class MediaAttachViewModel extends ViewModel {
     private final CompletableFuture<Void> initialLoadDone = new CompletableFuture<>();
 
     private static final String KEY_SELECTED_MEDIA = "selected_media";
-    private static final String KEY_TOOLBAR_TITLE = "toolbar_title";
     private static final String KEY_RECENT_QUERY = "recent_query_string";
     private static final String KEY_RECENT_QUERY_TYPE = "recent_query_type";
 
@@ -184,14 +183,6 @@ public class MediaAttachViewModel extends ViewModel {
         }
     }
 
-    public String getToolBarTitle() {
-        return savedState.get(KEY_TOOLBAR_TITLE);
-    }
-
-    public void setToolBarTitle(String toolBarTitle) {
-        savedState.set(KEY_TOOLBAR_TITLE, toolBarTitle);
-    }
-
     public String getLastQuery() {
         return savedState.get(KEY_RECENT_QUERY);
     }
@@ -200,7 +191,7 @@ public class MediaAttachViewModel extends ViewModel {
         return savedState.get(KEY_RECENT_QUERY_TYPE);
     }
 
-    public void setlastQuery(@MediaFilterQuery.FilterType int type, String labelQuery) {
+    public void setLastQuery(@MediaFilterQuery.FilterType int type, String labelQuery) {
         savedState.set(KEY_RECENT_QUERY, labelQuery);
         savedState.set(KEY_RECENT_QUERY_TYPE, type);
     }

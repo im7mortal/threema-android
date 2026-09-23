@@ -35,9 +35,12 @@ import ch.threema.app.ui.ThreemaEditText;
 import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.IntentDataUtil;
+
+import static ch.threema.app.startup.AppStartupUtilKt.waitUntilReady;
 import ch.threema.app.utils.NetworkUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.common.models.Coordinates;
+import kotlin.Unit;
 
 import static ch.threema.app.location.LocationAutocompleteViewModel.QUERY_MIN_LENGTH;
 import static ch.threema.app.utils.IntentDataUtil.INTENT_DATA_LOCATION_LAT;
@@ -74,6 +77,14 @@ public class LocationAutocompleteActivity extends ThreemaActivity {
         super.onCreate(savedInstanceState);
         logScreenVisibility(this, logger);
 
+        // TODO(ANDR-4389): Improve the waiting mechanism
+        waitUntilReady(this, () -> {
+            onReady();
+            return Unit.INSTANCE;
+        });
+    }
+
+    private void onReady() {
         setContentView(R.layout.activity_location_autocomplete);
 
         MaterialToolbar toolbar = findViewById(R.id.toolbar);

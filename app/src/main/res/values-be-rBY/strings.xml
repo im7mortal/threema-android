@@ -32,6 +32,7 @@
     <string name="title_job_title">Пасада</string>
     <string name="title_department">Аддзел</string>
     <string name="send">Адправіць</string>
+    <string name="prefs_linked_devices">Звязаныя прылады</string>
     <!-- Title of section on "Settings" screen, for advanced settings -->
     <!-- Title of section on "Settings" screen, for information and other options about the app -->
     <string name="prefs_privacy">Прыватнасць</string>

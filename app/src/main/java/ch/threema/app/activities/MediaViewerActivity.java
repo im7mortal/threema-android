@@ -682,8 +682,13 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
         super.onDestroy();
     }
 
+    @Nullable
     public AbstractMessageModel getMessageModel(int position) {
-        return messageModels.get(position);
+        try {
+            return messageModels.get(position);
+        } catch (IndexOutOfBoundsException e) {
+            return null;
+        }
     }
 
     public File[] getDecryptedFileCache() {
