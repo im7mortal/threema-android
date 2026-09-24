@@ -74,11 +74,13 @@ import com.google.android.material.progressindicator.CircularProgressIndicator
 import java.io.File
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import kotlin.coroutines.resume
 import kotlin.math.floor
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
@@ -343,19 +345,19 @@ class CameraFragment : Fragment() {
         }
     }
 
-    /** Initialize CameraX, and prepare to bind the camera use cases  */
     private fun setUpCamera() {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
-        cameraProviderFuture.addListener({
-            // CameraProvider
-            cameraProvider = cameraProviderFuture.get()
-            if (cameraProvider == null) {
-                logger.warn("Camera provider is null")
-            }
+        lifecycleScope.launch {
+            val cameraProvider = getCameraProvider(requireContext())
+                ?: run {
+                    showToast(R.string.no_camera_installed)
+                    logger.warn("Camera provider is null")
+                    activity?.finish()
+                    return@launch
+                }
 
-            // Select lensFacing depending on the available cameras
+            this@CameraFragment.cameraProvider = cameraProvider
+
             if (viewModel.lensFacing == CameraSelector.LENS_FACING_BACK && !hasBackCamera()) {
-                // try front camera
                 viewModel.lensFacing = CameraSelector.LENS_FACING_FRONT
             }
 
@@ -381,8 +383,30 @@ class CameraFragment : Fragment() {
                 logger.info("Unable to bind camera use cases")
                 activity?.finish()
             }
-        }, ContextCompat.getMainExecutor(requireContext()))
+        }
     }
+
+    private suspend fun getCameraProvider(context: Context): ProcessCameraProvider? =
+        suspendCancellableCoroutine { continuation ->
+            val future = try {
+                ProcessCameraProvider.getInstance(context)
+            } catch (e: IllegalStateException) {
+                logger.error("Failed to initialize camera (getInstance)", e)
+                continuation.resume(null)
+                return@suspendCancellableCoroutine
+            }
+            future.addListener({
+                try {
+                    continuation.resume(future.get())
+                } catch (e: Exception) {
+                    logger.error("Failed to initialize camera (listener)", e)
+                    continuation.resume(null)
+                }
+            }, ContextCompat.getMainExecutor(context))
+            continuation.invokeOnCancellation {
+                future.cancel(true)
+            }
+        }
 
     /** Declare and bind preview, capture and analysis use cases */
     private fun bindCameraUseCases(): Boolean {
@@ -563,68 +587,21 @@ class CameraFragment : Fragment() {
 
     private fun observeCameraState(cameraInfo: CameraInfo) {
         cameraInfo.cameraState.observe(viewLifecycleOwner) { cameraState ->
-            run {
-                when (cameraState.type) {
-                    CameraState.Type.PENDING_OPEN -> {
-                        // Ask the user to close other camera apps
-                        logger.debug("CameraState: Pending Open")
-                    }
-                    CameraState.Type.OPENING -> {
-                        // Show the Camera UI
-                        logger.debug("CameraState: Opening")
-                    }
-                    CameraState.Type.OPEN -> {
-                        // Setup Camera resources and begin processing
-                        logger.debug("CameraState: Open")
-                    }
-                    CameraState.Type.CLOSING -> {
-                        // Close camera UI
-                        logger.debug("CameraState: Closing")
-                    }
-                    CameraState.Type.CLOSED -> {
-                        // Free camera resources
-                        logger.debug("CameraState: Closed")
-                    }
-                }
-            }
-
             cameraState.error?.let { error ->
                 when (error.code) {
-                    // Open errors
-                    CameraState.ERROR_STREAM_CONFIG -> {
-                        // Make sure to setup the use cases properly
-                        // TODO(ANDR-4447): Toast messages should be localized
-                        showToast("Stream config error")
+                    CameraState.ERROR_CAMERA_IN_USE,
+                    CameraState.ERROR_MAX_CAMERAS_IN_USE,
+                    CameraState.ERROR_CAMERA_DISABLED,
+                    -> {
+                        showToast(R.string.no_camera_installed)
                     }
-                    // Opening errors
-                    CameraState.ERROR_CAMERA_IN_USE -> {
-                        // Close the camera or ask user to close another camera app that's using the
-                        // camera
-                        // TODO(ANDR-4447): Toast messages should be localized
-                        showToast("Camera in use")
+                    CameraState.ERROR_OTHER_RECOVERABLE_ERROR,
+                    CameraState.ERROR_STREAM_CONFIG,
+                    CameraState.ERROR_CAMERA_FATAL_ERROR,
+                    -> {
+                        logger.error("Camera failed {}", error)
+                        showToast(R.string.an_error_occurred)
                     }
-                    CameraState.ERROR_MAX_CAMERAS_IN_USE -> {
-                        // Close another open camera in the app, or ask the user to close another
-                        // camera app that's using the camera
-                        // TODO(ANDR-4447): Toast messages should be localized
-                        showToast("Max cameras in use")
-                    }
-                    CameraState.ERROR_OTHER_RECOVERABLE_ERROR -> {
-                        // TODO(ANDR-4447): Toast messages should be localized
-                        showToast("Other recoverable error")
-                    }
-                    // Closing errors
-                    CameraState.ERROR_CAMERA_DISABLED -> {
-                        // Ask the user to enable the device's cameras
-                        // TODO(ANDR-4447): Toast messages should be localized
-                        showToast("Camera disabled")
-                    }
-                    CameraState.ERROR_CAMERA_FATAL_ERROR -> {
-                        // Ask the user to reboot the device to restore camera function
-                        // TODO(ANDR-4447): Toast messages should be localized
-                        showToast("Fatal error")
-                    }
-                    // Closed errors
                     CameraState.ERROR_DO_NOT_DISTURB_MODE_ENABLED -> {
                         // Ask the user to disable the "Do Not Disturb" mode, then reopen the camera
                         // TODO(ANDR-4447): Toast messages should be localized

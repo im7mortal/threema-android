@@ -21,4 +21,18 @@ data class AndroidContact(
             "Every raw contact of an android contact must have a unique raw contact id"
         }
     }
+
+    /**
+     * Get all phone numbers of all raw contacts of this contact.
+     */
+    fun getAllPhoneNumbers(): Set<PhoneNumber> = rawContacts
+        .flatMap(RawContact::phoneNumbers)
+        .toSet()
+
+    /**
+     * Get all email addresses of all raw contacts of this contact.
+     */
+    fun getAllEmailAddresses(): Set<EmailAddress> = rawContacts
+        .flatMap(RawContact::emailAddresses)
+        .toSet()
 }

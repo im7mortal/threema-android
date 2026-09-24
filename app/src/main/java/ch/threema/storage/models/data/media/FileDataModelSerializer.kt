@@ -48,8 +48,16 @@ object FileDataModelSerializer {
     fun deserializeFileDataBody(body: String): FileDataModel? {
         try {
             val iterator = JsonArrayIterator(body)
-            val blobId = iterator.nextString()?.hexToByteArray()
-            val encryptionKey = iterator.nextString()?.hexToByteArray()
+            val blobId = try {
+                iterator.nextString()?.hexToByteArray()
+            } catch (_: IllegalArgumentException) {
+                null
+            }
+            val encryptionKey = try {
+                iterator.nextString()?.hexToByteArray()
+            } catch (_: IllegalArgumentException) {
+                null
+            }
             val mimeType = iterator.nextString()
             val fileSize = iterator.nextInt().toLong()
             val fileName = iterator.nextString()

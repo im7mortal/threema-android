@@ -1,2 +1,3 @@
-- Support for emoji version 17.0
+- Fixed a bug related to automatic file downloads
+- Improvements to contact synchronization
 - Various improvements and bug fixes

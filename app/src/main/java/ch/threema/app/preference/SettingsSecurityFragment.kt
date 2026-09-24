@@ -85,7 +85,7 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
             val passphrase = PassphraseUnlockActivity.getPassphrase(result.data!!)
             if (passphrase != null) {
-                lifecycleScope.launch {
+                viewLifecycleOwner.lifecycleScope.launch {
                     // optimistically set the switch's state to false. It will get corrected later if the operation fails
                     masterKeySwitchPreference.setChecked(false)
                     try {
@@ -393,7 +393,7 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
     }
 
     private fun setBiometricLock() {
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             val result = appLockUtil.authenticate(
                 activity = requireActivity(),
                 title = getString(R.string.prefs_title_access_protection),
@@ -561,7 +561,7 @@ class SettingsSecurityFragment : ThreemaPreferenceFragment(), PasswordEntryDialo
     private fun removeAccessProtection() {
         logger.info("Removing lock mechanism and private marks")
         preferenceService.setArePrivateChatsHidden(false)
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             try {
                 if (conversationCategoryService.hasAnyPrivateMarks()) {
                     showProgressDialog()

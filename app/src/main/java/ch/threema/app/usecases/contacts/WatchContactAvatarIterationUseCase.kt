@@ -5,7 +5,6 @@ import ch.threema.app.eventbus.events.ContactEvent
 import ch.threema.app.listeners.ContactSettingsListener
 import ch.threema.app.listeners.SynchronizeContactsListener
 import ch.threema.app.managers.ListenerManager
-import ch.threema.app.routines.SynchronizeContactsRoutine
 import ch.threema.app.usecases.conversations.AvatarIteration
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.datatypes.ContactConversationId
@@ -79,7 +78,7 @@ class WatchContactAvatarIterationUseCase(
         // Catching event:
         // - The user set a profile picture for his synced contact via Android address book
         val synchronizeContactsListener = object : SynchronizeContactsListener {
-            override fun onFinished(finishedRoutine: SynchronizeContactsRoutine?) {
+            override fun onFinished() {
                 incrementAvatarIterationAndSend()
             }
         }

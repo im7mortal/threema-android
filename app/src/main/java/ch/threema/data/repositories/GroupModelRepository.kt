@@ -15,6 +15,7 @@ import ch.threema.data.models.GroupModel
 import ch.threema.data.models.GroupModelData
 import ch.threema.data.models.GroupModelDataFactory
 import ch.threema.data.storage.DatabaseBackend
+import ch.threema.data.storage.DbGroup
 import ch.threema.domain.models.GroupId
 import ch.threema.domain.taskmanager.TaskManager
 import ch.threema.domain.types.GroupDatabaseId
@@ -71,17 +72,20 @@ class GroupModelRepository(
             .mapNotNull { dbGroup ->
                 val groupIdentity = GroupIdentity(dbGroup.creatorIdentity, GroupId(dbGroup.groupId).toLong())
                 cache.getOrCreate(groupIdentity) {
-                    GroupModel(
-                        groupIdentity = groupIdentity,
-                        data = GroupModelDataFactory.toDataType(dbGroup),
-                        databaseBackend = databaseBackend,
-                        identityProvider = identityProvider,
-                        multiDeviceManager = multiDeviceManager,
-                        taskManager = taskManager,
-                        globalEventBuses = globalEventBuses,
-                    )
+                    createGroupModel(groupIdentity, dbGroup)
                 }
             }
+
+    private fun createGroupModel(groupIdentity: GroupIdentity, dbGroup: DbGroup) =
+        GroupModel(
+            groupIdentity = groupIdentity,
+            data = GroupModelDataFactory.toDataType(dbGroup),
+            databaseBackend = databaseBackend,
+            identityProvider = identityProvider,
+            multiDeviceManager = multiDeviceManager,
+            taskManager = taskManager,
+            globalEventBuses = globalEventBuses,
+        )
 
     /**
      * Get the group with the [groupDatabaseId]. Note that this call always accesses the database.
@@ -96,15 +100,7 @@ class GroupModelRepository(
         val dbGroup = databaseBackend.getGroupByGroupDatabaseId(groupDatabaseId) ?: return null
         val groupIdentity = GroupIdentity(dbGroup.creatorIdentity, GroupId(dbGroup.groupId).toLong())
         return cache.getOrCreate(groupIdentity) {
-            GroupModel(
-                groupIdentity,
-                GroupModelDataFactory.toDataType(dbGroup),
-                databaseBackend,
-                identityProvider = identityProvider,
-                multiDeviceManager = multiDeviceManager,
-                taskManager = taskManager,
-                globalEventBuses = globalEventBuses,
-            )
+            createGroupModel(groupIdentity, dbGroup)
         }
     }
 
@@ -118,17 +114,19 @@ class GroupModelRepository(
     fun getByGroupIdentity(groupIdentity: GroupIdentity): GroupModel? {
         return cache.getOrCreate(groupIdentity) {
             val dbGroup = databaseBackend.getGroupByGroupIdentity(groupIdentity) ?: return@getOrCreate null
-            GroupModel(
-                groupIdentity,
-                GroupModelDataFactory.toDataType(dbGroup),
-                databaseBackend,
-                identityProvider = identityProvider,
-                multiDeviceManager = multiDeviceManager,
-                taskManager = taskManager,
-                globalEventBuses = globalEventBuses,
-            )
+            createGroupModel(groupIdentity, dbGroup)
         }
     }
+
+    @Synchronized
+    fun getByCreator(creatorIdentity: IdentityString): List<GroupModel> =
+        databaseBackend.getGroupsByCreator(Identity(creatorIdentity))
+            .mapNotNull { dbGroup ->
+                val groupIdentity = GroupIdentity(creatorIdentity, GroupId(dbGroup.groupId).toLong())
+                cache.getOrCreate(groupIdentity) {
+                    createGroupModel(groupIdentity, dbGroup)
+                }
+            }
 
     /**
      * Creates the given group. Note that this change is not reflected! The group is just persisted.

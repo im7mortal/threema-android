@@ -654,7 +654,7 @@ abstract public class MediaSelectionBaseActivity extends ThreemaActivity impleme
     public void filterMediaByBucket(@NonNull String mediaBucket) {
         mediaAttachViewModel.setMediaByBucket(mediaBucket);
         menuTitle.setText(mediaBucket);
-        mediaAttachViewModel.setlastQuery(FILTER_MEDIA_BUCKET, mediaBucket);
+        mediaAttachViewModel.setLastQuery(FILTER_MEDIA_BUCKET, mediaBucket);
     }
 
     public void filterMediaByMediaAttachType(@NonNull String mediaAttachTypeTitle) {
@@ -674,13 +674,13 @@ abstract public class MediaSelectionBaseActivity extends ThreemaActivity impleme
             mediaAttachViewModel.setMediaByType(mediaAttachType);
         }
         menuTitle.setText(mediaAttachTypeTitle);
-        mediaAttachViewModel.setlastQuery(FILTER_MEDIA_TYPE, mediaAttachTypeTitle);
+        mediaAttachViewModel.setLastQuery(FILTER_MEDIA_TYPE, mediaAttachTypeTitle);
     }
 
     public void filterMediaBySelectedItems() {
         mediaAttachViewModel.setSelectedMedia();
         menuTitle.setText(R.string.selected_media);
-        mediaAttachViewModel.setlastQuery(FILTER_MEDIA_SELECTED, null);
+        mediaAttachViewModel.setLastQuery(FILTER_MEDIA_SELECTED, null);
     }
 
     public String getMediaAttachTypeTitle(int mediaAttachType) {

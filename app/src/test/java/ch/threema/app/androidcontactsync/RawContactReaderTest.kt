@@ -388,7 +388,10 @@ class RawContactReaderTest {
         val appContextMock: Context = mockk {
             every { contentResolver } returns mockContentResolverWithoutPermission()
         }
-        val rawContactCursorProvider = RawContactCursorProvider(appContext = appContextMock)
+        val rawContactCursorProvider = RawContactCursorProvider(
+            appContext = appContextMock,
+            userService = mockk(),
+        )
 
         val rawContactReader = RawContactReader(
             rawContactCursorProvider = rawContactCursorProvider,

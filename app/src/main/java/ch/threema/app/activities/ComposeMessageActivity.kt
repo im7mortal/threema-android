@@ -97,6 +97,9 @@ class ComposeMessageActivity : ThreemaToolbarActivity(), DialogClickListener, Ap
 
         // TODO(ANDR-4389): Improve the waiting mechanism
         waitUntilReady {
+            if (supportFragmentManager.isStateSaved) {
+                logger.warn("Fragment state already saved")
+            }
             initActivity(savedInstanceState)
             handleDeviceInsets()
         }
@@ -124,7 +127,7 @@ class ComposeMessageActivity : ThreemaToolbarActivity(), DialogClickListener, Ap
                     putParcelable(AppConstants.INTENT_DATA_CONVERSATION_ID, conversationId)
                 },
             )
-            supportFragmentManager.runTransaction {
+            supportFragmentManager.runTransaction(allowStateLoss = true) {
                 add(R.id.messages, conversationsFragment!!, MESSAGES_FRAGMENT_TAG)
             }
         }
@@ -133,17 +136,17 @@ class ComposeMessageActivity : ThreemaToolbarActivity(), DialogClickListener, Ap
         if (composeMessageFragment == null) {
             composeMessageFragment = ComposeMessageFragment()
             if (isHidden) {
-                supportFragmentManager.runTransaction {
+                supportFragmentManager.runTransaction(allowStateLoss = true) {
                     add(R.id.compose, composeMessageFragment!!, COMPOSE_FRAGMENT_TAG)
                     hide(composeMessageFragment!!)
                 }
             } else {
-                supportFragmentManager.runTransaction {
+                supportFragmentManager.runTransaction(allowStateLoss = true) {
                     add(R.id.compose, composeMessageFragment!!, COMPOSE_FRAGMENT_TAG)
                 }
             }
         } else if (!isHidden) {
-            supportFragmentManager.runTransaction {
+            supportFragmentManager.runTransaction(allowStateLoss = true) {
                 show(composeMessageFragment!!)
             }
         }

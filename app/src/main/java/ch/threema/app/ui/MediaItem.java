@@ -82,14 +82,6 @@ public class MediaItem implements Parcelable {
         private int rotation;
         private int flip;
 
-        public static Orientation getMixedOrientation(@NonNull Orientation first, @NonNull Orientation second) {
-            int mixedRotation = first.getRotation() + second.getRotation();
-            int mixedFlip = FLIP_NONE;
-            mixedFlip |= first.isHorizontalFlip() ^ second.isHorizontalFlip() ? FLIP_HORIZONTAL : FLIP_NONE;
-            mixedFlip |= first.isVerticalFlip() ^ second.isVerticalFlip() ? FLIP_VERTICAL : FLIP_NONE;
-            return new Orientation(mixedRotation, mixedFlip);
-        }
-
         public Orientation() {
             this(0, FLIP_NONE);
         }

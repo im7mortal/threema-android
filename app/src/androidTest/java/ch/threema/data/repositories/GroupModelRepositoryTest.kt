@@ -152,6 +152,18 @@ class GroupModelRepositoryTest {
     }
 
     @Test
+    fun testGetByCreatorIdentity() {
+        val groupIdentity = GroupIdentity("TESTTEST", 42)
+        val testGroup = createTestDbGroup(groupIdentity)
+        databaseBackend.createGroup(testGroup)
+
+        val fetchedGroups = groupModelRepository.getByCreator(
+            groupIdentity.creatorIdentity,
+        )
+        assertEquals(listOf(GroupModelDataFactory.toDataType(testGroup)), fetchedGroups.map { it.data })
+    }
+
+    @Test
     fun testGetByGroupIdentity() {
         val groupIdentityDefault = GroupIdentity("TESTTEST", 42)
         val defaultGroup = createTestDbGroup(groupIdentityDefault)

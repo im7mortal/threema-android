@@ -93,7 +93,7 @@
     <string name="prefs_title_sum_message_log_on_since">Activité du système enregistrée depuis %1$s (%2$s)</string>
     <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
     <string name="prefs_title_sum_message_log_forced_on">L\'activité du système est enregistrée. Supprimez le fichier « %1$s » pour désactiver l\'enregistrement. (%2$s)</string>
-    <string name="prefs_title_sum_message_log_off">Les événements ne seront pas consignés</string>
+    <string name="prefs_title_sum_message_log_off">L\'activité du système n\'est pas enregistrée</string>
     <string name="prefs_reset_push">Réinitialiser le jeton Push</string>
     <string name="prefs_sum_reset_push">Réenregistrer l\'appareil pour des notifications Push avec FCM ou HMS</string>
     <string name="prefs_notification_preview">Afficher l\'aperçu des messages</string>
@@ -201,7 +201,7 @@
     <string name="click_here_to_change_passphrase">Appuyez ici pour changer la phrase secrète</string>
     <string name="attach_camera">Appareil photo</string>
     <string name="menu_restore">Restaurer depuis la sauvegarde</string>
-    <string name="restore_id_hint">Saisissez ou copiez la chaîne de texte de l\'exportation de l\'ID pour le restaurer</string>
+    <string name="restore_id_hint">Saisissez ou copiez la chaîne de texte de l\'exportation dl\'ID pour le restaurer. Ou scannez le code QR de votre exportation d\'ID.</string>
     <string name="restore_id_string_label">Chaîne de texte d\'exportation de l\'ID</string>
     <string name="location_placeholder">Emplacement</string>
     <string name="video_placeholder">Vidéo</string>
@@ -238,6 +238,8 @@
     <string name="prefs_header_other">Autre</string>
     <string name="an_error_occurred">Une erreur s\'est produite</string>
     <string name="an_error_occurred_more">Une erreur s\'est produite : « %1$s »</string>
+    <!-- Error message shown to the user if the app fails to start. ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
+    <string name="startup_error_details">Échec de l\'ouverture de ${app_name_short} en raison d\'une erreur inconnue. Veuillez exporter le fichier journal ci-dessous et contacter notre équipe d\'assistance pour que nous puissions enquêter sur le problème. Nous nous excusons pour la gêne occasionnée.</string>
     <string name="acknowledge">Accuser réception</string>
     <string name="decline">Désapprouver</string>
     <string name="forward_message">Transférer le message</string>
@@ -617,8 +619,8 @@ Veuillez saisir une question pour votre enquête.</string>
     <string name="no_app_for_location">Aucune application de cartographie n\'a été trouvée sur cet appareil</string>
     <string name="prefs_sendlog">Envoyer le journal</string>
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
-    <string name="prefs_sendlog_summary">Envoyer le fichier journal à ${company_name} pour une analyse approfondie en cas de problèmes</string>
-    <string name="prefs_exportlog">Exporter le journal</string>
+    <string name="prefs_sendlog_summary">Envoyez le fichier journal à ${company_name} pour une analyse approfondie en cas de problèmes</string>
+    <string name="prefs_exportlog">Exporter le fichier journal</string>
     <string name="prefs_exportlog_summary">Partager le fichier journal avec une autre application</string>
     <!-- ${app_name} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="permission_storage_required">Pour envoyer des médias, autorisez ${app_name} à accéder à l\'espace de stockage.</string>
@@ -688,7 +690,7 @@ Veuillez saisir une question pour votre enquête.</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_info_nickname">Le surnom est utilisé dans les notifications push sur certains appareils, ou comme moyen supplémentaire de vous identifier auprès des utilisateurs dont vous n\'êtes pas encore dans le carnet d\'adresse. Nous vous recommandons de ne donner que votre prénom ou un pseudo. Si vous ne définissez pas de surnom, nous utiliserons par défaut votre ID ${app_name_short}.</string>
     <string name="not_linked">non lié</string>
-    <string name="linked">lié</string>
+    <string name="linked">Lié</string>
     <string name="pending_sms_verification_notice">Votre numéro de mobile n\'est pas encore vérifié.</string>
     <string name="no_sms_received">Vous n\'avez pas reçu de SMS ?</string>
     <string name="really_cancel_verify">Voulez-vous vraiment annuler la vérification de numéro de téléphone ?</string>
@@ -1559,7 +1561,7 @@ Veuillez saisir une question pour votre enquête.</string>
     <string name="problemsolver_to_settings">Aux paramètres</string>
     <!-- Label on button to dismiss/hide a warning -->
     <string name="problemsolver_dismiss">Ignorer</string>
-    <string name="prefs_advanced_options">Options avancées</string>
+    <string name="prefs_advanced_options">Paramètres avancés</string>
     <string name="push_service">Service Push</string>
     <string name="edit_and_send">Modifier et envoyer</string>
     <string name="media_gallery_animated_webps">WebP animés</string>

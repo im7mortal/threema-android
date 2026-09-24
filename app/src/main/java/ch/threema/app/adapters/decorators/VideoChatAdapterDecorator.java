@@ -269,9 +269,12 @@ public class VideoChatAdapterDecorator extends ChatAdapterDecorator {
     }
 
     private void setControllerStateOutgoingMessage(@NonNull ComposeMessageHolder holder) {
-        logger.debug("**** Video MessageStatus: {}", getMessageModel().getState());
-
-        switch (getMessageModel().getState()) {
+        var messageState = getMessageModel().getState();
+        logger.debug("**** Video MessageState: {}", messageState);
+        if (messageState == null) {
+            return;
+        }
+        switch (messageState) {
             case TRANSCODING:
                 holder.controller.setTranscoding();
                 if (holder.transcoderView != null) {

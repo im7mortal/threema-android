@@ -94,20 +94,22 @@ class OutgoingFileMessageTask(
         messageModel: AbstractMessageModel,
     ): FileData {
         // In case there are recipients or multi device is active, we need a blob id and an
-        // encryption key. Otherwise the message will be invalid and cannot be sent. In case there
+        // encryption key. Otherwise, the message will be invalid and cannot be sent. In case there
         // is no recipient and multi device is not active, the message is sent in a notes group
         // where we do not upload the blob.
         if (recipientIdentities.minus(myIdentity).isNotEmpty() || isMultiDeviceActive) {
             // Validate that the blob id has the correct length
+            val blobId = this.blobId
             if (blobId == null || blobId.size != ProtocolDefines.BLOB_ID_LEN) {
                 logger.error("Invalid blob id of length {}", blobId?.size)
-                throw IllegalStateException("Invalid blob id")
+                error("Invalid blob id")
             }
 
             // Validate that the encryption key has the correct length
+            val encryptionKey = this.encryptionKey
             if (encryptionKey == null || encryptionKey.size != ProtocolDefines.BLOB_KEY_LEN) {
                 logger.error("Invalid encryption key of length {}", encryptionKey?.size)
-                throw IllegalStateException("Invalid blob encryption key")
+                error("Invalid blob encryption key")
             }
         }
 

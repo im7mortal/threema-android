@@ -18,16 +18,11 @@ import android.net.Uri;
 import android.provider.ContactsContract;
 import android.widget.Toast;
 
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ListMultimap;
-
 import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -43,7 +38,6 @@ import ch.threema.data.models.ContactModelData;
 import ch.threema.data.datatypes.AndroidContactLookupInfo;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import static ch.threema.common.JavaCompat.isNullOrEmpty;
 import static ch.threema.storage.models.ContactModel.DEFAULT_ANDROID_CONTACT_AVATAR_EXPIRY;
 
 public class AndroidContactUtil {
@@ -61,12 +55,6 @@ public class AndroidContactUtil {
     private AndroidContactUtil() {
     }
 
-    private static final String[] RAW_CONTACT_PROJECTION = new String[]{
-        ContactsContract.RawContacts._ID,
-        ContactsContract.RawContacts.CONTACT_ID,
-        ContactsContract.RawContacts.SYNC1,
-    };
-
     private final ContentResolver contentResolver = ThreemaApplication.getAppContext().getContentResolver();
 
     private @Nullable Account getAccount() {
@@ -76,16 +64,6 @@ public class AndroidContactUtil {
             return null;
         }
         return userService.getAccount();
-    }
-
-    public static class RawContactInfo {
-        public final long contactId;
-        public final long rawContactId;
-
-        RawContactInfo(long contactId, long rawContactId) {
-            this.contactId = contactId;
-            this.rawContactId = rawContactId;
-        }
     }
 
     /**
@@ -168,6 +146,7 @@ public class AndroidContactUtil {
     /**
      * Add ContentProviderOperations to create a raw contact for the given identity to a provided List of ContentProviderOperations.
      * Put the identity into the SYNC1 column and set data records for messaging and calling
+     * TODO(ANDR-4326): Move this to ThreemaRawContactWriter.
      *
      * @param contentProviderOperations List of ContentProviderOperations to add this operation to
      * @param systemRawContactId        The raw contact that matched the criteria for aggregation (i.e. email or phone number)
@@ -242,6 +221,7 @@ public class AndroidContactUtil {
     /**
      * Delete all raw contacts where the given identity matches the entry in the contact's SYNC1 column
      * It's safe to call this method without contacts permission
+     * TODO(ANDR-4326): Move this to ThreemaRawContactWriter.
      *
      * @param identity the identity of the contact whose raw contact we want to be deleted
      * @return number of raw contacts deleted
@@ -272,64 +252,9 @@ public class AndroidContactUtil {
     }
 
     /**
-     * Delete all raw contacts specified in rawContacts Map
-     *
-     * @param rawContacts Map of the rawContacts to delete. The key of the map entry contains the identity
-     * @return Number of raw contacts that were supposed to be deleted. Does not necessarily represent the real number of deleted raw contacts.
-     */
-    public int deleteThreemaRawContacts(@NonNull ListMultimap<String, RawContactInfo> rawContacts) {
-        if (!ConfigUtils.isPermissionGranted(ThreemaApplication.getAppContext(), Manifest.permission.WRITE_CONTACTS)) {
-            return 0;
-        }
-
-        Account account = this.getAccount();
-        if (account == null) {
-            return 0;
-        }
-
-        if (rawContacts.isEmpty()) {
-            return 0;
-        }
-
-        ArrayList<ContentProviderOperation> contentProviderOperations = new ArrayList<>();
-
-        for (Map.Entry<String, RawContactInfo> rawContact : rawContacts.entries()) {
-            if (!isNullOrEmpty(rawContact.getKey()) && rawContact.getValue().rawContactId != 0L) {
-                try {
-                    ContentProviderOperation.Builder builder = ContentProviderOperation.newDelete(
-                            ContactsContract.RawContacts.CONTENT_URI
-                                .buildUpon()
-                                .appendQueryParameter(ContactsContract.CALLER_IS_SYNCADAPTER, "true")
-                                .appendQueryParameter(ContactsContract.RawContacts.SYNC1, rawContact.getKey())
-                                .appendQueryParameter(ContactsContract.RawContacts.ACCOUNT_NAME, account.name)
-                                .appendQueryParameter(ContactsContract.RawContacts.ACCOUNT_TYPE, account.type).build())
-                        .withSelection(ContactsContract.RawContacts._ID + " = ?", new String[]{String.valueOf(rawContact.getValue().rawContactId)});
-
-                    contentProviderOperations.add(builder.build());
-                } catch (Exception e) {
-                    logger.error("Exception", e);
-                }
-            }
-        }
-
-        int operationCount = contentProviderOperations.size();
-        if (operationCount > 0) {
-            try {
-                ConfigUtils.applyToContentResolverInBatches(ContactsContract.AUTHORITY, contentProviderOperations);
-            } catch (Exception e) {
-                logger.error("Error during raw contact deletion! ", e);
-            }
-            contentProviderOperations.clear();
-        }
-
-        logger.debug("Deleted {} raw contacts", operationCount);
-
-        return operationCount;
-    }
-
-    /**
      * Delete all raw contacts associated with Threema (including stray ones)
      * Safe to be called without permission
+     * TODO(ANDR-4326): Move this to ThreemaRawContactWriter.
      *
      * @return number of raw contacts deleted
      */
@@ -355,43 +280,6 @@ public class AndroidContactUtil {
             logger.error("Exception", e);
         }
         return 0;
-    }
-
-    /**
-     * Get a list of all Threema raw contacts from the contact database. This may include "stray" contacts.
-     *
-     * @return List containing pairs of identity and android contact id, null if permissions have not been granted
-     */
-    @Nullable
-    public ListMultimap<String, RawContactInfo> getAllThreemaRawContacts() {
-        if (!ConfigUtils.isPermissionGranted(ThreemaApplication.getAppContext(), Manifest.permission.WRITE_CONTACTS)) {
-            return null;
-        }
-
-        Account account = this.getAccount();
-        if (account == null) {
-            return null;
-        }
-
-        Uri rawContactUri = ContactsContract.RawContacts.CONTENT_URI
-            .buildUpon()
-            .appendQueryParameter(ContactsContract.RawContacts.ACCOUNT_NAME, account.name)
-            .appendQueryParameter(ContactsContract.RawContacts.ACCOUNT_TYPE, account.type).build();
-
-        ListMultimap<String, RawContactInfo> rawContacts = ArrayListMultimap.create();
-        try (Cursor cursor = contentResolver.query(rawContactUri, RAW_CONTACT_PROJECTION, null, null, null)) {
-            if (cursor != null) {
-                while (cursor.moveToNext()) {
-                    long rawContactId = cursor.getLong(0);
-                    long contactId = cursor.getLong(1);
-                    String identity = cursor.getString(2);
-                    rawContacts.put(identity, new RawContactInfo(contactId, rawContactId));
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Exception", e);
-        }
-        return rawContacts;
     }
 
     /**

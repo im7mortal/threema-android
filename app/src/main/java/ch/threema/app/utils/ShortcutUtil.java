@@ -298,7 +298,7 @@ public final class ShortcutUtil {
 
             if (commonShortcutInfo.bitmap != null) {
                 var adaptiveIcon = AdaptiveIconUtil.create(getContext(), commonShortcutInfo.bitmap);
-                shortcutInfoCompatBuilder.setIcon(adaptiveIcon != null ? adaptiveIcon : IconCompat.createWithBitmap(commonShortcutInfo.bitmap));
+                shortcutInfoCompatBuilder.setIcon(adaptiveIcon);
             }
 
             if (person != null) {
@@ -576,7 +576,7 @@ public final class ShortcutUtil {
                     getContext(),
                     messageReceiver.getConversationId().getObfuscated().value
                 )
-                    .setIcon(adaptiveIcon != null ? adaptiveIcon : IconCompat.createWithBitmap(avatarBitmap))
+                    .setIcon(adaptiveIcon)
                     .setIntent(getShareTargetShortcutIntent(messageReceiver))
                     .setShortLabel(messageReceiver.getShortName(contactNameFormat) != null ? messageReceiver.getShortName(contactNameFormat) : displayName)
                     .setLongLabel(displayName)

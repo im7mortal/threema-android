@@ -40,13 +40,19 @@ public class PollWizard1Adapter extends RecyclerView.Adapter<RecyclerView.ViewHo
                 if (canEdit(choiceModel)) {
                     removeButton.setOnClickListener(view -> {
                         if (onChoiceListener != null) {
-                            onChoiceListener.onRemoveClicked(getAdapterPosition());
+                            int position = getBindingAdapterPosition();
+                            if (position != RecyclerView.NO_POSITION) {
+                                onChoiceListener.onRemoveClicked(position);
+                            }
                         }
                     });
                     removeButton.setVisibility(View.VISIBLE);
                     editButton.setOnClickListener(view -> {
                         if (onChoiceListener != null) {
-                            onChoiceListener.onEditClicked(getAdapterPosition());
+                            int position = getBindingAdapterPosition();
+                            if (position != RecyclerView.NO_POSITION) {
+                                onChoiceListener.onEditClicked(position);
+                            }
                         }
                     });
                     editButton.setVisibility(View.VISIBLE);

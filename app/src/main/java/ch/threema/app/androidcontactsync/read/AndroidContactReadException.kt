@@ -1,6 +1,6 @@
 package ch.threema.app.androidcontactsync.read
 
-sealed class AndroidContactReadException : Throwable() {
+sealed class AndroidContactReadException : Exception() {
     /**
      * The permission to read contacts is missing.
      */

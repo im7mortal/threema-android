@@ -1,5 +1,6 @@
 package ch.threema.logging
 
+import android.os.DeadObjectException
 import ch.threema.app.BuildConfig
 import ch.threema.base.isInTest
 import ch.threema.common.DispatcherProvider
@@ -47,6 +48,12 @@ private object ErrorRecorder : KoinComponent {
             parameters.toList()
         }
             .map { it.toString() }
+
+        if (e is DeadObjectException || e?.cause is DeadObjectException) {
+            // DeadObjectExceptions are expected to occur occasionally and there's nothing we can do about them,
+            // so there is no point in creating error reports for them
+            return
+        }
 
         GlobalScope.launch(dispatcherProvider.io) {
             errorRecordStore.storeHandledError(

@@ -1,9 +1,13 @@
 package ch.threema.domain.protocol.connection.csp.socket
 
 import java.net.InetAddress
-import java.util.concurrent.ExecutionException
+import java.net.UnknownHostException
 
-fun interface HostResolver {
-    @Throws(ExecutionException::class, InterruptedException::class)
-    fun getAllByName(name: String): Array<InetAddress>
+class HostResolver {
+    @Throws(UnknownHostException::class)
+    fun getAllByName(name: String): Array<InetAddress> =
+        InetAddress.getAllByName(name)
+            .ifEmpty {
+                throw UnknownHostException()
+            }
 }

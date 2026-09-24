@@ -35,6 +35,7 @@ import androidx.viewpager.widget.ViewPager;
 import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.R;
 import ch.threema.app.activities.ThreemaAppCompatActivity;
+import ch.threema.app.androidcontactsync.usecases.SynchronizeAndroidContactsUseCase;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.dialogs.GenericProgressDialog;
 import ch.threema.app.dialogs.WizardDialog;
@@ -43,7 +44,8 @@ import ch.threema.app.fragments.wizard.WizardFragment1;
 import ch.threema.app.fragments.wizard.WizardFragment2;
 import ch.threema.app.fragments.wizard.WizardFragment3;
 import ch.threema.app.fragments.wizard.WizardFragment4;
-import ch.threema.app.routines.SynchronizeContactsRoutine;
+import ch.threema.app.listeners.SynchronizeContactsListener;
+import ch.threema.app.managers.ListenerManager;
 import ch.threema.app.services.UserService;
 import ch.threema.app.threemasafe.ThreemaSafeMDMConfig;
 import ch.threema.app.threemasafe.ThreemaSafeServerInfo;
@@ -66,6 +68,7 @@ import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.domain.protocol.api.LinkEmailException;
 import ch.threema.domain.protocol.api.LinkMobileNoException;
 import ch.threema.domain.taskmanager.TriggerSource;
+import kotlin.Lazy;
 
 import static ch.threema.app.AppConstants.PHONE_LINKED_PLACEHOLDER;
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
@@ -108,6 +111,8 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
 
     @NonNull
     private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
+    @NonNull
+    private final Lazy<SynchronizeAndroidContactsUseCase> synchronizeAndroidContactsUseCase = KoinJavaComponent.inject(SynchronizeAndroidContactsUseCase.class);
     private final CheckBadPasswordUseCase badPasswordUseCase = KoinJavaComponent.get(CheckBadPasswordUseCase.class);
 
     private static int lastPage = 0;
@@ -383,7 +388,9 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
 
     @Override
     protected void onDestroy() {
-        viewPager.removeOnPageChangeListener(this);
+        if (viewPager != null) {
+            viewPager.removeOnPageChangeListener(this);
+        }
 
         super.onDestroy();
     }
@@ -980,39 +987,39 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
                 @SuppressLint("MissingPermission")
                 @Override
                 protected Void doInBackground(Void params) {
+                    var userService = dependencies.getUserService();
+                    var synchronizeContactsListener = new SynchronizeContactsListener() {
+                        @Override
+                        public void onFinished() {
+                            userService.enableAccountAutoSync(true);
+                        }
+
+                        @Override
+                        public void onError() {
+                            RuntimeUtil.runOnUiThread(
+                                () -> {
+                                    final @Nullable WizardFragment4 wizardFragment4 = findWizardFragment4();
+                                    if (wizardFragment4 != null) {
+                                        wizardFragment4.setContactsSyncInProgress(false, getString(R.string.error));
+                                    }
+                                }
+                            );
+                        }
+                    };
+
                     try {
-                        var userService = dependencies.getUserService();
+                        ListenerManager.synchronizeContactsListeners.add(synchronizeContactsListener);
+
                         // We need to create an account if there is no account yet. Therefore, we need this call because of its side effect.
                         userService.getAccount(true);
                         //disable
                         userService.enableAccountAutoSync(false);
 
-                        SynchronizeContactsRoutine routine = dependencies.getSynchronizeContactsService().instantiateSynchronization();
-                        if (routine == null) {
-                            logger.error("Cannot synchronize contacts as the routine is null");
-                            cancel();
-                            return null;
-                        }
-
-                        routine.setOnStatusUpdate(exception ->
-                            RuntimeUtil.runOnUiThread(
-                                () -> {
-                                    final @Nullable WizardFragment4 wizardFragment4 = findWizardFragment4();
-                                    if (wizardFragment4 != null) {
-                                        wizardFragment4.setContactsSyncInProgress(false, exception.getMessage());
-                                    }
-                                }
-                            )
-                        );
-
-                        //on finished, close the dialog
-                        routine.addOnFinished((success, modifiedAccounts, createdContacts, deletedAccounts) ->
-                            userService.enableAccountAutoSync(true)
-                        );
-
-                        routine.run();
+                        synchronizeAndroidContactsUseCase.getValue().callBlocking();
                     } catch (Exception e) {
                         logger.error("Exception", e);
+                    } finally {
+                        ListenerManager.synchronizeContactsListeners.remove(synchronizeContactsListener);
                     }
                     return null;
                 }
@@ -1060,7 +1067,7 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
                         dependencies.getThreemaSafeService().storeMasterKey(masterKey);
                         dependencies.getPreferenceService().setThreemaSafeServerInfo(safeServerInfo);
                         dependencies.getThreemaSafeService().setEnabled(true);
-                        dependencies.getThreemaSafeService().uploadNow(true);
+                        dependencies.getThreemaSafeService().uploadNow();
                     } else {
                         Toast.makeText(WizardBaseActivity.this, R.string.safe_error_preparing, Toast.LENGTH_LONG).show();
                     }

@@ -524,38 +524,36 @@ public class APIConnector {
      * this call. This is important so that the server can request longer intervals from its clients
      * during periods of heavy traffic or temporary capacity problems.
      *
-     * @param emails          map of e-mail addresses (key = e-mail, value = arbitrary object for
-     *                        reference that is returned with any found identities)
-     * @param mobileNos       map of phone numbers (key = phone number, value = arbitrary object for
-     *                        reference that is returned with any found identities)
+     * @param emailAddresses  the set of e-mail addresses that will be checked
+     * @param phoneNumbers    the set of phone numbers that will be checked
      * @param userCountry     the user's home country (for correct interpretation of national phone
      *                        numbers), ISO 3166-1, e.g. "CH" (or null to disable normalization)
      * @param includeInactive if true, inactive IDs will be included in the results also
      * @param identityStore   identity store to use for obtaining match token
-     * @param matchTokenStore for storing match token for reuse (may be null)
-     * @return map of found identities (key = identity). The value objects from the {@code emails}
-     * and {@code mobileNos} parameters will be returned in {@code refObject}.
+     * @param matchTokenStore for storing match token for reuse
+     * @return map of found identities (key = identity). The value objects from the {@code emailAddresses}
+     * and {@code mobileNos} parameters will be contained in the {@code MatchIdentityResult}.
      */
     @SuppressLint("DefaultLocale")
     public Map<String, MatchIdentityResult> matchIdentities(
-        Map<String, ?> emails,
-        Map<String, ?> mobileNos,
-        String userCountry,
+        @NonNull Set<String> emailAddresses,
+        @NonNull Set<String> phoneNumbers,
+        @Nullable String userCountry,
         boolean includeInactive,
-        IdentityStore identityStore,
-        TokenStoreInterface matchTokenStore
+        @NonNull IdentityStore identityStore,
+        @Nullable TokenStoreInterface matchTokenStore
     ) throws Exception {
         // Normalize and hash e-mail addresses
-        Map<String, Object> emailHashes = new HashMap<>();
+        Map<String, String> emailHashes = new HashMap<>();
 
         Mac emailMac = Mac.getInstance("HmacSHA256");
         emailMac.init(new SecretKeySpec(EMAIL_HMAC_KEY, "HmacSHA256"));
 
-        for (Map.Entry<String, ?> entry : emails.entrySet()) {
-            String normalizedEmail = entry.getKey().toLowerCase().trim();
+        for (String emailAddress : emailAddresses) {
+            String normalizedEmail = emailAddress.toLowerCase().trim();
             byte[] emailHash =
                 emailMac.doFinal(normalizedEmail.getBytes(StandardCharsets.US_ASCII));
-            emailHashes.put(Base64.encode(emailHash), entry.getValue());
+            emailHashes.put(Base64.encode(emailHash), emailAddress);
 
             // Gmail address? If so, hash with the other domain as well
             String normalizedEmailAlt = null;
@@ -568,12 +566,12 @@ public class APIConnector {
             if (normalizedEmailAlt != null) {
                 byte[] emailHashAlt =
                     emailMac.doFinal(normalizedEmailAlt.getBytes(StandardCharsets.US_ASCII));
-                emailHashes.put(Base64.encode(emailHashAlt), entry.getValue());
+                emailHashes.put(Base64.encode(emailHashAlt), emailAddress);
             }
         }
 
         // Normalize and hash phone numbers
-        Map<String, Object> mobileNoHashes = new HashMap<>();
+        Map<String, String> mobileNoHashes = new HashMap<>();
 
         Mac mobileNoMac = Mac.getInstance("HmacSHA256");
         mobileNoMac.init(new SecretKeySpec(MOBILENO_HMAC_KEY, "HmacSHA256"));
@@ -583,25 +581,22 @@ public class APIConnector {
             phoneNumberUtil = PhoneNumberUtil.getInstance();
         }
 
-        for (Map.Entry<String, ?> entry : mobileNos.entrySet()) {
+        for (String phoneNumberString : phoneNumbers) {
             try {
                 String normalizedMobileNo;
                 if (phoneNumberUtil != null) {
-                    Phonenumber.PhoneNumber phoneNumber = phoneNumberUtil.parse(entry.getKey(),
-                        userCountry);
-                    String normalizedMobileNoWithPlus = phoneNumberUtil.format(phoneNumber,
-                        PhoneNumberUtil.PhoneNumberFormat.E164);
+                    Phonenumber.PhoneNumber phoneNumber = phoneNumberUtil.parse(phoneNumberString, userCountry);
+                    String normalizedMobileNoWithPlus = phoneNumberUtil.format(phoneNumber, PhoneNumberUtil.PhoneNumberFormat.E164);
                     normalizedMobileNo = normalizedMobileNoWithPlus.replace("+", "");
                 } else {
-                    normalizedMobileNo = entry.getKey().replaceAll("[^0-9]", "");
+                    normalizedMobileNo = phoneNumberString.replaceAll("[^0-9]", "");
                 }
 
-                byte[] mobileNoHash =
-                    mobileNoMac.doFinal(normalizedMobileNo.getBytes(StandardCharsets.US_ASCII));
-                mobileNoHashes.put(Base64.encode(mobileNoHash), entry.getValue());
+                byte[] mobileNoHash = mobileNoMac.doFinal(normalizedMobileNo.getBytes(StandardCharsets.US_ASCII));
+                mobileNoHashes.put(Base64.encode(mobileNoHash), phoneNumberString);
             } catch (NumberParseException e) {
                 // Skip/ignore this number
-                logger.debug("Failed to parse phone number {}: {}", entry.getKey(), e.getMessage());
+                logger.debug("Failed to parse phone number '{}': {}", phoneNumbers, e.getMessage());
             }
         }
 
@@ -610,8 +605,8 @@ public class APIConnector {
     }
 
     public Map<String, MatchIdentityResult> matchIdentitiesHashed(
-        @NonNull Map<String, ?> emailHashes,
-        @NonNull Map<String, ?> mobileNoHashes,
+        @NonNull Map<String, String> emailHashes,
+        @NonNull Map<String, String> mobileNoHashes,
         boolean includeInactive,
         @Nullable IdentityStore identityStore,
         TokenStoreInterface matchTokenStore
@@ -630,8 +625,8 @@ public class APIConnector {
     }
 
     private Map<String, MatchIdentityResult> matchIdentitiesHashedToken(
-        @NonNull Map<String, ?> emailHashes,
-        @NonNull Map<String, ?> mobileNoHashes,
+        @NonNull Map<String, String> emailHashes,
+        @NonNull Map<String, String> mobileNoHashes,
         boolean includeInactive,
         String matchToken
     ) throws Exception {
@@ -663,15 +658,12 @@ public class APIConnector {
         for (int i = 0; i < identities.length(); i++) {
             JSONObject identity = identities.getJSONObject(i);
 
-            MatchIdentityResult resultId = new MatchIdentityResult();
-            resultId.publicKey = Base64.decode(identity.getString("publicKey"));
+            MatchIdentityResult resultId = new MatchIdentityResult(Base64.decode(identity.getString("publicKey")));
             if (identity.has("emailHash")) {
-                resultId.emailHash = Base64.decode(identity.getString("emailHash"));
-                resultId.refObjectEmail = emailHashes.get(identity.getString("emailHash"));
+                resultId.emailAddress = emailHashes.get(identity.getString("emailHash"));
             }
             if (identity.has("mobileNoHash")) {
-                resultId.mobileNoHash = Base64.decode(identity.getString("mobileNoHash"));
-                resultId.refObjectMobileNo = mobileNoHashes.get(identity.getString("mobileNoHash"));
+                resultId.phoneNumber = mobileNoHashes.get(identity.getString("mobileNoHash"));
             }
 
             returnMap.put(identity.getString("identity"), resultId);
@@ -1720,11 +1712,16 @@ public class APIConnector {
     }
 
     public static class MatchIdentityResult {
+        @NonNull
         public byte[] publicKey;
-        public byte[] mobileNoHash;
-        public byte[] emailHash;
-        public Object refObjectMobileNo;
-        public Object refObjectEmail;
+        @Nullable
+        public String phoneNumber;
+        @Nullable
+        public String emailAddress;
+
+        public MatchIdentityResult(@NonNull byte[] publicKey) {
+            this.publicKey = publicKey;
+        }
     }
 
     public static class CheckLicenseResult {

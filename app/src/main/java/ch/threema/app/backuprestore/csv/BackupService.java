@@ -273,6 +273,8 @@ public class BackupService extends Service {
 
         isRunning = true;
 
+        notificationManagerCompat = NotificationManagerCompat.from(this);
+
         serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             safeStopSelf();
@@ -293,10 +295,7 @@ public class BackupService extends Service {
         } catch (Exception e) {
             logger.error("Exception while setting up backup service", e);
             safeStopSelf();
-            return;
         }
-
-        notificationManagerCompat = NotificationManagerCompat.from(this);
     }
 
     @Override

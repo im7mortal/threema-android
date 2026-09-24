@@ -292,6 +292,9 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
         isRunning = true;
 
+        notificationManagerCompat = NotificationManagerCompat.from(this);
+        activityManager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+
         serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             stopSelf();
@@ -312,11 +315,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         } catch (Exception e) {
             logger.error("Could not instantiate all required services", e);
             stopSelf();
-            return;
         }
-
-        notificationManagerCompat = NotificationManagerCompat.from(this);
-        activityManager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
     }
 
     @Override

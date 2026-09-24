@@ -857,8 +857,13 @@ public class GroupServiceImpl implements GroupService {
 
         identity = identity.toUpperCase();
 
-        final @NonNull List<Integer> groupIds = this.databaseService.getGroupMemberModelFactory().getGroupIdsByIdentity(identity);
+        final @NonNull List<Integer> memberGroupIds = this.databaseService.getGroupMemberModelFactory().getGroupIdsByIdentity(identity);
         final @NonNull List<Integer> groupIdsMissingInCache = new ArrayList<>();
+        final @NonNull List<Integer> groupIds = new ArrayList<>(memberGroupIds);
+
+        for (GroupModel groupModel : groupModelRepository.getByCreator(identity)) {
+            groupIds.add((int) groupModel.getDatabaseId());
+        }
 
         synchronized (this.groupModelCache) {
             for (int groupId : groupIds) {

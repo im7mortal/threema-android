@@ -12,8 +12,6 @@ import org.slf4j.Logger;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -24,7 +22,6 @@ import ch.threema.app.listeners.NewSyncedContactsListener;
 import ch.threema.app.listeners.SynchronizeContactsListener;
 import ch.threema.app.managers.ListenerManager;
 import ch.threema.app.managers.ServiceManager;
-import ch.threema.app.routines.SynchronizeContactsRoutine;
 import ch.threema.app.services.notification.NotificationService;
 import ch.threema.app.webclient.listeners.WebClientServiceListener;
 import ch.threema.app.webclient.manager.WebClientListenerManager;
@@ -98,17 +95,17 @@ public class GlobalListeners {
     @NonNull
     private final SynchronizeContactsListener synchronizeContactsListener = new SynchronizeContactsListener() {
         @Override
-        public void onStarted(SynchronizeContactsRoutine startedRoutine) {
+        public void onStarted() {
             androidContactChangeMonitor.stop();
         }
 
         @Override
-        public void onFinished(SynchronizeContactsRoutine finishedRoutine) {
+        public void onFinished() {
             androidContactChangeMonitor.start();
         }
 
         @Override
-        public void onError(SynchronizeContactsRoutine finishedRoutine) {
+        public void onError() {
             androidContactChangeMonitor.start();
         }
     };

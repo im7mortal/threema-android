@@ -94,7 +94,7 @@
     <string name="prefs_title_sum_message_log_on_since">Registrazione dell\'attività di sistema dal %1$s (%2$s)</string>
     <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
     <string name="prefs_title_sum_message_log_forced_on">L\'attività di sistema è registrata. Elimina il file “%1$s” per disabilitare la registrazione. (%2$s)</string>
-    <string name="prefs_title_sum_message_log_off">Eventi non vengono registrati</string>
+    <string name="prefs_title_sum_message_log_off">L\'attività del sistema non viene registrata</string>
     <string name="prefs_reset_push">Resettare push token</string>
     <string name="prefs_sum_reset_push">Registrare il dispositivo da FCM//HMS</string>
     <string name="prefs_notification_preview">Visualizza anteprima</string>
@@ -211,7 +211,7 @@
     <string name="click_here_to_change_passphrase">Cliccare qui per modificare la passphrase</string>
     <string name="attach_camera">Fotocamera</string>
     <string name="menu_restore">Ripristina backup</string>
-    <string name="restore_id_hint">Inserisci o incolla la tua stringa di testo dell\'ID esportato da ripristinare</string>
+    <string name="restore_id_hint">Inserisci o incolla la stringa di testo dell\'ID esportato da ripristinare. In alternativa, scansiona il codice QR dell\'ID esportato.</string>
     <string name="restore_id_string_label">Stringa di testo ID esportazione</string>
     <string name="location_placeholder">Luogo</string>
     <string name="video_placeholder">Video</string>
@@ -252,6 +252,8 @@
     <string name="prefs_header_other">Altri</string>
     <string name="an_error_occurred">Si è verificato un errore</string>
     <string name="an_error_occurred_more">Si è verificato un errore: \"%1$s\"</string>
+    <!-- Error message shown to the user if the app fails to start. ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
+    <string name="startup_error_details">Impossibile aprire ${app_name_short} a causa di un errore imprevisto. Esporta il seguente file di log e contatta il nostro team di assistenza in modo che possiamo esaminare il problema. Ci scusiamo per l\'inconveniente.</string>
     <string name="acknowledge">Conferma</string>
     <string name="decline">Non approvo</string>
     <string name="forward_message">Inoltra</string>
@@ -632,9 +634,9 @@
     <string name="no_app_for_location">Nessuna applicazione mappe trovata su questo dispositivo</string>
     <string name="prefs_sendlog">Invia registro</string>
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
-    <string name="prefs_sendlog_summary">Invia file di registro a ${company_name} per un\'analisi più approfondita in caso di problemi</string>
-    <string name="prefs_exportlog">Condividi file di registro</string>
-    <string name="prefs_exportlog_summary">Condividi file registro per analisi problema</string>
+    <string name="prefs_sendlog_summary">Invia il file di registro a ${company_name} per ulteriori analisi in caso di problemi</string>
+    <string name="prefs_exportlog">Esporta file di log</string>
+    <string name="prefs_exportlog_summary">Condividi il file di log con un\'altra app</string>
     <!-- ${app_name} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="permission_storage_required">Per poter inviare media, devi autorizzare ${app_name} all\'accesso alla memoria.</string>
     <!-- ${app_name} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
@@ -703,7 +705,7 @@
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="new_wizard_info_nickname">Il nickname viene utilizzato nelle notifiche push su alcuni dispositivi o come strumento aggiuntivo di identificazione per gli utenti che non ti hanno in rubrica. Consigliamo di inserire soltanto il nome o uno pseudonimo. Se non imposti il nickname, utilizzeremo il ${app_name_short} ID come impostazione predefinita.</string>
     <string name="not_linked">non collegato</string>
-    <string name="linked">collegato</string>
+    <string name="linked">Collegato</string>
     <string name="pending_sms_verification_notice">Il tuo numero di cellulare non è stato ancora verificato.</string>
     <string name="no_sms_received">Non hai ricevuto l\'SMS?</string>
     <string name="really_cancel_verify">Vuoi davvero annullare la verifica del numero di cellulare?</string>
@@ -1574,7 +1576,7 @@
     <string name="problemsolver_to_settings">Alle impostazioni</string>
     <!-- Label on button to dismiss/hide a warning -->
     <string name="problemsolver_dismiss">Ignora</string>
-    <string name="prefs_advanced_options">Opzioni avanzate</string>
+    <string name="prefs_advanced_options">Impostazioni avanzate</string>
     <string name="push_service">Servizio push</string>
     <string name="edit_and_send">Modifica e invia</string>
     <string name="media_gallery_animated_webps">WebP animati</string>

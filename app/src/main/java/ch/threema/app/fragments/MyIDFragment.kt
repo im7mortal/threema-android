@@ -113,13 +113,13 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
 
     private val smsVerificationListener: SMSVerificationListener = object : SMSVerificationListener {
         override fun onVerified() {
-            lifecycleScope.launch {
+            viewLifecycleOwner.lifecycleScope.launch {
                 updatePendingState(requireView(), false)
             }
         }
 
         override fun onVerificationStarted() {
-            lifecycleScope.launch {
+            viewLifecycleOwner.lifecycleScope.launch {
                 updatePendingState(requireView(), false)
             }
         }
@@ -414,7 +414,7 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
             userService.getEmailLinkingState() == UserService.LinkingState_PENDING ||
             userService.getMobileLinkingState() == UserService.LinkingState_PENDING
         ) {
-            lifecycleScope.launch {
+            viewLifecycleOwner.lifecycleScope.launch {
                 withContext(dispatcherProvider.worker) {
                     if (userService.emailLinkingState == UserService.LinkingState_PENDING) {
                         userService.checkEmailLinkState(TriggerSource.LOCAL)
@@ -426,10 +426,11 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
         }
     }
 
-    private fun updatePendingStateTexts(fragmentView: View) {
+    private fun updatePendingStateTexts(fragmentView: View? = null) {
         if (!isAdded || isDetached || isRemoving) {
             return
         }
+        val fragmentView = fragmentView ?: requireView()
 
         updateLinkedEmailTextView(fragmentView)
         updateLinkedMobileTextView(fragmentView)
@@ -629,7 +630,7 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
     }
 
     private fun setRevocationKey(revocationKey: String) {
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             showProgressDialog(R.string.revocation_key_title)
             try {
                 val success = withContext(dispatcherProvider.worker) {
@@ -639,7 +640,7 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
                     showToast(getString(R.string.error) + ": " + getString(R.string.revocation_key_not_set), ToastDuration.LONG)
                 }
             } finally {
-                updatePendingStateTexts(requireView())
+                updatePendingStateTexts()
                 dismissProgressDialog()
             }
         }
@@ -705,7 +706,7 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
                 logger.error("Failed to verify mobile number", e)
                 showMobileVerifyErrorDialog(getString(R.string.an_error_occurred))
             } finally {
-                updatePendingStateTexts(requireView())
+                updatePendingStateTexts()
             }
         }
     }
@@ -760,7 +761,7 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
     }
 
     private fun linkWithEmail(emailAddress: String) {
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             try {
                 if (userService.getEmailLinkingState() != UserService.LinkingState_NONE && userService.getLinkedEmail() == emailAddress) {
                     showToast(R.string.email_already_linked, ToastDuration.LONG)
@@ -775,7 +776,7 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
                 showToast(R.string.an_error_occurred, ToastDuration.LONG)
             } finally {
                 dismissProgressDialog()
-                updatePendingStateTexts(requireView())
+                updatePendingStateTexts()
             }
         }
     }
@@ -815,7 +816,7 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
     }
 
     private fun unlinkEmail() {
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             try {
                 if (userService.getEmailLinkingState() != UserService.LinkingState_NONE) {
                     showProgressDialog(R.string.unlinking_email)
@@ -828,13 +829,13 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
                 showToast(R.string.an_error_occurred, ToastDuration.LONG)
             } finally {
                 dismissProgressDialog()
-                updatePendingStateTexts(requireView())
+                updatePendingStateTexts()
             }
         }
     }
 
     private fun unlinkMobile() {
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             try {
                 withContext(dispatcherProvider.worker) {
                     userService.unlinkMobileNumber(TriggerSource.LOCAL)
@@ -843,7 +844,7 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
                 logger.error("Failed to unlink phone number", e)
                 showToast(R.string.an_error_occurred)
             } finally {
-                updatePendingStateTexts(requireView())
+                updatePendingStateTexts()
             }
         }
     }

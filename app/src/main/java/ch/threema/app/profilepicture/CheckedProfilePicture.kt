@@ -7,6 +7,7 @@ import ch.threema.app.utils.BitmapUtil
 import ch.threema.app.utils.ExifInterface
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import java.io.File
+import java.io.IOException
 import kotlinx.serialization.Serializable
 
 /**
@@ -40,11 +41,13 @@ class CheckedProfilePicture private constructor(override val bytes: ByteArray) :
          * converted to a jpeg of the correct dimensions. If this fails, null is returned.
          */
         @JvmStatic
-        fun getOrConvertFromFile(profilePictureFile: File?): CheckedProfilePicture? {
-            val profilePictureBytes = profilePictureFile?.readBytes() ?: return null
-
-            return getOrConvertFromBytes(profilePictureBytes)
-        }
+        fun getOrConvertFromFile(profilePictureFile: File?): CheckedProfilePicture? =
+            try {
+                profilePictureFile?.readBytes()
+            } catch (_: IOException) {
+                null
+            }
+                ?.let(::getOrConvertFromBytes)
 
         /**
          * Converts the [imageBytes] to a jpeg profile picture with the correct dimensions in case the [imageBytes] can be decoded as bitmap.

@@ -6,42 +6,39 @@ import android.net.Uri
 import ch.threema.base.utils.getThreemaLogger
 import java.io.FileInputStream
 import java.io.FileNotFoundException
+import java.io.IOException
 import java.io.InputStream
 
 private val logger = getThreemaLogger("StreamUtil")
 
-@Throws(FileNotFoundException::class)
-fun getFromUri(context: Context, uri: Uri?): InputStream? {
-    var inputStream: InputStream? = null
-
+@Throws(IOException::class)
+fun getFromUri(context: Context, uri: Uri?): InputStream {
     if (uri == null || uri.scheme == null) {
         throw FileNotFoundException()
     }
 
     if (ContentResolver.SCHEME_CONTENT.equals(uri.scheme, ignoreCase = true)) {
         try {
-            inputStream = context.contentResolver.openInputStream(uri)
+            context.contentResolver.openInputStream(uri)
+                ?.let { inputStream ->
+                    return inputStream
+                }
         } catch (_: FileNotFoundException) {
             logger.info("Unable to get an InputStream for this file using ContentResolver: $uri")
+        } catch (e: SecurityException) {
+            throw IOException(e)
         }
     }
 
-    if (inputStream == null) {
-        // try to open as local file if openInputStream fails for a content Uri
-        val filePath = FileUtil.getRealPathFromURI(context, uri)
-        val tmpPath = context.cacheDir.absolutePath
-        val appPath = context.applicationInfo.dataDir
+    // try to open as local file if openInputStream fails for a content Uri
+    val filePath = FileUtil.getRealPathFromURI(context, uri)
+        ?: throw FileNotFoundException()
+    val tmpPath = context.cacheDir.absolutePath
+    val appPath = context.applicationInfo.dataDir
 
-        inputStream = if (filePath != null) {
-            // do not allow sending of files from local directories - but allow tmp dir
-            if (!filePath.startsWith(appPath) || filePath.startsWith(tmpPath)) {
-                FileInputStream(filePath)
-            } else {
-                throw FileNotFoundException("File on private directory")
-            }
-        } else {
-            context.contentResolver.openInputStream(uri)
-        }
+    // do not allow sending of files from local directories - but allow tmp dir
+    if (filePath.startsWith(appPath) && !filePath.startsWith(tmpPath)) {
+        throw FileNotFoundException("File on private directory")
     }
-    return inputStream
+    return FileInputStream(filePath)
 }

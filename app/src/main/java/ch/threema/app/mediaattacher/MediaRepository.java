@@ -74,8 +74,8 @@ public class MediaRepository {
                 null
             )) {
                 addToMediaResults(imageCursor, mediaList, false);
-            } catch (SecurityException e) {
-                logger.debug("Cannot access content resolver", e);
+            } catch (SecurityException | IllegalArgumentException e) {
+                logger.warn("Failed to query images", e);
             }
 
             // Process videos
@@ -88,8 +88,8 @@ public class MediaRepository {
                 null
             )) {
                 addToMediaResults(videoCursor, mediaList, true);
-            } catch (SecurityException e) {
-                logger.debug("Cannot access content resolver", e);
+            } catch (SecurityException | IllegalArgumentException e) {
+                logger.warn("Failed to query videos", e);
             }
         } else {
             String addLimitQuery = "";

@@ -31,8 +31,10 @@ public interface UserService {
 
     void removeIdentity() throws Exception;
 
+    @Nullable
     Account getAccount();
 
+    @Nullable
     Account getAccount(boolean createIfNotExists);
 
     boolean checkAccount();

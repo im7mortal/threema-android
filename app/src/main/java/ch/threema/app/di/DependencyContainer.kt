@@ -28,7 +28,6 @@ import ch.threema.app.services.ProfilePictureRecipientsService
 import ch.threema.app.services.RingtoneService
 import ch.threema.app.services.SensorService
 import ch.threema.app.services.ServerAddressProviderService
-import ch.threema.app.services.SynchronizeContactsService
 import ch.threema.app.services.UserService
 import ch.threema.app.services.WallpaperService
 import ch.threema.app.services.license.LicenseService
@@ -47,7 +46,6 @@ import ch.threema.data.repositories.GroupModelRepository
 import ch.threema.domain.protocol.api.APIConnector
 import ch.threema.domain.protocol.connection.ServerConnection
 import ch.threema.domain.stores.DHSessionStore
-import ch.threema.domain.stores.IdentityStore
 import ch.threema.domain.taskmanager.TaskManager
 import ch.threema.storage.factories.ContactModelFactory
 import ch.threema.storage.factories.WebClientSessionModelFactory
@@ -83,7 +81,6 @@ class DependencyContainer : KoinComponent {
     val groupModelRepository: GroupModelRepository by inject()
     val groupService: GroupService by inject()
     val identityProvider: IdentityProvider by inject()
-    val identityStore: IdentityStore by inject()
     val licenseService: LicenseService<*> by inject()
     val lifetimeService: LifetimeService by inject()
     val localeService: LocaleService by inject()
@@ -101,7 +98,6 @@ class DependencyContainer : KoinComponent {
     val serverAddressProviderService: ServerAddressProviderService by inject()
     val serverConnection: ServerConnection by inject()
     val sessionService: SessionService by inject()
-    val synchronizeContactsService: SynchronizeContactsService by inject()
     val synchronizedSettingsService: SynchronizedSettingsService by inject()
     val taskCreator: TaskCreator by inject()
     val taskManager: TaskManager by inject()

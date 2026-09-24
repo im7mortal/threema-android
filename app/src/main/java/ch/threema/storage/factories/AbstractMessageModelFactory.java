@@ -63,14 +63,14 @@ abstract class AbstractMessageModelFactory extends ModelFactory {
                 messageModel.setStatusMessage(cursorFactory.getBoolean(AbstractMessageModel.COLUMN_IS_STATUS_MESSAGE));
                 messageModel.setCaption(cursorFactory.getString(AbstractMessageModel.COLUMN_CAPTION));
                 messageModel.setQuotedMessageId(cursorFactory.getString(AbstractMessageModel.COLUMN_QUOTED_MESSAGE_API_MESSAGE_ID));
-                messageModel.setMessageContentsType(cursorFactory.getInt(AbstractMessageModel.COLUMN_MESSAGE_CONTENTS_TYPE));
-                messageModel.setMessageFlags(cursorFactory.getInt(AbstractMessageModel.COLUMN_MESSAGE_FLAGS));
+                messageModel.setMessageContentsType(getIntOrZero(cursorFactory.getInt(AbstractMessageModel.COLUMN_MESSAGE_CONTENTS_TYPE)));
+                messageModel.setMessageFlags(getIntOrZero(cursorFactory.getInt(AbstractMessageModel.COLUMN_MESSAGE_FLAGS)));
                 messageModel.setDeliveredAt(cursorFactory.getInstant(AbstractMessageModel.COLUMN_DELIVERED_AT));
                 messageModel.setReadAt(cursorFactory.getInstant(AbstractMessageModel.COLUMN_READ_AT));
                 messageModel.setEditedAt(cursorFactory.getInstant(AbstractMessageModel.COLUMN_EDITED_AT));
                 messageModel.setDeletedAt(cursorFactory.getInstant(AbstractMessageModel.COLUMN_DELETED_AT));
                 messageModel.setForwardSecurityMode(forwardSecurityMode);
-                messageModel.setDisplayTags(cursorFactory.getInt(AbstractMessageModel.COLUMN_DISPLAY_TAGS));
+                messageModel.setDisplayTags(getIntOrZero(cursorFactory.getInt(AbstractMessageModel.COLUMN_DISPLAY_TAGS)));
 
                 String stateString = cursorFactory.getString(AbstractMessageModel.COLUMN_STATE);
                 if (!isNullOrEmpty(stateString)) {
@@ -81,11 +81,21 @@ abstract class AbstractMessageModelFactory extends ModelFactory {
                     }
                 }
 
-                int type = cursorFactory.getInt(AbstractMessageModel.COLUMN_TYPE);
-                messageModel.setType(MessageType.deserialize(type));
+                @Nullable Integer type = cursorFactory.getInt(AbstractMessageModel.COLUMN_TYPE);
+                messageModel.setType(
+                    type != null
+                        ? MessageType.deserialize(type)
+                        : null
+                );
                 return false;
             }
         });
+    }
+
+    // TODO(ANDR-5222): According to crash-reports, there are users who have messages in their DB with unexpected
+    //  null values. These messages should be cleanup up, such that this fallback here is no longer necessary.
+    private int getIntOrZero(@Nullable Integer integer) {
+        return integer != null ? integer : 0;
     }
 
     ContentValues buildContentValues(AbstractMessageModel messageModel) {

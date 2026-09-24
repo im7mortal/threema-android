@@ -93,7 +93,6 @@ import ch.threema.app.managers.ListenerManager;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.app.preference.service.SynchronizedSettingsService;
-import ch.threema.app.routines.SynchronizeContactsRoutine;
 import ch.threema.app.services.avatarcache.AvatarCacheService;
 import ch.threema.app.services.ContactService;
 import ch.threema.app.services.LockAppService;
@@ -309,22 +308,21 @@ public class ContactsSectionFragment
 
     private final SynchronizeContactsListener synchronizeContactsListener = new SynchronizeContactsListener() {
         @Override
-        public void onStarted(SynchronizeContactsRoutine startedRoutine) {
-            //only show loading on "full sync"
-            if (resumePauseHandler != null && swipeRefreshLayout != null && startedRoutine.isFullSync()) {
+        public void onStarted() {
+            if (resumePauseHandler != null && swipeRefreshLayout != null) {
                 resumePauseHandler.runOnActive(RUN_ON_ACTIVE_SHOW_LOADING, runIfActiveShowLoading);
             }
         }
 
         @Override
-        public void onFinished(SynchronizeContactsRoutine finishedRoutine) {
+        public void onFinished() {
             if (resumePauseHandler != null && swipeRefreshLayout != null) {
                 resumePauseHandler.runOnActive(RUN_ON_ACTIVE_HIDE_LOADING, runIfActiveClearCacheAndRefresh);
             }
         }
 
         @Override
-        public void onError(SynchronizeContactsRoutine finishedRoutine) {
+        public void onError() {
             if (resumePauseHandler != null && swipeRefreshLayout != null) {
                 resumePauseHandler.runOnActive(RUN_ON_ACTIVE_HIDE_LOADING, runIfActiveClearCacheAndRefresh);
             }

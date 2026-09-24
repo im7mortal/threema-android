@@ -802,8 +802,13 @@ class NotificationServiceImpl(
         )
     }
     private fun notificationExists(notificationId: Int): Boolean =
-        notificationManagerCompat.activeNotifications.any { notification ->
-            notification.id == notificationId
+        try {
+            notificationManagerCompat.activeNotifications.any { notification ->
+                notification.id == notificationId
+            }
+        } catch (e: Exception) {
+            logger.warn("Failed to check if notification exists", e)
+            false
         }
 
     private fun cancelConversationNotification(conversationNotification: ConversationNotification) {
@@ -1298,7 +1303,11 @@ class NotificationServiceImpl(
     }
 
     private fun cancel(notificationId: Int, tag: String? = null) {
-        notificationManagerCompat.cancel(tag, notificationId)
+        try {
+            notificationManagerCompat.cancel(tag, notificationId)
+        } catch (e: Exception) {
+            logger.warn("Failed to cancel notification {}", notificationId, e)
+        }
     }
 
     companion object {
