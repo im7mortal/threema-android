@@ -1,0 +1,54 @@
+name: Sync upstream into main-release
+
+on:
+  schedule:
+    - cron: "47 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream-main-release
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main-release
+        uses: actions/checkout@v5
+        with:
+          ref: main-release
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch origin and upstream
+        run: |
+          set -euo pipefail
+          git remote add threema https://github.com/threema-ch/threema-android.git
+          git fetch --no-tags --prune origin main-release
+          git fetch --no-tags --prune threema main
+
+      - name: Check for upstream updates and sync
+        run: |
+          set -euo pipefail
+          behind_count="$(git rev-list --count origin/main-release..threema/main)"
+          echo "Upstream-only commits: $behind_count"
+
+          if [ "$behind_count" -eq 0 ]; then
+            echo "main-release is already up to date with threema/main"
+            exit 0
+          fi
+
+          git checkout main-release
+          git merge --no-ff --no-edit threema/main
+          git push origin HEAD:main-release
+
+
