@@ -2,7 +2,7 @@ name: Sync upstream into main-release
 
 on:
   schedule:
-    - cron: "47 */6 * * *"
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 permissions:
