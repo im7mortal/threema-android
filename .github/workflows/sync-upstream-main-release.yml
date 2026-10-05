@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: sync-upstream-main-release
@@ -37,6 +38,8 @@ jobs:
           git fetch --no-tags --prune threema main
 
       - name: Check for upstream updates and sync
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           behind_count="$(git rev-list --count origin/main-release..threema/main)"
@@ -50,5 +53,5 @@ jobs:
           git checkout main-release
           git merge --no-ff --no-edit threema/main
           git push origin HEAD:main-release
-
+          gh workflow run build-foss-apk.yml --ref main-release --repo "$GITHUB_REPOSITORY"
 
