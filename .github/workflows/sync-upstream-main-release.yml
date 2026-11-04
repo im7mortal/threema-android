@@ -2,11 +2,13 @@ name: Sync upstream into main-release
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "41 13 * * 1-5"
+    - cron: "13 20 * * 1-5"
   workflow_dispatch:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: sync-upstream-main-release
@@ -38,6 +40,8 @@ jobs:
           git remote set-head threema --auto
 
       - name: Check for upstream updates and sync
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           upstream_ref="$(git symbolic-ref --short refs/remotes/threema/HEAD)"
@@ -53,6 +57,6 @@ jobs:
           git checkout main-release
           git merge --no-ff --no-edit "$upstream_ref"
           git push origin HEAD:main-release
-
+          gh workflow run build-foss-apk.yml --ref main-release --repo "$GITHUB_REPOSITORY"
 
 
