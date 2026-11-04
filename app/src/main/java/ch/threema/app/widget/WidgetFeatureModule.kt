@@ -1,9 +1,9 @@
 package ch.threema.app.widget
 
-import org.koin.core.module.dsl.factoryOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
 
 val widgetFeatureModule = module {
-    factoryOf(::WidgetUpdater)
-    factoryOf(::WidgetUpdaterMonitor)
+    factory<WidgetUpdater>()
+    factory<WidgetUpdaterMonitor>()
 }

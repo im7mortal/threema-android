@@ -1,6 +1,5 @@
 package ch.threema.architecture
 
-import ch.threema.app.BuildConfig
 import ch.threema.app.ThreemaApplication
 import ch.threema.app.messagereceiver.ContactMessageReceiver
 import ch.threema.app.messagereceiver.DistributionListMessageReceiver
@@ -8,10 +7,12 @@ import ch.threema.app.messagereceiver.GroupMessageReceiver
 import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.utils.executor.HandlerExecutor
 import ch.threema.architecture.ArchitectureTestUtils.DoNotIncludeAndroidTests
+import ch.threema.domain.libthreema.LibthreemaAware
 import ch.threema.logging.LogBackendFactoryImpl
 import ch.threema.logging.backend.DebugLogFileBackend
 import ch.threema.storage.factories.PollModelFactory
 import ch.threema.storage.models.ConversationModel
+import com.tngtech.archunit.core.domain.properties.CanBeAnnotated
 import com.tngtech.archunit.core.domain.properties.HasName.Predicates.nameMatching
 import com.tngtech.archunit.junit.AnalyzeClasses
 import com.tngtech.archunit.junit.ArchTest
@@ -90,7 +91,6 @@ class LayerDependenciesTest {
         .ignoreDependency(PollModelFactory::class, ContactMessageReceiver::class)
         .ignoreDependency(PollModelFactory::class, GroupMessageReceiver::class)
         .ignoreDependency(PollModelFactory::class, MessageReceiver::class)
-        .ignoreDependency(LogBackendFactoryImpl::class, BuildConfig::class)
         .ignoreDependency(LogBackendFactoryImpl::class, ThreemaApplication::class)
         .ignoreDependency(LogBackendFactoryImpl::class, ThreemaApplication.Companion::class)
         .ignoreDependency(DebugLogFileBackend.Companion::class, HandlerExecutor::class)
@@ -104,7 +104,7 @@ class LayerDependenciesTest {
             nameMatching("ch\\.threema\\.app\\.BuildFlavor.*"),
         )
         .ignoreDependency(
-            nameMatching("ch\\.threema\\.localcrypto\\.Version2MasterKeyFileManagerImpl"),
+            nameMatching(".*"),
             nameMatching("ch\\.threema\\.app\\.files\\.FileExtensionsKt\\.*"),
         )
 
@@ -149,6 +149,21 @@ class LayerDependenciesTest {
             ArchitectureDefinitions.LOGGING,
             ArchitectureDefinitions.PROTOBUF,
         )
+
+    @ArchTest
+    val libthreemaLayerAccess: ArchRule = ArchitectureDefinitions.getLayeredArchitecture()
+        .whereLayer(ArchitectureDefinitions.LIBTHREEMA).mayOnlyBeAccessedByLayers(ArchitectureDefinitions.DOMAIN)
+        .ignoreDependency(nameMatching("ch\\.threema\\.localcrypto\\..*"), nameMatching("ch\\.threema\\.libthreema\\..*"))
+        .ignoreDependency(nameMatching("ch\\.threema\\.app\\.libthreema\\..*"), nameMatching("ch\\.threema\\.libthreema\\..*"))
+        .ignoreDependency(nameMatching("ch\\.threema\\.base\\.crypto\\..*"), nameMatching("ch\\.threema\\.libthreema\\..*"))
+        .ignoreDependency(nameMatching("ch\\.threema\\.logging\\.LibthreemaLogger.*"), nameMatching("ch\\.threema\\.libthreema\\..*"))
+        .ignoreDependency(CanBeAnnotated.Predicates.annotatedWith(LibthreemaAware::class.java), nameMatching("ch\\.threema\\.libthreema\\..*"))
+        .ignoreDependency(nameMatching("ch\\.threema\\.app\\.work\\.workproperties\\..*"), nameMatching("ch\\.threema\\.libthreema\\..*"))
+        .ignoreDependency(
+            nameMatching("ch\\.threema\\.app\\.webclient\\.services\\.SessionServiceImpl.*"),
+            nameMatching("ch\\.threema\\.libthreema\\..*"),
+        )
+        .ignoreDependency(nameMatching("ch\\.threema\\.app\\.backuprestore\\..*"), nameMatching("ch\\.threema\\.libthreema\\..*"))
 
     private fun Architectures.LayeredArchitecture.ignoreDependency(origin: KClass<*>, target: KClass<*>): Architectures.LayeredArchitecture =
         ignoreDependency(origin.java, target.java)

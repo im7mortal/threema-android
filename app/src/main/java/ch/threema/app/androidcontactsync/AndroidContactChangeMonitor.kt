@@ -2,10 +2,9 @@ package ch.threema.app.androidcontactsync
 
 import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.provider.ContactsContract
-import androidx.core.content.ContextCompat
+import ch.threema.android.checkGrantedPermission
 import ch.threema.app.GlobalListeners
 import ch.threema.app.androidcontactsync.usecases.UpdateContactNameUseCase
 import ch.threema.app.di.awaitAppFullyReady
@@ -91,11 +90,7 @@ class AndroidContactChangeMonitor(
     }
 
     fun start() {
-        if (ContextCompat.checkSelfPermission(
-                appContext,
-                Manifest.permission.READ_CONTACTS,
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
+        if (!appContext.checkGrantedPermission(Manifest.permission.READ_CONTACTS)) {
             return
         }
 

@@ -1,6 +1,7 @@
 package ch.threema.data
 
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.models.ContactModelData
 import ch.threema.domain.models.AcquaintanceLevel
@@ -28,6 +29,7 @@ fun BasicContact.toContactModelData() = ContactModelData(
     syncState = ContactSyncState.INITIAL,
     acquaintanceLevel = AcquaintanceLevel.DIRECT,
     conversationVisibility = ConversationVisibility.NORMAL,
+    conversationCategory = ConversationCategory.DEFAULT,
     localAvatarExpires = null,
     androidContactLookupInfo = null,
     profilePictureBlobId = null,

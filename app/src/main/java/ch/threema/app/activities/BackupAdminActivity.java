@@ -39,7 +39,6 @@ public class BackupAdminActivity extends ThreemaToolbarActivity {
     private static final Logger logger = getThreemaLogger("BackupAdminActivity");
 
     private static final String BUNDLE_IS_UNLOCKED = "biu";
-    private static final String EXTRA_HIDE_DATA_BACKUP = "hide_data_backup";
 
     @NonNull
     private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
@@ -138,8 +137,7 @@ public class BackupAdminActivity extends ThreemaToolbarActivity {
     }
 
     private boolean dataBackupUIDisabled() {
-        return dependencies.getAppRestrictions().isDataBackupsDisabled() ||
-            getIntent().getBooleanExtra(EXTRA_HIDE_DATA_BACKUP, false);
+        return dependencies.getAppRestrictions().isDataBackupsDisabled();
     }
 
     @Override
@@ -185,13 +183,6 @@ public class BackupAdminActivity extends ThreemaToolbarActivity {
 
     @NonNull
     public static Intent createIntent(@NonNull Context context) {
-        return createIntent(context, false);
-    }
-
-    @NonNull
-    public static Intent createIntent(@NonNull Context context, boolean hideDataBackup) {
-        Intent intent = new Intent(context, BackupAdminActivity.class);
-        intent.putExtra(EXTRA_HIDE_DATA_BACKUP, hideDataBackup);
-        return intent;
+        return new Intent(context, BackupAdminActivity.class);
     }
 }

@@ -22,7 +22,7 @@ import ch.threema.app.utils.LinkifyUtil;
 import ch.threema.app.utils.MessageUtil;
 import ch.threema.app.utils.RuntimeUtil;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.DistributionListMessageModel;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.MessageType;
@@ -39,11 +39,11 @@ public class VideoChatAdapterDecorator extends ChatAdapterDecorator {
     private final MessagePlayerFactory messagePlayerFactory;
 
     public VideoChatAdapterDecorator(
-        AbstractMessageModel messageModel,
-        @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
-        @NonNull LinkifyUtil.LinkifyListener linkifyListener,
-        @NonNull MessagePlayerFactory messagePlayerFactory,
-        Helper helper
+            MessageModel messageModel,
+            @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
+            @NonNull LinkifyUtil.LinkifyListener linkifyListener,
+            @NonNull MessagePlayerFactory messagePlayerFactory,
+            Helper helper
     ) {
         super(messageModel, chatAdapterDecoratorListener, linkifyListener, helper);
         this.messagePlayerFactory = messagePlayerFactory;
@@ -133,12 +133,12 @@ public class VideoChatAdapterDecorator extends ChatAdapterDecorator {
             // decrypt listener
             .addListener(LISTENER_TAG, new MessagePlayer.DecryptionListener() {
                 @Override
-                public void onStart(AbstractMessageModel messageModel) {
+                public void onStart(MessageModel messageModel) {
                     RuntimeUtil.runOnUiThread(() -> holder.controller.setProgressing(false));
                 }
 
                 @Override
-                public void onEnd(final AbstractMessageModel messageModel, final boolean success, final String message, File decryptedFile) {
+                public void onEnd(final MessageModel messageModel, final boolean success, final String message, File decryptedFile) {
                     RuntimeUtil.runOnUiThread(() -> {
                         setControllerState(holder);
                         if (!success) {
@@ -152,22 +152,22 @@ public class VideoChatAdapterDecorator extends ChatAdapterDecorator {
             // download listener
             .addListener(LISTENER_TAG, new MessagePlayer.DownloadListener() {
                 @Override
-                public void onStart(AbstractMessageModel messageModel) {
+                public void onStart(MessageModel messageModel) {
                     RuntimeUtil.runOnUiThread(() -> holder.controller.setProgressingDeterminate(100));
                 }
 
                 @Override
-                public void onStatusUpdate(AbstractMessageModel messageModel, final int progress) {
+                public void onStatusUpdate(MessageModel messageModel, final int progress) {
                     RuntimeUtil.runOnUiThread(() -> holder.controller.setProgress(progress));
                 }
 
                 @Override
-                public void onUnknownProgress(AbstractMessageModel messageModel) {
+                public void onUnknownProgress(MessageModel messageModel) {
                     RuntimeUtil.runOnUiThread(() -> holder.controller.setProgressing());
                 }
 
                 @Override
-                public void onEnd(AbstractMessageModel messageModel, final boolean success, final String message) {
+                public void onEnd(MessageModel messageModel, final boolean success, final String message) {
                     //hide progressbar
                     RuntimeUtil.runOnUiThread(() -> {
                         if (success) {

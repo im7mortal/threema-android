@@ -9,6 +9,9 @@ import ch.threema.app.AppConstants
 import ch.threema.app.BuildConfig
 import ch.threema.app.BuildFlavor
 import ch.threema.app.R
+import ch.threema.app.backupcenter.models.LastLocalDataBackupInfo
+import ch.threema.app.backupcenter.models.LocalDataBackupPassword
+import ch.threema.app.files.AppLogoFileHandleProvider
 import ch.threema.app.mediagallery.MediaGalleryViewModel.Companion.SELECTABLE_CONTENT_TYPES
 import ch.threema.app.preference.service.PreferenceService.EmojiStyle
 import ch.threema.app.preference.service.PreferenceService.ErrorReportingState
@@ -22,13 +25,14 @@ import ch.threema.app.threemasafe.ThreemaSafeMDMConfig
 import ch.threema.app.threemasafe.ThreemaSafeServerInfo
 import ch.threema.app.utils.AutoDeleteUtil
 import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.ConfigUtils.AppThemeSetting
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.Base64
+import ch.threema.common.DispatcherProvider
 import ch.threema.common.TimeProvider
 import ch.threema.common.booleanOrNull
 import ch.threema.common.decodeFromStringOrNull
 import ch.threema.common.secureContentEquals
+import ch.threema.common.stateFlowOf
 import ch.threema.common.takeUnlessEmpty
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.datatypes.ContactNameFormat
@@ -41,6 +45,7 @@ import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -54,33 +59,36 @@ class PreferenceServiceImpl(
     private val appContext: Context,
     private val preferenceStore: PreferenceStore,
     private val encryptedPreferenceStore: EncryptedPreferenceStore,
+    private val dispatcherProvider: DispatcherProvider,
     private val timeProvider: TimeProvider,
 ) : PreferenceService {
-    override fun isCustomWallpaperEnabled(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__wallpaper_switch))
+    override fun getTheme(): PreferenceService.Theme =
+        preferenceStore.getString(getKeyName(R.string.preferences__theme))
+            ?.let(PreferenceService.Theme::deserialize)
+            ?: PreferenceService.Theme.FOLLOW_SYSTEM
 
-    override fun setCustomWallpaperEnabled(enabled: Boolean) {
-        preferenceStore.save(getKeyName(R.string.preferences__wallpaper_switch), enabled)
+    override fun setTheme(theme: PreferenceService.Theme) {
+        preferenceStore.save(getKeyName(R.string.preferences__theme), theme.serialized)
     }
 
     override fun isEnterToSend(): Boolean =
         preferenceStore.getBoolean(getKeyName(R.string.preferences__enter_to_send))
 
     override fun isInAppSounds(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__inapp_sounds))
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__inapp_sounds), defaultValue = true)
 
     override fun isInAppVibrate(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__inapp_vibrate))
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__inapp_vibrate), defaultValue = true)
 
     @ImageScale
     override fun getImageScale(): Int {
         val imageScale = preferenceStore.getString(getKeyName(R.string.preferences__image_size))
         return when (imageScale?.toIntOrNull()) {
             0 -> PreferenceService.IMAGE_SCALE_SMALL
-            2 -> PreferenceService.IMAGE_SCALE_LARGE
+            1 -> PreferenceService.IMAGE_SCALE_MEDIUM
             3 -> PreferenceService.IMAGE_SCALE_XLARGE
             4 -> PreferenceService.IMAGE_SCALE_ORIGINAL
-            else -> PreferenceService.IMAGE_SCALE_MEDIUM
+            else -> PreferenceService.IMAGE_SCALE_LARGE
         }
     }
 
@@ -126,6 +134,22 @@ class PreferenceServiceImpl(
         preferenceStore.save(getKeyName(R.string.preferences__oppf_url), oppfUrl)
     }
 
+    override fun getEmojiStyle(): EmojiStyle =
+        preferenceStore.getString(getKeyName(R.string.preferences__emoji_style))
+            ?.let(EmojiStyle::deserialize)
+            ?: EmojiStyle.DEFAULT
+
+    override fun setEmojiStyle(emojiStyle: EmojiStyle) {
+        preferenceStore.save(getKeyName(R.string.preferences__emoji_style), emojiStyle.serialized)
+    }
+
+    override fun isBiggerSingleEmojis(): Boolean =
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__bigger_single_emojis), defaultValue = true)
+
+    override fun setBiggerSingleEmojis(biggerSingleEmoji: Boolean) {
+        preferenceStore.save(getKeyName(R.string.preferences__bigger_single_emojis), biggerSingleEmoji)
+    }
+
     override fun getRecentEmojis(): List<String> =
         preferenceStore.getStringArray(getKeyName(R.string.preferences__recent_emojis))
             ?.toList()
@@ -142,12 +166,19 @@ class PreferenceServiceImpl(
         preferenceStore.save(getKeyName(R.string.preferences__emoji_search_index_version), version)
     }
 
-    override fun useThreemaPush(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__threema_push_switch))
+    override fun mustUseThreemaPush(): Boolean =
+        BuildFlavor.FORCE_THREEMA_PUSH || preferenceStore.getBoolean(getKeyName(R.string.preferences__threema_push_switch))
 
-    override fun setUseThreemaPush(value: Boolean) {
+    override fun setMustUseThreemaPush(value: Boolean) {
         preferenceStore.save(getKeyName(R.string.preferences__threema_push_switch), value)
     }
+
+    override fun watchMustUseThreemaPush(): Flow<Boolean> =
+        if (BuildFlavor.FORCE_THREEMA_PUSH) {
+            stateFlowOf(true)
+        } else {
+            preferenceStore.watchBoolean(getKeyName(R.string.preferences__threema_push_switch))
+        }
 
     override fun isSaveMedia(): Boolean =
         preferenceStore.getBoolean(getKeyName(R.string.preferences__save_media))
@@ -198,35 +229,22 @@ class PreferenceServiceImpl(
         )
     }
 
-    override fun getContactListSorting(): String {
-        val sorting = preferenceStore.getString(getKeyName(R.string.preferences__contact_sorting))
-            ?.takeUnlessEmpty()
-        if (sorting == null) {
-            val sorting = appContext.getString(R.string.contact_sorting__last_name)
-            preferenceStore.save(getKeyName(R.string.preferences__contact_sorting), sorting)
-            return sorting
-        }
-        return sorting
-    }
-
-    override fun isContactListSortingFirstName(): Boolean =
-        getContactListSorting() == appContext.getString(R.string.contact_sorting__first_name)
-
-    override fun getContactNameFormat(): ContactNameFormat {
-        val prefKeyName = getKeyName(R.string.preferences__contact_format)
-        var formatValueStored = preferenceStore.getString(prefKeyName)
-            ?.takeUnlessEmpty()
-        if (formatValueStored == null) {
-            formatValueStored = appContext.getString(ContactNameFormat.DEFAULT.valueRes)
-            preferenceStore.save(prefKeyName, formatValueStored)
+    override fun getContactSortOrder(): PreferenceService.ContactSortOrder =
+        when (preferenceStore.getString(getKeyName(R.string.preferences__contact_sorting))) {
+            appContext.getString(R.string.contact_sorting__first_name) -> PreferenceService.ContactSortOrder.FIRST_NAME
+            else -> PreferenceService.ContactSortOrder.LAST_NAME
         }
 
-        return ContactNameFormat.fromValue(formatValueStored, appContext)
+    override fun getContactNameFormat(): ContactNameFormat =
+        preferenceStore.getString(getKeyName(R.string.preferences__contact_format))
+            ?.takeUnlessEmpty()
+            ?.let { formatValueStored ->
+                ContactNameFormat.fromValue(formatValueStored, appContext)
+            }
             ?: ContactNameFormat.DEFAULT
-    }
 
     override fun isDefaultContactPictureColored(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__default_contact_picture_colored))
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__default_contact_picture_colored), defaultValue = true)
 
     override fun getFontStyle(): Int {
         val fontStyle = preferenceStore.getString(getKeyName(R.string.preferences__fontstyle))
@@ -266,38 +284,11 @@ class PreferenceServiceImpl(
         preferenceStore.save(getKeyName(R.string.preferences__last_feature_mask_transmission), timestamp)
     }
 
-    override fun getEncryptedList(listName: String): Array<String> {
-        var res = encryptedPreferenceStore.getStringArray(listName)
-        if (res == null) {
-            // check if we have an old unencrypted identity list - migrate if necessary and return its values
-            if (preferenceStore.containsKey(listName)) {
-                res = preferenceStore.getStringArray(listName)
-                preferenceStore.remove(listName)
-                if (res != null) {
-                    encryptedPreferenceStore.save(listName, res)
-                }
-            }
-        }
-        return res ?: emptyArray()
-    }
-
-    override fun getList(listName: String): Array<String> =
-        preferenceStore.getStringArray(listName)
-            ?: emptyArray()
-
-    override fun setList(listName: String, elements: Array<String>) {
-        preferenceStore.save(listName, elements)
-    }
+    override fun getEncryptedList(listName: String): Array<String> =
+        encryptedPreferenceStore.getStringArray(listName) ?: emptyArray()
 
     override fun setEncryptedList(listName: String, elements: Array<String>) {
         encryptedPreferenceStore.save(listName, elements)
-    }
-
-    override fun getStringMap(listName: String): Map<String, String?> =
-        preferenceStore.getMap(listName)
-
-    override fun setStringMap(listName: String, map: Map<String, String?>) {
-        preferenceStore.save(listName, map)
     }
 
     override fun showInactiveContacts(): Boolean =
@@ -352,16 +343,6 @@ class PreferenceServiceImpl(
         preferenceStore.save(getKeyName(R.string.preferences__filesend_info_shown), shown)
     }
 
-    @EmojiStyle
-    override fun getEmojiStyle(): Int {
-        val emojiStyle = preferenceStore.getString(getKeyName(R.string.preferences__emoji_style))
-            ?.takeUnlessEmpty()
-        return when (emojiStyle?.toIntOrNull()) {
-            1 -> PreferenceService.EMOJI_STYLE_ANDROID
-            else -> PreferenceService.EMOJI_STYLE_DEFAULT
-        }
-    }
-
     override fun setLockoutDeadline(deadline: Instant?) {
         preferenceStore.save(getKeyName(R.string.preferences__lockout_deadline), deadline)
     }
@@ -384,15 +365,15 @@ class PreferenceServiceImpl(
         preferenceStore.getInt(getKeyName(R.string.preferences__lockout_attempts))
 
     override fun isAnimationAutoplay(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__gif_autoplay))
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__gif_autoplay), defaultValue = true)
 
     override fun isUseProximitySensor(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__proximity_sensor))
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__proximity_sensor), defaultValue = true)
 
-    override fun setAppLogoExpiresAt(expiresAt: Instant?, @AppThemeSetting theme: String) {
+    override fun setAppLogoExpiresAt(expiresAt: Instant?, theme: AppLogoFileHandleProvider.Theme) {
         preferenceStore.save(
             getKeyName(
-                if (theme == ConfigUtils.THEME_DARK) {
+                if (theme == AppLogoFileHandleProvider.Theme.DARK) {
                     R.string.preferences__app_logo_dark_expires_at
                 } else {
                     R.string.preferences__app_logo_light_expires_at
@@ -402,10 +383,10 @@ class PreferenceServiceImpl(
         )
     }
 
-    override fun getAppLogoExpiresAt(@AppThemeSetting theme: String): Instant? =
+    override fun getAppLogoExpiresAt(theme: AppLogoFileHandleProvider.Theme): Instant? =
         preferenceStore.getInstant(
             getKeyName(
-                if (theme == ConfigUtils.THEME_DARK) {
+                if (theme == AppLogoFileHandleProvider.Theme.DARK) {
                     R.string.preferences__app_logo_dark_expires_at
                 } else {
                     R.string.preferences__app_logo_light_expires_at
@@ -450,10 +431,10 @@ class PreferenceServiceImpl(
     }
 
     override fun isShowImageAttachPreviewsEnabled(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__image_attach_previews))
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__image_attach_previews), defaultValue = true)
 
     override fun isDirectShare(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__direct_share))
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__direct_share), defaultValue = true)
 
     override fun setMessageDrafts(messageDrafts: Map<ConversationIdObfuscated, String?>?) {
         encryptedPreferenceStore
@@ -572,7 +553,7 @@ class PreferenceServiceImpl(
     }
 
     override fun getProfilePicReceive(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__receive_profilepics))
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__receive_profilepics), defaultValue = true)
 
     override fun getAECMode(): String =
         when (preferenceStore.getString(getKeyName(R.string.preferences__voip_echocancel))) {
@@ -598,15 +579,38 @@ class PreferenceServiceImpl(
         preferenceStore.getBoolean(getKeyName(R.string.preferences__ipv6_preferred))
 
     override fun allowWebrtcIpv6(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__ipv6_webrtc_allowed))
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__ipv6_webrtc_allowed), defaultValue = true)
 
-    override fun getMobileAutoDownload(): Set<String> =
+    override fun getMobileAutoDownload(): Set<PreferenceService.AutoDownloadType> =
         preferenceStore.getStringSet(getKeyName(R.string.preferences__auto_download_mobile))
-            ?: appContext.resources.getStringArray(R.array.list_auto_download_mobile_default).toSet()
+            ?.mapNotNull(PreferenceService.AutoDownloadType::deserialize)
+            ?.toSet()
+            ?: setOf(PreferenceService.AutoDownloadType.IMAGE)
 
-    override fun getWifiAutoDownload(): Set<String> =
+    override fun setMobileAutoDownload(types: Set<PreferenceService.AutoDownloadType>) {
+        preferenceStore.save(
+            getKeyName(R.string.preferences__auto_download_mobile),
+            types.map(PreferenceService.AutoDownloadType::serialized).toSet(),
+        )
+    }
+
+    override fun getWifiAutoDownload(): Set<PreferenceService.AutoDownloadType> =
         preferenceStore.getStringSet(getKeyName(R.string.preferences__auto_download_wifi))
-            ?: appContext.resources.getStringArray(R.array.list_auto_download_wifi_default).toSet()
+            ?.mapNotNull(PreferenceService.AutoDownloadType::deserialize)
+            ?.toSet()
+            ?: setOf(
+                PreferenceService.AutoDownloadType.IMAGE,
+                PreferenceService.AutoDownloadType.VOICE_MESSAGE,
+                PreferenceService.AutoDownloadType.VIDEO,
+                PreferenceService.AutoDownloadType.FILE,
+            )
+
+    override fun setWifiAutoDownload(types: Set<PreferenceService.AutoDownloadType>) {
+        preferenceStore.save(
+            getKeyName(R.string.preferences__auto_download_wifi),
+            types.map(PreferenceService.AutoDownloadType::serialized).toSet(),
+        )
+    }
 
     override fun setRatingReference(reference: String?) {
         encryptedPreferenceStore.save(getKeyName(R.string.preferences__rate_ref), reference)
@@ -719,7 +723,7 @@ class PreferenceServiceImpl(
         preferenceStore.getInstant(getKeyName(R.string.preferences__threema_safe_backup_date))
 
     override fun getShowUnreadBadge(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__show_unread_badge))
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__show_unread_badge), defaultValue = true)
 
     override fun setThreemaSafeErrorCode(code: Int) {
         preferenceStore.save(getKeyName(R.string.preferences__threema_safe_error_code), code)
@@ -816,9 +820,7 @@ class PreferenceServiceImpl(
 
     override fun getWorkDirectoryCategories(): List<WorkDirectoryCategory> =
         encryptedPreferenceStore.getString(getKeyName(R.string.preferences__work_directory_categories))
-            ?.let { jsonString ->
-                Json.decodeFromStringOrNull<List<WorkDirectoryCategory>>(jsonString)
-            }
+            ?.let(Json::decodeFromStringOrNull)
             ?: emptyList()
 
     override fun setWorkOrganization(organization: WorkOrganization?) {
@@ -830,9 +832,7 @@ class PreferenceServiceImpl(
 
     override fun getWorkOrganization(): WorkOrganization? =
         encryptedPreferenceStore.getString(getKeyName(R.string.preferences__work_directory_organization))
-            ?.let { jsonString ->
-                Json.decodeFromStringOrNull(jsonString)
-            }
+            ?.let(Json::decodeFromStringOrNull)
 
     override fun setLicensedStatus(licensed: Boolean) {
         preferenceStore.save(getKeyName(R.string.preferences__license_status), licensed)
@@ -848,27 +848,60 @@ class PreferenceServiceImpl(
     override fun showDeveloperMenu(): Boolean =
         preferenceStore.getBoolean(getKeyName(R.string.preferences__developer_menu), BuildConfig.DEBUG)
 
-    override fun getDataBackupUri(): Uri? =
+    override fun getLegacyDataBackupUri(): Uri? =
         preferenceStore.getString(getKeyName(R.string.preferences__data_backup_uri))
             ?.takeUnlessEmpty()
             ?.toUri()
 
-    override fun setDataBackupUri(newUri: Uri?) {
+    override fun setLegacyDataBackupUri(newUri: Uri?) {
         preferenceStore.save(getKeyName(R.string.preferences__data_backup_uri), newUri?.toString())
     }
 
-    override fun getDataBackupPickerLaunched(): Instant? =
+    override fun getLegacyDataBackupPickerLaunched(): Instant? =
         preferenceStore.getInstant(getKeyName(R.string.preferences__data_backup_picker_launched))
 
-    override fun setDataBackupPickerLaunched(timestamp: Instant?) {
+    override fun setLegacyDataBackupPickerLaunched(timestamp: Instant?) {
         preferenceStore.save(getKeyName(R.string.preferences__data_backup_picker_launched), timestamp)
     }
 
-    override fun getLastDataBackupTimestamp(): Instant? =
+    override fun getLastLegacyDataBackupTimestamp(): Instant? =
         preferenceStore.getInstant(getKeyName(R.string.preferences__last_data_backup_date))
 
-    override fun setLastDataBackupTimestamp(timestamp: Instant?) {
+    override fun setLastLegacyDataBackupTimestamp(timestamp: Instant?) {
         preferenceStore.save(getKeyName(R.string.preferences__last_data_backup_date), timestamp)
+    }
+
+    override fun getLocalDataBackupPassword(): LocalDataBackupPassword? =
+        encryptedPreferenceStore.getString(getKeyName(R.string.preferences__local_backup_password))
+            ?.let(::LocalDataBackupPassword)
+
+    override fun setLocalDataBackupPassword(localDataBackupPassword: LocalDataBackupPassword?) {
+        encryptedPreferenceStore.save(getKeyName(R.string.preferences__local_backup_password), localDataBackupPassword?.passwordString)
+    }
+
+    override fun getLastLocalDataBackupInfo(): LastLocalDataBackupInfo? =
+        preferenceStore.getString(getKeyName(R.string.preferences__last_local_backup_info))
+            ?.let(Json::decodeFromStringOrNull)
+
+    override fun setLastLocalDataBackupInfo(info: LastLocalDataBackupInfo?) {
+        preferenceStore.save(getKeyName(R.string.preferences__last_local_backup_info), info?.let(Json::encodeToString))
+    }
+
+    override fun watchLastLocalDataBackupInfo(): Flow<LastLocalDataBackupInfo?> =
+        preferenceStore.watchString(getKeyName(R.string.preferences__last_local_backup_info))
+            .map { jsonString ->
+                jsonString?.let {
+                    Json.decodeFromStringOrNull<LastLocalDataBackupInfo>(jsonString)
+                }
+            }
+            .flowOn(dispatcherProvider.worker)
+
+    override fun getLocalDataBackupLocation(): Uri? =
+        preferenceStore.getString(getKeyName(R.string.preferences__local_backup_location))
+            ?.toUri()
+
+    override fun setLocalDataBackupLocation(location: Uri?) {
+        preferenceStore.save(getKeyName(R.string.preferences__local_backup_location), location?.toString())
     }
 
     override fun getMatchToken(): String? =
@@ -899,8 +932,8 @@ class PreferenceServiceImpl(
     override fun getPipPosition(): Int =
         preferenceStore.getInt(getKeyName(R.string.preferences__pip_position))
 
-    override fun getVideoCallsProfile(): String? =
-        preferenceStore.getString(getKeyName(R.string.preferences__voip_video_profile))
+    override fun getVideoCallsProfile(): String =
+        preferenceStore.getString(getKeyName(R.string.preferences__voip_video_profile)) ?: "0"
 
     override fun setPollOverviewHidden(hidden: Boolean) {
         preferenceStore.save(getKeyName(R.string.preferences__poll_overview_hidden), hidden)
@@ -1033,12 +1066,12 @@ class PreferenceServiceImpl(
         preferenceStore.save(getKeyName(R.string.preferences__last_shortcut_update_date), timestamp)
     }
 
-    override fun setLastNotificationPermissionRequestTimestamp(timestamp: Instant?) {
-        preferenceStore.save(getKeyName(R.string.preferences__last_notification_request_timestamp), timestamp)
-    }
+    override fun hasRequestedNotificationPermission(): Boolean =
+        preferenceStore.getInstant(getKeyName(R.string.preferences__last_notification_request_timestamp)) != null
 
-    override fun getLastNotificationPermissionRequestTimestamp(): Instant? =
-        preferenceStore.getInstant(getKeyName(R.string.preferences__last_notification_request_timestamp))
+    override fun setHasRequestedNotificationPermission(requested: Boolean) {
+        preferenceStore.save(getKeyName(R.string.preferences__last_notification_request_timestamp), if (requested) timeProvider.get() else null)
+    }
 
     override fun getLastMultiDeviceGroupCheckTimestamp(): Instant? =
         preferenceStore.getInstant(getKeyName(R.string.preferences__last_multi_device_group_check_timestamp))
@@ -1054,7 +1087,7 @@ class PreferenceServiceImpl(
             appContext.getString(R.string.error_reporting_value_always_ask) -> ErrorReportingState.ALWAYS_ASK
             else -> if (BuildConfig.DEBUG) {
                 ErrorReportingState.NEVER_SEND
-            } else if (BuildFlavor.current.isSandbox) {
+            } else if (BuildFlavor.IS_SANDBOX) {
                 ErrorReportingState.ALWAYS_SEND
             } else {
                 ErrorReportingState.ALWAYS_ASK
@@ -1121,12 +1154,20 @@ class PreferenceServiceImpl(
             .map { availabilityStatusJson: String? ->
                 availabilityStatusJson?.let(AvailabilityStatus::fromJson)
             }
+            .flowOn(dispatcherProvider.worker)
     }
 
-    override fun clear() {
-        preferenceStore.clear()
-        encryptedPreferenceStore.clear()
-    }
+    override fun shouldShowEmojiReactionNotificationsInContactConversations(): Boolean =
+        preferenceStore.getBoolean(
+            key = getKeyName(R.string.preferences__emoji_reaction_contact_notifications),
+            defaultValue = true,
+        )
+
+    override fun shouldShowEmojiReactionNotificationsInGroupConversations(): Boolean =
+        preferenceStore.getBoolean(
+            key = getKeyName(R.string.preferences__emoji_reaction_group_notifications),
+            defaultValue = true,
+        )
 
     private fun getKeyName(@StringRes resourceId: Int) = appContext.getString(resourceId)
 

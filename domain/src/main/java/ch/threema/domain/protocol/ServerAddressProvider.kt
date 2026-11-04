@@ -1,6 +1,5 @@
 package ch.threema.domain.protocol
 
-import ch.threema.base.SessionScoped
 import ch.threema.base.ThreemaException
 import ch.threema.domain.protocol.connection.d2m.MultiDevicePropertyProvider
 import ch.threema.domain.protocol.urls.AppRatingUrl
@@ -9,7 +8,6 @@ import ch.threema.domain.protocol.urls.MapPoiAroundUrl
 import ch.threema.domain.protocol.urls.MapPoiNamesUrl
 import ch.threema.domain.protocol.urls.MediatorUrl
 
-@SessionScoped
 interface ServerAddressProvider {
     @Throws(ThreemaException::class)
     fun getChatServerNamePrefix(): String
@@ -30,7 +28,7 @@ interface ServerAddressProvider {
     fun getChatServerPublicKeyAlt(): ByteArray
 
     @Throws(ThreemaException::class)
-    fun getDirectoryServerUrl(): String
+    fun getDirectoryServerUrl(path: String): String
 
     @Throws(ThreemaException::class)
     fun getWorkServerUrlLegacy(): String?

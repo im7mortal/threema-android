@@ -10,11 +10,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 
 import androidx.annotation.NonNull;
@@ -22,8 +19,8 @@ import androidx.annotation.Nullable;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
-import ch.threema.storage.models.AbstractMessageModel;
 import ch.threema.storage.models.MessageModel;
+import ch.threema.storage.models.ContactMessageModel;
 import ch.threema.storage.models.data.media.FileDataModel;
 
 import static org.junit.Assert.assertEquals;
@@ -63,7 +60,7 @@ public class MessageTest {
             true,
             new HashMap<>()
         );
-        final AbstractMessageModel messageModel = new MessageModel();
+        final MessageModel messageModel = new ContactMessageModel();
         messageModel.setFileData(fileDataModel);
         messageModel.setCreatedAt(createdAt);
         messageModel.setApiMessageId(messageId);

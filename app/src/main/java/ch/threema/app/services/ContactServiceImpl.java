@@ -1,12 +1,8 @@
 package ch.threema.app.services;
 
-import android.Manifest;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
-import android.net.Uri;
-import android.provider.ContactsContract;
 import android.widget.ImageView;
 
 import com.bumptech.glide.RequestManager;
@@ -33,9 +29,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import androidx.annotation.WorkerThread;
-import androidx.core.content.ContextCompat;
+
+import ch.threema.app.BuildFlavor;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.eventbus.GlobalEventBuses;
 import ch.threema.app.eventbus.events.ContactEvent;
 import ch.threema.app.glide.AvatarOptions;
@@ -48,11 +44,11 @@ import ch.threema.app.routines.UpdateFeatureLevelRoutine;
 import ch.threema.app.services.avatarcache.AvatarCacheService;
 import ch.threema.app.stores.DatabaseContactStore;
 import ch.threema.app.tasks.TaskCreator;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.ContactUtil;
 import ch.threema.app.utils.RuntimeUtil;
 import ch.threema.base.ThreemaException;
 
+import static ch.threema.common.DatabaseHelpers.makePlaceholders;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.data.datatypes.ConversationVisibility;
@@ -74,7 +70,6 @@ import ch.threema.domain.taskmanager.ActiveTaskCodec;
 import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.storage.DatabaseProvider;
 import ch.threema.storage.DatabaseService;
-import ch.threema.storage.DatabaseUtil;
 import ch.threema.storage.QueryBuilder;
 import ch.threema.storage.factories.ContactModelFactory;
 import ch.threema.storage.models.ContactModel;
@@ -234,8 +229,7 @@ public class ContactServiceImpl implements ContactService {
         if (filter != null) {
             final IdentityState[] filterStates = filter.states();
             if (filterStates != null && filterStates.length > 0) {
-                // dirty, add placeholder should be added to makePlaceholders
-                final @NonNull String placeholders = DatabaseUtil.makePlaceholders(filterStates.length);
+                final @NonNull String placeholders = makePlaceholders(filterStates.length);
                 queryBuilder.appendWhere(
                     ContactModelFactory.COLUMN_CONTACTS_STATE + " IN (" + placeholders + ")"
                 );
@@ -271,10 +265,8 @@ public class ContactServiceImpl implements ContactService {
             null
         );
 
-        // sort
-        final boolean sortOrderFirstName = preferenceService.isContactListSortingFirstName();
 
-        Collections.sort(result, ContactUtil.getContactComparator(sortOrderFirstName));
+        result.sort(ContactUtil.getContactComparator(preferenceService.getContactSortOrder()));
 
         if (filter != null) {
 
@@ -660,10 +652,12 @@ public class ContactServiceImpl implements ContactService {
             return () -> false;
         } else {
             boolean isInGroup = false;
-            Cursor c = this.databaseProvider.getReadableDatabase().rawQuery(
-                DatabaseUtil.IS_GROUP_MEMBER_QUERY,
-                identity
-            );
+            String query = "SELECT EXISTS(" +
+                "SELECT 1 FROM " + GroupModelOld.TABLE + " g INNER JOIN " + GroupMemberModel.TABLE + " m" +
+                "  ON m." + GroupMemberModel.COLUMN_GROUP_ID + " = g." + GroupModelOld.COLUMN_ID + " " +
+                "WHERE m." + GroupMemberModel.COLUMN_IDENTITY + " = ?" +
+                ")";
+            Cursor c = this.databaseProvider.getReadableDatabase().rawQuery(query, identity);
 
             if (c != null) {
                 if (c.moveToFirst()) {
@@ -913,7 +907,7 @@ public class ContactServiceImpl implements ContactService {
     @Override
     public boolean showIdentityTypeBadge(@Nullable ContactModel contactModel) {
         if (contactModel != null) {
-            if (ConfigUtils.isWorkBuild()) {
+            if (BuildFlavor.IS_WORK) {
                 if (userService.isMe(contactModel.getIdentity())) {
                     return false;
                 }
@@ -927,7 +921,7 @@ public class ContactServiceImpl implements ContactService {
 
     @Override
     public boolean showIdentityTypeBadge(@NonNull ContactModelData contactModelData) {
-        if (ConfigUtils.isWorkBuild()) {
+        if (BuildFlavor.IS_WORK) {
             if (userService.isMe(contactModelData.identity)) {
                 return false;
             }
@@ -941,29 +935,6 @@ public class ContactServiceImpl implements ContactService {
     @Override
     public boolean showIdentityTypeBadge(@Nullable String identity) {
         return showIdentityTypeBadge(getByIdentity(identity));
-    }
-
-    /**
-     * Get Android contact lookup key Uri in String representation to be used for Notification.Builder.addPerson()
-     *
-     * @param contactModel ContactModel to get Uri for
-     * @return Uri of Android contact as a string or null if there's no linked contact or permission to access contacts has not been granted
-     */
-    @Override
-    public @Nullable String getAndroidContactLookupUriString(ContactModel contactModel) {
-        String contactLookupUri = null;
-        if (ContextCompat.checkSelfPermission(ThreemaApplication.getAppContext(), Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) {
-            if (contactModel != null) {
-                final String androidContactLookupKey = contactModel.getAndroidContactLookupKey();
-                if (androidContactLookupKey != null) {
-                    Uri lookupUri = Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_LOOKUP_URI, androidContactLookupKey);
-                    if (lookupUri != null) {
-                        contactLookupUri = lookupUri.toString();
-                    }
-                }
-            }
-        }
-        return contactLookupUri;
     }
 
     @Override
@@ -1030,7 +1001,7 @@ public class ContactServiceImpl implements ContactService {
                     return;
                 }
 
-                apiConnector.reportJunk(identityStore, identity, contactModelData.nickname);
+                apiConnector.reportSpamContact(identityStore, identity, contactModelData.nickname);
 
                 spammerContactModel.setAcquaintanceLevelFromLocal(AcquaintanceLevel.GROUP_OR_DELETED);
 

@@ -85,4 +85,47 @@ class CollectionExtensionsTest {
         assertFalse(listOf("A", "b", "c", "D").hasDuplicatesBy { it.lowercase() })
         assertTrue(listOf("A", "b", "a", "D").hasDuplicatesBy { it.lowercase() })
     }
+
+    @Test
+    fun `sum of sizes of empty collection`() {
+        assertEquals(0, emptyList<List<Unit>>().sumOfSizes())
+    }
+
+    @Test
+    fun `sum of sizes with non-empty collection`() {
+        assertEquals(
+            expected = 10,
+            actual = listOf(
+                listOf(1, 2, 3),
+                listOf(4, 5, 6, 7, 8, 9),
+                listOf(10),
+                emptyList(),
+            ).sumOfSizes(),
+        )
+    }
+
+    @Test
+    fun `sum of sizes with collection containing empty lists`() {
+        assertEquals(
+            expected = 0,
+            actual = listOf<List<Unit>>(
+                emptyList(),
+                emptyList(),
+                emptyList(),
+            ).sumOfSizes(),
+        )
+    }
+
+    @Test
+    fun `for each reversed`() {
+        val result = buildList {
+            listOf(1, 2, 3, 4, 5).forEachReversed {
+                add(it)
+            }
+        }
+        assertEquals(
+            listOf(5, 4, 3, 2, 1),
+            result,
+        )
+    }
 }

@@ -38,6 +38,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ch.threema.android.getColorFromAttribute
 import ch.threema.app.R
 import ch.threema.app.compose.common.buttons.primary.ButtonPrimary
 import ch.threema.app.compose.common.spacer.DynamicSpacerSize1
@@ -48,7 +49,6 @@ import ch.threema.app.compose.theme.ThreemaTheme
 import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.dimens.GridUnit
 import ch.threema.app.multidevice.wizard.LinkingResult
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
 import java.time.Instant
@@ -111,7 +111,7 @@ fun LinkNewDeviceResultContent(
                 painter = painterResource(linkingResult.iconRes),
                 contentDescription = null,
                 tint = linkingResult.iconTintAttrRes?.let { colorAttrId ->
-                    Color(ConfigUtils.getColorFromAttribute(context, colorAttrId))
+                    Color(context.getColorFromAttribute(colorAttrId))
                 } ?: Color.Unspecified,
             )
 

@@ -1,7 +1,7 @@
 package ch.threema.app.backupcenter
 
 import androidx.compose.runtime.Immutable
-import ch.threema.app.backupcenter.models.BackupPassword
+import ch.threema.app.backupcenter.models.LocalDataBackupPassword
 
 @Immutable
 data class CreateLocalDataBackupViewState(
@@ -11,13 +11,16 @@ data class CreateLocalDataBackupViewState(
     sealed interface Step {
         val isSensitive: Boolean
             get() = false
+
+        val isAbortable: Boolean
+            get() = false
     }
 
     @Immutable
     data class Step1RecoveryKey(
-        val password: BackupPassword,
+        val password: LocalDataBackupPassword,
     ) : Step {
-        override val isSensitive: Boolean = true
+        override val isSensitive = true
     }
 
     @Immutable
@@ -27,26 +30,36 @@ data class CreateLocalDataBackupViewState(
     ) : Step {
         val isMatch = input == expectedInput
 
-        override val isSensitive: Boolean = true
+        override val isSensitive = true
     }
 
     @Immutable
     data class Step2(
+        val isFirstBackup: Boolean,
         val includeMedia: Boolean,
+        val backupLocationName: String,
+        val passwordSnippet: String,
     ) : Step
 
     @Immutable
     data class Step3InProgress(
-        val messagesStatus: Status,
-        val mediaFilesStatus: Status?,
-        val encryptionStatus: Status,
-        val finalizingStatus: Status,
+        val progress: Progress,
+        val showAbortDialog: Boolean,
     ) : Step {
+        override val isAbortable: Boolean
+            get() = true
+
+        data class Progress(
+            val preparingStatus: Status,
+            val chatsStatus: Status,
+            val mediaFilesStatus: Status?,
+            val finalizingStatus: Status,
+        )
+
         enum class Status {
             WAITING,
             IN_PROGRESS,
             DONE,
-            FAILED,
         }
     }
 
@@ -54,4 +67,7 @@ data class CreateLocalDataBackupViewState(
     data class Step3Done(
         val includeMedia: Boolean,
     ) : Step
+
+    @Immutable
+    data object Step3Error : Step
 }

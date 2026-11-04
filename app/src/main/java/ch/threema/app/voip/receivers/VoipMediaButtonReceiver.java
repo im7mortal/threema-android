@@ -10,7 +10,6 @@ import org.slf4j.Logger;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.voip.CallStateSnapshot;
-import ch.threema.app.voip.services.VoipCallService;
 import ch.threema.app.voip.services.VoipStateService;
 import ch.threema.app.voip.util.VoipUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
@@ -52,11 +51,7 @@ public class VoipMediaButtonReceiver extends BroadcastReceiver {
                         stateService.acceptIncomingCall();
                     } else if (callState.isCalling()) {
                         logger.info("Hanging up call via media button");
-                        VoipUtil.sendVoipCommand(
-                            ThreemaApplication.getAppContext(),
-                            VoipCallService.class,
-                            VoipCallService.ACTION_HANGUP
-                        );
+                        VoipUtil.sendOneToOneCallHangupCommand(ThreemaApplication.getAppContext());
                     }
                 }
             }

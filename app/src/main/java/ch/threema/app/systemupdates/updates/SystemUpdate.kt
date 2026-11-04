@@ -26,11 +26,6 @@ interface SystemUpdate : KoinComponent {
 
     val version: Int
 
-    /**
-     * A brief, human-readable description of what this update does. Only used for logging.
-     */
-    fun getDescription(): String? = null
-
     // The following override is needed because default implementations from within the `KoinComponent` interface are not available for Java sources
     override fun getKoin(): Koin = KoinPlatformTools.defaultContext().get()
 }

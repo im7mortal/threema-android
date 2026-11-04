@@ -1,6 +1,7 @@
 package ch.threema.data
 
 import java.lang.ref.WeakReference
+import java.util.Collections
 
 /**
  * A map where all values are weakly referenced.
@@ -46,4 +47,23 @@ class WeakValueMap<K, V> {
      */
     @Synchronized
     fun remove(key: K): V? = this.map.remove(key)?.get()
+
+    /**
+     *  Returns `true` if the given [key] exists and the associated value was not garbage collected.
+     */
+    @Synchronized
+    fun exists(key: K): Boolean = this.get(key) != null
+
+    /**
+     * Get a distinct snapshot of all non garbage collected values.
+     *
+     * Note that `UnmodifiableSet` is used to enforce immutability in Java.
+     */
+    @Synchronized
+    fun values(): Set<V> = Collections.unmodifiableSet(
+        this.map.values.mapNotNull(WeakReference<V>::get).toSet(),
+    )
+
+    @Synchronized
+    fun isEmpty(): Boolean = this.map.isEmpty() || this.map.none { (_, value) -> value.get() != null }
 }

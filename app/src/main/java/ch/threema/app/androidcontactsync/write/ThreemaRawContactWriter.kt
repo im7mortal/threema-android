@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.ContentProviderOperation
 import android.content.Context
 import android.provider.ContactsContract
+import ch.threema.android.checkGrantedPermission
 import ch.threema.app.androidcontactsync.types.ThreemaRawContact
 import ch.threema.app.services.UserService
 import ch.threema.app.utils.ConfigUtils
@@ -23,7 +24,7 @@ class ThreemaRawContactWriter(
      */
     fun deleteThreemaRawContacts(threemaRawContacts: Set<ThreemaRawContact>) {
         logger.info("Request deletion of {} threema raw contacts", threemaRawContacts.size)
-        if (!ConfigUtils.isPermissionGranted(appContext, Manifest.permission.WRITE_CONTACTS)) {
+        if (!appContext.checkGrantedPermission(Manifest.permission.WRITE_CONTACTS)) {
             logger.error("Cannot delete raw contacts if permission is not granted")
             return
         }

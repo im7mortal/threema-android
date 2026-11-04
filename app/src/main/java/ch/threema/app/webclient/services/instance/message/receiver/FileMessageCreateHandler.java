@@ -32,7 +32,7 @@ import ch.threema.app.webclient.Protocol;
 import ch.threema.app.webclient.services.instance.MessageDispatcher;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 
 import static ch.threema.app.AppConstants.MAX_BLOB_SIZE;
 import static ch.threema.app.utils.MimeUtil.MIME_TYPE_AUDIO_OGG;
@@ -77,7 +77,7 @@ public class FileMessageCreateHandler extends MessageCreateHandler {
     }
 
     @Override
-    protected AbstractMessageModel handle(
+    protected MessageModel handle(
         @NonNull List<MessageReceiver> receivers,
         @NonNull Map<String, Value> message
     ) throws Exception {
@@ -154,7 +154,7 @@ public class FileMessageCreateHandler extends MessageCreateHandler {
         mediaItem.setExifRotation(exifRotation);
 
         // Send media, get message model
-        final AbstractMessageModel model = messageService.sendMedia(Collections.singletonList(mediaItem), receivers, null);
+        final MessageModel model = messageService.sendMedia(Collections.singletonList(mediaItem), receivers, null);
 
         // Remove temporary file
         if (!file.delete()) {

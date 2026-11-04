@@ -6,11 +6,13 @@ import ch.threema.app.DangerousTest
 import ch.threema.app.testutils.TestHelpers.TestContact
 import ch.threema.app.testutils.TestHelpers.TestGroup
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.ContactModelData
 import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.ContactSyncState
+import ch.threema.domain.models.GroupId
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
 import ch.threema.domain.models.ReadReceiptPolicy
@@ -19,6 +21,7 @@ import ch.threema.domain.models.UserState
 import ch.threema.domain.models.VerificationLevel
 import ch.threema.domain.models.WorkVerificationLevel
 import ch.threema.domain.protocol.csp.messages.GroupSetupMessage
+import ch.threema.protobuf.d2d.sync.Settings
 import ch.threema.test.TestData.PUBLIC_KEY
 import java.time.Instant
 import kotlin.test.Test
@@ -96,15 +99,18 @@ class IncomingGroupSetupTest : GroupConversationListTest<GroupSetupMessage>() {
     }
 
     /**
-     * Test a group setup message of a blocked contact.
+     * Test a group setup message of an explicitly blocked contact.
      */
     @Test
-    fun testBlocked() = runTest {
+    fun testBlockedExplicitly() = runTest {
         // Assert initial group conversations
         assertGroupConversations(
             expectedGroups = initialGroups,
         )
 
+        assertTrue(
+            serviceManager.blockedIdentitiesService.getAllBlockedIdentities().isEmpty(),
+        )
         serviceManager.blockedIdentitiesService.blockIdentity(contactA.identity)
         serviceManager.blockedIdentitiesService.blockIdentity(contactB.identity)
 
@@ -117,7 +123,91 @@ class IncomingGroupSetupTest : GroupConversationListTest<GroupSetupMessage>() {
             "Me, 12345678, ABCDEFGH",
             myContact.identity,
         )
-        testNewGroup(newGroup)
+
+        val newGroupIdentity = GroupIdentity(
+            creatorIdentity = newGroup.groupCreator.identity,
+            groupId = newGroup.apiGroupId.toLong(),
+        )
+
+        // Assert that the new group does not exist yet
+        assertFalse(groupModelRepository.exists(newGroupIdentity))
+
+        // Create the group setup message
+        val groupSetupMessage = createGroupSetupMessage(newGroup)
+
+        // Create message box from contact A (group creator)
+        processMessage(groupSetupMessage, newGroup.groupCreator.identityStore)
+
+        // Assert that the new group model was not created
+        assertFalse(groupModelRepository.exists(newGroupIdentity))
+
+        // Assert that no message is sent
+        assertEquals(0, sentMessagesInsideTask.size)
+
+        // Assert that the new group does not appear in the list
+        assertGroupConversations(
+            expectedGroups = initialGroups,
+        )
+
+        // Cleanup
+        serviceManager.blockedIdentitiesService.unblockIdentity(contactA.identity)
+        serviceManager.blockedIdentitiesService.unblockIdentity(contactB.identity)
+    }
+
+    /**
+     * Test a group setup message of an implicitly blocked contact (block-unknown enabled).
+     */
+    @Test
+    fun testBlockedImplicitly() = runTest {
+        // Assert initial group conversations
+        assertGroupConversations(
+            expectedGroups = initialGroups,
+        )
+
+        assertTrue(
+            serviceManager.blockedIdentitiesService.getAllBlockedIdentities().isEmpty(),
+        )
+        serviceManager.synchronizedSettingsService.getUnknownContactPolicySetting().setFromSync(
+            Settings.UnknownContactPolicy.BLOCK_UNKNOWN,
+        )
+
+        val newDGroup = TestGroup(
+            GroupId(11),
+            contactD,
+            listOf(myContact),
+            "NewGroupUnknown",
+            myContact.identity,
+        )
+
+        val newGroupFromUnknownIdentity = GroupIdentity(
+            creatorIdentity = newDGroup.groupCreator.identity,
+            groupId = newDGroup.apiGroupId.toLong(),
+        )
+
+        // Assert that the new group does not exist yet
+        assertFalse(groupModelRepository.exists(newGroupFromUnknownIdentity))
+
+        // Create the group setup message
+        val groupSetupMessage = createGroupSetupMessage(newDGroup)
+
+        // Create message box from unknown contact (group creator)
+        processMessage(groupSetupMessage, newDGroup.groupCreator.identityStore)
+
+        // Assert that the new group model was not created
+        assertFalse(groupModelRepository.exists(newGroupFromUnknownIdentity))
+
+        // Assert that no message is sent
+        assertEquals(0, sentMessagesInsideTask.size)
+
+        // Assert that the new group does not appear in the list
+        assertGroupConversations(
+            expectedGroups = initialGroups,
+        )
+
+        // Cleanup
+        serviceManager.synchronizedSettingsService.getUnknownContactPolicySetting().setFromSync(
+            Settings.UnknownContactPolicy.ALLOW_UNKNOWN,
+        )
     }
 
     /**
@@ -401,6 +491,7 @@ class IncomingGroupSetupTest : GroupConversationListTest<GroupSetupMessage>() {
         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
         conversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory = ConversationCategory.DEFAULT,
         androidContactLookupInfo = null,
         localAvatarExpires = null,
         isRestored = false,

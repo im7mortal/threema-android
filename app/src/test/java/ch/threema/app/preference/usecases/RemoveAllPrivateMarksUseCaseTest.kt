@@ -11,18 +11,20 @@ import ch.threema.app.messagereceiver.DistributionListMessageReceiver
 import ch.threema.app.messagereceiver.GroupMessageReceiver
 import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.preference.service.PreferenceService
-import ch.threema.app.services.ConversationCategoryService
+import ch.threema.app.services.DistributionListService
 import ch.threema.app.widget.WidgetUpdater
 import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.DistributionListConversationId
 import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.data.datatypes.GroupIdentity
-import ch.threema.domain.models.GroupId
-import ch.threema.domain.types.GroupDatabaseId
-import ch.threema.domain.types.Identity
+import ch.threema.data.models.ContactModel
+import ch.threema.data.models.GroupModel
 import ch.threema.storage.models.ConversationModel
 import ch.threema.storage.models.DistributionListModel
+import io.mockk.Runs
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import io.mockk.verify
 import kotlin.test.Test
@@ -30,79 +32,66 @@ import testdata.TestData
 
 class RemoveAllPrivateMarksUseCaseTest {
 
-    private fun createMockedContactMessageReceiver(identity: Identity): ContactMessageReceiver =
-        mockk<ContactMessageReceiver> {
-            every { conversationId } returns ContactConversationId(identity.value)
+    private fun createMockedContactMessageReceiver(contactModel: ContactModel): ContactMessageReceiver =
+        mockk<ContactMessageReceiver> contactMessageReceiver@{
+            every { conversationId } returns ContactConversationId(contactModel.identity)
             every { type } returns MessageReceiver.Type_CONTACT
-            every { contact } returns mockk contactModelMock@{
-                every { this@contactModelMock.identity } returns identity.value
-            }
+            every { this@contactMessageReceiver.contactModel } returns contactModel
         }
 
-    private fun createMockedGroupMessageReceiver(
-        groupDatabaseId: GroupDatabaseId,
-        groupIdentity: GroupIdentity,
-    ) = mockk<GroupMessageReceiver> {
-        every { conversationId } returns GroupConversationId(groupDatabaseId)
-        every { type } returns MessageReceiver.Type_GROUP
-        every { group } returns mockk groupModelMock@{
-            every { this@groupModelMock.groupIdentity } returns groupIdentity
-            every { creatorIdentity } returns groupIdentity.creatorIdentity
-            every { apiGroupId } returns GroupId(groupIdentity.groupId)
-            every { id } returns groupDatabaseId.toInt()
+    private fun createMockedGroupMessageReceiver(groupModel: GroupModel) =
+        mockk<GroupMessageReceiver> groupMessageReceiver@{
+            every { conversationId } returns GroupConversationId(groupModel.getDatabaseId())
+            every { type } returns MessageReceiver.Type_GROUP
+            every { this@groupMessageReceiver.groupModel } returns groupModel
         }
-    }
 
-    private fun createMockedDistributionListMessageReceiver(distributionList: DistributionListModel) =
+    private fun createMockedDistributionListMessageReceiver(distributionListModel: DistributionListModel) =
         mockk<DistributionListMessageReceiver> distributionListMessageReceiver@{
-            every { conversationId } returns DistributionListConversationId(distributionList.id)
+            every { conversationId } returns DistributionListConversationId(distributionListModel.id)
             every { type } returns MessageReceiver.Type_DISTRIBUTION_LIST
-            every { this@distributionListMessageReceiver.distributionList } returns distributionList
+            every { this@distributionListMessageReceiver.distributionList } returns distributionListModel
         }
 
     @Test
     fun `remove private marks`() {
-        val privateContactReceiver = createMockedContactMessageReceiver(
-            identity = TestData.Identities.OTHER_1,
+        val contactModelMock: ContactModel = mockk {
+            every { identity } returns TestData.Identities.OTHER_1.value
+            every { setConversationCategoryFromLocalOrRemote(ConversationCategory.DEFAULT) } just Runs
+        }
+        val contactReceiver = createMockedContactMessageReceiver(
+            contactModel = contactModelMock,
         )
-        val nonPrivateContactReceiver = createMockedContactMessageReceiver(
-            identity = TestData.Identities.OTHER_2,
+        val archivedContactModelMock: ContactModel = mockk {
+            every { identity } returns TestData.Identities.OTHER_2.value
+            every { setConversationCategoryFromLocalOrRemote(ConversationCategory.DEFAULT) } just Runs
+        }
+        val archivedContactReceiver = createMockedContactMessageReceiver(
+            contactModel = archivedContactModelMock,
         )
-        val privateGroupIdentity = GroupIdentity(
+        val groupIdentity = GroupIdentity(
             creatorIdentity = TestData.Identities.OTHER_1.value,
             groupId = 1L,
         )
-        val privateGroupReceiver = createMockedGroupMessageReceiver(
-            groupDatabaseId = 1L,
-            groupIdentity = privateGroupIdentity,
+        val groupModelMock: GroupModel = mockk groupModelMock@{
+            every { getDatabaseId() } returns 42
+            every { this@groupModelMock.groupIdentity } returns groupIdentity
+            every { setConversationCategoryFromLocalOrRemote(ConversationCategory.DEFAULT) } just Runs
+        }
+        val groupReceiver = createMockedGroupMessageReceiver(
+            groupModel = groupModelMock,
         )
-        val nonPrivateGroupReceiver = createMockedGroupMessageReceiver(
-            groupDatabaseId = 2L,
-            groupIdentity = GroupIdentity(
-                creatorIdentity = TestData.Identities.OTHER_2.value,
-                groupId = 2L,
-            ),
-        )
-        val privateDistributionList = mockk<DistributionListModel> {
+        val distributionListMock = mockk<DistributionListModel> {
             every { id } returns 1L
+            every { setConversationCategory(ConversationCategory.DEFAULT) } returns this
         }
-        val privateDistributionListReceiver = createMockedDistributionListMessageReceiver(
-            distributionList = privateDistributionList,
+        val distributionListReceiver = createMockedDistributionListMessageReceiver(
+            distributionListModel = distributionListMock,
         )
-        val nonPrivateDistributionListReceiver = createMockedDistributionListMessageReceiver(
-            distributionList = mockk {
-                every { id } returns 2L
-            },
-        )
+        val distributionListServiceMock: DistributionListService = mockk {
+            every { setConversationCategory(distributionListMock, ConversationCategory.DEFAULT) } just Runs
+        }
 
-        val conversationCategoryServiceMock = mockk<ConversationCategoryService> {
-            every { removePrivateMark(privateContactReceiver.conversationId) } returns true
-            every { removePrivateMark(nonPrivateContactReceiver.conversationId) } returns false
-            every { removePrivateMark(privateGroupReceiver.conversationId) } returns true
-            every { removePrivateMark(nonPrivateGroupReceiver.conversationId) } returns false
-            every { removePrivateMark(privateDistributionListReceiver.conversationId) } returns true
-            every { removePrivateMark(nonPrivateDistributionListReceiver.conversationId) } returns false
-        }
         val preferenceServiceMock = mockk<PreferenceService>(relaxed = true)
         val widgetUpdaterMock = mockk<WidgetUpdater>(relaxed = true)
         val contactEventBusMock = mockk<EventBus<ContactEvent>>(relaxed = true)
@@ -118,18 +107,16 @@ class RemoveAllPrivateMarksUseCaseTest {
         val useCase = RemoveAllPrivateMarksUseCase(
             conversationService = mockk {
                 every { getAll(false) } returns listOf(
-                    ConversationModel(nonPrivateContactReceiver),
-                    ConversationModel(privateGroupReceiver),
-                    ConversationModel(nonPrivateGroupReceiver),
-                    ConversationModel(privateDistributionListReceiver),
-                    ConversationModel(nonPrivateDistributionListReceiver),
+                    ConversationModel(contactReceiver),
+                    ConversationModel(groupReceiver),
+                    ConversationModel(distributionListReceiver),
                 )
                 every { archived } returns listOf(
-                    ConversationModel(privateContactReceiver),
+                    ConversationModel(archivedContactReceiver),
                 )
             },
-            conversationCategoryService = conversationCategoryServiceMock,
             preferenceService = preferenceServiceMock,
+            distributionListService = distributionListServiceMock,
             widgetUpdater = widgetUpdaterMock,
             globalEventBuses = globalEventBusesMock,
         )
@@ -139,53 +126,9 @@ class RemoveAllPrivateMarksUseCaseTest {
         verify(exactly = 1) { preferenceServiceMock.setArePrivateChatsHidden(false) }
         verify(exactly = 1) { widgetUpdaterMock.updateWidgets() }
         verify(exactly = 1) { conversationEventBusMock.emit(ConversationEvent.AllConversationsUpdated) }
-        verify(exactly = 1) { contactEventBusMock.emit(ContactEvent.ContactUpdated(TestData.Identities.OTHER_1)) }
-        verify(exactly = 1) { groupEventBusMock.emit(GroupEvent.GroupUpdated(privateGroupIdentity)) }
-        verify(exactly = 1) { distributionListEventBusMock.emit(DistributionListEvent.DistributionListUpdated(privateDistributionList)) }
-    }
-
-    @Test
-    fun `nothing happens when there are no private conversations`() {
-        val nonPrivateContactReceiver = createMockedContactMessageReceiver(
-            identity = TestData.Identities.OTHER_1,
-        )
-        val nonPrivateGroupReceiver = createMockedGroupMessageReceiver(
-            groupDatabaseId = 1L,
-            groupIdentity = GroupIdentity(
-                creatorIdentity = TestData.Identities.OTHER_1.value,
-                groupId = 1L,
-            ),
-        )
-        val nonPrivateDistributionListReceiver = createMockedDistributionListMessageReceiver(
-            distributionList = mockk {
-                every { id } returns 1L
-            },
-        )
-        val conversationCategoryServiceMock = mockk<ConversationCategoryService> {
-            every { removePrivateMark(nonPrivateContactReceiver.conversationId) } returns false
-            every { removePrivateMark(nonPrivateGroupReceiver.conversationId) } returns false
-            every { removePrivateMark(nonPrivateDistributionListReceiver.conversationId) } returns false
-        }
-        val preferenceServiceMock = mockk<PreferenceService>(relaxed = true)
-        val widgetUpdaterMock = mockk<WidgetUpdater>(relaxed = true)
-        val useCase = RemoveAllPrivateMarksUseCase(
-            conversationService = mockk {
-                every { getAll(false) } returns listOf(
-                    ConversationModel(nonPrivateContactReceiver),
-                    ConversationModel(nonPrivateGroupReceiver),
-                    ConversationModel(nonPrivateDistributionListReceiver),
-                )
-                every { archived } returns emptyList()
-            },
-            conversationCategoryService = conversationCategoryServiceMock,
-            preferenceService = preferenceServiceMock,
-            widgetUpdater = widgetUpdaterMock,
-            globalEventBuses = mockk(),
-        )
-
-        useCase.call()
-
-        verify(exactly = 0) { preferenceServiceMock.setArePrivateChatsHidden(false) }
-        verify(exactly = 0) { widgetUpdaterMock.updateWidgets() }
+        verify(exactly = 1) { contactModelMock.setConversationCategoryFromLocalOrRemote(ConversationCategory.DEFAULT) }
+        verify(exactly = 1) { archivedContactModelMock.setConversationCategoryFromLocalOrRemote(ConversationCategory.DEFAULT) }
+        verify(exactly = 1) { groupModelMock.setConversationCategoryFromLocalOrRemote(ConversationCategory.DEFAULT) }
+        verify(exactly = 1) { distributionListServiceMock.setConversationCategory(distributionListMock, ConversationCategory.DEFAULT) }
     }
 }

@@ -10,6 +10,8 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import ch.threema.android.buildBundle
+import ch.threema.android.getParcelableCompat
 import ch.threema.app.R
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
@@ -19,15 +21,24 @@ import com.bumptech.glide.request.target.CustomViewTarget
 import com.bumptech.glide.request.transition.Transition
 import com.davemorrissey.labs.subscaleview.ImageSource
 import com.davemorrissey.labs.subscaleview.SubsamplingScaleImageView
+import kotlin.getValue
 
 private val logger = getThreemaLogger("ImagePreviewFragment")
 
-class ImagePreviewFragment(
-    private val mediaAttachItem: MediaAttachItem,
-) : Fragment() {
+class ImagePreviewFragment() : Fragment() {
     init {
         logScreenVisibility(logger)
         setRetainInstance(true)
+    }
+
+    constructor(mediaAttachItem: MediaAttachItem) : this() {
+        arguments = buildBundle {
+            putParcelable(ARG_MEDIA_ATTACH_ITEM, mediaAttachItem)
+        }
+    }
+
+    private val mediaAttachItem: MediaAttachItem by lazy(LazyThreadSafetyMode.NONE) {
+        requireArguments().getParcelableCompat<MediaAttachItem>(ARG_MEDIA_ATTACH_ITEM)!!
     }
 
     private var rootView: View? = null
@@ -88,4 +99,8 @@ class ImagePreviewFragment(
     private fun isAnimated(): Boolean =
         mediaAttachItem.type == MediaAttachItem.TYPE_GIF ||
             (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && mediaAttachItem.type == MediaAttachItem.TYPE_WEBP)
+
+    companion object {
+        private const val ARG_MEDIA_ATTACH_ITEM = "media_attach_item"
+    }
 }

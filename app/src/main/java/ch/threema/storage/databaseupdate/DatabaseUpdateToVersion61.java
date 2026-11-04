@@ -13,7 +13,7 @@ import androidx.annotation.Nullable;
 import static ch.threema.storage.databaseupdate.DatabaseUpdateExtensionsKt.fieldExists;
 
 /**
- * add caption field to normal, group and distribution list message models
+ * add mime type field to normal, group and distribution list message models
  */
 public class DatabaseUpdateToVersion61 implements DatabaseUpdate {
 
@@ -60,11 +60,6 @@ public class DatabaseUpdateToVersion61 implements DatabaseUpdate {
                 }
             }
         }
-    }
-
-    @Override
-    public String getDescription() {
-        return "add mime type column";
     }
 
     @Override

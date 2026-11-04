@@ -74,6 +74,9 @@ import ch.threema.domain.protocol.csp.messages.voip.features.VideoFeature;
 
 import java.util.concurrent.CompletableFuture;
 
+import static ch.threema.android.PendingIntentExtensionsKt.getPendingIntentForActivity;
+import static ch.threema.android.PendingIntentExtensionsKt.getPendingIntentForBroadcast;
+import static ch.threema.android.PendingIntentExtensionsKt.getPendingIntentForService;
 import static ch.threema.app.ThreemaApplication.getAppContext;
 import static ch.threema.app.notifications.NotificationIDs.INCOMING_CALL_NOTIFICATION_ID;
 import static ch.threema.app.utils.IntentDataUtil.PENDING_INTENT_FLAG_MUTABLE;
@@ -189,7 +192,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
 
         Intent mediaButtonIntent = new Intent(Intent.ACTION_MEDIA_BUTTON);
         mediaButtonIntent.setClass(appContext, VoipMediaButtonReceiver.class);
-        this.mediaButtonPendingIntent = PendingIntent.getBroadcast(appContext, 0, mediaButtonIntent, PENDING_INTENT_FLAG_MUTABLE);
+        this.mediaButtonPendingIntent = getPendingIntentForBroadcast(appContext, 0, mediaButtonIntent, PENDING_INTENT_FLAG_MUTABLE);
     }
 
     //region Logging
@@ -555,7 +558,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
     public synchronized void handlePotentialCallMessageReject(@NonNull MessageId messageId) {
         if (!(callState.isIdle() || callState.isDisconnecting()) && messageIds.contains(messageId.getMessageIdLong())) {
             logCallWarning(callState.getCallId(), "Message involved in this call has been rejected. Aborting call.");
-            VoipUtil.sendVoipCommand(getAppContext(), VoipCallService.class, VoipCallService.ACTION_HANGUP);
+            VoipUtil.sendOneToOneCallHangupCommand(getAppContext());
         }
     }
 
@@ -675,7 +678,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
         Bundle bundle = new Bundle();
         bundle.putBoolean(EXTRA_CANCEL_WEAR, true);
         answerIntent.putExtras(bundle);
-        final PendingIntent accept = PendingIntent.getActivity(
+        final PendingIntent accept = getPendingIntentForActivity(
             this.appContext,
             -IdUtil.getContactTempId(contactModel.getIdentity()),
             answerIntent,
@@ -689,7 +692,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
             callerIdentity
         );
 
-        final PendingIntent reject = PendingIntent.getService(
+        final PendingIntent reject = getPendingIntentForService(
             this.appContext,
             -IdUtil.getContactTempId(contactModel.getIdentity()),
             rejectIntent,
@@ -1450,7 +1453,7 @@ public class VoipStateService implements AudioManager.OnAudioFocusChangeListener
         // and clicks the notification's expanded view.  It's also used to
         // launch the CallActivity immediately when there's an incoming
         // call (see the "fullScreenIntent" field below).
-        return PendingIntent.getActivity(appContext, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        return getPendingIntentForActivity(appContext, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
     private void launchCallActivityIntent(@NonNull PendingIntent inCallPendingIntent) {

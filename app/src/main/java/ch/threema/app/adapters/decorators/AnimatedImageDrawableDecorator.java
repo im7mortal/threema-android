@@ -2,6 +2,7 @@ package ch.threema.app.adapters.decorators;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.drawable.Drawable;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
@@ -23,10 +24,13 @@ import ch.threema.app.utils.FileUtil;
 import ch.threema.app.utils.LinkifyUtil;
 import ch.threema.app.utils.RuntimeUtil;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.data.media.FileDataModel;
 
+import static androidx.core.content.ContextCompat.getColor;
+import static androidx.core.content.ContextCompat.getDrawable;
+import static ch.threema.app.utils.ConfigUtils.isTheDarkSide;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
@@ -42,11 +46,11 @@ public class AnimatedImageDrawableDecorator extends ChatAdapterDecorator {
     private final MessagePlayerFactory messagePlayerFactory;
 
     public AnimatedImageDrawableDecorator(
-        AbstractMessageModel messageModel,
-        @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
-        @NonNull LinkifyUtil.LinkifyListener linkifyListener,
-        @NonNull MessagePlayerFactory messagePlayerFactory,
-        Helper decoratorHelper
+            MessageModel messageModel,
+            @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
+            @NonNull LinkifyUtil.LinkifyListener linkifyListener,
+            @NonNull MessagePlayerFactory messagePlayerFactory,
+            Helper decoratorHelper
     ) {
         super(messageModel, chatAdapterDecoratorListener, linkifyListener, decoratorHelper);
         this.messagePlayerFactory = messagePlayerFactory;
@@ -141,11 +145,17 @@ public class AnimatedImageDrawableDecorator extends ChatAdapterDecorator {
         holder.attachmentImage.setLayoutParams(params);
         holder.attachmentImage.setVisibility(View.VISIBLE);
 
+        Drawable placeholderError = getDrawable(context, R.drawable.ic_image_outline);
+        if (placeholderError != null && isTheDarkSide(context)) {
+            placeholderError.mutate()
+                .setTint(getColor(context, R.color.bubble_thumbnail_placeholder_tint));
+        }
+
         Glide.with(context)
             .load(thumbnail)
             .optionalFitCenter()
             .override(width, height)
-            .error(R.drawable.ic_image_outline)
+            .error(placeholderError)
             .into(holder.attachmentImage);
 
         holder.bodyTextView.setWidth(width);
@@ -171,7 +181,7 @@ public class AnimatedImageDrawableDecorator extends ChatAdapterDecorator {
             // decryption
             .addListener(LISTENER_TAG, new MessagePlayer.DecryptionListener() {
                 @Override
-                public void onStart(AbstractMessageModel messageModel) {
+                public void onStart(MessageModel messageModel) {
                     RuntimeUtil.runOnUiThread(() -> {
                         if (!helper.getPreferenceService().isAnimationAutoplay()) {
                             holder.controller.setProgressing();
@@ -180,7 +190,7 @@ public class AnimatedImageDrawableDecorator extends ChatAdapterDecorator {
                 }
 
                 @Override
-                public void onEnd(final AbstractMessageModel messageModel, final boolean success, final String message, final File decryptedFile) {
+                public void onEnd(final MessageModel messageModel, final boolean success, final String message, final File decryptedFile) {
                     RuntimeUtil.runOnUiThread(() -> {
                         holder.controller.setNeutral();
                         if (success) {
@@ -201,22 +211,22 @@ public class AnimatedImageDrawableDecorator extends ChatAdapterDecorator {
             // download listener
             .addListener(LISTENER_TAG, new MessagePlayer.DownloadListener() {
                 @Override
-                public void onStart(AbstractMessageModel messageModel) {
+                public void onStart(MessageModel messageModel) {
                     RuntimeUtil.runOnUiThread(() -> holder.controller.setProgressingDeterminate(100));
                 }
 
                 @Override
-                public void onStatusUpdate(AbstractMessageModel messageModel, final int progress) {
+                public void onStatusUpdate(MessageModel messageModel, final int progress) {
                     RuntimeUtil.runOnUiThread(() -> holder.controller.setProgress(progress));
                 }
 
                 @Override
-                public void onUnknownProgress(AbstractMessageModel messageModel) {
+                public void onUnknownProgress(MessageModel messageModel) {
                     RuntimeUtil.runOnUiThread(() -> holder.controller.setProgressing());
                 }
 
                 @Override
-                public void onEnd(AbstractMessageModel messageModel, final boolean success, final String message) {
+                public void onEnd(MessageModel messageModel, final boolean success, final String message) {
                     //hide progressbar
                     RuntimeUtil.runOnUiThread(() -> {
                         // report error

@@ -1,7 +1,8 @@
 package ch.threema.app.utils;
 
+import androidx.annotation.NonNull;
+import ch.threema.data.datatypes.GroupIdentity;
 import ch.threema.storage.models.DistributionListModel;
-import ch.threema.storage.models.group.GroupModelOld;
 import ch.threema.storage.models.poll.PollChoiceModel;
 import ch.threema.storage.models.poll.PollModel;
 
@@ -21,8 +22,8 @@ public class BackupUtils {
     }
 
     @Deprecated
-    public static String buildGroupUid(GroupModelOld groupModel) {
-        return buildGroupUid(groupModel.getApiGroupId().toString(), groupModel.getCreatorIdentity());
+    public static String buildGroupUid(@NonNull GroupIdentity groupIdentity) {
+        return buildGroupUid(groupIdentity.getApiGroupIdHexString(), groupIdentity.getCreatorIdentity());
     }
 
     public static String buildPollUid(PollModel pollModel) {

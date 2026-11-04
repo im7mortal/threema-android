@@ -23,7 +23,6 @@ import ch.threema.app.activities.ComposeMessageActivity
 import ch.threema.app.activities.ThreemaToolbarActivity
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.MessageService.MessageFilterFlags
 import ch.threema.app.services.MessageServiceImpl.FILTER_CHATS
@@ -37,14 +36,16 @@ import ch.threema.app.ui.InsetSides
 import ch.threema.app.ui.SpacingValues
 import ch.threema.app.ui.ThreemaSearchView
 import ch.threema.app.ui.applyDeviceInsetsAsPadding
+import ch.threema.app.usecases.conversation.GetConversationCategoryUseCase
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationId
 import ch.threema.data.datatypes.GroupConversationId
-import ch.threema.storage.models.AbstractMessageModel
-import ch.threema.storage.models.group.GroupMessageModel
+import ch.threema.storage.models.GroupMessageModel
+import ch.threema.storage.models.MessageModel
 import com.bumptech.glide.Glide
 import com.google.android.material.chip.Chip
 import com.google.android.material.search.SearchBar
@@ -62,10 +63,10 @@ class GlobalSearchActivity : ThreemaToolbarActivity(), SearchView.OnQueryTextLis
     private val contactService: ContactService by inject()
     private val userService: UserService by inject()
     private val groupService: GroupService by inject()
-    private val conversationCategoryService: ConversationCategoryService by inject()
     private val pollService: PollService by inject()
     private val preferenceService: PreferenceService by inject()
     private val globalSearchViewModel: GlobalSearchViewModel by viewModel()
+    private val getConversationCategoryUseCase: GetConversationCategoryUseCase by inject()
 
     private var chatsAdapter: GlobalSearchAdapter? = null
     private var searchView: ThreemaSearchView? = null
@@ -148,10 +149,10 @@ class GlobalSearchActivity : ThreemaToolbarActivity(), SearchView.OnQueryTextLis
             contactService,
             userService,
             pollService,
-            conversationCategoryService,
+            getConversationCategoryUseCase,
             preferenceService,
         )
-        chatsAdapter?.setOnClickItemListener { messageModel: AbstractMessageModel, _, _ ->
+        chatsAdapter?.setOnClickItemListener { messageModel: MessageModel, _, _ ->
             logger.info("Message clicked")
             showMessage(messageModel)
         }
@@ -192,7 +193,7 @@ class GlobalSearchActivity : ThreemaToolbarActivity(), SearchView.OnQueryTextLis
                     if (conversationId == null) {
                         return@filterNot false
                     }
-                    conversationCategoryService.isMarkedAsPrivate(conversationId)
+                    getConversationCategoryUseCase.call(conversationId) == ConversationCategory.PROTECTED
                 }
 
                 chatsAdapter?.setMessageModels(messageModelsWithoutPrivateChats)
@@ -262,7 +263,7 @@ class GlobalSearchActivity : ThreemaToolbarActivity(), SearchView.OnQueryTextLis
         }
     }
 
-    private fun showMessage(messageModel: AbstractMessageModel?) {
+    private fun showMessage(messageModel: MessageModel?) {
         if (messageModel == null) {
             return
         }

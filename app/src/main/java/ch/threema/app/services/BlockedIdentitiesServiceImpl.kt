@@ -62,7 +62,16 @@ class BlockedIdentitiesServiceImpl(
     }
 
     @Synchronized
-    override fun persistBlockedIdentities(blockedIdentities: Set<IdentityString>) {
+    override fun addBlockedIdentitiesWithoutReflection(identities: Set<IdentityString>) {
+        val existingBlockedIdentities = getAllBlockedIdentities()
+        val updatedBlockedIdentities = existingBlockedIdentities + identities
+        if (existingBlockedIdentities != updatedBlockedIdentities) {
+            replaceBlockedIdentitiesWithoutReflection(updatedBlockedIdentities)
+        }
+    }
+
+    @Synchronized
+    override fun replaceBlockedIdentitiesWithoutReflection(blockedIdentities: Set<IdentityString>) {
         // Find all modified identities (used for notifying the event bus)
         val modifiedIdentities = getAllBlockedIdentities().let { previouslyBlockedIdentities ->
             val newUnblockedIdentities = previouslyBlockedIdentities - blockedIdentities
@@ -78,6 +87,14 @@ class BlockedIdentitiesServiceImpl(
         }
     }
 
+    @Synchronized
+    override fun blockIdentityWithoutReflection(identity: IdentityString) {
+        if (isBlocked(identity)) {
+            return
+        }
+        replaceBlockedIdentitiesWithoutReflection(getAllBlockedIdentities() + identity)
+    }
+
     override fun toggleBlocked(identity: IdentityString, context: Context?) {
         if (isBlocked(identity)) {
             unblockIdentity(identity, context)
@@ -87,7 +104,7 @@ class BlockedIdentitiesServiceImpl(
     }
 
     private fun persistAndReflectIdentities(blockedIdentities: Set<IdentityString>) {
-        persistBlockedIdentities(blockedIdentities)
+        replaceBlockedIdentitiesWithoutReflection(blockedIdentities)
         if (multiDeviceManager.isMultiDeviceActive) {
             taskCreator.scheduleReflectBlockedIdentitiesTask()
         }

@@ -93,6 +93,8 @@ public interface DHSessionStore {
      */
     int deleteAllSessionsExcept(String myIdentity, String peerIdentity, DHSessionId excludeSessionId, boolean fourDhOnly) throws DHSessionStoreException;
 
+    void deleteAll() throws DHSessionStoreException;
+
     /**
      * Provide an error handler for dealing with invalid sessions.
      *

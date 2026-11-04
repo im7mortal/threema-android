@@ -533,17 +533,17 @@
                             android:id="@+id/delete_id_title"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="@string/delete_id_title"
+                            android:text="@string/delete_id_menu_title"
                             android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
                             android:textColor="@null" />
 
                         <TextView
-                            android:id="@+id/delete_id_text"
+                            android:id="@+id/delete_id_sum"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:alpha="0.8"
                             android:ellipsize="end"
-                            android:text="@string/delete_id_sum"
+                            android:text="@string/delete_id_summary"
                             android:textAppearance="@style/Threema.TextAppearance.SectionContent"
                             android:textColor="@null" />
 

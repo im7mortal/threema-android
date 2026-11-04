@@ -5,7 +5,6 @@ import android.database.sqlite.SQLiteException
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.DispatcherProvider
 import ch.threema.storage.databaseupdate.DatabaseUpdate
-import ch.threema.storage.databaseupdate.fullDescription
 import java.io.File
 import kotlin.collections.forEach
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,6 +25,7 @@ class DatabaseOpenHelper(
     private val getCreationStatements: () -> Sequence<String> = DatabaseSchemaCreator::getCreationStatements,
     private val dispatcherProvider: DispatcherProvider = DispatcherProvider.default,
     private val downgradeHelper: DatabaseDowngradeHelper,
+    private val enforceForeignKeyConstraints: Boolean = true,
 ) : PermanentlyCloseableSQLiteOpenHelper(
     context = appContext,
     name = databaseName,
@@ -67,7 +67,9 @@ class DatabaseOpenHelper(
 
     override fun onConfigure(db: SQLiteDatabase) {
         oldVersion = db.version.takeUnless { it == 0 }
-        db.execSQL("PRAGMA foreign_keys = ON;")
+        if (enforceForeignKeyConstraints) {
+            db.execSQL("PRAGMA foreign_keys = ON;")
+        }
         _databaseState.value = if (oldVersion == DatabaseUpdater.VERSION) {
             DatabaseState.READY
         } else {
@@ -96,7 +98,7 @@ class DatabaseOpenHelper(
     }
 
     private fun runDatabaseUpdate(databaseUpdate: DatabaseUpdate) {
-        logger.info("Running DB update to {}", databaseUpdate.fullDescription)
+        logger.info("Running DB update to version {}", databaseUpdate.version)
         try {
             databaseUpdate.run()
         } catch (e: Exception) {

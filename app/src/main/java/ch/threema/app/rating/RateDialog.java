@@ -28,12 +28,13 @@ import org.slf4j.Logger;
 import java.util.Optional;
 
 import ch.threema.android.LifecycleAwareAsyncTask;
+import ch.threema.app.BuildConfig;
+import ch.threema.app.BuildFlavor;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.dialogs.ThreemaDialogFragment;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.preference.service.PreferenceService;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.DialogUtil;
 import ch.threema.base.ThreemaException;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
@@ -183,21 +184,18 @@ public class RateDialog extends ThreemaDialogFragment {
                     preferenceService.setRatingReviewText(text);
                 }
 
-                // Create the rating service to send the rating
+                var appVersion = BuildConfig.VERSION_NAME + "/" + BuildFlavor.getFullDisplayName();
                 RatingService ratingService = new RatingService(
                     new RatingReferenceProvider(preferenceService),
                     okHttpClient,
-                    serverAddressProvider
+                    serverAddressProvider,
+                    appVersion
                 );
 
                 // simulate some activity to show progress bar
                 SystemClock.sleep(1500);
                 try {
-                    ratingService.sendRating(
-                        rating,
-                        text,
-                        ConfigUtils.getRatingAppVersion()
-                    );
+                    ratingService.sendRating(rating, text);
                     return true;
                 } catch (ThreemaException e) {
                     logger.error("Failed to send rating", e);

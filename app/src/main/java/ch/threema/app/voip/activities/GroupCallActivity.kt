@@ -1,6 +1,6 @@
 package ch.threema.app.voip.activities
 
-import android.Manifest.permission.CAMERA
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.KeyguardManager
 import android.content.Context
@@ -27,6 +27,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.launch
 import androidx.annotation.StringRes
 import androidx.annotation.UiThread
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -46,16 +47,18 @@ import ch.threema.android.ToastDuration
 import ch.threema.android.buildActivityIntent
 import ch.threema.android.getIntOrNull
 import ch.threema.android.ownedBy
+import ch.threema.android.permissions.CameraPermissionContract
 import ch.threema.app.R
+import ch.threema.app.activities.AppLockExempt
 import ch.threema.app.activities.ComposeMessageActivity
 import ch.threema.app.activities.ThreemaActivity
 import ch.threema.app.adapters.GroupCallParticipantsAdapter
 import ch.threema.app.adapters.decorators.VerticalGridLayoutGutterDecoration
 import ch.threema.app.applock.CheckAppLockContract
+import ch.threema.app.dialogs.BottomSheetDialog
 import ch.threema.app.dialogs.BottomSheetListDialog
 import ch.threema.app.dialogs.GenericAlertDialog
 import ch.threema.app.dialogs.SimpleStringAlertDialog
-import ch.threema.app.dialogs.ThreemaDialogFragment
 import ch.threema.app.emojis.EmojiTextView
 import ch.threema.app.listeners.SensorListener
 import ch.threema.app.preference.service.PreferenceService
@@ -69,8 +72,6 @@ import ch.threema.app.ui.AnimatedEllipsisTextView
 import ch.threema.app.ui.BottomSheetItem
 import ch.threema.app.ui.TooltipPopup
 import ch.threema.app.utils.AudioDevice
-import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.PermissionRegistry
 import ch.threema.app.utils.getIconResource
 import ch.threema.app.utils.getStringResource
 import ch.threema.app.utils.logScreenVisibility
@@ -86,17 +87,14 @@ import ch.threema.data.datatypes.LocalGroupId
 import ch.threema.storage.models.group.GroupModelOld
 import com.bumptech.glide.Glide
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
 private val logger = getThreemaLogger("GroupCallActivity")
 
 @UiThread
-class GroupCallActivity : ThreemaActivity(), GenericAlertDialog.DialogClickListener, SensorListener {
+class GroupCallActivity : ThreemaActivity(), GenericAlertDialog.DialogClickListener, SensorListener, AppLockExempt {
     init {
         logScreenVisibility(logger)
     }
@@ -129,8 +127,29 @@ class GroupCallActivity : ThreemaActivity(), GenericAlertDialog.DialogClickListe
     }
 
     private val cameraSettingsLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        if (ConfigUtils.isPermissionGranted(this, CAMERA)) {
-            checkCameraPermissionAndStartCapturing()
+        if (CameraPermissionContract.isPermissionGranted(this)) {
+            viewModel.muteCamera(false)
+        }
+    }
+    private val cameraPermissionLauncher = registerForActivityResult(CameraPermissionContract()) { isGranted ->
+        if (isGranted) {
+            logger.debug("Start capturing from camera")
+            viewModel.muteCamera(false)
+        } else {
+            logger.info("Camera permission denied")
+            if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA)) {
+                // permission was permanently denied
+                val alert = GenericAlertDialog.newInstance(
+                    R.string.group_call,
+                    getString(
+                        R.string.group_call_camera_permission_rationale,
+                        getString(R.string.app_name),
+                    ),
+                    R.string.settings,
+                    R.string.cancel,
+                )
+                alert.show(supportFragmentManager, DIALOG_TAG_CAMERA_PERMISSION_DENIED)
+            }
         }
     }
 
@@ -142,8 +161,6 @@ class GroupCallActivity : ThreemaActivity(), GenericAlertDialog.DialogClickListe
     private var intention = GroupCallIntention.JOIN
 
     private val viewModel: GroupCallViewModel by viewModel()
-
-    private lateinit var permissionRegistry: PermissionRegistry
 
     private lateinit var views: Views
 
@@ -173,11 +190,6 @@ class GroupCallActivity : ThreemaActivity(), GenericAlertDialog.DialogClickListe
         }
     }
 
-    /**
-     *  Before joining any group call, we handle the potentially required unlock ourselves
-     */
-    override fun isPinLockable() = false
-
     override fun onCreate(savedInstanceState: Bundle?) {
         logger.debug("Create group call activity")
         super.onCreate(savedInstanceState)
@@ -185,7 +197,6 @@ class GroupCallActivity : ThreemaActivity(), GenericAlertDialog.DialogClickListe
             return
         }
 
-        permissionRegistry = PermissionRegistry(this)
         destroyer.own {
             sensorService.unregisterSensors(SENSOR_TAG_GROUP_CALL)
             sensorEnabled = false
@@ -286,10 +297,20 @@ class GroupCallActivity : ThreemaActivity(), GenericAlertDialog.DialogClickListe
             },
         )
 
+        setUpDialogCallbacks()
+
         if (lockAppService.isLocked) {
             checkAppLockLauncher.launch(Unit)
         } else {
             handleIntent(intent)
+        }
+    }
+
+    private fun setUpDialogCallbacks() {
+        supportFragmentManager.setFragmentResultListener(DIALOG_TAG_SELECT_AUDIO_DEVICE, this) { _, result ->
+            BottomSheetDialog.onItemClicked(result) { tag, _ ->
+                viewModel.selectAudioDevice(AudioDevice.entries[tag.toInt()])
+            }
         }
     }
 
@@ -333,15 +354,6 @@ class GroupCallActivity : ThreemaActivity(), GenericAlertDialog.DialogClickListe
             startActivity(newIntent)
         }
         super.onDestroy()
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray,
-    ) {
-        permissionRegistry.handlePermissionResult(requestCode, permissions, grantResults)
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 
     private fun handleIntent(intent: Intent) {
@@ -549,7 +561,7 @@ class GroupCallActivity : ThreemaActivity(), GenericAlertDialog.DialogClickListe
             it.multiSelectionListener =
                 CallAudioSelectorButton.AudioDeviceMultiSelectListener { audioDevices, selectedDevice ->
                     var currentDeviceIndex = -1
-                    val items = ArrayList<BottomSheetItem>()
+                    val items = mutableListOf<BottomSheetItem>()
 
                     for ((i, device) in audioDevices.withIndex()) {
                         val index = device.ordinal
@@ -565,9 +577,8 @@ class GroupCallActivity : ThreemaActivity(), GenericAlertDialog.DialogClickListe
                         }
                     }
 
-                    val dialog = BottomSheetListDialog.newInstance(0, items, currentDeviceIndex)
-                    dialog.setCallback { tag, _ -> viewModel.selectAudioDevice(AudioDevice.entries[tag.toInt()]) }
-                    dialog.show(supportFragmentManager, DIALOG_TAG_SELECT_AUDIO_DEVICE)
+                    BottomSheetListDialog.newInstance(items = items, selectedIndex = currentDeviceIndex, requestKey = DIALOG_TAG_SELECT_AUDIO_DEVICE)
+                        .show(supportFragmentManager, DIALOG_TAG_SELECT_AUDIO_DEVICE)
                 }
         }
     }
@@ -590,7 +601,7 @@ class GroupCallActivity : ThreemaActivity(), GenericAlertDialog.DialogClickListe
         }
         views.buttonToggleCamera.setOnClickListener {
             if (cameraMuted) {
-                checkCameraPermissionAndStartCapturing()
+                cameraPermissionLauncher.launch()
             } else {
                 viewModel.muteCamera(true)
             }
@@ -600,42 +611,6 @@ class GroupCallActivity : ThreemaActivity(), GenericAlertDialog.DialogClickListe
         views.buttonFlipCamera.setOnClickListener {
             logger.debug("Flip camera")
             viewModel.flipCamera()
-        }
-    }
-
-    private fun checkCameraPermissionAndStartCapturing() {
-        CoroutineScope(Dispatchers.Default).launch {
-            val granted = permissionRegistry.requestCameraPermissions().granted
-            if (granted) {
-                logger.debug("Start capturing from camera")
-                withContext(Dispatchers.Main) {
-                    viewModel.muteCamera(false)
-                }
-            } else {
-                logger.info("Camera permission denied")
-                if (!ActivityCompat.shouldShowRequestPermissionRationale(
-                        this@GroupCallActivity,
-                        CAMERA,
-                    )
-                ) {
-                    // permission was permanently denied
-                    withContext(Dispatchers.Main) {
-                        val alert: ThreemaDialogFragment = GenericAlertDialog.newInstance(
-                            R.string.group_call,
-                            getString(
-                                R.string.group_call_camera_permission_rationale,
-                                getString(R.string.app_name),
-                            ),
-                            R.string.settings,
-                            R.string.cancel,
-                        )
-                        alert.show(
-                            this@GroupCallActivity.supportFragmentManager,
-                            DIALOG_TAG_CAMERA_PERMISSION_DENIED,
-                        )
-                    }
-                }
-            }
         }
     }
 

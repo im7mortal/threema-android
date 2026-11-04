@@ -3,12 +3,16 @@ package ch.threema.app.preference.service
 import android.content.Context
 import androidx.annotation.StringRes
 import ch.threema.app.R
+import ch.threema.app.backupcenter.models.LastLocalDataBackupInfo
+import ch.threema.app.backupcenter.models.LocalDataBackupPassword
 import ch.threema.app.services.ContactService
 import ch.threema.app.stores.EncryptedPreferenceStore
 import ch.threema.app.stores.PreferenceStore
+import ch.threema.common.bytes
 import ch.threema.domain.protocol.api.work.WorkDirectoryCategory
 import ch.threema.domain.protocol.api.work.WorkOrganization
 import ch.threema.test.TestContext
+import ch.threema.testhelpers.TestDispatcherProvider
 import ch.threema.testhelpers.TestTimeProvider
 import ch.threema.testhelpers.utcDate
 import io.mockk.every
@@ -40,13 +44,21 @@ class PreferenceServiceImplTest {
     @BeforeTest
     fun setUp() {
         appContextMock = TestContext.create()
-        preferenceStoreMock = mockk(relaxed = true)
-        encryptedPreferenceStoreMock = mockk(relaxed = true)
+        preferenceStoreMock = mockk(relaxed = true) {
+            every { getBoolean(any()) } returns false
+            every { getBoolean(any(), any()) } answers { secondArg() }
+            every { getStringSet(any()) } returns null
+            every { getInstant(any()) } returns null
+        }
+        encryptedPreferenceStoreMock = mockk(relaxed = true) {
+            every { getString(any()) } returns null
+        }
         timeProvider = TestTimeProvider(initialTimestamp = 1234L)
         preferenceService = PreferenceServiceImpl(
             appContext = appContextMock,
             preferenceStore = preferenceStoreMock,
             encryptedPreferenceStore = encryptedPreferenceStoreMock,
+            dispatcherProvider = TestDispatcherProvider(),
             timeProvider = timeProvider,
         )
     }
@@ -56,6 +68,15 @@ class PreferenceServiceImplTest {
 
     private fun mockStoredString(keyId: Int, value: String?) {
         every { preferenceStoreMock.getString(getKeyName(keyId)) } returns value
+    }
+
+    private fun mockStoredStringSet(keyId: Int, value: Set<String>?) {
+        every { preferenceStoreMock.getStringSet(getKeyName(keyId)) } returns value
+    }
+
+    private fun mockStoredBoolean(keyId: Int, value: Boolean) {
+        every { preferenceStoreMock.getBoolean(getKeyName(keyId)) } returns value
+        every { preferenceStoreMock.getBoolean(getKeyName(keyId), any()) } returns value
     }
 
     private fun mockStoredEncryptedString(keyId: Int, value: String?) {
@@ -74,6 +95,14 @@ class PreferenceServiceImplTest {
         verify { preferenceStoreMock.save(getKeyName(keyId), value) }
     }
 
+    private fun verifyStringSetStored(keyId: Int, value: Set<String>) {
+        verify { preferenceStoreMock.save(getKeyName(keyId), value) }
+    }
+
+    private fun verifyBooleanStored(keyId: Int, value: Boolean) {
+        verify { preferenceStoreMock.save(getKeyName(keyId), value) }
+    }
+
     private fun verifyEncryptedStringStored(keyId: Int, value: String) {
         verify { encryptedPreferenceStoreMock.save(getKeyName(keyId), value) }
     }
@@ -84,6 +113,72 @@ class PreferenceServiceImplTest {
 
     private fun verifyInstantStored(keyId: Int, value: Instant?) {
         verify { preferenceStoreMock.save(getKeyName(keyId), value) }
+    }
+
+    @Test
+    fun `get theme`() {
+        assertEquals(PreferenceService.Theme.FOLLOW_SYSTEM, preferenceService.getTheme())
+
+        mockStoredString(R.string.preferences__theme, "0")
+        assertEquals(PreferenceService.Theme.LIGHT, preferenceService.getTheme())
+
+        mockStoredString(R.string.preferences__theme, "1")
+        assertEquals(PreferenceService.Theme.DARK, preferenceService.getTheme())
+
+        mockStoredString(R.string.preferences__theme, "2")
+        assertEquals(PreferenceService.Theme.FOLLOW_SYSTEM, preferenceService.getTheme())
+    }
+
+    @Test
+    fun `set theme`() {
+        preferenceService.setTheme(PreferenceService.Theme.LIGHT)
+        verifyStringStored(R.string.preferences__theme, "0")
+
+        preferenceService.setTheme(PreferenceService.Theme.DARK)
+        verifyStringStored(R.string.preferences__theme, "1")
+
+        preferenceService.setTheme(PreferenceService.Theme.FOLLOW_SYSTEM)
+        verifyStringStored(R.string.preferences__theme, "2")
+    }
+
+    @Test
+    fun `get emoji style`() {
+        assertEquals(PreferenceService.EmojiStyle.DEFAULT, preferenceService.getEmojiStyle())
+
+        mockStoredString(R.string.preferences__emoji_style, "1")
+        assertEquals(PreferenceService.EmojiStyle.ANDROID, preferenceService.getEmojiStyle())
+
+        mockStoredString(R.string.preferences__emoji_style, "0")
+        assertEquals(PreferenceService.EmojiStyle.DEFAULT, preferenceService.getEmojiStyle())
+    }
+
+    @Test
+    fun `set emoji style`() {
+        preferenceService.setEmojiStyle(PreferenceService.EmojiStyle.DEFAULT)
+        verifyStringStored(R.string.preferences__emoji_style, "0")
+
+        preferenceService.setEmojiStyle(PreferenceService.EmojiStyle.ANDROID)
+        verifyStringStored(R.string.preferences__emoji_style, "1")
+    }
+
+    @Test
+    fun `is bigger single emojis`() {
+        assertTrue(preferenceService.isBiggerSingleEmojis())
+
+        mockStoredBoolean(R.string.preferences__bigger_single_emojis, false)
+        assertFalse(preferenceService.isBiggerSingleEmojis())
+
+        mockStoredBoolean(R.string.preferences__bigger_single_emojis, true)
+        assertTrue(preferenceService.isBiggerSingleEmojis())
+    }
+
+    @Test
+    fun `set bigger single emojis`() {
+        preferenceService.setBiggerSingleEmojis(true)
+        verifyBooleanStored(R.string.preferences__bigger_single_emojis, true)
+
+        preferenceService.setBiggerSingleEmojis(false)
+        verifyBooleanStored(R.string.preferences__bigger_single_emojis, false)
     }
 
     @Test
@@ -332,5 +427,202 @@ class PreferenceServiceImplTest {
             R.string.preferences__work_directory_organization,
             """{"name":"My Org"}""",
         )
+    }
+
+    @Test
+    fun `get auto download types for mobile`() {
+        assertEquals(
+            setOf(
+                PreferenceService.AutoDownloadType.IMAGE,
+            ),
+            preferenceService.getMobileAutoDownload(),
+        )
+
+        mockStoredStringSet(
+            R.string.preferences__auto_download_mobile,
+            setOf("3", "2"),
+        )
+        assertEquals(
+            setOf(
+                PreferenceService.AutoDownloadType.VOICE_MESSAGE,
+                PreferenceService.AutoDownloadType.VIDEO,
+            ),
+            preferenceService.getMobileAutoDownload(),
+        )
+
+        mockStoredStringSet(
+            R.string.preferences__auto_download_mobile,
+            setOf("1", "8"),
+        )
+        assertEquals(
+            setOf(
+                PreferenceService.AutoDownloadType.IMAGE,
+                PreferenceService.AutoDownloadType.FILE,
+            ),
+            preferenceService.getMobileAutoDownload(),
+        )
+    }
+
+    @Test
+    fun `set auto download types for mobile`() {
+        preferenceService.setMobileAutoDownload(
+            setOf(
+                PreferenceService.AutoDownloadType.IMAGE,
+                PreferenceService.AutoDownloadType.VOICE_MESSAGE,
+                PreferenceService.AutoDownloadType.VIDEO,
+                PreferenceService.AutoDownloadType.FILE,
+            ),
+        )
+        verifyStringSetStored(
+            R.string.preferences__auto_download_mobile,
+            setOf("1", "3", "2", "8"),
+        )
+
+        preferenceService.setMobileAutoDownload(
+            setOf(
+                PreferenceService.AutoDownloadType.VIDEO,
+            ),
+        )
+        verifyStringSetStored(
+            R.string.preferences__auto_download_mobile,
+            setOf("2"),
+        )
+    }
+
+    @Test
+    fun `get auto download types for wifi`() {
+        assertEquals(
+            setOf(
+                PreferenceService.AutoDownloadType.IMAGE,
+                PreferenceService.AutoDownloadType.VOICE_MESSAGE,
+                PreferenceService.AutoDownloadType.VIDEO,
+                PreferenceService.AutoDownloadType.FILE,
+            ),
+            preferenceService.getWifiAutoDownload(),
+        )
+
+        mockStoredStringSet(
+            R.string.preferences__auto_download_wifi,
+            setOf("3", "2"),
+        )
+        assertEquals(
+            setOf(
+                PreferenceService.AutoDownloadType.VOICE_MESSAGE,
+                PreferenceService.AutoDownloadType.VIDEO,
+            ),
+            preferenceService.getWifiAutoDownload(),
+        )
+
+        mockStoredStringSet(
+            R.string.preferences__auto_download_wifi,
+            setOf("1", "8"),
+        )
+        assertEquals(
+            setOf(
+                PreferenceService.AutoDownloadType.IMAGE,
+                PreferenceService.AutoDownloadType.FILE,
+            ),
+            preferenceService.getWifiAutoDownload(),
+        )
+    }
+
+    @Test
+    fun `set auto download types for wifi`() {
+        preferenceService.setWifiAutoDownload(
+            setOf(
+                PreferenceService.AutoDownloadType.IMAGE,
+                PreferenceService.AutoDownloadType.VOICE_MESSAGE,
+                PreferenceService.AutoDownloadType.VIDEO,
+                PreferenceService.AutoDownloadType.FILE,
+            ),
+        )
+        verifyStringSetStored(
+            R.string.preferences__auto_download_wifi,
+            setOf("1", "3", "2", "8"),
+        )
+
+        preferenceService.setWifiAutoDownload(
+            setOf(
+                PreferenceService.AutoDownloadType.IMAGE,
+            ),
+        )
+        verifyStringSetStored(
+            R.string.preferences__auto_download_wifi,
+            setOf("1"),
+        )
+    }
+
+    @Test
+    fun `has requested notification permission`() {
+        assertFalse(preferenceService.hasRequestedNotificationPermission())
+        mockStoredInstant(R.string.preferences__last_notification_request_timestamp, Instant.ofEpochMilli(123))
+        assertTrue(preferenceService.hasRequestedNotificationPermission())
+    }
+
+    @Test
+    fun `set has requested notification permission`() {
+        preferenceService.setHasRequestedNotificationPermission(requested = true)
+        verifyInstantStored(R.string.preferences__last_notification_request_timestamp, timeProvider.get())
+    }
+
+    @Test
+    fun `get local backup password`() {
+        assertNull(preferenceService.getLocalDataBackupPassword())
+
+        val password = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ01"
+        mockStoredEncryptedString(R.string.preferences__local_backup_password, password)
+        assertEquals(LocalDataBackupPassword(password), preferenceService.getLocalDataBackupPassword())
+    }
+
+    @Test
+    fun `set local backup password`() {
+        val password = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ01"
+        preferenceService.setLocalDataBackupPassword(LocalDataBackupPassword(password))
+        verifyEncryptedStringStored(R.string.preferences__local_backup_password, password)
+    }
+
+    @Test
+    fun `get last local backup info`() {
+        assertNull(preferenceService.getLastLocalDataBackupInfo())
+        mockStoredString(
+            R.string.preferences__last_local_backup_info,
+            """{"createdAt":1234,"size":9999,"mediaIncluded":true,"location":"some-directory"}""",
+        )
+        assertEquals(
+            LastLocalDataBackupInfo(
+                createdAt = Instant.ofEpochMilli(1234),
+                size = 9999.bytes,
+                mediaIncluded = true,
+                location = "some-directory",
+            ),
+            preferenceService.getLastLocalDataBackupInfo(),
+        )
+    }
+
+    @Test
+    fun `set last local backup info`() {
+        preferenceService.setLastLocalDataBackupInfo(
+            LastLocalDataBackupInfo(
+                createdAt = Instant.ofEpochMilli(1234),
+                size = 9999.bytes,
+                mediaIncluded = true,
+                location = "some-directory",
+            ),
+        )
+        verifyStringStored(
+            R.string.preferences__last_local_backup_info,
+            """{"createdAt":1234,"size":9999,"mediaIncluded":true,"location":"some-directory"}""",
+        )
+    }
+
+    @Test
+    fun `get contact name sorting order`() {
+        assertEquals(PreferenceService.ContactSortOrder.LAST_NAME, preferenceService.getContactSortOrder())
+
+        mockStoredString(R.string.preferences__contact_sorting, appContextMock.getString(R.string.contact_sorting__first_name))
+        assertEquals(PreferenceService.ContactSortOrder.FIRST_NAME, preferenceService.getContactSortOrder())
+
+        mockStoredString(R.string.preferences__contact_sorting, appContextMock.getString(R.string.contact_sorting__last_name))
+        assertEquals(PreferenceService.ContactSortOrder.LAST_NAME, preferenceService.getContactSortOrder())
     }
 }

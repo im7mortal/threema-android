@@ -1,16 +1,10 @@
 package ch.threema.app.mediagallery
 
-import org.koin.core.module.dsl.factoryOf
-import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
+import org.koin.plugin.module.dsl.viewModel
 
 val mediaGalleryFeatureModule = module {
-    factoryOf(::MediaGalleryRepository)
-    viewModel { parameters ->
-        MediaGalleryViewModel(
-            mediaGalleryRepository = get(),
-            preferenceService = get(),
-            messageReceiver = parameters.get(),
-        )
-    }
+    factory<MediaGalleryRepository>()
+    viewModel<MediaGalleryViewModel>()
 }

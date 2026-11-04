@@ -5,55 +5,22 @@ import android.content.res.ColorStateList;
 import android.content.res.TypedArray;
 
 import androidx.annotation.ColorInt;
+import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import androidx.fragment.app.DialogFragment;
 import androidx.fragment.app.FragmentManager;
 
-import org.slf4j.Logger;
-
+import ch.threema.android.DialogExtensionsKt;
 import ch.threema.app.R;
 import ch.threema.app.dialogs.CancelableHorizontalProgressDialog;
 
-import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-
 public abstract class DialogUtil {
-    private static final Logger logger = getThreemaLogger("DialogUtil");
-
-    public static void dismissDialog(@Nullable FragmentManager fragmentManager, String tag, boolean allowStateLoss) {
-        logger.debug("dismissDialog: {}", tag);
-
-        if (fragmentManager == null) {
-            return;
-        }
-
-        DialogFragment dialogFragment = (DialogFragment) fragmentManager.findFragmentByTag(tag);
-
-        if (dialogFragment == null && !fragmentManager.isDestroyed()) {
-            // make sure dialogfragment is really shown before removing it
-            try {
-                fragmentManager.executePendingTransactions();
-            } catch (IllegalStateException e) {
-                // catch illegal state exception
-            }
-            dialogFragment = (DialogFragment) fragmentManager.findFragmentByTag(tag);
-        }
-
-        if (dialogFragment != null) {
-            if (allowStateLoss) {
-                try {
-                    dialogFragment.dismissAllowingStateLoss();
-                } catch (Exception e) {
-                    // catch illegal state exception
-                }
-            } else {
-                try {
-                    dialogFragment.dismiss();
-                } catch (Exception e) {
-                    // catch illegal state exception
-                }
-            }
+    @MainThread
+    public static void dismissDialog(@Nullable FragmentManager fragmentManager, @NonNull String tag) {
+        if (fragmentManager != null) {
+            DialogExtensionsKt.dismissDialog(fragmentManager, tag);
         }
     }
 

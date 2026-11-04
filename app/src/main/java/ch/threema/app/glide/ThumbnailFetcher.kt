@@ -2,7 +2,7 @@ package ch.threema.app.glide
 
 import android.graphics.Bitmap
 import ch.threema.app.services.FileService
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import com.bumptech.glide.Priority
 import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.data.DataFetcher
@@ -12,7 +12,7 @@ import com.bumptech.glide.load.data.DataFetcher
  */
 class ThumbnailFetcher(
     private val fileService: FileService,
-    private val messageModel: AbstractMessageModel,
+    private val messageModel: MessageModel,
 ) : DataFetcher<Bitmap> {
 
     override fun loadData(priority: Priority, callback: DataFetcher.DataCallback<in Bitmap>) {

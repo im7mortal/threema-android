@@ -5,8 +5,8 @@ import androidx.annotation.StringRes
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatDialog
 import androidx.compose.ui.platform.ComposeView
-import androidx.core.os.bundleOf
 import androidx.lifecycle.ViewModelStoreOwner
+import ch.threema.android.buildBundle
 import ch.threema.app.R
 import ch.threema.app.compose.theme.ThreemaTheme
 import ch.threema.app.dialogs.ThreemaDialogFragment
@@ -70,10 +70,10 @@ class LoadingWithTimeoutDialogXml : ThreemaDialogFragment() {
                 "Argument timeoutSeconds can not be negative"
             }
             return LoadingWithTimeoutDialogXml().apply {
-                arguments = bundleOf(
-                    ARGUMENT_TIMEOUT_SECONDS to timeoutSeconds,
-                    ARGUMENT_TITLE_TEXT to titleText,
-                )
+                arguments = buildBundle {
+                    putLong(ARGUMENT_TIMEOUT_SECONDS, timeoutSeconds)
+                    putInt(ARGUMENT_TITLE_TEXT, titleText)
+                }
             }
         }
     }

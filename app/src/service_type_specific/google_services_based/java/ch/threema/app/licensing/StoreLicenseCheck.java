@@ -1,0 +1,66 @@
+package ch.threema.app.licensing;
+
+import android.app.Activity;
+import android.content.ReceiverCallNotAllowedException;
+import androidx.annotation.NonNull;
+
+import com.google.android.vending.licensing.LicenseChecker;
+import com.google.android.vending.licensing.LicenseCheckerCallback;
+
+import org.slf4j.Logger;
+
+import ch.threema.app.services.UserService;
+import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
+public class StoreLicenseCheck {
+    private static final Logger logger = getThreemaLogger("StoreLicenseCheck");
+
+    private static final String LICENSE_PUBLIC_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqJArbOQT3Vi2KUEbyk+xq+DSsowwIYoudh3miXC7DmR6SVL6ji7XG8C+hmtR6t+Ytar64z87xgTPiEPiuyyg6/fp8ALRLAjM2FmZadSS4hSpvmJKb2ViFyUmcCJ8MoZ2QPxA+SVGZFdwIwwXdHPx2xUQw6ftyx0EF0hvF4nwHLvq89p03QtiPnIb0A3MOEXsq88xu2xAUge/BTvRWo0gWTtIJhTdZXY2CSib5d/G45xca0DKgOECAaMxVbFhE5jSyS+qZvUN4tABgDKBiEPuuzBBaHVt/m7MQoqoM6kcNrozACmIx6UdwWbkK3Isa9Xo9g3Yy6oc9Mp/9iKXwco4vwIDAQAB";
+
+    private StoreLicenseCheck() {
+    }
+
+    public static void checkLicense(@NonNull Activity activity, @NonNull UserService userService) {
+        logger.info("Checking LVL licence");
+        final ThreemaLicensePolicy policy = new ThreemaLicensePolicy();
+        LicenseCheckerCallback callback = new LicenseCheckerCallback() {
+            @Override
+            public void allow(int reason) {
+                logger.info("LVL License OK");
+                userService.setPolicyResponse(
+                    policy.getLastResponseData().responseData,
+                    policy.getLastResponseData().signature,
+                    0
+                );
+            }
+
+            @Override
+            public void dontAllow(int reason) {
+                // 561 == not licensed
+                // 291 == no connection
+                logger.info("LVL License not allowed (code {})", reason);
+                userService.setPolicyResponse(
+                    null,
+                    null,
+                    reason
+                );
+            }
+
+            @Override
+            public void applicationError(int errorCode) {
+                logger.info("LVL License check failed errorCode: {}", errorCode);
+                userService.setPolicyResponse(
+                    null,
+                    null,
+                    errorCode
+                );
+            }
+        };
+        LicenseChecker licenseChecker = new LicenseChecker(activity, policy, LICENSE_PUBLIC_KEY);
+        try {
+            licenseChecker.checkAccess(callback);
+        } catch (ReceiverCallNotAllowedException x) {
+            logger.error("LVL: Receiver call not allowed", x);
+        }
+    }
+}

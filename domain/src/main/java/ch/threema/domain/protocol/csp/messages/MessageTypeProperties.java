@@ -14,7 +14,7 @@ public interface MessageTypeProperties {
     /**
      * Return whether this message should be exempted from blocking.
      */
-    boolean exemptFromBlocking();
+    ExemptFromBlocking exemptFromBlocking();
 
     /**
      * Return whether this message should implicitly create a <b>direct</b> contact.

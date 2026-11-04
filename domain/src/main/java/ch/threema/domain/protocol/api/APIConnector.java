@@ -1,7 +1,5 @@
 package ch.threema.domain.protocol.api;
 
-import android.annotation.SuppressLint;
-
 import com.google.i18n.phonenumbers.NumberParseException;
 import com.google.i18n.phonenumbers.PhoneNumberUtil;
 import com.google.i18n.phonenumbers.Phonenumber;
@@ -22,6 +20,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -39,8 +38,11 @@ import ch.threema.base.ThreemaException;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.HashKt.sha256;
+import static org.json.JSONObject.NULL;
 
 import ch.threema.common.Base64;
+import ch.threema.domain.models.GroupId;
+import ch.threema.domain.protocol.ChallengeResponseHelper;
 import ch.threema.domain.protocol.ServerAddressProvider;
 import ch.threema.domain.protocol.Version;
 import ch.threema.domain.protocol.api.work.WorkContact;
@@ -54,8 +56,6 @@ import ch.threema.domain.protocol.api.work.WorkMDMSettings;
 import ch.threema.domain.protocol.api.work.WorkOrganization;
 import ch.threema.domain.stores.IdentityStore;
 import ch.threema.domain.stores.TokenStoreInterface;
-import ch.threema.libthreema.CryptoException;
-import ch.threema.libthreema.LibthreemaKt;
 import okhttp3.OkHttpClient;
 
 /**
@@ -69,10 +69,20 @@ public class APIConnector {
 
     private static final Logger logger = getThreemaLogger("APIConnector");
 
-    private static final String JSON_FIELD_JOB_TITLE = "jobTitle";
-    private static final String JSON_FIELD_DEPARTMENT = "department";
-    private static final String JSON_FIELD_AVAILABILITY = "availability";
-    private static final String JSON_FIELD_TIME = "time";
+    private static final String JSON_KEY_JOB_TITLE = "jobTitle";
+    private static final String JSON_KEY_DEPARTMENT = "department";
+    private static final String JSON_KEY_AVAILABILITY = "availability";
+    private static final String JSON_KEY_TIME = "time";
+
+    private static final String JSON_KEY_SUCCESS = "success";
+    private static final String JSON_KEY_ERROR = "error";
+
+    private static final String JSON_KEY_REPORTER_IDENTITY = "reporter_identity";
+    private static final String JSON_KEY_GROUP_ID = "group_id";
+    private static final String JSON_KEY_GROUP_CREATOR_IDENTITY = "group_creator_identity";
+    private static final String JSON_KEY_GROUP_CREATOR_NICKNAME = "group_creator_nickname";
+    private static final String JSON_KEY_GROUP_MEMBER_COUNT = "group_member_count";
+    private static final String JSON_KEY_GROUP_NAME = "group_name";
 
     // HMAC-SHA256 keys for contact matching
     private static final byte[] EMAIL_HMAC_KEY = new byte[]{(byte) 0x30, (byte) 0xa5, (byte) 0x50
@@ -96,30 +106,41 @@ public class APIConnector {
 
     @NonNull
     private final Version version;
+    @NonNull
     private final ServerAddressProvider serverAddressProvider;
-
+    @NonNull
+    private final ChallengeResponseHelper challengeResponseHelper;
     @NonNull
     private final HttpRequester httpRequester;
 
     public APIConnector(
-        ServerAddressProvider serverAddressProvider,
+        @NonNull ServerAddressProvider serverAddressProvider,
+        @NonNull ChallengeResponseHelper challengeResponseHelper,
         boolean isWork,
         @NonNull OkHttpClient okHttpClient,
         @NonNull Version version,
         @Nullable String language,
         @Nullable APIAuthenticator authenticator
     ) {
-        this(serverAddressProvider, isWork, new HttpRequester(okHttpClient, authenticator, language, version), version);
+        this(
+            serverAddressProvider,
+            challengeResponseHelper,
+            isWork,
+            new HttpRequester(okHttpClient, authenticator, language, version),
+            version
+        );
     }
 
     protected APIConnector(
         ServerAddressProvider serverAddressProvider,
+        @NonNull ChallengeResponseHelper challengeResponseHelper,
         boolean isWork,
         @NonNull HttpRequester httpRequester,
         @NonNull Version version
     ) {
         this.version = version;
         this.serverAddressProvider = serverAddressProvider;
+        this.challengeResponseHelper = challengeResponseHelper;
         this.isWork = isWork;
         this.httpRequester = httpRequester;
     }
@@ -136,7 +157,7 @@ public class APIConnector {
         byte[] seed,
         @NonNull CreateIdentityRequestDataInterface requestData
     ) throws Exception {
-        String url = getServerUrl() + "identity/create";
+        String url = getServerUrl("identity/create");
 
         // Seed available?
         byte[] hashedSeed = null;
@@ -165,7 +186,12 @@ public class APIConnector {
 
         // Phase 2: create token authenticator and send response to server
         byte[] sharedSecret = new NaCl(keypair.privateKey, tokenRespKeyPub).sharedSecret;
-        byte[] response = calcTokenResponse(sharedSecret, token);
+        byte[] response;
+        try {
+            response = challengeResponseHelper.calculateResponse(sharedSecret, token);
+        } catch (IllegalArgumentException e) {
+            throw new ThreemaException("Failed to calculate challenge response", e);
+        }
 
         JSONObject p2Body = requestData.createIdentityRequestDataJSON();
         p2Body.put("publicKey", Base64.encode(keypair.publicKey));
@@ -175,10 +201,10 @@ public class APIConnector {
         String p2ResultString = this.postJson(url, p2Body);
         JSONObject p2Result = new JSONObject(p2ResultString);
 
-        boolean success = p2Result.getBoolean("success");
+        boolean success = p2Result.getBoolean(JSON_KEY_SUCCESS);
         if (!success) {
             // Create identity phase 2 not successful; error
-            throw new ThreemaException("TA001: " + p2Result.getString("error"));
+            throw new ThreemaException("TA001: " + p2Result.getString(JSON_KEY_ERROR));
         }
 
         String identity = p2Result.getString("identity");
@@ -194,14 +220,13 @@ public class APIConnector {
      *
      * @param identity the desired identity
      * @return information related to identity
-     * @throws ThreemaException        if the server url cannot be fetched on onprem builds
-     * @throws HttpConnectionException on http error
-     * @throws NetworkException        on network error
+     * @throws ThreemaException if the server url cannot be fetched on onprem builds
+     * @throws IOException      on http or network error
      */
     public FetchIdentityResult fetchIdentity(String identity) throws ThreemaException,
-        NetworkException, HttpConnectionException {
+        IOException {
         try {
-            String responseStr = doGet(getServerUrl() + "identity/" + identity);
+            String responseStr = doGet(getServerUrl("identity/" + identity));
             JSONObject jsonResponse = new JSONObject(responseStr);
 
             FetchIdentityResult result = new FetchIdentityResult();
@@ -212,8 +237,8 @@ public class APIConnector {
             result.state = jsonResponse.optInt("state");
             result.type = jsonResponse.optInt("type");
             return result;
-        } catch (JSONException | IOException e) {
-            throw new NetworkException(e);
+        } catch (JSONException e) {
+            throw new IOException(e);
         }
     }
 
@@ -224,17 +249,17 @@ public class APIConnector {
      * @return array list of information related to identity
      * @throws ThreemaException         if the server url cannot be fetched on onprem builds
      * @throws IllegalArgumentException if the argument is null or empty
-     * @throws NetworkException         on network error
+     * @throws IOException              on API or network error
      */
-    public List<FetchIdentityResult> fetchIdentities(List<String> identities) throws ThreemaException, NetworkException {
-        if (identities == null || identities.isEmpty()) {
-            throw new IllegalArgumentException("empty identities array");
+    public List<FetchIdentityResult> fetchIdentities(@NonNull List<String> identities) throws ThreemaException, IOException {
+        if (identities.isEmpty()) {
+            return Collections.emptyList();
         }
 
         try {
             JSONObject postObject = new JSONObject();
             postObject.put("identities", new JSONArray(identities));
-            String postResponse = this.postJson(getServerUrl() + "identity/fetch_bulk", postObject);
+            String postResponse = this.postJson(getServerUrl("identity/fetch_bulk"), postObject);
 
             JSONObject resultObject = new JSONObject(postResponse);
             JSONArray resultArray = resultObject.getJSONArray("identities");
@@ -253,8 +278,8 @@ public class APIConnector {
                 fetchIdentityResults.add(fetchIdentityResult);
             }
             return fetchIdentityResults;
-        } catch (JSONException | IOException e) {
-            throw new NetworkException(e);
+        } catch (JSONException e) {
+            throw new IOException(e);
         }
     }
 
@@ -267,7 +292,7 @@ public class APIConnector {
     // TODO(ANDR-4067): This should not depend on `IdentityStore`, and instead only request the identity and a calcSharedSecret function
     public FetchIdentityPrivateResult fetchIdentityPrivate(IdentityStore identityStore) throws Exception {
 
-        String url = getServerUrl() + "identity/fetch_priv";
+        String url = getServerUrl("identity/fetch_priv");
 
         // Phase 1: send identity
         JSONObject request = new JSONObject();
@@ -278,8 +303,8 @@ public class APIConnector {
         JSONObject p1Result = new JSONObject(this.postJson(url, request));
         logger.debug("Fetch identity private phase 1: response from server: {}", p1Result);
 
-        if (p1Result.has("success") && !p1Result.getBoolean("success")) {
-            throw new FetchIdentityException(p1Result.getString("error"));
+        if (p1Result.has(JSON_KEY_SUCCESS) && !p1Result.getBoolean(JSON_KEY_SUCCESS)) {
+            throw new FetchIdentityException(p1Result.getString(JSON_KEY_ERROR));
         }
 
         makeTokenResponse(p1Result, request, identityStore);
@@ -289,8 +314,8 @@ public class APIConnector {
         JSONObject p2Result = new JSONObject(this.postJson(url, request));
         logger.debug("Fetch identity private: response from server: {}", p2Result);
 
-        if (!p2Result.getBoolean("success")) {
-            throw new FetchIdentityException(p2Result.getString("error"));
+        if (!p2Result.getBoolean(JSON_KEY_SUCCESS)) {
+            throw new FetchIdentityException(p2Result.getString(JSON_KEY_ERROR));
         }
 
         FetchIdentityPrivateResult result = new FetchIdentityPrivateResult();
@@ -322,7 +347,7 @@ public class APIConnector {
      */
     public boolean linkEmail(String email, String language, IdentityStore identityStore) throws LinkEmailException, Exception {
 
-        String url = getServerUrl() + "identity/link_email";
+        String url = getServerUrl("identity/link_email");
 
         // Phase 1: send identity and e-mail
         JSONObject request = new JSONObject();
@@ -335,7 +360,7 @@ public class APIConnector {
         logger.debug("Link e-mail phase 1: response from server: {}", p1Result);
 
         if (!p1Result.has("linked")) {
-            throw new LinkEmailException(p1Result.getString("error"));
+            throw new LinkEmailException(p1Result.getString(JSON_KEY_ERROR));
         }
 
         if (p1Result.getBoolean("linked")) {
@@ -349,8 +374,8 @@ public class APIConnector {
         JSONObject p2Result = new JSONObject(this.postJson(url, request));
         logger.debug("Link e-mail phase 2: response from server: {}", p2Result);
 
-        if (!p2Result.getBoolean("success")) {
-            throw new LinkEmailException(p2Result.getString("error"));
+        if (!p2Result.getBoolean(JSON_KEY_SUCCESS)) {
+            throw new LinkEmailException(p2Result.getString(JSON_KEY_ERROR));
         }
 
         return true;
@@ -366,7 +391,7 @@ public class APIConnector {
      * @throws Exception if a network error occurs
      */
     public boolean linkEmailCheckStatus(String email, IdentityStore identityStore) throws Exception {
-        String url = getServerUrl() + "identity/link_email";
+        String url = getServerUrl("identity/link_email");
 
         JSONObject request = new JSONObject();
         request.put("identity", identityStore.getIdentityString());
@@ -422,7 +447,7 @@ public class APIConnector {
      */
     public String linkMobileNo(String mobileNo, String language,
                                IdentityStore identityStore, String urlScheme) throws LinkMobileNoException, Exception {
-        String url = getServerUrl() + "identity/link_mobileno";
+        String url = getServerUrl("identity/link_mobileno");
 
         // Phase 1: send identity and mobile no
         JSONObject request = new JSONObject();
@@ -439,7 +464,7 @@ public class APIConnector {
         logger.debug("Link mobile number phase 1: response from server: {}", p1Result);
 
         if (!p1Result.has("linked")) {
-            throw new LinkMobileNoException(p1Result.getString("error"));
+            throw new LinkMobileNoException(p1Result.getString(JSON_KEY_ERROR));
         }
 
         if (p1Result.getBoolean("linked")) {
@@ -453,8 +478,8 @@ public class APIConnector {
         JSONObject p2Result = new JSONObject(this.postJson(url, request));
         logger.debug("Link mobile number phase 2: response from server: {}", p2Result);
 
-        if (!p2Result.getBoolean("success")) {
-            throw new LinkMobileNoException(p2Result.getString("error"));
+        if (!p2Result.getBoolean(JSON_KEY_SUCCESS)) {
+            throw new LinkMobileNoException(p2Result.getString(JSON_KEY_ERROR));
         }
 
         if (!mobileNo.isEmpty()) {
@@ -475,7 +500,7 @@ public class APIConnector {
      * @throws Exception             if a network error occurs
      */
     public void linkMobileNoVerify(String verificationId, String code) throws LinkMobileNoException, Exception {
-        String url = getServerUrl() + "identity/link_mobileno";
+        String url = getServerUrl("identity/link_mobileno");
 
         JSONObject request = new JSONObject();
         request.put("verificationId", verificationId);
@@ -483,8 +508,8 @@ public class APIConnector {
 
         JSONObject result = new JSONObject(this.postJson(url, request));
 
-        if (!result.getBoolean("success")) {
-            throw new LinkMobileNoException(result.getString("error"));
+        if (!result.getBoolean(JSON_KEY_SUCCESS)) {
+            throw new LinkMobileNoException(result.getString(JSON_KEY_ERROR));
         }
     }
 
@@ -502,15 +527,15 @@ public class APIConnector {
      * @throws Exception             if a network error occurs
      */
     public void linkMobileNoCall(String verificationId) throws LinkMobileNoException, Exception {
-        String url = getServerUrl() + "identity/link_mobileno_call";
+        String url = getServerUrl("identity/link_mobileno_call");
 
         JSONObject request = new JSONObject();
         request.put("verificationId", verificationId);
 
         JSONObject result = new JSONObject(this.postJson(url, request));
 
-        if (!result.getBoolean("success")) {
-            throw new LinkMobileNoException(result.getString("error"));
+        if (!result.getBoolean(JSON_KEY_SUCCESS)) {
+            throw new LinkMobileNoException(result.getString(JSON_KEY_ERROR));
         }
     }
 
@@ -534,7 +559,6 @@ public class APIConnector {
      * @return map of found identities (key = identity). The value objects from the {@code emailAddresses}
      * and {@code mobileNos} parameters will be contained in the {@code MatchIdentityResult}.
      */
-    @SuppressLint("DefaultLocale")
     public Map<String, MatchIdentityResult> matchIdentities(
         @NonNull Set<String> emailAddresses,
         @NonNull Set<String> phoneNumbers,
@@ -615,6 +639,9 @@ public class APIConnector {
         try {
             return matchIdentitiesHashedToken(emailHashes, mobileNoHashes, includeInactive,
                 matchToken);
+        } catch (InterruptedException e) {
+            // The request was interrupted, e.g. because the surrounding sync was canceled. Do not retry.
+            throw e;
         } catch (Exception e) {
             // Match token may be invalid/expired, refresh and try again
             logger.debug("Match failed", e);
@@ -630,7 +657,7 @@ public class APIConnector {
         boolean includeInactive,
         String matchToken
     ) throws Exception {
-        String url = getServerUrl() + "identity/match";
+        String url = getServerUrl("identity/match");
 
         // Send hashes to server
         JSONObject request = new JSONObject();
@@ -699,7 +726,7 @@ public class APIConnector {
             return token;
         }
 
-        final String url = getServerUrl() + "identity/match_token";
+        final String url = getServerUrl("identity/match_token");
 
         // Phase 1: Send identity
         final JSONObject request = new JSONObject();
@@ -713,8 +740,8 @@ public class APIConnector {
         logger.debug("Fetch match token: sending to server: {}", request);
         final JSONObject p2Result = new JSONObject(this.postJson(url, request));
         logger.debug("Fetch match token: response from server: {}", p2Result);
-        if (!p2Result.getBoolean("success")) {
-            throw new ThreemaException(p2Result.getString("error"));
+        if (!p2Result.getBoolean(JSON_KEY_SUCCESS)) {
+            throw new ThreemaException(p2Result.getString(JSON_KEY_ERROR));
         }
         token = p2Result.getString("matchToken");
 
@@ -746,14 +773,8 @@ public class APIConnector {
             return token;
         }
 
-        String url = getServerUrl() + "auth_token";
-
-        JSONObject result;
-        try {
-            result = new JSONObject(doGet(url));
-        } catch (HttpConnectionException e) {
-            throw new IOException(e);
-        }
+        String url = getServerUrl("auth_token");
+        JSONObject result = new JSONObject(doGet(url));
         token = result.getString("authToken");
         if (authTokenStore != null) {
             authTokenStore.storeToken(token);
@@ -763,7 +784,7 @@ public class APIConnector {
     }
 
     public @NonNull SfuToken obtainSfuToken(@NonNull IdentityStore identityStore) throws Exception {
-        String url = getServerUrl() + "identity/sfu_cred";
+        String url = getServerUrl("identity/sfu_cred");
 
         // Phase 1: send identity
         final JSONObject request = new JSONObject();
@@ -773,8 +794,8 @@ public class APIConnector {
 
         // Phase 2: send token response
         final JSONObject p2Result = new JSONObject(postJson(url, request));
-        if (!p2Result.getBoolean("success")) {
-            throw new ThreemaException(p2Result.getString("error"));
+        if (!p2Result.getBoolean(JSON_KEY_SUCCESS)) {
+            throw new ThreemaException(p2Result.getString(JSON_KEY_ERROR));
         }
 
         String baseUrl = p2Result.getString("sfuBaseUrl");
@@ -813,7 +834,7 @@ public class APIConnector {
      * @throws Exception             if a network error occurs
      */
     public void setFeatureMask(long featureMask, IdentityStore identityStore) throws Exception {
-        String url = getServerUrl() + "identity/set_featuremask";
+        String url = getServerUrl("identity/set_featuremask");
 
         // Phase 1: send identity
         JSONObject request = new JSONObject();
@@ -831,8 +852,8 @@ public class APIConnector {
         JSONObject p2Result = new JSONObject(this.postJson(url, request));
         logger.debug("Set feature mask  phase 2: response from server: {}", p2Result);
 
-        if (!p2Result.getBoolean("success")) {
-            throw new ThreemaException(p2Result.getString("error"));
+        if (!p2Result.getBoolean(JSON_KEY_SUCCESS)) {
+            throw new ThreemaException(p2Result.getString(JSON_KEY_ERROR));
         }
     }
 
@@ -844,7 +865,7 @@ public class APIConnector {
      * @throws Exception on network error
      */
     public Long[] checkFeatureMask(String[] identities) throws Exception {
-        String url = getServerUrl() + "identity/check_featuremask";
+        String url = getServerUrl("identity/check_featuremask");
 
         JSONObject request = new JSONObject();
 
@@ -874,7 +895,7 @@ public class APIConnector {
      * Check the revocation key
      */
     public CheckRevocationKeyResult checkRevocationKey(IdentityStore identityStore) throws Exception {
-        String url = getServerUrl() + "identity/check_revocation_key";
+        String url = getServerUrl("identity/check_revocation_key");
 
         JSONObject request = new JSONObject();
         request.put("identity", identityStore.getIdentityString());
@@ -911,7 +932,7 @@ public class APIConnector {
         byte[] sha256 = sha256(revocationKey);
 
         String base64KeyPart = Base64.encode(Arrays.copyOfRange(sha256, 0, 4));
-        String url = getServerUrl() + "identity/set_revocation_key";
+        String url = getServerUrl("identity/set_revocation_key");
 
         JSONObject request = new JSONObject();
         request.put("identity", identityStore.getIdentityString());
@@ -929,10 +950,10 @@ public class APIConnector {
         JSONObject result = new JSONObject(this.postJson(url, request));
         logger.debug("setRevocationKey phase 2: response from server: {}", result);
 
-        if (result.getBoolean("success")) {
+        if (result.getBoolean(JSON_KEY_SUCCESS)) {
             return new SetRevocationKeyResult(true, null);
         } else {
-            return new SetRevocationKeyResult(true, result.getString("error"));
+            return new SetRevocationKeyResult(true, result.getString(JSON_KEY_ERROR));
         }
     }
 
@@ -941,7 +962,7 @@ public class APIConnector {
      * contains a list of status codes, one for each ID in the same order as in the request.
      */
     public CheckIdentityStatesResult checkIdentityStates(String[] identities) throws Exception {
-        String url = getServerUrl() + "identity/check";
+        String url = getServerUrl("identity/check");
 
         JSONObject request = new JSONObject();
 
@@ -999,7 +1020,7 @@ public class APIConnector {
             return null;
         }
 
-        String url = getServerUrl() + "identity/turn_cred";
+        String url = getServerUrl("identity/turn_cred");
 
         // Phase 1: send identity and type
         JSONObject request = new JSONObject();
@@ -1017,8 +1038,8 @@ public class APIConnector {
         JSONObject p2Result = new JSONObject(this.postJson(url, request));
         logger.debug("Obtain TURN servers phase 2: response from server: {}", p2Result);
 
-        if (!p2Result.getBoolean("success")) {
-            throw new ThreemaException(p2Result.getString("error"));
+        if (!p2Result.getBoolean(JSON_KEY_SUCCESS)) {
+            throw new ThreemaException(p2Result.getString(JSON_KEY_ERROR));
         }
 
         String[] turnUrls = jsonArrayToStringArray(p2Result.getJSONArray("turnUrls"));
@@ -1034,20 +1055,23 @@ public class APIConnector {
     }
 
     /**
-     * Report a junk message received by the user.
+     * Report a spam message received by the user.
      *
      * @param identityStore  The identity store to use for authentication
-     * @param senderIdentity Identity of sender of junk message
+     * @param senderIdentity Identity of sender of spam message
      * @param senderNickname Nickname of sender, if known
-     * @throws Exception If junk report could not be sent
+     * @throws Exception If the spam report could not be sent
      */
-    public void reportJunk(IdentityStore identityStore, @NonNull String senderIdentity,
-                           @Nullable String senderNickname) throws Exception {
+    public void reportSpamContact(
+        IdentityStore identityStore,
+        @NonNull String senderIdentity,
+        @Nullable String senderNickname
+    ) throws Exception {
         if (identityStore == null || identityStore.getIdentityString() == null || identityStore.getIdentityString().isEmpty()) {
             return;
         }
 
-        String url = getServerUrl() + "identity/report_junk";
+        String url = getServerUrl("identity/report_junk");
 
         // Phase 1: send identity and type
         JSONObject request = new JSONObject();
@@ -1057,23 +1081,74 @@ public class APIConnector {
             request.put("senderNickname", senderNickname);
         }
 
-        logger.debug("Report junk phase 1: sending to server: {}", request);
+        logger.debug("Report spam phase 1: sending to server: {}", request);
         JSONObject p1Result = new JSONObject(this.postJson(url, request));
-        logger.debug("Report junk phase 1: response from server: {}", p1Result);
+        logger.debug("Report spam phase 1: response from server: {}", p1Result);
 
         makeTokenResponse(p1Result, request, identityStore);
 
         // Phase 2: send token response
-        logger.debug("Report junk phase 2: sending to server: {}", request);
+        logger.debug("Report spam phase 2: sending to server: {}", request);
         JSONObject p2Result = new JSONObject(this.postJson(url, request));
-        logger.debug("Report junk phase 2: response from server: {}", p2Result);
+        logger.debug("Report spam phase 2: response from server: {}", p2Result);
 
-        if (!p2Result.getBoolean("success")) {
-            throw new ThreemaException(p2Result.getString("error"));
+        if (!p2Result.getBoolean(JSON_KEY_SUCCESS)) {
+            throw new ThreemaException(p2Result.getString(JSON_KEY_ERROR));
         }
     }
 
-    private String[] jsonArrayToStringArray(JSONArray jsonArray) throws JSONException {
+    /**
+     * Report a spam group.
+     *
+     * @param groupMemberCount A count of all group members including the group creator and the user (if still a member).
+     * @throws Exception On any network error or unsuccessful response from the API
+     */
+    public void reportSpamGroup(
+        @NonNull IdentityStore identityStore,
+        @NonNull GroupId groupId,
+        @NonNull String groupCreatorIdentity,
+        @Nullable String groupCreatorNickname,
+        int groupMemberCount
+    ) throws Exception {
+        final @Nullable String userIdentity = identityStore.getIdentityString();
+        if (userIdentity == null) {
+            throw new IllegalStateException("Missing user identity");
+        }
+
+        final String url = getServerUrl("identity/report_group");
+
+        // Turn an empty or a blank nickname to null
+        final @Nullable String effectiveGroupCreatorNickname =
+            (groupCreatorNickname != null && groupCreatorNickname.isBlank())
+                ? null
+                : groupCreatorNickname;
+
+        // Phase 1
+        final JSONObject requestBody = new JSONObject();
+        requestBody.put(JSON_KEY_REPORTER_IDENTITY, userIdentity);
+        requestBody.put(JSON_KEY_GROUP_ID, groupId.toUnsignedNumberString());
+        requestBody.put(JSON_KEY_GROUP_CREATOR_IDENTITY, groupCreatorIdentity);
+        requestBody.put(
+            JSON_KEY_GROUP_CREATOR_NICKNAME,
+            effectiveGroupCreatorNickname != null ? effectiveGroupCreatorNickname : NULL
+        );
+        requestBody.put(JSON_KEY_GROUP_MEMBER_COUNT, groupMemberCount);
+        requestBody.put(JSON_KEY_GROUP_NAME, NULL);
+        logger.debug("Report spam group phase 1: sending to server: {}", requestBody);
+        final JSONObject p1Result = new JSONObject(postJson(url, requestBody));
+        logger.debug("Report spam group phase 1: response from server: {}", p1Result);
+
+        // Updates requestBody json
+        makeTokenResponse(p1Result, requestBody, identityStore);
+
+        // Phase 2: send token response
+        logger.debug("Report spam group phase 2: sending to server: {}", requestBody);
+        final @NonNull String p2Result = postJson(url, requestBody);
+        logger.debug("Report spam group phase 2: response from server: {}", p2Result);
+    }
+
+    @NonNull
+    private String[] jsonArrayToStringArray(@NonNull JSONArray jsonArray) throws JSONException {
         String[] stringArray = new String[jsonArray.length()];
         for (int i = 0; i < jsonArray.length(); i++) {
             stringArray[i] = jsonArray.getString(i);
@@ -1126,7 +1201,7 @@ public class APIConnector {
      * @throws Exception on network error
      */
     private CheckLicenseResult checkLicense(JSONObject request, String deviceId) throws Exception {
-        String url = getServerUrl() + "check_license";
+        String url = getServerUrl("check_license");
         request.put("deviceId", deviceId);
         request.put("version", version.getFullVersionString());
         request.put("arch", version.getArchitecture());
@@ -1134,7 +1209,7 @@ public class APIConnector {
         JSONObject result = new JSONObject(this.postJson(url, request));
 
         CheckLicenseResult checkLicenseResult = new CheckLicenseResult();
-        if (result.getBoolean("success")) {
+        if (result.getBoolean(JSON_KEY_SUCCESS)) {
             checkLicenseResult.success = true;
 
             if (result.has("updateMessage")) {
@@ -1147,7 +1222,7 @@ public class APIConnector {
 
         } else {
             checkLicenseResult.success = false;
-            checkLicenseResult.error = result.getString("error");
+            checkLicenseResult.error = result.getString(JSON_KEY_ERROR);
         }
         return checkLicenseResult;
     }
@@ -1197,7 +1272,7 @@ public class APIConnector {
             jsonResponse.getInt("checkInterval") : 0);
 
         // Current UNIX-ish timestamp in milliseconds of the server.
-        final @Nullable Long timeRaw = jsonResponse.has(JSON_FIELD_TIME) ? jsonResponse.getLong(JSON_FIELD_TIME) : null;
+        final @Nullable Long timeRaw = jsonResponse.has(JSON_KEY_TIME) ? jsonResponse.getLong(JSON_KEY_TIME) : null;
         final @Nullable Instant time = timeRaw != null ? Instant.ofEpochMilli(timeRaw) : null;
         List<WorkContact> workContacts = new ArrayList<>();
         if (jsonResponse.has("contacts")) {
@@ -1214,9 +1289,9 @@ public class APIConnector {
                             Base64.decode(contact.getString("pk")),
                             contact.has("first") ? contact.getString("first") : null,
                             contact.has("last") ? contact.getString("last") : null,
-                            contact.has(JSON_FIELD_JOB_TITLE) ? contact.getString(JSON_FIELD_JOB_TITLE) : null,
-                            contact.has(JSON_FIELD_DEPARTMENT) ? contact.getString(JSON_FIELD_DEPARTMENT) : null,
-                            contact.has(JSON_FIELD_AVAILABILITY) ? contact.getString(JSON_FIELD_AVAILABILITY) : null,
+                            contact.has(JSON_KEY_JOB_TITLE) ? contact.getString(JSON_KEY_JOB_TITLE) : null,
+                            contact.has(JSON_KEY_DEPARTMENT) ? contact.getString(JSON_KEY_DEPARTMENT) : null,
+                            contact.has(JSON_KEY_AVAILABILITY) ? contact.getString(JSON_KEY_AVAILABILITY) : null,
                             time
                         )
                     );
@@ -1322,7 +1397,7 @@ public class APIConnector {
         JSONObject jsonResponse = new JSONObject(data);
 
         // Current UNIX-ish timestamp in milliseconds of the server.
-        final @Nullable Long timeRaw = jsonResponse.has(JSON_FIELD_TIME) ? jsonResponse.getLong(JSON_FIELD_TIME) : null;
+        final @Nullable Long timeRaw = jsonResponse.has(JSON_KEY_TIME) ? jsonResponse.getLong(JSON_KEY_TIME) : null;
         final @Nullable Instant time = timeRaw != null ? Instant.ofEpochMilli(timeRaw) : null;
 
         if (jsonResponse.has("contacts")) {
@@ -1339,9 +1414,9 @@ public class APIConnector {
                             Base64.decode(contact.getString("pk")),
                             contact.isNull("first") ? null : contact.getString("first"),
                             contact.isNull("last") ? null : contact.getString("last"),
-                            contact.isNull(JSON_FIELD_JOB_TITLE) ? null : contact.getString(JSON_FIELD_JOB_TITLE),
-                            contact.isNull(JSON_FIELD_DEPARTMENT) ? null : contact.getString(JSON_FIELD_DEPARTMENT),
-                            contact.isNull(JSON_FIELD_AVAILABILITY) ? null : contact.getString(JSON_FIELD_AVAILABILITY),
+                            contact.isNull(JSON_KEY_JOB_TITLE) ? null : contact.getString(JSON_KEY_JOB_TITLE),
+                            contact.isNull(JSON_KEY_DEPARTMENT) ? null : contact.getString(JSON_KEY_DEPARTMENT),
+                            contact.isNull(JSON_KEY_AVAILABILITY) ? null : contact.getString(JSON_KEY_AVAILABILITY),
                             time
                         )
                     );
@@ -1439,7 +1514,7 @@ public class APIConnector {
             );
 
             // Current UNIX-ish timestamp in milliseconds of the server.
-            final @Nullable Long workLastFullSyncAtRaw = jsonResponse.has(JSON_FIELD_TIME) ? jsonResponse.getLong(JSON_FIELD_TIME) : null;
+            final @Nullable Long workLastFullSyncAtRaw = jsonResponse.has(JSON_KEY_TIME) ? jsonResponse.getLong(JSON_KEY_TIME) : null;
             final @Nullable Instant workLastFullSyncAt = workLastFullSyncAtRaw != null ? Instant.ofEpochMilli(workLastFullSyncAtRaw) : null;
 
             for (int n = 0; n < contacts.length(); n++) {
@@ -1456,15 +1531,15 @@ public class APIConnector {
                         contact.has("last")
                             ? (contact.isNull("last") ? null : contact.optString("last"))
                             : null,
-                        contact.has(JSON_FIELD_JOB_TITLE)
-                            ? (contact.isNull(JSON_FIELD_JOB_TITLE) ? null : contact.optString(JSON_FIELD_JOB_TITLE))
+                        contact.has(JSON_KEY_JOB_TITLE)
+                            ? (contact.isNull(JSON_KEY_JOB_TITLE) ? null : contact.optString(JSON_KEY_JOB_TITLE))
                             : null,
-                        contact.has(JSON_FIELD_DEPARTMENT)
-                            ? (contact.isNull(JSON_FIELD_DEPARTMENT) ? null : contact.optString(JSON_FIELD_DEPARTMENT))
+                        contact.has(JSON_KEY_DEPARTMENT)
+                            ? (contact.isNull(JSON_KEY_DEPARTMENT) ? null : contact.optString(JSON_KEY_DEPARTMENT))
                             : null,
-                        contact.isNull(JSON_FIELD_AVAILABILITY)
+                        contact.isNull(JSON_KEY_AVAILABILITY)
                             ? null
-                            : contact.getString(JSON_FIELD_AVAILABILITY),
+                            : contact.getString(JSON_KEY_AVAILABILITY),
                         workLastFullSyncAt,
                         contact.has("csi")
                             ? (contact.isNull("csi") ? null : contact.optString("csi"))
@@ -1527,7 +1602,7 @@ public class APIConnector {
         @Nullable String category,
         @Nullable String mdmSource
     ) throws Exception {
-        String url = getServerUrl() + "identity/update_work_info";
+        String url = getServerUrl("identity/update_work_info");
         JSONObject request = new JSONObject();
         request.put("licenseUsername", username);
         request.put("licensePassword", password);
@@ -1547,8 +1622,8 @@ public class APIConnector {
             request.put("category", category);
         }
 
-        request.put(JSON_FIELD_JOB_TITLE, jobTitle != null ? jobTitle : JSONObject.NULL);
-        request.put(JSON_FIELD_DEPARTMENT, department != null ? department : JSONObject.NULL);
+        request.put(JSON_KEY_JOB_TITLE, jobTitle != null ? jobTitle : NULL);
+        request.put(JSON_KEY_DEPARTMENT, department != null ? department : NULL);
 
         logger.debug("Update work info phase 1: sending to server: {}", request);
         JSONObject p1Result = new JSONObject(this.postJson(url, request));
@@ -1561,8 +1636,8 @@ public class APIConnector {
         JSONObject p2Result = new JSONObject(this.postJson(url, request));
         logger.debug("Update work info phase 2: response from server: {}", p2Result);
 
-        if (!p2Result.getBoolean("success")) {
-            throw new UpdateWorkInfoException(p2Result.getString("error"));
+        if (!p2Result.getBoolean(JSON_KEY_SUCCESS)) {
+            throw new UpdateWorkInfoException(p2Result.getString(JSON_KEY_ERROR));
         }
 
         return true;
@@ -1589,10 +1664,10 @@ public class APIConnector {
     }
 
     @NonNull
-    private String doGet(@NonNull String urlString) throws IOException, HttpConnectionException {
+    private String doGet(@NonNull String urlString) throws IOException {
         HttpRequesterResult httpRequesterResult = httpRequester.get(urlString);
         if (httpRequesterResult instanceof HttpRequesterResult.Error) {
-            throw new HttpConnectionException(((HttpRequesterResult.Error) httpRequesterResult).responseCode, new IOException());
+            throw new IOException("HTTP GET failed. Server response code: " + ((HttpRequesterResult.Error) httpRequesterResult).responseCode);
         }
         return ((HttpRequesterResult.Success) httpRequesterResult).responseBody;
     }
@@ -1606,6 +1681,7 @@ public class APIConnector {
      * @param urlStr The target URL
      * @param body   The request body
      * @return The response body, UTF-8 decoded
+     * @throws IOException If the response code is not in 200..299
      */
     @NonNull
     protected String postJson(@NonNull String urlStr, @NonNull JSONObject body) throws IOException {
@@ -1621,14 +1697,14 @@ public class APIConnector {
      * object.
      *
      * @param p1Result      Phase 1 response.
-     * @param request       Phase 1 request. This request will be updated with the signed token.
+     * @param requestBody   Phase 1 request body. This request body will be updated with the signed token.
      * @param identityStore Identity store used to sign the token.
      * @throws JSONException    if a required field cannot be retrieved from the `p1Result`
      * @throws ThreemaException if the token is invalid or if signing fails
      */
     private void makeTokenResponse(
         @NonNull JSONObject p1Result,
-        @NonNull JSONObject request,
+        @NonNull JSONObject requestBody,
         @NonNull IdentityStore identityStore
     ) throws JSONException, ThreemaException {
         try {
@@ -1640,56 +1716,26 @@ public class APIConnector {
             if (sharedSecret == null) {
                 throw new ThreemaException("Could not calculate shared secret");
             }
-            byte[] response = calcTokenResponse(sharedSecret, token);
+            byte[] response;
+            try {
+                response = challengeResponseHelper.calculateResponse(sharedSecret, token);
+            } catch (IllegalArgumentException e) {
+                throw new ThreemaException("Failed to calculate challenge response for token", e);
+            }
 
-            request.put("token", Base64.encode(token));
-            request.put("response", Base64.encode(response));
+            requestBody.put("token", Base64.encode(token));
+            requestBody.put("response", Base64.encode(response));
         } catch (IllegalArgumentException e) {
             throw new ThreemaException("Invalid Base64", e);
         }
     }
 
-    public @Nullable APIConnector.FetchIdentityResult getFetchResultByIdentity(
-        List<APIConnector.FetchIdentityResult> results,
-        String identity
-    ) {
-        if (identity != null) {
-            for (APIConnector.FetchIdentityResult result : results) {
-                if (identity.equals(result.identity)) {
-                    return result;
-                }
-            }
-        }
-        return null;
-    }
-
-    private String getServerUrl() throws ThreemaException {
-        return serverAddressProvider.getDirectoryServerUrl();
+    private String getServerUrl(@NonNull String path) throws ThreemaException {
+        return serverAddressProvider.getDirectoryServerUrl(path);
     }
 
     private String getWorkServerUrlLegacy() throws ThreemaException {
         return serverAddressProvider.getWorkServerUrlLegacy();
-    }
-
-    @NonNull
-    private byte[] calcTokenResponse(byte[] sharedSecret, byte[] token) throws ThreemaException {
-        try {
-            byte[] responseKey = LibthreemaKt.blake2bMac256(
-                sharedSecret,
-                "3ma-csp".getBytes(StandardCharsets.UTF_8),
-                "dir".getBytes(StandardCharsets.UTF_8),
-                new byte[0]
-            );
-            return LibthreemaKt.blake2bMac256(
-                responseKey,
-                new byte[0],
-                new byte[0],
-                token
-            );
-        } catch (CryptoException cryptoException) {
-            logger.error("Failed to compute blake2b hash", cryptoException);
-            throw new ThreemaException("Failed to compute blake2b hash", cryptoException);
-        }
     }
 
     public static class FetchIdentityResult {
@@ -1786,29 +1832,5 @@ public class APIConnector {
             this.turnPassword = turnPassword;
             this.expirationDate = expirationDate;
         }
-    }
-
-    public static class NetworkException extends Exception {
-        public NetworkException(Throwable cause) {
-            super(cause);
-        }
-
-        public NetworkException(@Nullable String msg) {
-            super(msg);
-        }
-    }
-
-    public static class HttpConnectionException extends Exception {
-        private final int errorCode;
-
-        public HttpConnectionException(int errorCode, Exception exception) {
-            super(exception);
-            this.errorCode = errorCode;
-        }
-
-        public int getErrorCode() {
-            return errorCode;
-        }
-
     }
 }

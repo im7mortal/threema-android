@@ -9,6 +9,7 @@ import androidx.work.WorkerParameters
 import ch.threema.android.buildOneTimeWorkRequest
 import ch.threema.android.buildPeriodicWorkRequest
 import ch.threema.android.setInputData
+import ch.threema.app.GlobalAppState
 import ch.threema.app.workers.WorkerNames.WORKER_TEMP_FILES_CLEANUP
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.TimeProvider
@@ -16,6 +17,7 @@ import ch.threema.common.deleteOrThrow
 import ch.threema.common.isEmptyDirectory
 import ch.threema.common.lastModifiedTime
 import ch.threema.common.minus
+import ch.threema.data.IdentityProvider
 import java.io.File
 import java.io.IOException
 import java.time.Instant
@@ -32,10 +34,18 @@ class TempFilesCleanupWorker(
     workerParameters: WorkerParameters,
 ) : CoroutineWorker(context, workerParameters), KoinComponent {
 
+    private val identityProvider: IdentityProvider by inject()
+    private val globalAppState: GlobalAppState by inject()
     private val timeProvider: TimeProvider by inject()
     private val appDirectoryProvider: AppDirectoryProvider by inject()
 
     override suspend fun doWork(): Result {
+        if (globalAppState.specialMode != null || !identityProvider.hasIdentity()) {
+            // Skip cleanup if we are in a special mode or if no identity has been set up yet,
+            // as we might otherwise interfere with important processes, e.g. with a data backup or restore
+            return Result.success()
+        }
+
         val ageThreshold = getAgeThreshold()
         logger.debug("Deleting temp files older than {}", ageThreshold)
         val timeThreshold = timeProvider.get() - ageThreshold

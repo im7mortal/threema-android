@@ -16,18 +16,19 @@ import ch.threema.data.datatypes.ContactNameFormat;
 import ch.threema.app.services.MessageService;
 import ch.threema.base.ThreemaException;
 import ch.threema.base.crypto.SymmetricEncryptionResult;
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.data.datatypes.ConversationId;
 import ch.threema.data.datatypes.NotificationTriggerPolicyOverride;
 import ch.threema.domain.models.MessageId;
 import ch.threema.domain.protocol.csp.messages.poll.PollData;
 import ch.threema.domain.protocol.csp.messages.poll.PollVote;
 import ch.threema.domain.taskmanager.TriggerSource;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.MessageType;
 import ch.threema.storage.models.poll.PollModel;
 import ch.threema.storage.models.data.MessageContentsType;
 
-public interface MessageReceiver<M extends AbstractMessageModel> {
+public interface MessageReceiver<M extends MessageModel> {
     int Type_CONTACT = 0;
     int Type_GROUP = 1;
     int Type_DISTRIBUTION_LIST = 2;
@@ -56,6 +57,12 @@ public interface MessageReceiver<M extends AbstractMessageModel> {
         return null;
     }
 
+
+    /**
+     * Get the conversation category of the corresponding conversation.
+     */
+    ConversationCategory getConversationCategory();
+
     /**
      * create a local (unsaved) db model for the given message type
      */
@@ -67,14 +74,6 @@ public interface MessageReceiver<M extends AbstractMessageModel> {
     default M createLocalModel(MessageType type, @MessageContentsType int contentsType, Instant postedAt) {
         return createLocalModel(null, type, contentsType, postedAt);
     }
-
-    /**
-     * create a db model for the given message type and save it
-     *
-     * @deprecated use createAndSaveStatusDataModel instead.
-     */
-    @Deprecated
-    AbstractMessageModel createAndSaveStatusModel(String statusBody, Instant postedAt);
 
     /**
      * save a message model to the database
@@ -112,7 +111,7 @@ public interface MessageReceiver<M extends AbstractMessageModel> {
     void createAndSendPollSetupMessage(
         @NonNull final PollData pollData,
         @NonNull final PollModel pollModel,
-        @NonNull M abstractMessageModel,
+        @NonNull M messageModel,
         @Nullable Collection<String> recipientIdentities,
         @NonNull TriggerSource triggerSource
     ) throws ThreemaException;
@@ -185,7 +184,7 @@ public interface MessageReceiver<M extends AbstractMessageModel> {
     /**
      * check, if the message model belongs to this receiver
      */
-    boolean isMessageBelongsToMe(AbstractMessageModel message);
+    boolean isMessageBelongsToMe(MessageModel message);
 
     /**
      * check if media should really be sent to this receiver

@@ -29,6 +29,7 @@ import androidx.fragment.app.FragmentStatePagerAdapter;
 import androidx.viewpager.widget.ViewPager;
 import ch.threema.app.ExecutorServices;
 import ch.threema.app.R;
+import ch.threema.app.activities.BackPressHandler;
 import ch.threema.app.activities.ThreemaActivity;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.exceptions.NotAllowedException;
@@ -51,7 +52,7 @@ import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
-public class PollWizardActivity extends ThreemaActivity {
+public class PollWizardActivity extends ThreemaActivity implements BackPressHandler {
     private static final Logger logger = getThreemaLogger("PollWizardActivity");
 
     private static final int NUM_PAGES = 2;
@@ -231,12 +232,7 @@ public class PollWizardActivity extends ThreemaActivity {
     }
 
     @Override
-    protected boolean enableOnBackPressedCallback() {
-        return true;
-    }
-
-    @Override
-    protected void handleOnBackPressed() {
+    public void handleOnBackPressed() {
         int currentItem = pager.getCurrentItem();
         if (currentItem == 0) {
             finish();
@@ -369,7 +365,6 @@ public class PollWizardActivity extends ThreemaActivity {
                 for (PollChoiceModel pollChoiceModel : dependencies.getPollService().getChoices(pollModel.getId())) {
                     PollChoiceModel choiceModel = new PollChoiceModel();
                     choiceModel.setName(pollChoiceModel.getName());
-                    choiceModel.setType(pollChoiceModel.getType());
                     choiceModel.setApiPollChoiceId(pollChoiceModel.getApiPollChoiceId());
                     this.pollChoiceModelList.add(choiceModel);
                 }

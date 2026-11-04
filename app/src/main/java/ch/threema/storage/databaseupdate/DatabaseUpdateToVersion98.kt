@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * add incoming group sync request log table
+ */
 class DatabaseUpdateToVersion98(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -18,8 +21,6 @@ class DatabaseUpdateToVersion98(
             """,
         )
     }
-
-    override fun getDescription() = "add incoming group sync request log table"
 
     override val version = 98
 }

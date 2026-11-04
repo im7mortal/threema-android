@@ -1,6 +1,8 @@
 package ch.threema.localcrypto
 
+import android.content.Context
 import androidx.core.util.AtomicFile
+import ch.threema.app.files.deleteSecurely
 import ch.threema.common.toCryptographicByteArray
 import ch.threema.common.xor
 import ch.threema.localcrypto.models.MasterKeyData
@@ -27,6 +29,7 @@ import java.io.IOException
  * </ul>
  */
 class Version1MasterKeyFileManager(
+    private val appContext: Context,
     private val keyFile: File,
 ) {
     fun keyFileExists() = keyFile.exists()
@@ -68,9 +71,7 @@ class Version1MasterKeyFileManager(
     }
 
     fun deleteFile() {
-        if (keyFile.exists() && !keyFile.delete()) {
-            error("Failed to delete version 1 master key file")
-        }
+        keyFile.deleteSecurely(appContext)
     }
 
     companion object {

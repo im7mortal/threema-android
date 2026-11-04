@@ -2,14 +2,13 @@ package ch.threema.app.fragments
 
 import android.annotation.SuppressLint
 import androidx.lifecycle.lifecycleScope
+import ch.threema.app.BuildFlavor
 import ch.threema.app.R
 import ch.threema.app.ThreemaApplication
 import ch.threema.app.adapters.UserListAdapter
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.BlockedIdentitiesService
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.ConversationCategoryService
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.common.DispatcherProvider
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.protocol.ThreemaFeature
@@ -24,7 +23,6 @@ import org.koin.android.ext.android.inject
 class UserMemberListFragment : MemberListFragment() {
 
     private val contactService: ContactService by inject()
-    private val conversationCategoryService: ConversationCategoryService by inject()
     private val blockedIdentitiesService: BlockedIdentitiesService by inject()
     private val preferenceService: PreferenceService by inject()
     private val dispatcherProvider: DispatcherProvider by inject()
@@ -69,7 +67,7 @@ class UserMemberListFragment : MemberListFragment() {
                     contactService.getAllDisplayed(ContactService.ContactSelection.EXCLUDE_INVALID)
                 }
 
-                if (ConfigUtils.isWorkBuild()) {
+                if (BuildFlavor.IS_WORK) {
                     contactModels = contactModels.filterNot { contactModel ->
                         contactModel.isWorkVerified
                     }
@@ -90,7 +88,6 @@ class UserMemberListFragment : MemberListFragment() {
                 checkedItemPositions,
                 contactService,
                 blockedIdentitiesService,
-                conversationCategoryService,
                 preferenceService,
                 this@UserMemberListFragment,
                 Glide.with(ThreemaApplication.getAppContext()),

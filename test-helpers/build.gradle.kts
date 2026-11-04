@@ -15,6 +15,7 @@ dependencies {
     api(libs.turbine)
     api(platform(libs.okhttp3.bom))
     api(libs.okhttp3)
+    api(libs.okhttp3.mockWebServer)
 }
 
 java {

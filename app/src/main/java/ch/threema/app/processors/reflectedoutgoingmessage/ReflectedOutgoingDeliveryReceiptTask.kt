@@ -9,7 +9,7 @@ import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.domain.protocol.csp.messages.DeliveryReceiptMessage
 import ch.threema.protobuf.common.CspE2eMessageType
 import ch.threema.protobuf.d2d.OutgoingMessage
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageState
 import java.time.Instant
 import org.koin.core.component.KoinComponent
@@ -58,12 +58,12 @@ internal class ReflectedOutgoingDeliveryReceiptTask(
             updateMessage(messageModel, state)
 
             if (state == MessageState.READ) {
-                notificationService.cancel(ContactConversationId(identity))
+                notificationService.cancelAllConversationNotifications(ContactConversationId(identity))
             }
         }
     }
 
-    private fun updateMessage(messageModel: AbstractMessageModel, state: MessageState) {
+    private fun updateMessage(messageModel: MessageModel, state: MessageState) {
         if (MessageUtil.isReaction(state)) {
             messageService.addMessageReaction(
                 messageModel,

@@ -1,11 +1,13 @@
 package ch.threema.app.errorreporting
 
 import android.content.Context
+import android.webkit.MimeTypeMap
 import androidx.annotation.VisibleForTesting
 import androidx.annotation.WorkerThread
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.TimeProvider
 import ch.threema.common.UUIDGenerator
+import ch.threema.common.takeUnlessEmpty
 import java.io.File
 import java.util.UUID
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -32,16 +34,28 @@ constructor(
     }
 
     @WorkerThread
-    override fun storeHandledError(message: String, parameters: List<String>, e: Throwable?) {
+    override fun storeHandledError(
+        message: String,
+        parameters: List<String>,
+        e: Throwable?,
+        attachments: List<File>?,
+    ) {
         storeError(
             level = ErrorRecordLevel.ERROR,
             message = message,
             parameters = parameters,
             e = e,
+            attachments = attachments,
         )
     }
 
-    private fun storeError(level: ErrorRecordLevel, message: String? = null, parameters: List<String>? = null, e: Throwable?) {
+    private fun storeError(
+        level: ErrorRecordLevel,
+        message: String? = null,
+        parameters: List<String>? = null,
+        e: Throwable? = null,
+        attachments: List<File>? = null,
+    ) {
         val id = uuidGenerator.generate()
         val errorRecord = ErrorRecord(
             id = id,
@@ -58,6 +72,14 @@ constructor(
                 ErrorRecordMessage(
                     message = message.replace("{}", "%s"),
                     parameters = parameters,
+                )
+            },
+            attachments = attachments?.map { attachmentFile ->
+                ErrorRecordAttachment(
+                    file = attachmentFile,
+                    mimeType = attachmentFile.extension.takeUnlessEmpty()?.let { fileExtension ->
+                        MimeTypeMap.getSingleton().getMimeTypeFromExtension(fileExtension)
+                    },
                 )
             },
             createdAt = timeProvider.get(),

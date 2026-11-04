@@ -13,4 +13,5 @@ object WorkerNames {
     const val WORKER_DEBUG_LOG_CLEANUP = "DebugLogCleanup"
     const val WORKER_SEND_ERROR_REPORT = "SendErrorReport"
     const val WORKER_TEMP_FILES_CLEANUP = "TempFilesCleanup"
+    const val WORKER_APP_RESTART = "AppRestart"
 }

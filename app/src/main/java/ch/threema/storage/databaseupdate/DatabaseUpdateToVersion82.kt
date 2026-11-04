@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * Add profile picture blob ID
+ */
 internal class DatabaseUpdateToVersion82(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -9,8 +12,6 @@ internal class DatabaseUpdateToVersion82(
         sqLiteDatabase.rawExecSQL("ALTER TABLE `contacts` ADD COLUMN `profilePicBlobID` BLOB DEFAULT NULL")
         sqLiteDatabase.rawExecSQL("ALTER TABLE `contacts` DROP COLUMN `profilePicSent`")
     }
-
-    override fun getDescription() = "Profile Picture Blob ID"
 
     override val version = 82
 }

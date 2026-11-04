@@ -49,6 +49,4 @@ class SystemUpdateToVersion121 : SystemUpdate {
     }
 
     override val version = 121
-
-    override fun getDescription() = "remove empty encrypted preferences"
 }

@@ -26,7 +26,7 @@ class LockAppServiceImpl(
         get() = lockedState.value == LockAppService.LockState.LOCKED
 
     override val isLockingEnabled: Boolean
-        get() = preferencesService.isAppLockEnabled() && identityProvider.getIdentity() != null
+        get() = preferencesService.isAppLockEnabled() && identityProvider.hasIdentity()
 
     override fun watchLockState(): StateFlow<LockAppService.LockState> =
         lockedState

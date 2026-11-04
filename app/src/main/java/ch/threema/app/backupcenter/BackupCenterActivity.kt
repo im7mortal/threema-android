@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
@@ -35,16 +37,17 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewWrapper
 import androidx.compose.ui.unit.dp
+import ch.threema.android.ToastDuration
 import ch.threema.android.buildActivityIntent
 import ch.threema.android.showToast
 import ch.threema.app.BuildConfig
 import ch.threema.app.R
-import ch.threema.app.activities.BackupAdminActivity
 import ch.threema.app.activities.ThreemaComposeActivity
 import ch.threema.app.compose.common.ScreenContentContainer
 import ch.threema.app.compose.common.appbars.AppBar
 import ch.threema.app.compose.common.appbars.NavigationIcon
 import ch.threema.app.compose.common.banner.InfoBanner
+import ch.threema.app.compose.common.dialogs.ProgressDialog
 import ch.threema.app.compose.common.loading.FullScreenLoadingIndicator
 import ch.threema.app.compose.common.settings.SettingsButton
 import ch.threema.app.compose.common.settings.ThemedSwitch
@@ -56,15 +59,26 @@ import ch.threema.app.compose.preview.PreviewData.INSTANT_1
 import ch.threema.app.compose.preview.PreviewThreemaAll
 import ch.threema.app.compose.theme.ThreemaPreviewWrapper
 import ch.threema.app.compose.theme.ThreemaTheme
+import ch.threema.app.compose.theme.color.BrandGreyColors
 import ch.threema.app.compose.theme.dimens.GridUnit
+import ch.threema.app.framework.EventHandler
 import ch.threema.app.framework.WithViewState
 import ch.threema.app.restrictions.AppRestrictions
+import ch.threema.app.threemasafe.ThreemaSafeActivity
+import ch.threema.app.threemasafe.ThreemaSafeConfigureActivity
+import ch.threema.app.utils.logScreenVisibility
+import ch.threema.base.utils.getThreemaLogger
 import java.time.Instant
 import java.time.format.FormatStyle
 import org.koin.android.ext.android.inject
 import org.koin.androidx.compose.koinViewModel
 
+private val logger = getThreemaLogger("BackupCenterActivity")
+
 class BackupCenterActivity : ThreemaComposeActivity() {
+    init {
+        logScreenVisibility(logger)
+    }
 
     private val appRestrictions: AppRestrictions by inject()
 
@@ -79,29 +93,42 @@ class BackupCenterActivity : ThreemaComposeActivity() {
 
         setContent {
             val viewModel = koinViewModel<BackupCenterViewModel>()
+            EventHandler(viewModel, ::handleViewModelEvent)
             ThreemaTheme {
                 BackupCenterScreen(
                     viewModel,
                     onClickBack = {
                         finish()
                     },
-                    onClickThreemaSafe = {
-                        startActivity(BackupAdminActivity.createIntent(this, true))
-                    },
-                    onClickDataBackup = {
-                        startActivity(LocalDataBackupActivity.createIntent(this))
-                    },
-                    onClickLearnMoreThreemaSafe = {
-                        // TODO(ANDR-4880): Implement
-                        showNotImplementedToast()
-                    },
+                    onClickThreemaSafe = viewModel::onClickThreemaSafe,
+                    onChangeThreemaSafeEnabled = viewModel::onChangeThreemaSafeEnabled,
+                    onClickDataBackup = viewModel::onClickLocalBackup,
                 )
             }
         }
     }
 
-    private fun showNotImplementedToast() {
-        showToast("Not yet implemented")
+    private fun handleViewModelEvent(event: BackupCenterViewModelEvent) {
+        when (event) {
+            BackupCenterViewModelEvent.ProceedToDataBackup -> {
+                startActivity(LocalDataBackupActivity.createIntent(this))
+            }
+            BackupCenterViewModelEvent.ProceedToBackupCreation -> {
+                startActivity(CreateLocalDataBackupActivity.createIntent(this))
+            }
+            BackupCenterViewModelEvent.GoToThreemaSafeDetails -> {
+                startActivity(ThreemaSafeActivity.createIntent(this))
+            }
+            BackupCenterViewModelEvent.GoToThreemaSafeSettings -> {
+                startActivity(ThreemaSafeConfigureActivity.createConfigIntent(this))
+            }
+            BackupCenterViewModelEvent.ThreemaSafeDisabled -> {
+                showToast(R.string.safe_delete_success, ToastDuration.LONG)
+            }
+            is BackupCenterViewModelEvent.ThreemaSafeDisablingFailed -> {
+                showToast(R.string.an_error_occurred, ToastDuration.LONG)
+            }
+        }
     }
 
     companion object {
@@ -109,38 +136,98 @@ class BackupCenterActivity : ThreemaComposeActivity() {
     }
 }
 
+private enum class BottomSheetType {
+    LearnMoreLocalDataBackup,
+    LearnMoreThreemaSafe,
+}
+
 @Composable
 private fun BackupCenterScreen(
     viewModel: BackupCenterViewModel,
     onClickBack: () -> Unit,
     onClickThreemaSafe: () -> Unit,
+    onChangeThreemaSafeEnabled: (Boolean) -> Unit,
     onClickDataBackup: () -> Unit,
-    onClickLearnMoreThreemaSafe: () -> Unit,
 ) {
-    var localDataBackupBottomSheetVisible by rememberSaveable {
-        mutableStateOf(false)
+    var bottomSheet by rememberSaveable {
+        mutableStateOf<BottomSheetType?>(null)
     }
     WithViewState(viewModel) { state ->
+        if (state?.disablingThreemaSafeInProgress == true) {
+            ProgressDialog(
+                title = stringResource(R.string.safe_deleting),
+                text = stringResource(R.string.please_wait),
+            )
+        } else if (state?.threemaSafeDisableDialogVisible == true) {
+            DisableThreemaSafeDialog(
+                onConfirm = viewModel::onConfirmDisableThreemaSafeDialog,
+                onDismiss = viewModel::onDismissDisableThreemaSafeDialog,
+            )
+        }
+
         BackupCenterScreenContent(
             state = state,
             onClickBack = onClickBack,
             onClickDismissInfoBanner = viewModel::onClickDismissInfoBanner,
             onClickThreemaSafe = onClickThreemaSafe,
+            onChangeThreemaSafeEnabled = onChangeThreemaSafeEnabled,
             onClickDataBackup = onClickDataBackup,
-            onClickLearnMoreThreemaSafe = onClickLearnMoreThreemaSafe,
+            onClickLearnMoreThreemaSafe = {
+                bottomSheet = BottomSheetType.LearnMoreThreemaSafe
+            },
             onClickLearnMoreDataBackup = {
-                localDataBackupBottomSheetVisible = true
+                bottomSheet = BottomSheetType.LearnMoreLocalDataBackup
             },
         )
 
-        if (localDataBackupBottomSheetVisible) {
-            LocalDataBackupInfoBottomSheet(
-                onDismiss = {
-                    localDataBackupBottomSheetVisible = false
-                },
-            )
+        when (bottomSheet) {
+            BottomSheetType.LearnMoreLocalDataBackup -> {
+                LocalDataBackupInfoBottomSheet(
+                    onDismiss = {
+                        bottomSheet = null
+                    },
+                )
+            }
+            BottomSheetType.LearnMoreThreemaSafe -> {
+                ThreemaSafeInfoBottomSheet(
+                    onDismiss = {
+                        bottomSheet = null
+                    },
+                )
+            }
+            null -> Unit
         }
     }
+}
+
+@Composable
+private fun DisableThreemaSafeDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+            ) {
+                Text(text = stringResource(R.string.ok))
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+            ) {
+                Text(text = stringResource(R.string.cancel))
+            }
+        },
+        title = {
+            Text(stringResource(R.string.safe_deactivate))
+        },
+        text = {
+            Text(stringResource(R.string.safe_deactivate_explain))
+        },
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -150,6 +237,7 @@ private fun BackupCenterScreenContent(
     onClickBack: () -> Unit,
     onClickDismissInfoBanner: () -> Unit,
     onClickThreemaSafe: () -> Unit,
+    onChangeThreemaSafeEnabled: (Boolean) -> Unit,
     onClickDataBackup: () -> Unit,
     onClickLearnMoreThreemaSafe: () -> Unit,
     onClickLearnMoreDataBackup: () -> Unit,
@@ -205,7 +293,9 @@ private fun BackupCenterScreenContent(
                 ThreemaSafeButton(
                     modifier = horizontalPaddingModifier,
                     threemaSafeEnabled = state.threemaSafeEnabled,
+                    enabled = !state.disablingThreemaSafeInProgress,
                     onClick = onClickThreemaSafe,
+                    onChange = onChangeThreemaSafeEnabled,
                 )
                 SpacerVertical(GridUnit.x0_5)
                 LearnMoreButton(
@@ -247,7 +337,9 @@ private fun BackupCenterScreenContent(
 private fun ThreemaSafeButton(
     modifier: Modifier,
     threemaSafeEnabled: Boolean,
+    enabled: Boolean,
     onClick: () -> Unit,
+    onChange: (Boolean) -> Unit,
 ) {
     SettingsButton(
         modifier = modifier,
@@ -255,8 +347,9 @@ private fun ThreemaSafeButton(
         summary = stringResource(R.string.threema_safe_summary),
         trailingContent = {
             ThemedSwitch(
+                enabled = enabled,
                 checked = threemaSafeEnabled,
-                onCheckedChange = null,
+                onCheckedChange = onChange,
             )
         },
         onClick = onClick,
@@ -323,7 +416,7 @@ private fun LastBackupTime(
             modifier = modifier,
             text = stringResource(R.string.no_backup_yet),
             style = MaterialTheme.typography.bodyMedium,
-            color = colorResource(R.color.brand_grey_400),
+            color = BrandGreyColors.dynamicGrey400,
         )
     }
 }
@@ -338,6 +431,8 @@ private fun BackupCenterScreenContent_Screen() {
             threemaSafeVisible = true,
             threemaSafeEnabled = true,
             lastBackupTime = INSTANT_1,
+            threemaSafeDisableDialogVisible = false,
+            disablingThreemaSafeInProgress = false,
         ),
         onClickBack = {},
         onClickDismissInfoBanner = {},
@@ -345,5 +440,6 @@ private fun BackupCenterScreenContent_Screen() {
         onClickDataBackup = {},
         onClickLearnMoreThreemaSafe = {},
         onClickLearnMoreDataBackup = {},
+        onChangeThreemaSafeEnabled = {},
     )
 }

@@ -255,7 +255,7 @@ public class ThreemaSafeAdvancedDialog extends ThreemaDialogFragment implements 
 
             @Override
             protected void onPostExecute(@Nullable String failureMessage) {
-                DialogUtil.dismissDialog(getFragmentManager(), DIALOG_TAG_PROGRESS, true);
+                DialogUtil.dismissDialog(getFragmentManager(), DIALOG_TAG_PROGRESS);
 
                 if (failureMessage != null) {
                     if (serverUrlEditText != null) {

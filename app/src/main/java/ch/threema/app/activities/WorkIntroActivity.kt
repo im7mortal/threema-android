@@ -52,7 +52,6 @@ import ch.threema.app.compose.theme.ThreemaTheme
 import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.dimens.GridUnit
 import ch.threema.app.compose.theme.dimens.responsive
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.LinkifyUtil
 import ch.threema.app.utils.compose.currentLocaleOrDefault
 import ch.threema.app.utils.logScreenVisibility
@@ -94,7 +93,7 @@ class WorkIntroActivity : ThreemaActivity() {
         logger.info("Threema Work link clicked")
         val workInfoLink = getString(
             when {
-                ConfigUtils.isOnPremBuild() -> R.string.threema_onprem_url
+                BuildFlavor.IS_ON_PREM -> R.string.threema_onprem_url
                 else -> R.string.threema_work_url
             },
         )
@@ -103,12 +102,14 @@ class WorkIntroActivity : ThreemaActivity() {
 
     private fun onClickedDownload() {
         try {
-            when (BuildFlavor.current.licenseType) {
-                BuildFlavor.LicenseType.HMS_WORK -> openConsumerAppInHuaweiAppGallery()
-                else -> openConsumerAppInPlayStore()
+            @Suppress("SimplifyBooleanWithConstants")
+            if (BuildFlavor.IS_WORK && BuildFlavor.IS_HMS) {
+                openConsumerAppInHuaweiAppGallery()
+            } else {
+                openConsumerAppInPlayStore()
             }
-        } catch (exception: Exception) {
-            logger.error("Could not find an app to handle the download-app intent", exception)
+        } catch (e: Exception) {
+            logger.error("Could not find an app to handle the download-app intent", e)
             showToast(
                 message = R.string.no_activity_for_intent,
             )
@@ -307,7 +308,7 @@ private fun pickFlavoredText(
     @StringRes textWork: Int,
     @StringRes textOnPrem: Int,
 ): String = stringResource(
-    id = if (ConfigUtils.isOnPremBuild()) textOnPrem else textWork,
+    id = if (BuildFlavor.IS_ON_PREM) textOnPrem else textWork,
 )
 
 @PreviewThreemaAll

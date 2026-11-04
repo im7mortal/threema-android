@@ -4,14 +4,13 @@ import static ch.threema.domain.protocol.csp.messages.file.FileData.RENDERING_ME
 
 import android.app.Activity;
 import android.content.Context;
-import android.os.AsyncTask;
 
 import androidx.annotation.AnyThread;
 import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
 import java.io.File;
@@ -19,11 +18,10 @@ import java.lang.ref.WeakReference;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.CancellationException;
 
 import ch.threema.app.R;
 import ch.threema.app.messagereceiver.MessageReceiver;
-import ch.threema.app.services.FileService;
 import ch.threema.app.services.MessageService;
 import ch.threema.app.utils.FileUtil;
 import ch.threema.app.utils.RuntimeUtil;
@@ -32,8 +30,11 @@ import ch.threema.base.ThreemaException;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.ContactMessageModel;
+import ch.threema.storage.models.GroupMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.data.media.MediaMessageDataInterface;
+import kotlinx.coroutines.Job;
 
 public abstract class MessagePlayer {
     private static final Logger logger = getThreemaLogger("MessagePlayer");
@@ -41,13 +42,11 @@ public abstract class MessagePlayer {
     public static final int SOURCE_UNDEFINED = 0;
     public static final int SOURCE_UI_TOGGLE = 1;
     public static final int SOURCE_LIFECYCLE = 2;
-    public static final int SOURCE_AUDIOFOCUS = 3;
-    public static final int SOURCE_AUDIORECORDER = 4;
+    public static final int SOURCE_AUDIO_RECORDER = 4;
     public static final int SOURCE_VOIP = 5;
 
     private File decryptedFile;
-    private DecryptTask decryptTask;
-    private boolean isAutoPlayed = false;
+    private Job decryptionJob;
     private int downloadProgress = 0;
     private int transcodeProgress = 0;
 
@@ -59,53 +58,43 @@ public abstract class MessagePlayer {
     public final static int State_DOWNLOADED = 2;
     public final static int State_DECRYPTING = 3;
     public final static int State_DECRYPTED = 4;
-    public final static int State_STOPPED = 4;
     public final static int State_PLAYING = 5;
     public final static int State_PAUSE = 6;
 
     public interface DownloadListener {
         @AnyThread
-        default void onStart(AbstractMessageModel messageModel) {
-        }
+        default void onStart(MessageModel messageModel) {}
 
         @AnyThread
-        default void onStatusUpdate(AbstractMessageModel messageModel, int progress) {
-        }
+        default void onStatusUpdate(MessageModel messageModel, int progress) {}
 
         @AnyThread
-        default void onUnknownProgress(AbstractMessageModel messageModel) {
-        }
+        default void onUnknownProgress(MessageModel messageModel) {}
 
         @AnyThread
-        default void onEnd(AbstractMessageModel messageModel, boolean success, String message) {
-        }
+        default void onEnd(MessageModel messageModel, boolean success, String message) {}
     }
 
     public interface DecryptionListener {
         @MainThread
-        void onStart(AbstractMessageModel messageModel);
+        void onStart(MessageModel messageModel);
 
         @MainThread
-        void onEnd(AbstractMessageModel messageModel, boolean success, String message, File decryptedFile);
+        void onEnd(MessageModel messageModel, boolean success, String message, File decryptedFile);
     }
 
     public interface PlaybackListener {
         @AnyThread
-        void onPlay(AbstractMessageModel messageModel, boolean autoPlay);
+        void onPlay(MessageModel messageModel, boolean autoPlay);
 
         @AnyThread
-        void onPause(AbstractMessageModel messageModel);
+        default void onPause(MessageModel messageModel) {}
 
         @AnyThread
-        void onStatusUpdate(AbstractMessageModel messageModel, int position);
+        default void onStatusUpdate(MessageModel messageModel, int position) {}
 
         @AnyThread
-        void onStop(AbstractMessageModel messageModel);
-    }
-
-    public interface PlayerListener {
-        @AnyThread
-        void onError(String humanReadableMessage);
+        default void onStop(MessageModel messageModel) {}
     }
 
     protected interface InternalListener {
@@ -115,124 +104,40 @@ public abstract class MessagePlayer {
 
     public interface TranscodeListener {
         @AnyThread
-        default void onStart() {
-        }
+        default void onStart() {}
 
         @AnyThread
-        default void onStatusUpdate(int progress) {
-        }
-
-        @AnyThread
-        default void onEnd(boolean success, String message) {
-        }
+        default void onStatusUpdate(int progress) {}
     }
 
     private final Context context;
-    private final Map<String, PlayerListener> playerListeners = new HashMap<>();
     private final Map<String, DownloadListener> downloadListeners = new HashMap<>();
     private final Map<String, DecryptionListener> decryptingListeners = new HashMap<>();
     protected final Map<String, PlaybackListener> playbackListeners = new HashMap<>();
     private final Map<String, TranscodeListener> transcodeListeners = new HashMap<>();
     private final MessageService messageService;
-    private final FileService fileService;
-    private final AbstractMessageModel messageModel;
+    private final MessageModel messageModel;
     private final MessageReceiver<?> messageReceiver;
+    private final MessageFileDecryptionHelper messageFileDecryptionHelper;
     protected int state = State_NONE;
 
-    private class DecryptTask extends AsyncTask<Boolean, Void, File> {
-        private boolean autoPlay = false;
-
-        @Override
-        protected void onCancelled(File file) {
-            super.onCancelled(file);
-
-            logger.debug("decrypt canceled");
-
-            state = State_DOWNLOADED;
-            synchronized (decryptingListeners) {
-                for (DecryptionListener decryptionListener : decryptingListeners.values()) {
-                    decryptionListener.onEnd(messageModel, false, null, null);
-                }
-            }
-            if (file != null && file.exists()) {
-                FileUtil.deleteFileOrWarn(file, "Decrypt canceled", logger);
-            }
-        }
-
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-
-            logger.debug("decrypt onPreExecute");
-
-            state = State_DECRYPTING;
-            synchronized (decryptingListeners) {
-                for (DecryptionListener decryptionListener : decryptingListeners.values()) {
-                    decryptionListener.onStart(messageModel);
-                }
-            }
-        }
-
-        @Override
-        protected File doInBackground(Boolean... params) {
-            File file = null;
-            autoPlay = params[0];
-
-            logger.debug("decrypt doInBackground {}", messageModel.getId());
-
-            try {
-                file = fileService.decryptMessageFileToShareableTempFile(messageModel);
-            } catch (Exception e) {
-                logger.error("Failed to decrypt message", e);
-            }
-            return file;
-        }
-
-        @Override
-        protected void onPostExecute(File file) {
-            super.onPostExecute(file);
-
-            if (file != null && file.exists() && !isCancelled()) {
-                state = State_DECRYPTED;
-                decryptedFile = file;
-                logger.debug("decrypt end {}", messageModel.getId());
-            } else {
-                state = State_DOWNLOADED;
-                decryptedFile = null;
-                logger.debug("decrypt failed {}", messageModel.getId());
-            }
-
-            synchronized (decryptingListeners) {
-                for (DecryptionListener decryptionListener : decryptingListeners.values()) {
-                    decryptionListener.onEnd(messageModel, state == State_DECRYPTED,
-                        (isCancelled() || autoPlay) ? "" : getContext().getString(R.string.media_file_not_found), decryptedFile);
-                }
-            }
-
-            if (state == State_DECRYPTED) {
-                logger.debug("open after decrypt {}", messageModel.getId());
-
-                if (currentActivityRef != null && currentActivityRef.get() != null && isReceiverMatch(currentMessageReceiver) && !isCancelled()) {
-                    state = State_PLAYING;
-                    isAutoPlayed = autoPlay;
-                    open(decryptedFile);
-
-                    synchronized (playbackListeners) {
-                        for (PlaybackListener playbackListener : playbackListeners.values()) {
-                            playbackListener.onPlay(messageModel, isAutoPlayed);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    protected MessagePlayer(Context context, MessageService messageService, FileService fileService, MessageReceiver messageReceiver, AbstractMessageModel messageModel) {
+    protected MessagePlayer(
+        @NonNull
+        Context context,
+        @NonNull
+        MessageService messageService,
+        @NonNull
+        MessageFileDecryptionHelper messageFileDecryptionHelper,
+        @NonNull
+        MessageReceiver<?> messageReceiver,
+        @NonNull
+        MessageModel messageModel
+    ) {
         this.context = context;
         this.messageService = messageService;
-        this.fileService = fileService;
-        this.messageModel = messageModel;
         this.messageReceiver = messageReceiver;
+        this.messageModel = messageModel;
+        this.messageFileDecryptionHelper = messageFileDecryptionHelper;
 
         //init the state
         var data = getData();
@@ -241,7 +146,7 @@ public abstract class MessagePlayer {
         }
     }
 
-    protected AbstractMessageModel getMessageModel() {
+    protected MessageModel getMessageModel() {
         return this.messageModel;
     }
 
@@ -289,10 +194,11 @@ public abstract class MessagePlayer {
                 }
             }
         } else if (this.state == State_DECRYPTING) {
-            if (this.decryptTask != null) {
-                if (!this.decryptTask.isCancelled()) {
+            Job decryptionJob = this.decryptionJob;
+            if (decryptionJob != null) {
+                if (!decryptionJob.isCancelled()) {
                     logger.debug("cancel decrypt");
-                    RuntimeUtil.runOnUiThread(() -> decryptTask.cancel(true));
+                    decryptionJob.cancel(new CancellationException());
                 }
             } else {
                 this.state = State_DOWNLOADED;
@@ -315,7 +221,7 @@ public abstract class MessagePlayer {
         return result;
     }
 
-    public boolean togglePlayPause() {
+    public void togglePlayPause() {
         logger.debug("togglePlayPause");
 
         switch (this.state) {
@@ -329,7 +235,6 @@ public abstract class MessagePlayer {
             default:
                 this.open();
         }
-        return true;
     }
 
     public void pause() {
@@ -383,13 +288,6 @@ public abstract class MessagePlayer {
         return 1f;
     }
 
-    public MessagePlayer addListener(String key, PlayerListener listener) {
-        synchronized (this.playerListeners) {
-            this.playerListeners.put(key, listener);
-        }
-        return this;
-    }
-
     public MessagePlayer addListener(String key, PlaybackListener listener) {
         synchronized (this.playbackListeners) {
             this.playbackListeners.put(key, listener);
@@ -418,41 +316,9 @@ public abstract class MessagePlayer {
         return this;
     }
 
-    public void removeListener(PlayerListener listener) {
-        synchronized (this.playerListeners) {
-            this.playerListeners.remove(listener);
-        }
-    }
-
-    public void removeListener(PlaybackListener listener) {
-        synchronized (this.playbackListeners) {
-            this.playbackListeners.remove(listener);
-        }
-    }
-
-    public void removeListener(DownloadListener listener) {
-        synchronized (this.downloadListeners) {
-            this.downloadListeners.remove(listener);
-        }
-    }
-
-    public void removeListener(DecryptionListener listener) {
-        synchronized (this.decryptingListeners) {
-            this.decryptingListeners.remove(listener);
-        }
-    }
-
     public void removeListeners() {
         synchronized (this.playbackListeners) {
             Iterator<Map.Entry<String, PlaybackListener>> iterator = this.playbackListeners.entrySet().iterator();
-            while (iterator.hasNext()) {
-                iterator.next();
-                iterator.remove();
-            }
-        }
-
-        synchronized (this.playerListeners) {
-            Iterator<Map.Entry<String, PlayerListener>> iterator = this.playerListeners.entrySet().iterator();
             while (iterator.hasNext()) {
                 iterator.next();
                 iterator.remove();
@@ -486,29 +352,33 @@ public abstract class MessagePlayer {
 
     abstract protected MediaMessageDataInterface getData();
 
-    abstract protected AbstractMessageModel setData(MediaMessageDataInterface data);
+    abstract protected MessageModel setData(MediaMessageDataInterface data);
 
     abstract protected void open(File decryptedFile);
 
-    abstract protected void makePause(int source);
+    protected void makePause(int source) {}
 
-    abstract protected void makeResume(int source);
+    protected void makeResume(int source) {}
 
-    abstract public void seekTo(int pos);
+    public void seekTo(int pos) {}
 
     /**
      * Get duration of media that is currently loaded/playing
      *
      * @return duration in milliseconds
      */
-    abstract public int getDuration();
+    public int getDuration() {
+        return 0;
+    }
 
     /**
      * Get current position of media that is currently playing
      *
      * @return position in milliseconds
      */
-    abstract public int getPosition();
+    public int getPosition() {
+        return 0;
+    }
 
     public int getState() {
         return this.state;
@@ -520,10 +390,6 @@ public abstract class MessagePlayer {
 
     final public int getTranscodeProgress() {
         return this.transcodeProgress;
-    }
-
-    public void resume(int source) {
-        logger.debug("resume");
     }
 
     protected void play(final boolean autoPlay) {
@@ -540,14 +406,69 @@ public abstract class MessagePlayer {
             return;
         }
 
-        // decrypt in separate thread!
-        RuntimeUtil.runOnUiThread(() -> {
-            logger.debug("execute decrypt");
-            decryptTask = new DecryptTask();
-            try {
-                decryptTask.execute(autoPlay);
-            } catch (RejectedExecutionException e) {
-                logger.debug("decryptTask rejected");
+        decryptionJob = messageFileDecryptionHelper.decrypt(messageModel, new MessageFileDecryptionHelper.Callback() {
+            @MainThread
+            @Override
+            public void onStart() {
+                logger.debug("Beginning to decrypt file");
+
+                state = State_DECRYPTING;
+                synchronized (decryptingListeners) {
+                    for (DecryptionListener decryptionListener : decryptingListeners.values()) {
+                        decryptionListener.onStart(messageModel);
+                    }
+                }
+            }
+
+            @MainThread
+            @Override
+            public void onDone(@Nullable File file) {
+                if (file != null && file.exists()) {
+                    state = State_DECRYPTED;
+                    decryptedFile = file;
+                    logger.debug("decrypt end {}", messageModel.getId());
+                } else {
+                    state = State_DOWNLOADED;
+                    decryptedFile = null;
+                    logger.debug("decrypt failed {}", messageModel.getId());
+                }
+
+                synchronized (decryptingListeners) {
+                    for (DecryptionListener decryptionListener : decryptingListeners.values()) {
+                        decryptionListener.onEnd(messageModel, state == State_DECRYPTED,
+                            autoPlay ? "" : getContext().getString(R.string.media_file_not_found), decryptedFile);
+                    }
+                }
+
+                if (state == State_DECRYPTED) {
+                    logger.debug("open after decrypt {}", messageModel.getId());
+
+                    if (currentActivityRef != null && currentActivityRef.get() != null && isReceiverMatch(currentMessageReceiver)) {
+                        state = State_PLAYING;
+                        open(decryptedFile);
+
+                        synchronized (playbackListeners) {
+                            for (PlaybackListener playbackListener : playbackListeners.values()) {
+                                playbackListener.onPlay(messageModel, autoPlay);
+                            }
+                        }
+                    }
+                }
+                decryptionJob = null;
+            }
+
+            @MainThread
+            @Override
+            public void onCancelled() {
+                logger.debug("decrypt canceled");
+
+                state = State_DOWNLOADED;
+                synchronized (decryptingListeners) {
+                    for (DecryptionListener decryptionListener : decryptingListeners.values()) {
+                        decryptionListener.onEnd(messageModel, false, null, null);
+                    }
+                }
+                decryptionJob = null;
             }
         });
     }
@@ -661,37 +582,30 @@ public abstract class MessagePlayer {
         }
     }
 
-    public void setTranscodeFinished(boolean success, @Nullable String message) {
-        synchronized (this.transcodeListeners) {
-            for (TranscodeListener transcodeListener : this.transcodeListeners.values()) {
-                transcodeListener.onEnd(success, message);
-            }
-        }
-    }
-
-    protected void showError(final String error) {
-        synchronized (this.playbackListeners) {
-            for (PlayerListener playerListener : this.playerListeners.values()) {
-                playerListener.onError(error);
-            }
-        }
-    }
-
-    protected void exception(String error, Exception x) {
-        this.showError(error);
-        logger.error("Exception", x);
-    }
-
-    protected void exception(int error, Exception x) {
-        if (this.getContext() != null) {
-            this.exception(this.getContext().getString(error), x);
-        }
-    }
-
     @WorkerThread
     protected void markAsConsumed() {
         try {
-            messageService.markAsConsumed(getMessageModel());
+            // TODO(ANDR-5276): The messageModel instance held by MessagePlayer can get stale,
+            //  as it is not properly connected to the message cache. This is mainly a problem
+            //  when the 'read' state changes, as it can cause a message to be erroneously moved
+            //  back into an 'unread' state. As a workaround for this, we check if the message
+            //  is not already read, and if so, we fetch a fresh instance from the database and
+            //  use that one instead.
+            MessageModel possiblyOutdatedMessageModel = getMessageModel();
+            MessageModel messageModel = null;
+            if (!possiblyOutdatedMessageModel.isRead()) {
+                if (possiblyOutdatedMessageModel instanceof ContactMessageModel) {
+                    messageModel = messageService.getContactMessageModel(possiblyOutdatedMessageModel.getId());
+                } else if (possiblyOutdatedMessageModel instanceof GroupMessageModel) {
+                    messageModel = messageService.getGroupMessageModel(possiblyOutdatedMessageModel.getId());
+                }
+            } else {
+                messageModel = possiblyOutdatedMessageModel;
+            }
+
+            if (messageModel != null) {
+                messageService.markAsConsumed(messageModel);
+            }
         } catch (ThreemaException e) {
             logger.error("Unable to mark message as consumed", e);
         }

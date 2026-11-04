@@ -8,6 +8,9 @@ import net.zetetic.database.sqlcipher.SQLiteDatabase
 
 private val logger = getThreemaLogger("DatabaseUpdateToVersion110")
 
+/**
+ * remove invalid contacts that have no public key and no messages
+ */
 class DatabaseUpdateToVersion110(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -70,6 +73,4 @@ class DatabaseUpdateToVersion110(
     }
 
     override val version = 110
-
-    override fun getDescription() = "remove invalid contacts that have no public key and no messages"
 }

@@ -11,10 +11,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import androidx.annotation.NonNull;
-import ch.threema.app.preference.service.PreferenceService;
-import ch.threema.app.services.ConversationCategoryService;
-import ch.threema.app.services.DeadlineListService;
-import ch.threema.app.services.DeadlineListServiceImpl;
 import ch.threema.app.services.RingtoneService;
 import ch.threema.app.stores.PreferenceStore;
 import ch.threema.common.Base32;
@@ -25,20 +21,14 @@ import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class SystemUpdateToVersion43 implements SystemUpdate {
 
-    private final Lazy<PreferenceService> preferenceServiceLazy = KoinJavaComponent.inject(PreferenceService.class);
-    private final Lazy<ConversationCategoryService> conversationCategoryServiceLazy = KoinJavaComponent.inject(ConversationCategoryService.class);
     private final Lazy<RingtoneService> ringtoneServiceLazy = KoinJavaComponent.inject(RingtoneService.class);
     private final Lazy<PreferenceStore> preferenceStoreLazy = KoinJavaComponent.inject(PreferenceStore.class);
     private final Lazy<DatabaseProvider> databaseProviderLazy = KoinJavaComponent.inject(DatabaseProvider.class);
 
     @Override
     public void run() {
-        var preferenceService = preferenceServiceLazy.getValue();
-        var conversationCategoryService = conversationCategoryServiceLazy.getValue();
         var ringtoneService = ringtoneServiceLazy.getValue();
         var preferenceStore = preferenceStoreLazy.getValue();
-
-        DeadlineListService mutedChatsService = new DeadlineListServiceImpl("list_muted_chats", preferenceService);
 
         String mutedChatsPrefs = "list_muted_chats";
         String hiddenChatsPrefs = "list_hidden_chats";
@@ -86,7 +76,7 @@ public class SystemUpdateToVersion43 implements SystemUpdate {
                 final int id = groups.getInt(0);
 
                 if (id >= 0) {
-                    String rawUid = "g-" + String.valueOf(id);
+                    String rawUid = "g-" + id;
                     int oldUid = (rawUid).hashCode();
 
                     if (oldMutedChatsMap.containsKey(oldUid)) {
@@ -107,11 +97,9 @@ public class SystemUpdateToVersion43 implements SystemUpdate {
 
         preferenceStore.remove(mutedChatsPrefs);
         preferenceStore.save(mutedChatsPrefs, newMutedChatsMap);
-        mutedChatsService.init();
 
         preferenceStore.remove(hiddenChatsPrefs);
         preferenceStore.save(hiddenChatsPrefs, newHiddenChatsMap);
-        conversationCategoryService.invalidateCache();
 
         preferenceStore.remove(ringtonePrefs);
         preferenceStore.save(ringtonePrefs, newRingtoneMap);

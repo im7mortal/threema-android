@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * add contacts job title & department field
+ */
 internal class DatabaseUpdateToVersion101(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -13,8 +16,6 @@ internal class DatabaseUpdateToVersion101(
             sqLiteDatabase.rawExecSQL("ALTER TABLE `contacts` ADD COLUMN `department` VARCHAR DEFAULT NULL")
         }
     }
-
-    override fun getDescription() = "add contacts job title & department field"
 
     override val version = 101
 }

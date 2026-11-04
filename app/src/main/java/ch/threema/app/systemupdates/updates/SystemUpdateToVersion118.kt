@@ -30,8 +30,6 @@ class SystemUpdateToVersion118 : SystemUpdate {
 
     override val version = 118
 
-    override fun getDescription() = "ensure credentials are encrypted"
-
     companion object {
         private val KEYS = arrayOf(
             "pref_license_username",

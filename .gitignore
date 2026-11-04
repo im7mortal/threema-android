@@ -11,9 +11,6 @@ local.properties
 captures
 *.swp
 cookies.txt
-fastlane/metadata
-fastlane/descriptions/
-fastlane/jenkins-screenshots/
 export/
 threema-android-*
 /release/

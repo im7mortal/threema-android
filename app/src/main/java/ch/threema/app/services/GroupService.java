@@ -27,7 +27,7 @@ import ch.threema.domain.protocol.ThreemaFeature;
 import ch.threema.domain.protocol.csp.messages.AbstractGroupMessage;
 import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.storage.models.ContactModel;
-import ch.threema.storage.models.group.GroupMessageModel;
+import ch.threema.storage.models.GroupMessageModel;
 import ch.threema.storage.models.group.GroupModelOld;
 import ch.threema.storage.models.access.GroupAccessModel;
 
@@ -177,10 +177,7 @@ public interface GroupService extends AvatarService<GroupModelOld> {
      * TODO(ANDR-3633): Do not remove polls here as they should be deleted at the same place where
      *  the rest of the database is cleared.
      */
-    void removeGroupBelongings(
-        @NonNull GroupModel groupModel,
-        @NonNull TriggerSource triggerSource
-    );
+    void removeGroupBelongings(@NonNull GroupModel groupModel);
 
     /**
      * Delete all groups. Note that this deletes all groups without triggering the listeners. The
@@ -350,7 +347,7 @@ public interface GroupService extends AvatarService<GroupModelOld> {
      * @return a list of groups
      */
     @NonNull
-    List<GroupModelOld> getGroupsByIdentity(@Nullable String identity);
+    List<GroupModelOld> getGroupsContainingIdentity(@Nullable String identity);
 
     /**
      * Get group status info for the provided group

@@ -22,12 +22,12 @@ import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.FileService
 import ch.threema.app.services.UserService
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.MessageUtil
 import ch.threema.app.utils.NameUtil
-import ch.threema.app.utils.QuoteUtil
+import ch.threema.common.truncateUTF8String
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
+import ch.threema.storage.models.MessageType
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.textfield.TextInputLayout
 
@@ -38,7 +38,7 @@ class QuotePopup(
     private val userService: UserService,
     private val fileService: FileService,
     private val preferenceService: PreferenceService,
-    private val thumbnailCache: ThumbnailCache<Int>,
+    private val thumbnailCache: ThumbnailCache?,
 ) : MovingPopupWindow(context) {
 
     private val quoteTextView: TextView
@@ -52,7 +52,7 @@ class QuotePopup(
     class QuoteInfo {
         var quoteText: String? = null
         var quoteIdentity: IdentityString? = null
-        var messageModel: AbstractMessageModel? = null
+        var messageModel: MessageModel? = null
     }
 
     val quoteInfo = QuoteInfo()
@@ -83,7 +83,7 @@ class QuotePopup(
         activity: Activity,
         editText: ComposeEditText,
         textInputLayout: TextInputLayout,
-        messageModel: AbstractMessageModel,
+        messageModel: MessageModel,
         identity: IdentityString?,
         barColor: ColorStateList,
         listener: QuotePopupListener?,
@@ -93,7 +93,7 @@ class QuotePopup(
         super.show(activity, textInputLayout)
 
         popupLayout.setCardBackgroundColor(textInputLayout.boxBackgroundColor)
-        val coordinates = ConfigUtils.getPopupWindowPositionAboveAnchor(activity, textInputLayout)
+        val coordinates = getPopupWindowPositionAboveAnchor(activity, textInputLayout)
         val popupX = coordinates[0]
         val popupY = coordinates[1]
         val viewableSpaceHeight =
@@ -121,14 +121,8 @@ class QuotePopup(
             // Ignore
         }
         quoteInfo.messageModel = messageModel
-        quoteInfo.quoteText = QuoteUtil.getMessageBody(
-            quoteInfo.messageModel?.type,
-            quoteInfo.messageModel?.body,
-            quoteInfo.messageModel?.caption,
-            quoteInfo.messageModel?.isOutbox,
-            true,
-            preferenceService.getContactNameFormat(),
-        )
+        quoteInfo.quoteText = getQuoteText()
+
         quoteInfo.quoteIdentity = identity
         quoteIdentityView.text = NameUtil.getQuoteName(
             quoteInfo.quoteIdentity,
@@ -163,6 +157,36 @@ class QuotePopup(
 
         quotePopupListener?.onPostVisibilityChange()
     }
+
+    private fun getQuoteText(): String? {
+        val quotedMessageModel = quoteInfo.messageModel ?: return null
+        val messageType = quotedMessageModel.type
+        var quoteText = if (messageType == MessageType.TEXT) {
+            quotedMessageModel.body
+        } else {
+            quotedMessageModel.caption
+        }
+        if (quoteText.isNullOrEmpty() && messageType != null) {
+            MessageUtil.getMessageViewElementFactory().getViewElement(
+                messageType = messageType,
+                messageBody = quotedMessageModel.body,
+                messageCaption = quotedMessageModel.caption,
+                isOutbox = quotedMessageModel.isOutbox,
+                contactNameFormat = preferenceService.getContactNameFormat(),
+            )
+                ?.let { viewElement ->
+                    quoteText = viewElement.text ?: viewElement.placeholder
+                }
+        }
+        return quoteText?.let(::truncateQuote)
+    }
+
+    private fun truncateQuote(text: String): String =
+        if (text.length > MAX_QUOTE_CONTENTS_LENGTH) {
+            text.truncateUTF8String(MAX_QUOTE_CONTENTS_LENGTH) + "…"
+        } else {
+            text
+        }
 
     fun adjustCornersToOpenState(layout: TextInputLayout, delayMs: Long) {
         layout.postDelayed(
@@ -203,5 +227,9 @@ class QuotePopup(
         fun onHeightSet(height: Int)
         fun onDismiss()
         fun onPostVisibilityChange()
+    }
+
+    companion object {
+        private const val MAX_QUOTE_CONTENTS_LENGTH = 256
     }
 }

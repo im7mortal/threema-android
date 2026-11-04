@@ -13,6 +13,7 @@ import java.net.Socket
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.coroutines.CoroutineContext
+import kotlin.time.Duration
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
@@ -50,10 +51,10 @@ internal class CspSocket(
         socket.tcpNoDelay = true
 
         val timeout = when (address.address) {
-            is Inet6Address -> ProtocolDefines.CONNECT_TIMEOUT_IPV6 * 1000
-            else -> ProtocolDefines.CONNECT_TIMEOUT * 1000
+            is Inet6Address -> ProtocolDefines.CONNECT_TIMEOUT_IPV6
+            else -> ProtocolDefines.CONNECT_TIMEOUT
         }
-        socket.connect(address, timeout)
+        socket.connect(address, timeout.inWholeMilliseconds.toInt())
 
         _address = address.toString()
     }
@@ -79,13 +80,17 @@ internal class CspSocket(
     /**
      * Set the socket SO_TIMEOUT.
      *
-     * This has no effect if the underlying socket has not been created e.g. by a call to [connect]
+     * This has no effect if the underlying socket has not been created, e.g. by a call to [connect], or if the socket is already closed.
      *
      * @see Socket.setSoTimeout
      */
-    fun setSocketSoTimeout(timeout: Int) {
+    fun setSocketSoTimeout(timeout: Duration) {
         if (this::socket.isInitialized) {
-            socket.soTimeout = timeout
+            try {
+                socket.soTimeout = timeout.inWholeMilliseconds.toInt()
+            } catch (e: Exception) {
+                logger.error("Could not set so timeout", e)
+            }
         }
     }
 

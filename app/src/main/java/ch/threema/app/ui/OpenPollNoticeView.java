@@ -60,7 +60,9 @@ import ch.threema.app.services.poll.PollService;
 import ch.threema.app.utils.AvatarConverterUtil;
 import ch.threema.app.utils.PollUtil;
 import ch.threema.app.utils.BitmapUtil;
-import ch.threema.app.utils.ConfigUtils;
+
+import static ch.threema.android.MenuExtensionsKt.tintIcon;
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
@@ -297,7 +299,7 @@ public class OpenPollNoticeView extends ConstraintLayout implements DefaultLifec
             // Set all icon colors, as MenuInflater ignores specified iconTint xml attribute
             for (int i = 0; i < menuBuilder.size(); i++) {
                 final @NonNull MenuItem menuItem = menuBuilder.getItem(i);
-                ConfigUtils.tintMenuIcon(getContext(), menuItem, R.attr.colorOnSurface);
+                tintIcon(menuItem, getContext(), R.attr.colorOnSurface);
             }
 
             if (PollUtil.canViewMatrix(pollModel)) {
@@ -313,11 +315,11 @@ public class OpenPollNoticeView extends ConstraintLayout implements DefaultLifec
                 highlightItem = menuBuilder.findItem(R.id.menu_poll_vote);
             }
             if (highlightItem != null) {
-                @ColorInt int highlightColor = ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorPrimary);
+                @ColorInt int highlightColor = getColorFromAttribute(getContext(), R.attr.colorPrimary);
                 SpannableString highlightItemSpannable = new SpannableString(highlightItem.getTitle());
                 highlightItemSpannable.setSpan(new ForegroundColorSpan(highlightColor), 0, highlightItemSpannable.length(), 0);
                 highlightItem.setTitle(highlightItemSpannable);
-                ConfigUtils.tintMenuIcon(highlightItem, highlightColor);
+                tintIcon(highlightItem, highlightColor);
             }
 
             menuBuilder.setCallback(new MenuBuilder.Callback() {
@@ -559,11 +561,11 @@ public class OpenPollNoticeView extends ConstraintLayout implements DefaultLifec
 
             if (isMine && voters == participants) {
                 // all votes are in
-                foregroundColor = ColorStateList.valueOf(ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorOnSecondaryContainer));
-                backgroundColor = ColorStateList.valueOf(ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorSecondaryContainer));
+                foregroundColor = ColorStateList.valueOf(getColorFromAttribute(getContext(), R.attr.colorOnSecondaryContainer));
+                backgroundColor = ColorStateList.valueOf(getColorFromAttribute(getContext(), R.attr.colorSecondaryContainer));
             } else {
-                foregroundColor = ColorStateList.valueOf(ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorOnPrimary));
-                backgroundColor = ColorStateList.valueOf(ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorPrimary));
+                foregroundColor = ColorStateList.valueOf(getColorFromAttribute(getContext(), R.attr.colorOnPrimary));
+                backgroundColor = ColorStateList.valueOf(getColorFromAttribute(getContext(), R.attr.colorPrimary));
             }
 
             chip.setTextColor(foregroundColor);

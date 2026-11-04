@@ -1,9 +1,8 @@
 package ch.threema.app.applogo
 
 import android.provider.MediaStore
+import ch.threema.app.files.AppLogoFileHandleProvider
 import ch.threema.app.services.FileService
-import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.ConfigUtils.AppThemeSetting
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.DispatcherProvider
 import ch.threema.common.Http
@@ -30,11 +29,13 @@ class UpdateAppLogoUseCase(
         forceUpdate: Boolean,
     ) {
         logger.debug("start update app logo {}, {}", lightUrl, darkUrl)
-        updateLogo(lightUrl, ConfigUtils.THEME_LIGHT, forceUpdate)
-        updateLogo(darkUrl, ConfigUtils.THEME_DARK, forceUpdate)
+        updateLogo(lightUrl, AppLogoFileHandleProvider.Theme.LIGHT, forceUpdate)
+        updateLogo(darkUrl, AppLogoFileHandleProvider.Theme.DARK, forceUpdate)
     }
 
-    private suspend fun updateLogo(logoUrl: String?, @AppThemeSetting theme: String, forceUpdate: Boolean) = withContext(dispatcherProvider.io) {
+    private suspend fun updateLogo(logoUrl: String?, theme: AppLogoFileHandleProvider.Theme, forceUpdate: Boolean) = withContext(
+        dispatcherProvider.io,
+    ) {
         try {
             if (logoUrl.isNullOrEmpty()) {
                 logger.info("Clearing app logo for (forcedUpdate={}, theme={})", forceUpdate, theme)

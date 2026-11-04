@@ -26,6 +26,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.math.BigInteger;
 import java.net.UnknownHostException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -38,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import androidx.annotation.NonNull;
@@ -47,10 +49,13 @@ import androidx.core.app.NotificationManagerCompat;
 import androidx.core.app.ServiceCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import ch.threema.app.BuildConfig;
+import ch.threema.app.BuildFlavor;
+import ch.threema.app.GlobalAppState;
 import ch.threema.app.R;
-import ch.threema.app.activities.DummyActivity;
+import ch.threema.app.activities.CloseAppActivity;
 import ch.threema.app.backuprestore.LegacyMessageBodyTransformer;
 import ch.threema.app.notifications.NotificationRequestCodes;
+import ch.threema.app.utils.AppRestarter;
 import ch.threema.data.IdentityProvider;
 import ch.threema.app.usecases.OverrideOneTimeHintsUseCase;
 import ch.threema.app.home.HomeActivity;
@@ -69,9 +74,7 @@ import ch.threema.app.services.UserService;
 import ch.threema.app.utils.BackupUtils;
 import ch.threema.app.utils.CSVReader;
 import ch.threema.app.utils.CSVRow;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.Counter;
-import ch.threema.app.utils.MessageUtil;
 import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.ResettableInputStream;
 import ch.threema.app.utils.ElapsedTimeFormatter;
@@ -80,38 +83,53 @@ import ch.threema.base.ThreemaException;
 import ch.threema.base.crypto.NonceFactory;
 import ch.threema.base.crypto.NonceScope;
 
+import static ch.threema.android.PendingIntentExtensionsKt.getPendingIntentForActivity;
+import static ch.threema.android.PendingIntentExtensionsKt.getPendingIntentForForegroundService;
+import static ch.threema.android.PendingIntentExtensionsKt.getPendingIntentForService;
 import static ch.threema.app.notifications.NotificationIDs.RESTORE_COMPLETION_NOTIFICATION_ID;
 import static ch.threema.app.notifications.NotificationIDs.RESTORE_NOTIFICATION_ID;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
+import ch.threema.data.datatypes.AvailabilityStatus;
+import ch.threema.data.datatypes.ConversationCategory;
+import ch.threema.data.datatypes.ConversationSpamReportingState;
 import ch.threema.data.datatypes.ConversationVisibility;
+import ch.threema.data.datatypes.GroupIdentity;
+import ch.threema.data.datatypes.IdColor;
 import ch.threema.data.datatypes.PredefinedContact;
+import ch.threema.data.models.ContactModelData;
 import ch.threema.data.models.GroupModel;
+import ch.threema.data.models.GroupModelData;
+import ch.threema.data.repositories.ContactModelRepository;
 import ch.threema.data.repositories.EmojiReactionsRepository;
 import ch.threema.data.repositories.GroupModelRepository;
 import ch.threema.data.repositories.ModelRepositories;
 import ch.threema.data.storage.DbEmojiReaction;
 import ch.threema.domain.models.AcquaintanceLevel;
+import ch.threema.domain.models.ContactSyncState;
 import ch.threema.domain.models.GroupId;
+import ch.threema.domain.models.IdentityState;
+import ch.threema.domain.models.IdentityType;
 import ch.threema.domain.models.MessageId;
+import ch.threema.domain.models.ReadReceiptPolicy;
+import ch.threema.domain.models.TypingIndicatorPolicy;
 import ch.threema.domain.models.UserState;
 import ch.threema.domain.models.VerificationLevel;
-import ch.threema.domain.protocol.connection.ServerConnection;
+import ch.threema.domain.models.WorkVerificationLevel;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
+import ch.threema.localcrypto.MasterKeyManager;
 import ch.threema.storage.DatabaseService;
-import ch.threema.storage.factories.ContactModelFactory;
 import ch.threema.storage.factories.GroupMessageModelFactory;
 import ch.threema.storage.factories.GroupModelFactory;
-import ch.threema.storage.factories.MessageModelFactory;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.factories.ContactMessageModelFactory;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.DistributionListMemberModel;
 import ch.threema.storage.models.DistributionListMessageModel;
 import ch.threema.storage.models.DistributionListModel;
-import ch.threema.storage.models.group.GroupMemberModel;
-import ch.threema.storage.models.group.GroupMessageModel;
+import ch.threema.storage.models.GroupMessageModel;
 import ch.threema.storage.models.group.GroupModelOld;
-import ch.threema.storage.models.MessageModel;
+import ch.threema.storage.models.ContactMessageModel;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.MessageType;
 import ch.threema.storage.models.poll.PollChoiceModel;
@@ -160,7 +178,10 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     private NotificationManagerCompat notificationManagerCompat;
     private ActivityManager activityManager;
     private NonceFactory nonceFactory;
-    private @NonNull GroupModelRepository groupModelRepository;
+    private final @NonNull ContactModelRepository contactModelRepository = KoinJavaComponent.get(ContactModelRepository.class);
+    private final @NonNull GroupModelRepository groupModelRepository = KoinJavaComponent.get(GroupModelRepository.class);
+    private final @NonNull GlobalAppState globalAppState = KoinJavaComponent.get(GlobalAppState.class);
+    private final @NonNull MasterKeyManager masterKeyManager = KoinJavaComponent.get(MasterKeyManager.class);
 
     private final IdentityProvider identityProvider = KoinJavaComponent.get(IdentityProvider.class);
 
@@ -170,7 +191,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
     private final HashMap<String, String> identityIdMap = new HashMap<>();
     private final HashSet<String> identitiesSet = new HashSet<>();
-    private final HashMap<String, Integer> groupUidMap = new HashMap<>();
+    private final HashMap<String, Long> groupUidMap = new HashMap<>();
 
     private long currentProgressStep = 0;
     private long progressSteps = 0;
@@ -196,11 +217,6 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     private long stepSizeTotal = (long) STEP_SIZE_PREPARE + STEP_SIZE_IDENTITY + STEP_SIZE_MAIN_FILES + STEP_SIZE_GROUP_AVATARS;
 
     private static boolean isCanceled = false;
-    private static boolean isRunning = false;
-
-    public static boolean isRunning() {
-        return isRunning;
-    }
 
     @Nullable
     @Override
@@ -212,6 +228,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         logger.debug("onStartCommand flags = {} startId {}", flags, startId);
+        NotificationChannels.createOrMigrateNotificationChannels(this);
         ServiceCompat.startForeground(
             this,
             RESTORE_NOTIFICATION_ID,
@@ -231,7 +248,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                 if (file == null || TextUtils.isEmpty(password)) {
                     showRestoreErrorNotification("Invalid input");
                     stopSelf();
-                    isRunning = false;
+                    globalAppState.endSpecialMode(GlobalAppState.SpecialMode.BACKUP_RESTORE);
 
                     return START_NOT_STICKY;
                 }
@@ -243,14 +260,6 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                     if (wakeLock != null) {
                         wakeLock.acquire(DateUtils.DAY_IN_MILLIS);
                     }
-                }
-
-                try {
-                    serviceManager.stopConnection();
-                } catch (InterruptedException e) {
-                    showRestoreErrorNotification("RestoreService interrupted");
-                    stopSelf();
-                    return START_NOT_STICKY;
                 }
 
                 restoreThread = new Thread(() -> {
@@ -266,7 +275,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                 });
                 restoreThread.start();
 
-                if (isRunning) {
+                if (globalAppState.getSpecialMode() == GlobalAppState.SpecialMode.BACKUP_RESTORE) {
                     return START_STICKY;
                 }
             } else {
@@ -279,7 +288,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
             // in the error message, allowing us to more easily identify it in bug reports.
             onFinished(getString(R.string.restore_error_body) + " (error code: empty-intent)");
         }
-        isRunning = false;
+        globalAppState.endSpecialMode(GlobalAppState.SpecialMode.BACKUP_RESTORE);
 
         return START_NOT_STICKY;
     }
@@ -290,7 +299,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
         super.onCreate();
 
-        isRunning = true;
+        globalAppState.startSpecialMode(GlobalAppState.SpecialMode.BACKUP_RESTORE);
 
         notificationManagerCompat = NotificationManagerCompat.from(this);
         activityManager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
@@ -311,7 +320,6 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
             preferenceService = serviceManager.getPreferenceService();
             notificationPreferenceService = KoinJavaComponent.get(NotificationPreferenceService.class);
             nonceFactory = serviceManager.getNonceFactory();
-            groupModelRepository = serviceManager.getModelRepositories().getGroups();
         } catch (Exception e) {
             logger.error("Could not instantiate all required services", e);
             stopSelf();
@@ -363,10 +371,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         logger.info("onTaskRemoved");
-
-        Intent intent = new Intent(this, DummyActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(intent);
+        CloseAppActivity.closeApp(this);
     }
 
     /**
@@ -379,7 +384,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     }
 
     private interface GetMessageModel {
-        AbstractMessageModel get(String uid);
+        MessageModel get(String uid);
     }
 
     private RestoreSettings restoreSettings;
@@ -390,7 +395,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
     private boolean applyRestore = false;
 
-    public boolean restore() {
+    private void restore() {
         logger.info("Restoring data backup");
 
         String message;
@@ -404,18 +409,6 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         }
 
         try {
-            // Ensure that the server connection is stopped before restoring the backup.
-            //
-            // This is important, because during the backup restore process, some outgoing
-            // messages (e.g. group sync messages) might be enqueued. However, we only want to
-            // send those messages if the backup restore succeeded.
-            //
-            // The connection will be resumed in {@link onFinished}.
-            final ServerConnection connection = serviceManager.getConnection();
-            if (connection.isRunning()) {
-                connection.stop();
-            }
-
             // We use two passes for a restore. The first pass only scans the files in the backup,
             // but does not write to the database or the file system. In the second pass, the files are actually written.
             for (int pass = 1; pass <= 2; pass++) {
@@ -439,7 +432,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
                     // clear tables!!
                     logger.info("Clearing current tables");
-                    databaseService.getMessageModelFactory().deleteAll();
+                    databaseService.getContactMessageModelFactory().deleteAll();
                     databaseService.getContactModelFactory().deleteAll();
                     databaseService.getGroupMessageModelFactory().deleteAll();
                     databaseService.getGroupMemberModelFactory().deleteAll();
@@ -581,7 +574,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
             restoreSuccess = true;
             onFinished(null);
 
-            return true;
+            return;
         } catch (InterruptedException e) {
             logger.error("Interrupted while restoring identity", e);
             Thread.currentThread().interrupt();
@@ -599,8 +592,6 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         }
 
         onFinished(message);
-
-        return false;
     }
 
     @NonNull
@@ -862,9 +853,9 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     }
 
     private MessageIdCache<MessageIdCache.ContactMessageKey> createContactMessageIdCache() {
-        MessageModelFactory messageModelFactory = databaseService.getMessageModelFactory();
+        ContactMessageModelFactory contactMessageModelFactory = databaseService.getContactMessageModelFactory();
         return new MessageIdCache<>(key ->
-            messageModelFactory
+            contactMessageModelFactory
                 .getByApiMessageIdAndIdentity(key.getMessageId(), key.getContactIdentity())
                 .getId()
         );
@@ -903,6 +894,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         logger.info("Restore contact reactions");
         final MessageIdCache<MessageIdCache.ContactMessageKey> messageIdCache = createContactMessageIdCache();
         EmojiReactionsRepository reactionsRepository = modelRepositories.getEmojiReaction();
+        final @NonNull Instant reactionReadAt = Instant.now();
         reactionsRepository.restoreContactReactions(insertHandle -> {
             final Counter restoredReactionsCounter = new Counter(REACTIONS_PER_STEP);
             iterateRows(contactReactionsFileHeader, row -> {
@@ -919,12 +911,15 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                     );
 
                     int id = messageIdCache.get(key);
-                    insertHandle.insert(new DbEmojiReaction(
-                        id,
-                        senderIdentity,
-                        sequence,
-                        Instant.ofEpochMilli(reactedAt)
-                    ));
+                    insertHandle.insert(
+                        new DbEmojiReaction(
+                            id,
+                            senderIdentity,
+                            sequence,
+                            Instant.ofEpochMilli(reactedAt),
+                            reactionReadAt
+                        )
+                    );
                     restoredReactionsCounter.count();
                     long steps = restoredReactionsCounter.getAndResetSteps(REACTIONS_STEP_THRESHOLD);
                     if (steps > 0) {
@@ -945,6 +940,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         logger.info("Restore group reactions");
         final MessageIdCache<MessageIdCache.GroupMessageKey> messageIdCache = createGroupMessageIdCache();
         EmojiReactionsRepository reactionsRepository = modelRepositories.getEmojiReaction();
+        final @NonNull Instant reactionReadAt = Instant.now();
         reactionsRepository.restoreGroupReactions(insertHandle -> {
             final Counter restoredReactionsCounter = new Counter(REACTIONS_PER_STEP);
             iterateRows(groupReactionsFileHeader, row -> {
@@ -963,12 +959,15 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                     );
 
                     int id = messageIdCache.get(key);
-                    insertHandle.insert(new DbEmojiReaction(
-                        id,
-                        senderIdentity,
-                        sequence,
-                        Instant.ofEpochMilli(reactedAt)
-                    ));
+                    insertHandle.insert(
+                        new DbEmojiReaction(
+                            id,
+                            senderIdentity,
+                            sequence,
+                            Instant.ofEpochMilli(reactedAt),
+                            reactionReadAt
+                        )
+                    );
                     restoredReactionsCounter.count();
                     long steps = restoredReactionsCounter.getAndResetSteps(REACTIONS_STEP_THRESHOLD);
                     if (steps > 0) {
@@ -1059,7 +1058,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
             final String groupUid = fileName.substring(Tags.GROUP_AVATAR_PREFIX.length());
             if (!isNullOrEmpty(groupUid)) {
-                Integer groupId = groupUidMap.get(groupUid);
+                Long groupId = groupUidMap.get(groupUid);
                 if (groupId != null) {
                     GroupModel m = groupModelRepository.getByGroupDatabaseId(groupId);
                     if (m != null) {
@@ -1087,7 +1086,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
             fileHeaders,
             Tags.MESSAGE_MEDIA_FILE_PREFIX,
             Tags.MESSAGE_MEDIA_THUMBNAIL_FILE_PREFIX,
-            uid -> databaseService.getMessageModelFactory().getByUid(uid)
+            uid -> databaseService.getContactMessageModelFactory().getByUid(uid)
         );
 
         count += this.restoreMessageMediaFiles(
@@ -1142,7 +1141,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                 continue;
             }
 
-            AbstractMessageModel model = getMessageModel.get(messageUid);
+            MessageModel model = getMessageModel.get(messageUid);
 
             if (model != null) {
                 try {
@@ -1175,7 +1174,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
                             // TODO(ANDR-3737): The following check is insufficient and leads to false positives and false negatives,
                             //  e.g. video files are not handled properly
-                            if (MessageUtil.canHaveThumbnailFile(model) && model.getMessageContentsType() == MessageContentsType.IMAGE) {
+                            if (model.getType() == MessageType.FILE && model.getMessageContentsType() == MessageContentsType.IMAGE) {
                                 // check if a thumbnail file is in backup
                                 FileHeader thumbnailFileHeader = thumbnailFileHeaders.get(thumbnailPrefix + messageUid);
 
@@ -1203,7 +1202,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
     private void generateThumbnailForMediaFile(
         @NonNull FileHeader fileHeader,
-        @NonNull AbstractMessageModel model
+        @NonNull MessageModel model
     ) {
         logger.info("Generating thumbnail for media file");
         try (ResettableInputStream inputStream = new ResettableInputStream(() -> getZipFileInputStream(fileHeader))) {
@@ -1221,10 +1220,10 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
         return this.processCsvFile(fileHeader, row -> {
             try {
-                ContactModel contactModel = createContactModel(row, restoreSettings);
-                if (applyRestore && !contactModel.getIdentity().equals(myIdentity)) {
-                    ContactModelFactory contactModelFactory = databaseService.getContactModelFactory();
-                    contactModelFactory.create(contactModel);
+                ContactModelData contactModelData = createContactModelData(row, restoreSettings);
+                if (applyRestore && !contactModelData.identity.equals(myIdentity)) {
+                    // Note that persisting it (without reflection) is ok here as we can only restore a data backup if multi device is not active.
+                    contactModelRepository.persistNewContact(contactModelData);
                 }
             } catch (Exception x) {
                 logger.error("Could not restore contact", x);
@@ -1295,56 +1294,20 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     private boolean restoreGroupFile(@NonNull FileHeader fileHeader) throws IOException, RestoreCanceledException {
         return this.processCsvFile(fileHeader, row -> {
             try {
-                GroupModelOld groupModel = createGroupModel(row, restoreSettings);
+                if (applyRestore) {
+                    @Nullable GroupModelData groupModelData = createGroupModelData(row, restoreSettings);
 
-                if (groupModel != null && applyRestore) {
-                    databaseService.getGroupModelFactory().create(
-                        groupModel
-                    );
+                    if (groupModelData != null) {
+                        // Note that persisting it (without reflection) is ok here as we can only restore a data backup if multi device is not active.
+                        GroupModel groupModel = groupModelRepository.persistNewGroup(groupModelData);
 
-                    if (restoreSettings.getVersion() >= 19) {
-                        groupUidMap.put(row.getString(Tags.TAG_GROUP_UID), groupModel.getId());
-                    } else {
-                        groupUidMap.put(BackupUtils.buildGroupUid(groupModel), groupModel.getId());
-                    }
-
-                    String myIdentity = userService.getIdentity();
-                    boolean userIsInMemberList = false;
-                    boolean creatorIsInMemberList = false;
-
-                    List<GroupMemberModel> groupMemberModels = createGroupMembers(row, groupModel.getId());
-
-                    for (GroupMemberModel groupMemberModel : groupMemberModels) {
-                        String memberIdentity = groupMemberModel.getIdentity();
-                        if (myIdentity.equals(memberIdentity)) {
-                            // Don't save the user in member list. Just set the flag for setting
-                            // the user state later.
-                            userIsInMemberList = true;
-                        } else if (groupModel.getCreatorIdentity().equals(memberIdentity)) {
-                            // Don't save the creator in member list.
-                            creatorIsInMemberList = true;
-                        } else if (contactService.getByIdentity(memberIdentity) != null) {
-                            // In case the contact exists, add the contact as a member
-                            databaseService.getGroupMemberModelFactory().create(groupMemberModel);
+                        if (restoreSettings.getVersion() >= 19) {
+                            groupUidMap.put(row.getString(Tags.TAG_GROUP_UID), groupModel.getDatabaseId());
                         } else {
-                            // The contact does not exist. This can happen when the data backup is
-                            // corrupt or the contact hasn't been added due to an invalid public
-                            // key.
-                            logger.warn("Could not add member {} to the group because it is no valid contact", memberIdentity);
+                            groupUidMap.put(BackupUtils.buildGroupUid(groupModel.getGroupIdentity()), groupModel.getDatabaseId());
                         }
-                    }
-                    if (restoreSettings.getVersion() < 25) {
-                        // In this case the group user state is not included in the backup and we
-                        // need to determine the state based on the group member list.
-                        groupModel.setUserState(userIsInMemberList ? UserState.MEMBER : UserState.LEFT);
-                        databaseService.getGroupModelFactory().update(groupModel);
-                    }
-
-                    if (groupModel.getUserState() == UserState.MEMBER && !myIdentity.equals(groupModel.getCreatorIdentity()) && !creatorIsInMemberList) {
-                        // If the creator is not a member, the group is considered to be 'orphaned'. This is not allowed, so instead we treat
-                        // the group as if we had been kicked from it.
-                        groupModel.setUserState(UserState.KICKED);
-                        databaseService.getGroupModelFactory().update(groupModel);
+                    } else {
+                        logger.warn("Skipping group because group model data could not be created");
                     }
                 }
             } catch (Exception x) {
@@ -1449,101 +1412,197 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     }
 
     @Nullable
-    private GroupModelOld createGroupModel(CSVRow row, RestoreSettings restoreSettings) throws ThreemaException {
-        GroupModelOld groupModel = new GroupModelOld();
-        groupModel.setApiGroupId(new GroupId(row.getString(Tags.TAG_GROUP_ID)));
-        groupModel.setCreatorIdentity(row.getString(Tags.TAG_GROUP_CREATOR));
-        groupModel.setName(row.getString(Tags.TAG_GROUP_NAME));
+    private GroupModelData createGroupModelData(@NonNull CSVRow row, @NonNull RestoreSettings restoreSettings) throws ThreemaException {
+        GroupId groupId = new GroupId(row.getString(Tags.TAG_GROUP_ID));
+        String creatorIdentity = row.getString(Tags.TAG_GROUP_CREATOR);
+        GroupIdentity groupIdentity = new GroupIdentity(
+            creatorIdentity,
+            groupId.toLong()
+        );
+
+        String name = row.getString(Tags.TAG_GROUP_NAME);
 
         @Nullable Instant createdAt = row.getInstant(Tags.TAG_GROUP_CREATED_AT);
         if (createdAt != null && createdAt.toEpochMilli() < 0) {
             // Due to a bug in older versions, backups with a negative createdAt timestamp might exist
             createdAt = Instant.ofEpochMilli(0);
         }
-        groupModel.setCreatedAt(createdAt);
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
 
         if (restoreSettings.getVersion() >= 4 && row.hasField(Tags.TAG_GROUP_DELETED) && row.getBoolean(Tags.TAG_GROUP_DELETED)) {
             return null;
         }
+
+        @Nullable ConversationVisibility conversationVisibility;
         if (restoreSettings.getVersion() >= 14) {
             boolean isArchived = row.getBoolean(Tags.TAG_GROUP_ARCHIVED);
-            groupModel.setConversationVisibility(
-                isArchived ? ConversationVisibility.ARCHIVED : ConversationVisibility.NORMAL
-            );
-        }
-
-        if (restoreSettings.getVersion() >= 17) {
-            groupModel.setGroupDesc(row.getString(Tags.TAG_GROUP_DESC));
-            @Nullable Instant groupDescTimestamp = row.getInstant(Tags.TAG_GROUP_DESC_TIMESTAMP);
-            if (groupDescTimestamp != null && groupDescTimestamp.toEpochMilli() < 0) {
-                // Due to a bug in older versions, backups with a negative groupDescTimestamp timestamp might exist
-                groupDescTimestamp = Instant.ofEpochMilli(0);
+            if (isArchived) {
+                conversationVisibility = ConversationVisibility.ARCHIVED;
+            } else {
+                conversationVisibility = ConversationVisibility.NORMAL;
             }
-            groupModel.setGroupDescTimestamp(groupDescTimestamp);
+        } else {
+            conversationVisibility = ConversationVisibility.NORMAL;
         }
 
+        @Nullable String groupDescription;
+        @Nullable Instant groupDescriptionChangedAt;
+        if (restoreSettings.getVersion() >= 17) {
+            groupDescription = row.getString(Tags.TAG_GROUP_DESC);
+            groupDescriptionChangedAt = row.getInstant(Tags.TAG_GROUP_DESC_TIMESTAMP);
+            if (groupDescriptionChangedAt != null && groupDescriptionChangedAt.toEpochMilli() < 0) {
+                // Due to a bug in older versions, backups with a negative groupDescTimestamp timestamp might exist
+                groupDescriptionChangedAt = Instant.ofEpochMilli(0);
+            }
+        } else {
+            groupDescription = null;
+            groupDescriptionChangedAt = null;
+        }
+
+        @Nullable Instant lastUpdateAt;
         if (restoreSettings.getVersion() >= 22) {
-            @Nullable Instant lastUpdateAt = row.getInstant(Tags.TAG_GROUP_LAST_UPDATE);
+            lastUpdateAt = row.getInstant(Tags.TAG_GROUP_LAST_UPDATE);
             if (lastUpdateAt != null && lastUpdateAt.toEpochMilli() < 0) {
                 // Due to a bug in older versions, backups with a negative lastUpdateAt timestamp might exist
                 lastUpdateAt = Instant.ofEpochMilli(0);
             }
-            groupModel.setLastUpdate(lastUpdateAt);
+        } else {
+            lastUpdateAt = null;
         }
 
+        String myIdentity = userService.getIdentity();
+        if (myIdentity == null) {
+            throw new IllegalStateException("Cannot restore groups if no identity exists");
+        }
+        boolean userIsInMemberList = false;
+        boolean creatorIsInMemberList = false;
+
+        List<String> groupMemberIdentities = getGroupMemberIdentities(row);
+        Set<String> otherMembers = new HashSet<>();
+        for (String groupMemberIdentity : groupMemberIdentities) {
+            if (myIdentity.equals(groupMemberIdentity)) {
+                // Don't save the user in member list. Just set the flag for setting
+                // the user state later.
+                userIsInMemberList = true;
+            } else if (creatorIdentity.equals(groupMemberIdentity)) {
+                // Don't save the creator in member list.
+                creatorIsInMemberList = true;
+            } else if (contactModelRepository.existsByIdentity(groupMemberIdentity)) {
+                // In case the contact exists, add the contact as a member
+                otherMembers.add(groupMemberIdentity);
+            } else {
+                // The contact does not exist. This can happen when the data backup is
+                // corrupt or the contact hasn't been added due to an invalid public
+                // key.
+                logger.warn("Could not add member {} to the group because it is no valid contact", groupMemberIdentity);
+            }
+        }
+
+        @Nullable UserState userState;
         if (restoreSettings.getVersion() >= 25) {
-            groupModel.setUserState(UserState.getByValue(row.getInteger(Tags.TAG_GROUP_USER_STATE)));
+            userState = UserState.getByValue(row.getInteger(Tags.TAG_GROUP_USER_STATE));
+            if (userState == null) {
+                logger.warn("Could not get user state from backup");
+                userState = userIsInMemberList ? UserState.MEMBER : UserState.LEFT;
+            }
+        } else {
+            // In this case the group user state is not included in the backup, and we
+            // need to determine the state based on the group member list.
+            userState = userIsInMemberList ? UserState.MEMBER : UserState.LEFT;
         }
 
-        return groupModel;
+        if (userState == UserState.MEMBER && !myIdentity.equals(creatorIdentity) && !creatorIsInMemberList) {
+            // If the creator is not a member, the group is considered to be 'orphaned'. This is not allowed, so instead we treat
+            // the group as if we had been kicked from it.
+            userState = UserState.KICKED;
+        }
+
+        return new GroupModelData(
+            groupIdentity,
+            name,
+            createdAt,
+            null,
+            lastUpdateAt,
+            conversationVisibility,
+            ConversationCategory.DEFAULT,
+            IdColor.invalid(),
+            groupDescription,
+            groupDescriptionChangedAt,
+            otherMembers,
+            userState,
+            null,
+            ConversationSpamReportingState.DEFAULT
+        );
     }
 
     private PollModel createPollModel(CSVRow row) throws ThreemaException {
-        PollModel pollModel = new PollModel();
-
-        pollModel.setApiPollId(row.getString(Tags.TAG_POLL_API_ID));
-        pollModel.setCreatorIdentity(row.getString(Tags.TAG_POLL_API_CREATOR));
-        pollModel.setName(row.getString(Tags.TAG_POLL_NAME));
-
-        String state = row.getString(Tags.TAG_POLL_STATE);
-        if (PollModel.State.CLOSED.toString().equals(state)) {
-            pollModel.setState(PollModel.State.CLOSED);
-        } else if (PollModel.State.OPEN.toString().equals(state)) {
-            pollModel.setState(PollModel.State.OPEN);
-        } else if (PollModel.State.TEMPORARY.toString().equals(state)) {
-            pollModel.setState(PollModel.State.TEMPORARY);
+        String stateString = row.getString(Tags.TAG_POLL_STATE);
+        PollModel.State state = stateString != null
+            ? PollModel.State.deserialize(stateString)
+            : null;
+        if (state == null) {
+            state = PollModel.State.CLOSED;
         }
 
-        String assessment = row.getString(Tags.TAG_POLL_ASSESSMENT);
-        if (PollModel.Assessment.MULTIPLE_CHOICE.toString().equals(assessment)) {
-            pollModel.setAssessment(PollModel.Assessment.MULTIPLE_CHOICE);
-        } else if (PollModel.Assessment.SINGLE_CHOICE.toString().equals(assessment)) {
-            pollModel.setAssessment(PollModel.Assessment.SINGLE_CHOICE);
+        String assessmentString = row.getString(Tags.TAG_POLL_ASSESSMENT);
+        PollModel.Assessment assessment = assessmentString != null
+            ? PollModel.Assessment.deserialize(assessmentString)
+            : null;
+        if (assessment == null) {
+            assessment = PollModel.Assessment.MULTIPLE_CHOICE;
         }
 
-        String type = row.getString(Tags.TAG_POLL_TYPE);
-        if (PollModel.Type.INTERMEDIATE.toString().equals(type)) {
-            pollModel.setType(PollModel.Type.INTERMEDIATE);
-        } else if (PollModel.Type.RESULT_ON_CLOSE.toString().equals(type)) {
-            pollModel.setType(PollModel.Type.RESULT_ON_CLOSE);
+        String typeString = row.getString(Tags.TAG_POLL_TYPE);
+        PollModel.Type type = typeString != null
+            ? PollModel.Type.deserialize(typeString)
+            : null;
+        if (type == null) {
+            type = PollModel.Type.RESULT_ON_CLOSE;
         }
 
-        String choiceType = row.getString(Tags.TAG_POLL_C_TYPE);
-        if (PollModel.ChoiceType.TEXT.toString().equals(choiceType)) {
-            pollModel.setChoiceType(PollModel.ChoiceType.TEXT);
+        Instant createdAt = row.getInstant(Tags.TAG_POLL_CREATED_AT);
+        if (createdAt == null) {
+            createdAt = Instant.now();
+        }
+        Instant modifiedAt = row.getInstant(Tags.TAG_POLL_MODIFIED_AT);
+        if (modifiedAt == null) {
+            modifiedAt = Instant.now();
         }
 
-        pollModel.setLastViewedAt(row.getInstant(Tags.TAG_POLL_LAST_VIEWED_AT));
-        pollModel.setCreatedAt(row.getInstant(Tags.TAG_POLL_CREATED_AT));
-        pollModel.setModifiedAt(row.getInstant(Tags.TAG_POLL_MODIFIED_AT));
-
-        return pollModel;
+        return new PollModel(
+            /* id */
+            0,
+            /* apiPollId*/
+            row.getString(Tags.TAG_POLL_API_ID),
+            /* creatorIdentity */
+            row.getString(Tags.TAG_POLL_API_CREATOR),
+            /* name */
+            row.getString(Tags.TAG_POLL_NAME),
+            /* state */
+            state,
+            /* assessment */
+            assessment,
+            /* type */
+            type,
+            /* choiceType */
+            PollModel.ChoiceType.TEXT,
+            /* displayType */
+            null,
+            /* createdAt */
+            createdAt,
+            /* modifiedAt */
+            modifiedAt,
+            /* lastViewedAt */
+            row.getInstant(Tags.TAG_POLL_LAST_VIEWED_AT)
+        );
     }
 
     private LinkPollModel createLinkPollModel(CSVRow row, int pollId) throws ThreemaException {
         String reference = row.getString(Tags.TAG_POLL_REF);
         String referenceId = row.getString(Tags.TAG_POLL_REF_ID);
-        Integer groupId = null;
+        Long groupId = null;
         String identity = null;
 
         if (reference.endsWith("GroupBallotModel")) {
@@ -1561,20 +1620,13 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         }
 
         if (groupId != null) {
-            GroupPollModel linkPollModel = new GroupPollModel();
-            linkPollModel.setPollId(pollId);
-            linkPollModel.setGroupId(groupId);
-
-            return linkPollModel;
+            return GroupPollModel.javaCreate(groupId.intValue(), pollId);
         } else if (identity != null) {
             if (!identitiesSet.contains(identity)) {
                 logger.error("invalid poll reference {} with id {}, contact {} does not exist", reference, referenceId, identity);
                 return null;
             }
-            IdentityPollModel linkPollModel = new IdentityPollModel();
-            linkPollModel.setPollId(pollId);
-            linkPollModel.setIdentity(referenceId);
-            return linkPollModel;
+            return IdentityPollModel.javaCreate(referenceId, pollId);
         }
 
         if (applyRestore) {
@@ -1596,12 +1648,6 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         pollChoiceModel.setPollId(pollId);
         pollChoiceModel.setApiPollChoiceId(row.getInteger(Tags.TAG_POLL_CHOICE_API_ID));
         pollChoiceModel.setApiPollChoiceId(row.getInteger(Tags.TAG_POLL_CHOICE_API_ID));
-
-        String type = row.getString(Tags.TAG_POLL_CHOICE_TYPE);
-        if (PollChoiceModel.Type.Text.toString().equals(type)) {
-            pollChoiceModel.setType(PollChoiceModel.Type.Text);
-        }
-
         pollChoiceModel.setName(row.getString(Tags.TAG_POLL_CHOICE_NAME));
         pollChoiceModel.setVoteCount(row.getInteger(Tags.TAG_POLL_CHOICE_VOTE_COUNT));
         pollChoiceModel.setOrder(row.getInteger(Tags.TAG_POLL_CHOICE_ORDER));
@@ -1649,14 +1695,12 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                 counter.count();
 
                 if (applyRestore) {
-                    MessageModel messageModel = createMessageModel(row, restoreSettings);
+                    ContactMessageModel messageModel = createMessageModel(row, restoreSettings);
                     messageModel.setIdentity(identity);
 
                     // faster, do not make a createOrUpdate to safe queries
-                    boolean success = databaseService.getMessageModelFactory().create(messageModel);
-                    if (success) {
-                        tryMapContactAckDecToReaction(row, messageModel);
-                    }
+                    databaseService.getContactMessageModelFactory().create(messageModel);
+                    tryMapContactAckDecToReaction(row, messageModel);
 
                     updateProgress(STEP_SIZE_MESSAGES);
                 }
@@ -1681,7 +1725,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
      * Not that this will not alter the state of {@code messageModel}
      * (also see {@link #setMessageState})
      */
-    private void tryMapContactAckDecToReaction(@NonNull CSVRow row, @NonNull MessageModel messageModel) {
+    private void tryMapContactAckDecToReaction(@NonNull CSVRow row, @NonNull ContactMessageModel messageModel) {
         try {
             String backupMessageStateName = row.getString(Tags.TAG_MESSAGE_MESSAGE_STATE);
 
@@ -1695,12 +1739,18 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
     private void createContactReactionForMessage(
         @NonNull String backupMessageStateName,
-        @NonNull MessageModel messageModel
+        @NonNull ContactMessageModel messageModel
     ) throws Exception {
         String senderIdentity = messageModel.isOutbox()
             ? messageModel.getIdentity()
             : userService.getIdentity();
-        DbEmojiReaction reaction = createReactionForStateName(backupMessageStateName, senderIdentity, messageModel);
+        final @NonNull Instant reactionReadAt = Instant.now();
+        final @Nullable DbEmojiReaction reaction = createReactionForStateName(
+            backupMessageStateName,
+            senderIdentity,
+            messageModel,
+            reactionReadAt
+        );
         if (reaction != null) {
             logger.debug(
                 "Create contact reaction for message {} (id={}) with state {}",
@@ -1734,13 +1784,11 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
                 if (applyRestore) {
                     GroupMessageModel groupMessageModel = createGroupMessageModel(row, restoreSettings);
-                    Integer groupId = groupUidMap.get(groupUid);
+                    Long groupId = groupUidMap.get(groupUid);
                     if (groupId != null) {
-                        groupMessageModel.setGroupId(groupId);
-                        boolean success = databaseService.getGroupMessageModelFactory().create(groupMessageModel);
-                        if (success) {
-                            tryMapGroupAckDecToReactions(row, groupMessageModel);
-                        }
+                        groupMessageModel.setGroupId(groupId.intValue());
+                        databaseService.getGroupMessageModelFactory().create(groupMessageModel);
+                        tryMapGroupAckDecToReactions(row, groupMessageModel);
                     }
                     updateProgress(STEP_SIZE_MESSAGES);
                 }
@@ -1778,14 +1826,15 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
             messageModel.getId(),
             messageStatesJson
         );
+        final @NonNull Instant reactionReadAt = Instant.now();
         Map<String, String> messageStatesMap = parseJsonObjectAsStringMap(messageStatesJson);
         List<DbEmojiReaction> reactions = messageStatesMap.entrySet().stream()
-            .filter(entry -> entry != null && entry.getKey() != null && entry.getValue() != null)
-            .map(entry -> createReactionForStateName(
-                entry.getValue(),
-                entry.getKey(),
-                messageModel
-            ))
+            .filter(
+                entry -> entry != null && entry.getKey() != null && entry.getValue() != null
+            )
+            .map(
+                entry -> createReactionForStateName(entry.getValue(), entry.getKey(), messageModel, reactionReadAt)
+            )
             .filter(Objects::nonNull)
             .collect(Collectors.toList());
         if (!reactions.isEmpty()) {
@@ -1798,7 +1847,8 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     private DbEmojiReaction createReactionForStateName(
         @NonNull String stateName,
         @NonNull String senderIdentity,
-        @NonNull AbstractMessageModel messageModel
+        @NonNull MessageModel messageModel,
+        @NonNull Instant reactionReadAt
     ) {
         String reaction = mapMessageStateNameToReactionSequence(stateName);
         if (reaction == null) {
@@ -1823,7 +1873,8 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
             messageModel.getId(),
             senderIdentity,
             reaction,
-            reactedAt
+            reactedAt,
+            reactionReadAt
         );
     }
 
@@ -1914,17 +1965,14 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         return distributionListModel;
     }
 
-    private List<GroupMemberModel> createGroupMembers(CSVRow row, int groupId) throws ThreemaException {
-        List<GroupMemberModel> res = new ArrayList<>();
+    private List<String> getGroupMemberIdentities(CSVRow row) throws ThreemaException {
+        List<String> groupMemberIdentities = new ArrayList<>();
         for (String identity : row.getStrings(Tags.TAG_GROUP_MEMBERS)) {
             if (!isNullOrEmpty(identity)) {
-                GroupMemberModel m = new GroupMemberModel();
-                m.setGroupId(groupId);
-                m.setIdentity(identity);
-                res.add(m);
+                groupMemberIdentities.add(identity);
             }
         }
-        return res;
+        return groupMemberIdentities;
     }
 
     private List<DistributionListMemberModel> createDistributionListMembers(CSVRow row, long distributionListId) throws ThreemaException {
@@ -1941,66 +1989,91 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         return res;
     }
 
-    private ContactModel createContactModel(CSVRow row, RestoreSettings restoreSettings) throws ThreemaException {
+    @NonNull
+    private ContactModelData createContactModelData(@NonNull CSVRow row, @NonNull RestoreSettings restoreSettings) throws ThreemaException {
+        String identity = row.getString(Tags.TAG_CONTACT_IDENTITY);
         byte[] publicKey;
         try {
             publicKey = hexToByteArray(row.getString(Tags.TAG_CONTACT_PUBLIC_KEY));
         } catch (IllegalArgumentException e) {
             throw new ThreemaException("Failed to restore public key", e);
         }
-        ContactModel contactModel = ContactModel.create(
-            row.getString(Tags.TAG_CONTACT_IDENTITY),
-            publicKey
-        );
-        PredefinedContact predefinedContact = PredefinedContact.getPredefinedContact(contactModel.getIdentity());
-        if (predefinedContact != null && !Arrays.equals(predefinedContact.getPublicKey(), contactModel.getPublicKey())) {
+        PredefinedContact predefinedContact = PredefinedContact.getPredefinedContact(identity);
+        if (predefinedContact != null && !Arrays.equals(predefinedContact.getPublicKey(), publicKey)) {
             throw new ThreemaException("Cannot restore predefined contact where public key does not match");
         }
 
         String verificationString = row.getString(Tags.TAG_CONTACT_VERIFICATION_LEVEL);
-        VerificationLevel verification;
-
+        VerificationLevel verificationLevel;
         if (predefinedContact != null || verificationString.equals(VerificationLevel.FULLY_VERIFIED.name())) {
-            verification = VerificationLevel.FULLY_VERIFIED;
+            verificationLevel = VerificationLevel.FULLY_VERIFIED;
         } else if (verificationString.equals(VerificationLevel.SERVER_VERIFIED.name())) {
-            verification = VerificationLevel.SERVER_VERIFIED;
+            verificationLevel = VerificationLevel.SERVER_VERIFIED;
         } else {
-            verification = VerificationLevel.UNVERIFIED;
+            verificationLevel = VerificationLevel.UNVERIFIED;
         }
-        contactModel.verificationLevel = verification;
-        contactModel.setFirstName(row.getString(Tags.TAG_CONTACT_FIRST_NAME));
-        contactModel.setLastName(row.getString(Tags.TAG_CONTACT_LAST_NAME));
-
+        String firstName = row.getString(Tags.TAG_CONTACT_FIRST_NAME);
+        String lastName = row.getString(Tags.TAG_CONTACT_LAST_NAME);
+        String nickname = null;
         if (restoreSettings.getVersion() >= 3) {
-            contactModel.setPublicNickName(row.getString(Tags.TAG_CONTACT_NICK_NAME));
+            nickname = row.getString(Tags.TAG_CONTACT_NICK_NAME);
         }
+        AcquaintanceLevel acquaintanceLevel = AcquaintanceLevel.DIRECT;
         if (restoreSettings.getVersion() >= 13) {
             final boolean isHidden = row.getBoolean(Tags.TAG_CONTACT_HIDDEN);
             // Contacts are marked as hidden if their acquaintance level is GROUP_OR_DELETED
-            contactModel.setAcquaintanceLevel(isHidden ? AcquaintanceLevel.GROUP_OR_DELETED : AcquaintanceLevel.DIRECT);
+            acquaintanceLevel = isHidden ? AcquaintanceLevel.GROUP_OR_DELETED : AcquaintanceLevel.DIRECT;
         }
+        ConversationVisibility conversationVisibility = ConversationVisibility.NORMAL;
         if (restoreSettings.getVersion() >= 14) {
             boolean isArchived = row.getBoolean(Tags.TAG_CONTACT_ARCHIVED);
-            contactModel.setConversationVisibility(
-                isArchived ? ConversationVisibility.ARCHIVED : ConversationVisibility.NORMAL
-            );
+            conversationVisibility = isArchived ? ConversationVisibility.ARCHIVED : ConversationVisibility.NORMAL;
         }
         if (restoreSettings.getVersion() >= 19) {
-            identityIdMap.put(row.getString(Tags.TAG_CONTACT_IDENTITY_ID), contactModel.getIdentity());
+            identityIdMap.put(row.getString(Tags.TAG_CONTACT_IDENTITY_ID), identity);
         } else {
-            identityIdMap.put(contactModel.getIdentity(), contactModel.getIdentity());
+            identityIdMap.put(identity, identity);
         }
-        identitiesSet.add(contactModel.getIdentity());
+        identitiesSet.add(identity);
+        Instant lastUpdate = null;
         if (restoreSettings.getVersion() >= 22) {
-            contactModel.setLastUpdate(row.getInstant(Tags.TAG_CONTACT_LAST_UPDATE));
+            lastUpdate = row.getInstant(Tags.TAG_CONTACT_LAST_UPDATE);
         }
-        contactModel.setIsRestored(true);
 
-        return contactModel;
+        return ContactModelData.javaCreate(
+            identity,
+            publicKey,
+            Instant.now(),
+            lastUpdate,
+            firstName,
+            lastName,
+            nickname,
+            IdColor.ofIdentity(identity),
+            verificationLevel,
+            WorkVerificationLevel.NONE,
+            IdentityType.REGULAR,
+            acquaintanceLevel,
+            IdentityState.ACTIVE,
+            BigInteger.ZERO,
+            ContactSyncState.INITIAL,
+            ReadReceiptPolicy.DEFAULT,
+            TypingIndicatorPolicy.DEFAULT,
+            conversationVisibility,
+            ConversationCategory.DEFAULT,
+            null,
+            null,
+            true,
+            null,
+            null,
+            null,
+            null,
+            AvailabilityStatus.None.INSTANCE,
+            null
+        );
     }
 
     private void fillMessageModel(
-        @NonNull AbstractMessageModel messageModel,
+        @NonNull MessageModel messageModel,
         @NonNull CSVRow row,
         @NonNull RestoreSettings restoreSettings
     ) throws ThreemaException {
@@ -2018,8 +2091,12 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
         messageModel.setUid(row.getString(Tags.TAG_MESSAGE_UID));
 
-        if (restoreSettings.getVersion() >= 2) {
-            messageModel.setStatusMessage(row.getBoolean(Tags.TAG_MESSAGE_IS_STATUS_MESSAGE));
+        if (
+            restoreSettings.getVersion() >= 2 &&
+                row.getBoolean(Tags.TAG_MESSAGE_IS_STATUS_MESSAGE) &&
+                (messageModel.getType() == null || messageModel.getType() == MessageType.TEXT)
+        ) {
+            messageModel.setType(MessageType.STATUS);
         }
 
         if (restoreSettings.getVersion() >= 10) {
@@ -2029,7 +2106,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         if (restoreSettings.getVersion() >= 15) {
             String quotedMessageId = row.getString(Tags.TAG_MESSAGE_QUOTED_MESSAGE_ID);
             if (!isNullOrEmpty(quotedMessageId)) {
-                messageModel.setQuotedMessageId(quotedMessageId);
+                messageModel.setQuotedMessageIdString(quotedMessageId);
             }
         }
 
@@ -2060,7 +2137,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     }
 
     private void setCommonTimestamps(
-        @NonNull AbstractMessageModel messageModel,
+        @NonNull MessageModel messageModel,
         @NonNull CSVRow row
     ) throws ThreemaException {
         messageModel.setPostedAt(row.getInstant(Tags.TAG_MESSAGE_POSTED_AT));
@@ -2076,7 +2153,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         }
 
         // Edit/delete is only available for contact and group messages
-        if (messageModel instanceof MessageModel || messageModel instanceof GroupMessageModel) {
+        if (messageModel instanceof ContactMessageModel || messageModel instanceof GroupMessageModel) {
             if (restoreSettings.getVersion() >= 23) {
                 messageModel.setEditedAt(row.getInstant(Tags.TAG_MESSAGE_EDITED_AT));
             }
@@ -2096,7 +2173,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
      * care of separately see {@link #tryMapContactAckDecToReaction}.
      */
     private void setMessageState(
-        @NonNull AbstractMessageModel messageModel,
+        @NonNull MessageModel messageModel,
         @NonNull CSVRow row
     ) throws ThreemaException {
         String messageState = row.getString(Tags.TAG_MESSAGE_MESSAGE_STATE);
@@ -2126,7 +2203,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         messageModel.setState(state);
     }
 
-    private void setMessageContent(@NonNull AbstractMessageModel messageModel, @NonNull CSVRow row) throws ThreemaException {
+    private void setMessageContent(@NonNull MessageModel messageModel, @NonNull CSVRow row) throws ThreemaException {
         MessageType messageType = MessageType.TEXT;
         @MessageContentsType int messageContentsType = MessageContentsType.UNDEFINED;
         String backupMessageType = row.getString(Tags.TAG_MESSAGE_TYPE);
@@ -2182,7 +2259,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         messageModel.setBody(body);
     }
 
-    private void tryUpdatingToNewPollId(@NonNull AbstractMessageModel messageModel) {
+    private void tryUpdatingToNewPollId(@NonNull MessageModel messageModel) {
         if (messageModel.getType() == MessageType.POLL) {
             // try to update to new poll id
             PollDataModel pollData = messageModel.getPollData();
@@ -2194,11 +2271,11 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         }
     }
 
-    private MessageModel createMessageModel(
+    private ContactMessageModel createMessageModel(
         @NonNull CSVRow row,
         @NonNull RestoreSettings restoreSettings
     ) throws ThreemaException {
-        MessageModel messageModel = new MessageModel();
+        ContactMessageModel messageModel = new ContactMessageModel();
         this.fillMessageModel(messageModel, row, restoreSettings);
 
         return messageModel;
@@ -2288,18 +2365,21 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
             OverrideOneTimeHintsUseCase overrideOneTimeHintsUseCase = KoinJavaComponent.get(OverrideOneTimeHintsUseCase.class);
             overrideOneTimeHintsUseCase.call();
 
+            // In work builds, we cannot be certain whether it is safe to persist the master key already, as it might be that
+            // it first needs to be protected with a remote secret.
+            if (!BuildFlavor.IS_WORK) {
+                try {
+                    masterKeyManager.persistKeyDataIfNeeded();
+                } catch (IOException e) {
+                    // It is acceptable to proceed without persisting the master key, as we will try again later
+                    // when the user completes the setup wizard.
+                    logger.warn("Failed to persist master key after restore", e);
+                }
+            }
+
             notificationPreferenceService.setWizardRunning(true);
 
             showRestoreSuccessNotification();
-
-            // try to reopen connection
-            try {
-                if (!serviceManager.getConnection().isRunning()) {
-                    serviceManager.startConnection();
-                }
-            } catch (Exception e) {
-                logger.error("Failed to reopen connection after restore", e);
-            }
 
             if (wakeLock != null && wakeLock.isHeld()) {
                 logger.debug("releasing wakelock");
@@ -2308,10 +2388,8 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
 
             stopForeground(true);
 
-            isRunning = false;
+            globalAppState.endSpecialMode(GlobalAppState.SpecialMode.BACKUP_RESTORE);
 
-            // Send broadcast after isRunning has been set to false to indicate that there is no
-            // backup being restored anymore
             LocalBroadcastManager.getInstance(this)
                 .sendBroadcast(new Intent(RESTORE_PROGRESS_INTENT)
                     .putExtra(RESTORE_PROGRESS, 100)
@@ -2319,7 +2397,8 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
                 );
 
             if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-                ConfigUtils.scheduleAppRestart(getApplicationContext(), 2 * (int) DateUtils.SECOND_IN_MILLIS, getApplicationContext().getResources().getString(R.string.ipv6_restart_now));
+                AppRestarter appRestarter = KoinJavaComponent.get(AppRestarter.class);
+                appRestarter.scheduleAppRestart(2 * DateUtils.SECOND_IN_MILLIS);
             }
             stopSelf();
         } else {
@@ -2338,18 +2417,17 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
     private Notification getPersistentNotification() {
         logger.debug("getPersistentNotification");
 
-        Intent cancelIntent = new Intent(this, RestoreService.class);
-        cancelIntent.putExtra(EXTRA_ID_CANCEL, true);
+        Intent cancelIntent = RestoreService.createCancelIntent(this);
         PendingIntent cancelPendingIntent;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            cancelPendingIntent = PendingIntent.getForegroundService(
+            cancelPendingIntent = getPendingIntentForForegroundService(
                 this,
                 NotificationRequestCodes.RESTORE_CANCEL,
                 cancelIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
             );
         } else {
-            cancelPendingIntent = PendingIntent.getService(
+            cancelPendingIntent = getPendingIntentForService(
                 this,
                 NotificationRequestCodes.RESTORE_CANCEL,
                 cancelIntent,
@@ -2433,7 +2511,7 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
             // Android Q does not allow restart in the background
             Intent backupIntent = HomeActivity.createIntent(this);
-            PendingIntent pendingIntent = PendingIntent.getActivity(
+            PendingIntent pendingIntent = getPendingIntentForActivity(
                 this,
                 NotificationRequestCodes.HOME_ACTIVITY,
                 backupIntent,
@@ -2451,5 +2529,18 @@ public class RestoreService extends Service implements ComponentCallbacks2 {
         builder.setStyle(new NotificationCompat.BigTextStyle().bigText(text));
 
         notificationManagerCompat.notify(RESTORE_COMPLETION_NOTIFICATION_ID, builder.build());
+    }
+
+    @NonNull
+    public static Intent createIntent(@NonNull Context context, @NonNull File sourceFile, @NonNull String password) {
+        return new Intent(context, RestoreService.class)
+            .putExtra(RestoreService.EXTRA_RESTORE_BACKUP_FILE, sourceFile)
+            .putExtra(RestoreService.EXTRA_RESTORE_BACKUP_PASSWORD, password);
+    }
+
+    @NonNull
+    private static Intent createCancelIntent(@NonNull Context context) {
+        return new Intent(context, RestoreService.class)
+            .putExtra(EXTRA_ID_CANCEL, true);
     }
 }

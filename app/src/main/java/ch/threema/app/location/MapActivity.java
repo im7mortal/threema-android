@@ -8,7 +8,6 @@ import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.location.Location;
 import android.location.LocationManager;
@@ -20,11 +19,11 @@ import android.widget.FrameLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.Px;
 import androidx.appcompat.content.res.AppCompatResources;
-import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 
@@ -51,6 +50,7 @@ import java.util.Locale;
 
 import androidx.core.view.WindowInsetsCompat;
 import ch.threema.android.LifecycleAwareAsyncTask;
+import ch.threema.android.permissions.LocationPermissionContract;
 import ch.threema.app.R;
 import ch.threema.app.activities.RecipientListBaseActivity;
 import ch.threema.app.activities.ThreemaActivity;
@@ -66,10 +66,13 @@ import ch.threema.app.utils.GeoLocationUtil;
 import ch.threema.app.utils.LocationUtil;
 import ch.threema.app.utils.RuntimeUtil;
 import ch.threema.base.ThreemaException;
+
+import static ch.threema.android.PermissionExtensionsKt.checkGrantedPermission;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.domain.protocol.ServerAddressProvider;
 import ch.threema.storage.models.data.LocationDataModel;
 import kotlin.Lazy;
+import kotlin.Unit;
 
 import static ch.threema.app.startup.AppStartupUtilKt.finishAndRestartLaterIfNotReady;
 import static ch.threema.app.location.LocationExtensionsKt.toLatLng;
@@ -85,7 +88,6 @@ public class MapActivity extends ThreemaActivity implements GenericAlertDialog.D
     private static final String DIALOG_TAG_ENABLE_LOCATION_SERVICES = "lss";
 
     private static final int REQUEST_CODE_LOCATION_SETTINGS = 22229;
-    private static final int PERMISSION_REQUEST_LOCATION = 49;
 
     private static final int MAX_POI_COUNT = 50;
 
@@ -106,6 +108,17 @@ public class MapActivity extends ThreemaActivity implements GenericAlertDialog.D
     private String markerName, markerProvider;
 
     private boolean isShowingExternalLocation = false;
+
+    private final ActivityResultLauncher<Unit> zoomToCenterLocationPermissionLauncher = registerForActivityResult(new LocationPermissionContract(), isGranted -> {
+        if (isGranted) {
+            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                setupLocationComponent(mapStyle);
+                zoomToCenter();
+            } else {
+                GenericAlertDialog.newInstance(R.string.your_location, R.string.location_services_disabled, R.string.yes, R.string.no).show(getSupportFragmentManager(), DIALOG_TAG_ENABLE_LOCATION_SERVICES);
+            }
+        }
+    });
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -234,7 +247,9 @@ public class MapActivity extends ThreemaActivity implements GenericAlertDialog.D
 
     private void initUi() {
         findViewById(R.id.coordinator).setVisibility(View.VISIBLE);
-        findViewById(R.id.center_map).setOnClickListener((it -> zoomToCenter()));
+        findViewById(R.id.center_map).setOnClickListener((it -> {
+            zoomToCenterLocationPermissionLauncher.launch(Unit.INSTANCE);
+        }));
         MaterialButton openButton = findViewById(R.id.open_button);
         MaterialButton shareButton = findViewById(R.id.share_location_button);
         if (isShowingExternalLocation) {
@@ -382,33 +397,19 @@ public class MapActivity extends ThreemaActivity implements GenericAlertDialog.D
     }
 
     private boolean checkLocationEnabled(LocationManager locationManager) {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+        if (checkGrantedPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ||
+            checkGrantedPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)) {
             return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
-        }
-        return false;
-    }
-
-    private boolean requestLocationEnabled(LocationManager locationManager) {
-        if (ConfigUtils.requestLocationPermissions(this, null, PERMISSION_REQUEST_LOCATION)) {
-            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-                setupLocationComponent(mapStyle);
-                return true;
-            }
-            GenericAlertDialog.newInstance(R.string.your_location, R.string.location_services_disabled, R.string.yes, R.string.no).show(getSupportFragmentManager(), DIALOG_TAG_ENABLE_LOCATION_SERVICES);
-            return false;
         }
         return false;
     }
 
     @SuppressLint("MissingPermission")
     private void zoomToCenter() {
-        if (requestLocationEnabled(locationManager)) {
-            locationComponent.setLocationComponentEnabled(true);
-            Location location = locationComponent.getLastKnownLocation();
-            if (location != null) {
-                moveCamera(new LatLng(location.getLatitude(), location.getLongitude()), true, -1);
-            }
+        locationComponent.setLocationComponentEnabled(true);
+        Location location = locationComponent.getLastKnownLocation();
+        if (location != null) {
+            moveCamera(new LatLng(location.getLatitude(), location.getLongitude()), true, -1);
         }
     }
 
@@ -461,19 +462,9 @@ public class MapActivity extends ThreemaActivity implements GenericAlertDialog.D
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == REQUEST_CODE_LOCATION_SETTINGS) {
-            zoomToCenter();
+            zoomToCenterLocationPermissionLauncher.launch(Unit.INSTANCE);
         } else {
             super.onActivityResult(requestCode, resultCode, data);
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String permissions[], @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            if (requestCode == PERMISSION_REQUEST_LOCATION) {
-                requestLocationEnabled(locationManager);
-            }
         }
     }
 }

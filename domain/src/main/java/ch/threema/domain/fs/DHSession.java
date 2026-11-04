@@ -4,7 +4,6 @@ import ch.threema.base.crypto.NaCl;
 
 import org.slf4j.Logger;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -13,6 +12,9 @@ import androidx.annotation.Nullable;
 import ch.threema.base.ThreemaException;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.ByteArrayExtensionsKt.concatenateByteArrays;
+import static ch.threema.common.ByteBufferExtensionsKt.concatenateByteArraysToDirectByteBuffer;
+import static ch.threema.common.ByteBufferExtensionsKt.emptyDirectByteBuffer;
+import static ch.threema.common.ByteBufferExtensionsKt.toDirectByteBuffer;
 
 import ch.threema.domain.models.Contact;
 import ch.threema.domain.protocol.csp.messages.BadMessageException;
@@ -23,7 +25,6 @@ import ch.threema.libthreema.LibthreemaKt;
 import ch.threema.protobuf.csp.e2e.fs.Encapsulated;
 import ch.threema.protobuf.csp.e2e.fs.Version;
 import ch.threema.protobuf.csp.e2e.fs.VersionRange;
-import kotlin.jvm.Throws;
 
 /**
  * ECDH key exchange and ratcheting session for forward security
@@ -730,17 +731,17 @@ public class DHSession {
             if (peer) {
                 byte[] peerK0 = LibthreemaKt.blake2bMac256(
                     concatenateByteArrays(dhStaticStatic, dhStaticEphemeral),
-                    KDF_PERSONAL.getBytes(StandardCharsets.UTF_8),
-                    (KE_SALT_2DH_PREFIX + peerIdentity).getBytes(StandardCharsets.UTF_8),
-                    new byte[0]
+                    toDirectByteBuffer(KDF_PERSONAL),
+                    toDirectByteBuffer(KE_SALT_2DH_PREFIX + peerIdentity),
+                    emptyDirectByteBuffer()
                 );
                 this.peerRatchet2DH = new KDFRatchet(1, peerK0);
             } else {
                 byte[] myK0 = LibthreemaKt.blake2bMac256(
                     concatenateByteArrays(dhStaticStatic, dhStaticEphemeral),
-                    KDF_PERSONAL.getBytes(StandardCharsets.UTF_8),
-                    (KE_SALT_2DH_PREFIX + myIdentity).getBytes(StandardCharsets.UTF_8),
-                    new byte[0]
+                    toDirectByteBuffer(KDF_PERSONAL),
+                    toDirectByteBuffer(KE_SALT_2DH_PREFIX + myIdentity),
+                    emptyDirectByteBuffer()
                 );
                 this.myRatchet2DH = new KDFRatchet(1, myK0);
             }
@@ -760,23 +761,23 @@ public class DHSession {
             // The combined 128 bytes need to be hashed with plain BLAKE2b (512 bit output) first
             byte[] intermediateHash = LibthreemaKt.blake2bMac512(
                 null,
-                new byte[0],
-                new byte[0],
-                concatenateByteArrays(dhStaticStatic, dhStaticEphemeral, dhEphemeralStatic, dhEphemeralEphemeral)
+                emptyDirectByteBuffer(),
+                emptyDirectByteBuffer(),
+                concatenateByteArraysToDirectByteBuffer(dhStaticStatic, dhStaticEphemeral, dhEphemeralStatic, dhEphemeralEphemeral)
             );
 
             byte[] myK = LibthreemaKt.blake2bMac256(
                 intermediateHash,
-                KDF_PERSONAL.getBytes(StandardCharsets.UTF_8),
-                (KE_SALT_4DH_PREFIX + myIdentity).getBytes(StandardCharsets.UTF_8),
-                new byte[0]
+                toDirectByteBuffer(KDF_PERSONAL),
+                toDirectByteBuffer(KE_SALT_4DH_PREFIX + myIdentity),
+                emptyDirectByteBuffer()
             );
 
             byte[] peerK = LibthreemaKt.blake2bMac256(
                 intermediateHash,
-                KDF_PERSONAL.getBytes(StandardCharsets.UTF_8),
-                (KE_SALT_4DH_PREFIX + peerIdentity).getBytes(StandardCharsets.UTF_8),
-                new byte[0]
+                toDirectByteBuffer(KDF_PERSONAL),
+                toDirectByteBuffer(KE_SALT_4DH_PREFIX + peerIdentity),
+                emptyDirectByteBuffer()
             );
 
             this.myRatchet4DH = new KDFRatchet(1, myK);

@@ -7,16 +7,17 @@ import androidx.lifecycle.viewModelScope
 import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.common.toggle
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.data.MessageContentsType
 import kotlinx.coroutines.launch
+import org.koin.core.annotation.InjectedParam
 
 class MediaGalleryViewModel(
     private val preferenceService: PreferenceService,
     private val mediaGalleryRepository: MediaGalleryRepository,
-    private val messageReceiver: MessageReceiver<*>,
+    @InjectedParam private val messageReceiver: MessageReceiver<*>,
 ) : ViewModel() {
-    val messages: LiveData<List<AbstractMessageModel>?> = mediaGalleryRepository.messages
+    val messages: LiveData<List<MessageModel>?> = mediaGalleryRepository.messages
 
     private val _selectedContentTypes: MutableLiveData<Set<Int>> = MutableLiveData()
     val selectedContentTypes: LiveData<Set<Int>> = _selectedContentTypes

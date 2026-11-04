@@ -16,17 +16,4 @@ interface DatabaseUpdate {
     fun run()
 
     val version: Int
-
-    /**
-     * A brief, human-readable description of what this update does. Only used for logging.
-     */
-    fun getDescription(): String? = null
 }
-
-val DatabaseUpdate.fullDescription: String
-    get() = buildString {
-        append("version $version")
-        getDescription()?.let { description ->
-            append(" ($description)")
-        }
-    }

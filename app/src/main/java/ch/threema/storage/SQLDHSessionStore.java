@@ -30,7 +30,6 @@ import ch.threema.storage.databaseupdate.FSDatabaseUpgradeToVersion3;
 import ch.threema.storage.databaseupdate.FSDatabaseUpgradeToVersion4;
 
 import static ch.threema.common.JavaCompat.toHexString;
-import static ch.threema.storage.databaseupdate.DatabaseUpdateKt.getFullDescription;
 
 public class SQLDHSessionStore extends PermanentlyCloseableSQLiteOpenHelper implements DHSessionStore {
     private static final Logger logger = getThreemaLogger("SQLDHSessionStore");
@@ -133,7 +132,7 @@ public class SQLDHSessionStore extends PermanentlyCloseableSQLiteOpenHelper impl
 
     private void runDatabaseUpdate(DatabaseUpdate databaseUpdate) {
         try {
-            logger.info("Running DB update to {}", getFullDescription(databaseUpdate));
+            logger.info("Running DB update to version {}", databaseUpdate.getVersion());
             databaseUpdate.run();
         } catch (SQLException e) {
             throw new RuntimeException("DB update failed", e);
@@ -354,6 +353,15 @@ public class SQLDHSessionStore extends PermanentlyCloseableSQLiteOpenHelper impl
             });
         } catch (SQLException e) {
             throw new DHSessionStoreException("Cannot delete record", e);
+        }
+    }
+
+    @Override
+    public void deleteAll() throws DHSessionStoreException {
+        try {
+            getWritableDatabase().rawQuery("DELETE FROM " + SESSION_TABLE);
+        } catch (SQLException e) {
+            throw new DHSessionStoreException("Failed to delete all records", e);
         }
     }
 

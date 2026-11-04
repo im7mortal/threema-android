@@ -1,5 +1,6 @@
 package ch.threema.app.restrictions
 
+@Suppress("unused")
 class NullAppRestrictionProvider : AppRestrictionProvider {
     override val hasRestrictions: Boolean
         get() = false

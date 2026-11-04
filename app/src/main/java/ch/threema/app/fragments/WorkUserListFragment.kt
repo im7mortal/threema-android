@@ -19,7 +19,6 @@ import ch.threema.app.di.awaitAppFullyReady
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.BlockedIdentitiesService
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
@@ -40,7 +39,6 @@ class WorkUserListFragment : RecipientListFragment() {
 
     private val contactService: ContactService by inject()
     private val blockedIdentitiesService: BlockedIdentitiesService by inject()
-    private val conversationCategoryService: ConversationCategoryService by inject()
     private val preferenceService: PreferenceService by inject()
     private val dispatcherProvider: DispatcherProvider by inject()
 
@@ -113,7 +111,6 @@ class WorkUserListFragment : RecipientListFragment() {
                 checkedItemPositions,
                 contactService,
                 blockedIdentitiesService,
-                conversationCategoryService,
                 preferenceService,
                 this@WorkUserListFragment,
                 Glide.with(ThreemaApplication.getAppContext()),

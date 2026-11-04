@@ -55,7 +55,7 @@ private constructor(
         VOTES_COMPLETE(11, requiresPollName = true),
 
         /** Group description changed */
-        GROUP_DESCRIPTION_CHANGED(12),
+        GROUP_DESCRIPTION_CHANGED(12), // TODO(ANDR-3351): Remove this type (DB migration required)
 
         /** The creator left the group */
         ORPHANED(13),

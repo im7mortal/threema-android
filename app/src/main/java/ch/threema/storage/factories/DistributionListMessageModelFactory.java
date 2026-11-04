@@ -3,25 +3,35 @@ package ch.threema.storage.factories;
 import android.content.ContentValues;
 import android.database.Cursor;
 
+import net.zetetic.database.sqlcipher.SQLiteDatabase;
+
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.app.services.MessageService;
+
+import static ch.threema.android.CursorExtensionsKt.readCountQueryResult;
+import static ch.threema.common.DatabaseHelpers.makePlaceholders;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
+import ch.threema.data.datatypes.DistributionListMessageIdentifier;
+import ch.threema.data.storage.SqliteDatabaseBackend;
+import ch.threema.domain.models.MessageId;
 import ch.threema.storage.CursorHelper;
 import ch.threema.storage.DatabaseCreationProvider;
 import ch.threema.storage.DatabaseProvider;
-import ch.threema.storage.DatabaseUtil;
 import ch.threema.storage.QueryBuilder;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.DistributionListMessageModel;
 import ch.threema.storage.models.MessageType;
 
-public class DistributionListMessageModelFactory extends AbstractMessageModelFactory {
+public class DistributionListMessageModelFactory extends MessageModelFactory {
     private static final Logger logger = getThreemaLogger("DistributionListMessageModelFactory");
 
     public DistributionListMessageModelFactory(DatabaseProvider databaseProvider) {
@@ -29,13 +39,7 @@ public class DistributionListMessageModelFactory extends AbstractMessageModelFac
     }
 
     public List<DistributionListMessageModel> getAll() {
-        return convertList(getReadableDatabase().query(this.getTableName(),
-            null,
-            null,
-            null,
-            null,
-            null,
-            null));
+        return convertList(getReadableDatabase().query(this.getTableName(), null, null, null, null, null, null));
     }
 
     public @Nullable DistributionListMessageModel getById(long id) {
@@ -52,16 +56,25 @@ public class DistributionListMessageModelFactory extends AbstractMessageModelFac
         );
     }
 
-    private List<DistributionListMessageModel> convertList(Cursor c) {
+    @Nullable
+    public DistributionListMessageModel getByMessageId(@NonNull MessageId messageId, long distributionListId) {
+        String selection = DistributionListMessageModel.COLUMN_API_MESSAGE_ID + " = ? AND " +
+            DistributionListMessageModel.COLUMN_DISTRIBUTION_LIST_ID + " = ?";
 
+        return getFirst(
+            selection,
+            new String[]{messageId.toString(), Long.toString(distributionListId)}
+        );
+    }
+
+    @NonNull
+    private List<DistributionListMessageModel> convertList(Cursor cursor) {
         List<DistributionListMessageModel> result = new ArrayList<>();
-        if (c != null) {
-            try {
-                while (c.moveToNext()) {
-                    result.add(convert(c));
+        if (cursor != null) {
+            try (cursor) {
+                while (cursor.moveToNext()) {
+                    result.add(convert(cursor));
                 }
-            } finally {
-                c.close();
             }
         }
         return result;
@@ -69,43 +82,43 @@ public class DistributionListMessageModelFactory extends AbstractMessageModelFac
 
     private DistributionListMessageModel convert(Cursor cursor) {
         if (cursor != null && cursor.getPosition() >= 0) {
-            final DistributionListMessageModel c = new DistributionListMessageModel();
-
+            final DistributionListMessageModel distributionListMessageModel = new DistributionListMessageModel();
             //convert default
-            super.convert(c, new CursorHelper(cursor, getColumnIndexCache()).current(new CursorHelper.Callback() {
-                @Override
-                public boolean next(CursorHelper cursorHelper) {
+            super.convert(
+                distributionListMessageModel,
+                new CursorHelper(cursor, getColumnIndexCache()).current(cursorHelper -> {
                     Long distributionListId = cursorHelper.getLong(DistributionListMessageModel.COLUMN_DISTRIBUTION_LIST_ID);
                     if (distributionListId != null) {
-                        c.setDistributionListId(distributionListId);
+                        distributionListMessageModel.setDistributionListId(distributionListId);
                     } else {
                         logger.warn("Distribution list id is null");
                     }
                     return false;
-                }
-            }));
-
-            return c;
+                })
+            );
+            return distributionListMessageModel;
         }
-
         return null;
     }
 
-    public long countByTypes(MessageType[] messageTypes) {
+    public long countByTypes(@NonNull MessageType[] messageTypes) {
         String[] args = new String[messageTypes.length];
         for (int n = 0; n < messageTypes.length; n++) {
             args[n] = String.valueOf(messageTypes[n].serializedValue);
         }
-        Cursor c = getReadableDatabase().rawQuery(
+        Cursor cursor = getReadableDatabase().rawQuery(
             "SELECT COUNT(*) FROM " + this.getTableName() + " "
-                + "WHERE " + DistributionListMessageModel.COLUMN_TYPE + " IN (" + DatabaseUtil.makePlaceholders(args.length) + ")",
+                + "WHERE " + DistributionListMessageModel.COLUMN_TYPE + " IN (" + makePlaceholders(args.length) + ")",
             args
         );
-
-        return DatabaseUtil.count(c);
+        return readCountQueryResult(cursor);
     }
 
-    public boolean createOrUpdate(DistributionListMessageModel distributionListMessageModel) {
+    /**
+     * Inserts or updates the message model into the database. Note that if the message is inserted,
+     * the id of the message model will be updated.
+     */
+    public void createOrUpdate(@NonNull DistributionListMessageModel distributionListMessageModel) {
         boolean insert = true;
         if (distributionListMessageModel.getId() > 0) {
             Cursor cursor = getReadableDatabase().query(
@@ -121,33 +134,57 @@ public class DistributionListMessageModelFactory extends AbstractMessageModelFac
             );
 
             if (cursor != null) {
-                try {
+                try (cursor) {
                     insert = !cursor.moveToNext();
-                } finally {
-                    cursor.close();
                 }
             }
         }
 
         if (insert) {
-            return create(distributionListMessageModel);
+            create(distributionListMessageModel);
         } else {
-            return update(distributionListMessageModel);
+            update(distributionListMessageModel);
         }
     }
 
-    private boolean create(DistributionListMessageModel distributionListMessageModel) {
+    /**
+     * Inserts the message model into the database. Note that the id of the message model will be updated.
+     */
+    private void create(DistributionListMessageModel distributionListMessageModel) {
         ContentValues contentValues = this.buildContentValues(distributionListMessageModel);
         contentValues.put(DistributionListMessageModel.COLUMN_DISTRIBUTION_LIST_ID, distributionListMessageModel.getDistributionListId());
         long newId = getWritableDatabase().insertOrThrow(this.getTableName(), null, contentValues);
-        if (newId > 0) {
-            distributionListMessageModel.setId((int) newId);
-            return true;
-        }
-        return false;
+        distributionListMessageModel.setId((int) newId);
     }
 
-    private boolean update(DistributionListMessageModel distributionListMessageModel) {
+    /**
+     * Inserts the message models into the database. Note that the ids of the message models will be updated.
+     */
+    public void create(@NonNull List<DistributionListMessageModel> distributionListMessageModels) {
+        if (distributionListMessageModels.isEmpty()) {
+            return;
+        }
+        SQLiteDatabase database = getWritableDatabase();
+        database.beginTransaction();
+        try {
+            String tableName = getTableName();
+            for (DistributionListMessageModel distributionListMessageModel : distributionListMessageModels) {
+                ContentValues contentValues = buildContentValues(distributionListMessageModel);
+                contentValues.put(DistributionListMessageModel.COLUMN_DISTRIBUTION_LIST_ID, distributionListMessageModel.getDistributionListId());
+                long id = database.insertOrThrow(
+                    tableName,
+                    null,
+                    contentValues
+                );
+                distributionListMessageModel.setId((int) id);
+            }
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+    }
+
+    private void update(DistributionListMessageModel distributionListMessageModel) {
         ContentValues contentValues = this.buildContentValues(distributionListMessageModel);
         getWritableDatabase().update(this.getTableName(),
             contentValues,
@@ -155,11 +192,10 @@ public class DistributionListMessageModelFactory extends AbstractMessageModelFac
             new String[]{
                 String.valueOf(distributionListMessageModel.getId())
             });
-        return true;
     }
 
     public long countMessages(long distributionListId) {
-        return DatabaseUtil.count(getReadableDatabase().rawQuery(
+        return readCountQueryResult(getReadableDatabase().rawQuery(
             "SELECT COUNT(*) FROM " + this.getTableName()
                 + " WHERE " + DistributionListMessageModel.COLUMN_ID + "=?",
             new String[]{
@@ -209,7 +245,24 @@ public class DistributionListMessageModelFactory extends AbstractMessageModelFac
             null));
     }
 
-    public int delete(DistributionListMessageModel distributionListMessageModel) {
+    /**
+     * Read message models from the database into the given list.
+     *
+     * @param messageModels the list where the message models are appended to
+     * @param count         the number of message models that are read
+     * @param offset        the offset where the message models are started to be read
+     */
+    public void loadMessageModelsIntoList(List<DistributionListMessageModel> messageModels, int count, int offset) {
+        String query = "SELECT * FROM `" + getTableName() + "` LIMIT ? OFFSET ?";
+        String[] queryArgs = new String[]{String.valueOf(count), String.valueOf(offset)};
+        try (Cursor cursor = getReadableDatabase().query(query, queryArgs)) {
+            while (cursor.moveToNext()) {
+                messageModels.add(convert(cursor));
+            }
+        }
+    }
+
+    public int delete(@NonNull DistributionListMessageModel distributionListMessageModel) {
         return getWritableDatabase().delete(this.getTableName(),
             DistributionListMessageModel.COLUMN_ID + "=?",
             new String[]{
@@ -218,33 +271,69 @@ public class DistributionListMessageModelFactory extends AbstractMessageModelFac
     }
 
     private @Nullable DistributionListMessageModel getFirst(String selection, String[] selectionArgs) {
-        Cursor cursor = getReadableDatabase().query(
-            this.getTableName(),
-            null,
-            selection,
-            selectionArgs,
-            null,
-            null,
-            null
-        );
-
+        Cursor cursor = getReadableDatabase().query(this.getTableName(), null, selection, selectionArgs, null, null, null);
         if (cursor != null) {
-            try {
+            try (cursor) {
                 if (cursor.moveToFirst()) {
                     return convert(cursor);
                 }
-            } finally {
-                cursor.close();
             }
         }
-
         return null;
+    }
+
+    /**
+     * Returns {@code true} if any of the given messages exist.
+     * <p>
+     * Messages are checked in batches of at most {@link SqliteDatabaseBackend#MAX_VARIABLE_NUMBER} / 2 to stay within SQLite's host-parameter limit.
+     * <p>
+     * Query:
+     * <pre>{@code
+     * SELECT EXISTS (
+     *   SELECT 1 FROM distribution_list_message
+     *    WHERE (apiMessageId, distributionListId) IN ((?, ?), (?, ?), ...)
+     *    LIMIT 1
+     * )
+     * }</pre>
+     */
+    public boolean anyExists(@NonNull Set<DistributionListMessageIdentifier> distributionListMessageIdentifiers) {
+        if (distributionListMessageIdentifiers.isEmpty()) {
+            return false;
+        }
+        // Copy to a java.util.List to have the subList function available for chunking
+        final List<DistributionListMessageIdentifier> messageIdentifiersList = new ArrayList<>(distributionListMessageIdentifiers);
+        final int chunkSize = SqliteDatabaseBackend.MAX_VARIABLE_NUMBER / 2;
+        for (int start = 0; start < messageIdentifiersList.size(); start += chunkSize) {
+            final List<DistributionListMessageIdentifier> messageIdentifiersChunk = messageIdentifiersList.subList(
+                start,
+                Math.min(start + chunkSize, messageIdentifiersList.size())
+            );
+            final String placeholders = messageIdentifiersChunk.stream()
+                .map(identifier -> "(?, ?)")
+                .collect(Collectors.joining(", "));
+            final String sql = "SELECT EXISTS(SELECT 1 FROM " + getTableName() + " WHERE ("
+                + DistributionListMessageModel.COLUMN_API_MESSAGE_ID + ", " + DistributionListMessageModel.COLUMN_DISTRIBUTION_LIST_ID + ") IN ("
+                + placeholders + ") LIMIT 1)";
+            final List<Object> bindArgs = new ArrayList<>(messageIdentifiersChunk.size() * 2);
+            for (DistributionListMessageIdentifier messageIdentifier : messageIdentifiersChunk) {
+                bindArgs.add(messageIdentifier.getMessageId().toString());
+                bindArgs.add(messageIdentifier.getDistributionListId());
+            }
+            final Cursor cursor = getReadableDatabase().query(sql, bindArgs.toArray());
+            try (cursor) {
+                final boolean exists = cursor.moveToFirst() && cursor.getInt(0) == 1;
+                if (exists) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public static class Creator implements DatabaseCreationProvider {
         @Override
         @NonNull
-        public String [] getCreationStatements() {
+        public String[] getCreationStatements() {
             return new String[]{
                 "CREATE TABLE `" + DistributionListMessageModel.TABLE + "`" +
                     "(" +
@@ -284,9 +373,9 @@ public class DistributionListMessageModelFactory extends AbstractMessageModelFac
                 "CREATE INDEX `distribution_list_message_identity_idx` ON `" + DistributionListMessageModel.TABLE + "` ( `" + DistributionListMessageModel.COLUMN_IDENTITY + "` )",
                 "CREATE INDEX `distributionListCorrelationIdIdx` ON `" + DistributionListMessageModel.TABLE + "` ( `" + DistributionListMessageModel.COLUMN_CORRELATION_ID + "` )",
                 "CREATE INDEX `distribution_list_message_state_idx` ON `" + DistributionListMessageModel.TABLE
-                    + "`(`" + AbstractMessageModel.COLUMN_TYPE
-                    + "`, `" + AbstractMessageModel.COLUMN_STATE
-                    + "`, `" + AbstractMessageModel.COLUMN_OUTBOX
+                    + "`(`" + MessageModel.COLUMN_TYPE
+                    + "`, `" + MessageModel.COLUMN_STATE
+                    + "`, `" + MessageModel.COLUMN_OUTBOX
                     + "`)",
             };
         }

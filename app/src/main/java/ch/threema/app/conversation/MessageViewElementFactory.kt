@@ -10,7 +10,6 @@ import ch.threema.app.ui.models.MessageViewElement
 import ch.threema.app.utils.IconUtil
 import ch.threema.app.utils.MimeUtil
 import ch.threema.app.utils.PollUtil
-import ch.threema.app.utils.QuoteUtil
 import ch.threema.common.takeUnlessEmpty
 import ch.threema.common.toHMMSS
 import ch.threema.data.IdentityProvider
@@ -44,11 +43,8 @@ class MessageViewElementFactory(
         isOutbox: Boolean,
         contactNameFormat: ContactNameFormat,
     ): MessageViewElement? = when (messageType) {
-        MessageType.TEXT -> getViewElementForTextMessage(
-            messageBody = messageBody,
-            caption = messageCaption?.takeUnlessEmpty(),
-            isOutbox = isOutbox,
-            contactNameFormat = contactNameFormat,
+        MessageType.TEXT -> MessageViewElement(
+            text = messageBody,
         )
         MessageType.LOCATION -> getViewElementForLocationMessage()
         MessageType.FILE -> getViewElementForFileMessage(
@@ -72,32 +68,9 @@ class MessageViewElementFactory(
             messageBody = messageBody ?: return null,
         )
         MessageType.STATUS,
-        MessageType.DATE_SEPARATOR,
+        MessageType.VIRTUAL,
         -> null
     }
-
-    private fun getViewElementForTextMessage(
-        messageBody: String?,
-        caption: String?,
-        isOutbox: Boolean,
-        contactNameFormat: ContactNameFormat,
-    ): MessageViewElement =
-        MessageViewElement(
-            text = QuoteUtil.getMessageBody(
-                /* messageType = */
-                MessageType.TEXT,
-                /* messageBody = */
-                messageBody,
-                /* messageCaption = */
-                caption,
-                /* isOutbox = */
-                isOutbox,
-                /* substituteAndTruncate = */
-                false,
-                /* contactNameFormat = */
-                contactNameFormat,
-            ),
-        )
 
     private fun getViewElementForLocationMessage(): MessageViewElement {
         val placeholder = appContext.getString(R.string.location_placeholder)

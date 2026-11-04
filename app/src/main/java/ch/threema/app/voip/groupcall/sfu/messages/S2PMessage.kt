@@ -25,7 +25,8 @@ sealed interface S2PMessage {
     data class SfuHello(val participantIds: Set<ParticipantId>) : S2PMessage {
         companion object {
             internal fun fromProtobuf(hello: SfuToParticipant.Hello): SfuHello {
-                val participants = hello.participantIdsList
+                // TODO(ANDR-5288): Migrate away from deprecated API
+                val participants = hello.deprecatedParticipantIdsList
                     .map { ParticipantId(it.toUInt()) }
                     .toSet()
                 return SfuHello(participants)

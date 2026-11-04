@@ -3,6 +3,8 @@ import com.android.build.gradle.internal.tasks.factory.dependsOn
 import config.BuildFeatureFlags
 import config.PublicKeys
 import config.SentryConfig
+import config.buildFlavorsWithoutRelease
+import config.configureFlavor
 import config.setProductNames
 import config.setSentryConfig
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
@@ -11,7 +13,6 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import utils.*
 
 plugins {
-    alias(libs.plugins.sonarqube)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.rust.android)
     id("com.android.application")
@@ -20,6 +21,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.stem)
+    alias(libs.plugins.koin.compiler)
 }
 
 // only apply the plugin if we are dealing with an AppGallery build
@@ -33,7 +35,7 @@ if (gradle.startParameter.taskRequests.toString().contains("Hms")) {
 /**
  * Only use the scheme "<major>.<minor>.<patch>" for the appVersion
  */
-val appVersion = "6.5.3"
+val appVersion = "6.6.0"
 
 /**
  * betaSuffix with leading dash (e.g. `-beta1`).
@@ -42,7 +44,7 @@ val appVersion = "6.5.3"
  */
 val betaSuffix = ""
 
-val defaultVersionCode = 1216
+val defaultVersionCode = 1237
 
 /**
  * Map with keystore paths (if found).
@@ -58,7 +60,7 @@ val keystores: Map<String, KeystoreConfig?> = mapOf(
 android {
     // NOTE: When adjusting compileSdk, buildToolsVersion or ndkVersion, make sure to also adjust
     //   `scripts/Dockerfile`, `commonAndroid/build.gradle.kts`, and the image in `.gitlab-ci.yml`
-    compileSdk = 36
+    compileSdk = 37
     buildToolsVersion = "35.0.0"
     ndkVersion = "28.2.13676358"
 
@@ -131,13 +133,15 @@ android {
         byteArrayBuildConfigField("THREEMA_PUSH_PUBLIC_KEY", PublicKeys.threemaPush)
         stringBuildConfigField("ONPREM_ID_PREFIX", "O")
         stringBuildConfigField("LOG_TAG", "3ma")
-        stringBuildConfigField("DEFAULT_APP_THEME", "2")
 
         stringArrayBuildConfigField("ONPREM_CONFIG_TRUSTED_PUBLIC_KEYS", emptyArray())
+        stringBuildConfigField("ONPREM_APP_IDENTIFIER", null)
         booleanBuildConfigField("MD_SYNC_DISTRIBUTION_LISTS", false)
         booleanBuildConfigField("AVAILABILITY_STATUS_ENABLED", false)
         booleanBuildConfigField("CROSS_PLATFORM_BACKUPS_ENABLED", BuildFeatureFlags["cross_platform_backups"] ?: false)
         booleanBuildConfigField("NEW_CONVERSATION_SCREEN_ENABLED", BuildFeatureFlags["new_conversation_screen"] ?: false)
+        booleanBuildConfigField("LOG_TOMBSTONES_FOR_NATIVE_CRASHES", BuildFeatureFlags["log_tombstones"] ?: false)
+        booleanBuildConfigField("EMOJI_REACTION_NOTIFICATIONS_ENABLED", false)
 
         // config fields for action URLs / deep links
         stringBuildConfigField("uriScheme", "threema")
@@ -248,11 +252,13 @@ android {
         }
         create("store_google") {
             setSentryConfig(SentryConfig.PRODUCTION)
+            proguardFile("proguard-production.txt")
         }
         create("store_threema") {
             versionName = "${appVersion}s$betaSuffix"
             stringResValue("shop_download_filename", "Threema-update.apk")
             setSentryConfig(SentryConfig.PRODUCTION)
+            proguardFile("proguard-production.txt")
         }
         create("store_google_work") {
             versionName = "${appVersion}k$betaSuffix"
@@ -270,7 +276,6 @@ android {
             stringBuildConfigField("WORK_SERVER_URL", "https://work.threema.ch/")
             stringBuildConfigField("APP_RATING_URL", "https://threema.com/app-rating/android-work/{rating}")
             stringBuildConfigField("LOG_TAG", "3mawrk")
-            stringBuildConfigField("DEFAULT_APP_THEME", "2")
             booleanBuildConfigField("AVAILABILITY_STATUS_ENABLED", true)
 
             // config fields for action URLs / deep links
@@ -287,6 +292,7 @@ android {
             }
 
             setSentryConfig(SentryConfig.PRODUCTION)
+            proguardFile("proguard-production.txt")
         }
         create("green") {
             applicationId = "ch.threema.app.green"
@@ -313,6 +319,9 @@ android {
             stringBuildConfigField("MAP_POI_AROUND_URL", "https://poi.test.threema.ch/around/{latitude}/{longitude}/{radius}/")
             stringBuildConfigField("MAP_POI_NAMES_URL", "https://poi.test.threema.ch/names/{latitude}/{longitude}/{query}/")
             stringBuildConfigField("BLOB_MIRROR_SERVER_URL", "https://blob-mirror-{deviceGroupIdPrefix4}.test.threema.ch/{deviceGroupIdPrefix8}")
+
+            booleanBuildConfigField("CROSS_PLATFORM_BACKUPS_ENABLED", true)
+            booleanBuildConfigField("EMOJI_REACTION_NOTIFICATIONS_ENABLED", true)
 
             setSentryConfig(SentryConfig.SANDBOX)
         }
@@ -350,7 +359,6 @@ android {
             stringBuildConfigField("MAP_POI_AROUND_URL", "https://poi.test.threema.ch/around/{latitude}/{longitude}/{radius}/")
             stringBuildConfigField("MAP_POI_NAMES_URL", "https://poi.test.threema.ch/names/{latitude}/{longitude}/{query}/")
             stringBuildConfigField("LOG_TAG", "3mawrk")
-            stringBuildConfigField("DEFAULT_APP_THEME", "2")
             stringBuildConfigField("BLOB_MIRROR_SERVER_URL", "https://blob-mirror-{deviceGroupIdPrefix4}.test.threema.ch/{deviceGroupIdPrefix8}")
 
             // config fields for action URLs / deep links
@@ -358,6 +366,7 @@ android {
             stringBuildConfigField("actionUrl", "work.test.threema.ch")
 
             booleanBuildConfigField("AVAILABILITY_STATUS_ENABLED", true)
+            booleanBuildConfigField("EMOJI_REACTION_NOTIFICATIONS_ENABLED", true)
 
             stringBuildConfigField("MD_CLIENT_DOWNLOAD_URL", "https://three.ma/mdw")
 
@@ -396,6 +405,7 @@ android {
             stringBuildConfigField("BLOB_SERVER_IPV6_URL_UPLOAD", null)
             stringBuildConfigField("BLOB_MIRROR_SERVER_URL", null)
             stringArrayBuildConfigField("ONPREM_CONFIG_TRUSTED_PUBLIC_KEYS", PublicKeys.onPremTrusted)
+            stringBuildConfigField("ONPREM_APP_IDENTIFIER", null)
             stringBuildConfigField("LOG_TAG", "3maop")
 
             // config fields for action URLs / deep links
@@ -419,6 +429,7 @@ android {
             }
 
             setSentryConfig(null)
+            proguardFile("proguard-production.txt")
         }
         create("blue") {
             // Essentially like sandbox work, but with a different icon and application id, used for internal testing
@@ -457,6 +468,8 @@ android {
             stringBuildConfigField("BLOB_MIRROR_SERVER_URL", "https://blob-mirror-{deviceGroupIdPrefix4}.test.threema.ch/{deviceGroupIdPrefix8}")
 
             booleanBuildConfigField("AVAILABILITY_STATUS_ENABLED", true)
+            booleanBuildConfigField("EMOJI_REACTION_NOTIFICATIONS_ENABLED", true)
+            booleanBuildConfigField("LOG_TOMBSTONES_FOR_NATIVE_CRASHES", true)
 
             // config fields for action URLs / deep links
             stringBuildConfigField("uriScheme", "threemablue")
@@ -473,6 +486,7 @@ android {
         create("hms") {
             applicationId = "ch.threema.app.hms"
             setSentryConfig(SentryConfig.PRODUCTION)
+            proguardFile("proguard-production.txt")
         }
         create("hms_work") {
             versionName = "${appVersion}k$betaSuffix"
@@ -490,7 +504,6 @@ android {
             stringBuildConfigField("WORK_SERVER_URL", "https://work.threema.ch/")
             stringBuildConfigField("APP_RATING_URL", "https://threema.com/app-rating/android-work/{rating}")
             stringBuildConfigField("LOG_TAG", "3mawrk")
-            stringBuildConfigField("DEFAULT_APP_THEME", "2")
             booleanBuildConfigField("AVAILABILITY_STATUS_ENABLED", true)
 
             // config fields for action URLs / deep links
@@ -504,6 +517,7 @@ android {
             }
 
             setSentryConfig(SentryConfig.PRODUCTION)
+            proguardFile("proguard-production.txt")
         }
         create("libre") {
             versionName = "${appVersion}l$betaSuffix"
@@ -517,6 +531,7 @@ android {
             stringBuildConfigField("MEDIA_PATH", "ThreemaLibre")
 
             setSentryConfig(null)
+            proguardFile("proguard-production.txt")
         }
     }
 
@@ -588,77 +603,62 @@ android {
             java.srcDir("./build/generated/source/protobuf/main/kotlin")
         }
 
-        // Include Dev features only in debug builds and in release builds for flavors used only internally
-        val devFlavors = arrayOf("blue", "none")
-        productFlavors.names
-            .flatMap { productFlavor ->
-                buildList {
-                    add("${productFlavor}Debug" to true)
-                    if (productFlavor != "green" && productFlavor != "sandbox_work") {
-                        add("${productFlavor}Release" to (productFlavor in devFlavors))
-                    }
-                }
+        configureFlavor("none") {
+            threemaPrivate()
+            withGoogleServices()
+            withDevSupport()
+        }
+        configureFlavor("store_google") {
+            threemaPrivate()
+            withGoogleServices()
+        }
+        configureFlavor("store_threema") {
+            threemaPrivate()
+            withGoogleServices()
+            withSelfUpdating()
+        }
+        configureFlavor("store_google_work") {
+            threemaWork()
+            withGoogleServices()
+        }
+        configureFlavor("green") {
+            threemaPrivate()
+            withGoogleServices()
+            extra {
+                manifest.srcFile("src/store_google/AndroidManifest.xml")
             }
-            .forEach { (name, needsDevFeatures) ->
-                create(name) {
-                    val srcPath = if (needsDevFeatures) "src/with_dev_support" else "src/without_dev_support"
-                    java.srcDir("$srcPath/java")
-                    manifest.srcFile("$srcPath/AndroidManifest.xml")
-                    res.srcDir("$srcPath/res")
-                }
+        }
+        configureFlavor("sandbox_work") {
+            threemaWork()
+            withGoogleServices()
+            extra {
+                res.srcDir("src/store_google_work/res")
+                manifest.srcFile("src/store_google_work/AndroidManifest.xml")
             }
-
-        // Based on Google services
-        getByName("none") {
-            java.srcDir("src/google_services_based/java")
         }
-        getByName("localdev") {
-            java.srcDir("src/google_services_based/java")
-            java.srcDir("src/store_google/java")
+        configureFlavor("onprem") {
+            threemaOnPrem()
+            withGoogleServices()
         }
-        getByName("store_google") {
-            java.srcDir("src/google_services_based/java")
+        configureFlavor("blue") {
+            threemaWork()
+            withGoogleServices()
+            withDevSupport()
         }
-        getByName("store_google_work") {
-            java.srcDir("src/google_services_based/java")
+        configureFlavor("hms") {
+            threemaPrivate()
+            withHmsServices()
         }
-        getByName("store_threema") {
-            java.srcDir("src/google_services_based/java")
+        configureFlavor("hms_work") {
+            threemaWork()
+            withHmsServices()
+            extra {
+                res.srcDir("src/store_google_work/res")
+            }
         }
-        getByName("libre") {
-            assets.srcDirs("src/foss_based/assets")
-            java.srcDir("src/foss_based/java")
-        }
-        getByName("onprem") {
-            java.srcDir("src/google_services_based/java")
-        }
-        getByName("green") {
-            java.srcDir("src/google_services_based/java")
-            manifest.srcFile("src/store_google/AndroidManifest.xml")
-        }
-        getByName("sandbox_work") {
-            java.srcDir("src/google_services_based/java")
-            res.srcDir("src/store_google_work/res")
-            manifest.srcFile("src/store_google_work/AndroidManifest.xml")
-        }
-        getByName("blue") {
-            java.srcDir("src/google_services_based/java")
-            res.srcDir("src/blue/res")
-        }
-
-        // Based on Huawei services
-        getByName("hms") {
-            java.srcDir("src/hms_services_based/java")
-        }
-        getByName("hms_work") {
-            java.srcDir("src/hms_services_based/java")
-            res.srcDir("src/store_google_work/res")
-        }
-
-        // FOSS, no proprietary services
-        getByName("libre") {
-            assets.srcDirs("src/foss_based/assets")
-            java.srcDir("src/foss_based/java")
+        configureFlavor("libre") {
+            threemaPrivate()
+            withFossBasedServices()
         }
     }
 
@@ -834,7 +834,7 @@ composeCompiler {
 androidComponents {
     beforeVariants { variant ->
         val name = variant.name
-        if (variant.buildType == "release" && ("green" in name || "sandbox_work" in name)) {
+        if (variant.buildType == "release" && buildFlavorsWithoutRelease.any { it in name }) {
             variant.enable = false
         }
     }
@@ -860,6 +860,7 @@ dependencies {
     // Dependency Injection
     implementation(libs.koin.android)
     implementation(libs.koin.androidCompat)
+    implementation(libs.koin.annotations)
     implementation(libs.koin.compose)
     testImplementation(libs.koin.test)
     testImplementation(libs.koin.test.junit4)
@@ -938,16 +939,28 @@ dependencies {
     // webclient dependencies
     implementation(libs.msgpack.core)
     implementation(libs.jackson.core)
+    // TODO(ANDR-4869): remove `libs.jackson.databind` once we are on Gradle 9.7.0+ (workaround for https://github.com/gradle/gradle/issues/14220)
+    implementation(libs.jackson.databind)
+    implementation(libs.jackson.dataformat.msgpack)
     implementation(libs.nvWebsocket.client)
 
     implementation(libs.saltyrtc.client) {
         exclude(group = "org.json")
+        exclude(module = "msgpack-core")
+        exclude(module = "jackson-databind")
+        exclude(module = "nv-websocket-client")
+        exclude(module = "jackson-dataformat-msgpack")
+        exclude(module = "chunked-dc")
     }
 
     implementation(libs.chunkedDc)
     implementation(libs.webrtcAndroid)
     implementation(libs.saltyrtc.taskWebrtc) {
         exclude(module = "saltyrtc-client")
+        exclude(module = "msgpack-core")
+        exclude(module = "jackson-databind")
+        exclude(module = "jackson-dataformat-msgpack")
+        exclude(module = "chunked-dc")
     }
 
     // Glide components
@@ -955,7 +968,6 @@ dependencies {
     ksp(libs.glide.ksp)
 
     // Kotlin
-    implementation(libs.kotlin.stdlib)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.kotlin.test)
@@ -984,9 +996,6 @@ dependencies {
 
     androidTestImplementation(testFixtures(project(":domain")))
     androidTestImplementation(libs.androidx.test.rules)
-    androidTestImplementation(libs.fastlane.screengrab) {
-        exclude(group = "androidx.annotation", module = "annotation")
-    }
     androidTestImplementation(libs.androidx.espresso.core) {
         exclude(group = "androidx.annotation", module = "annotation")
     }
@@ -1082,7 +1091,6 @@ dependencies {
 // kotlin bindings are created in the domain module. Building native libraries with rust-android
 // cannot be done in any other module than 'app'.
 cargo {
-    prebuiltToolchains = true
     targetDirectory = "$projectDir/build/generated/source/libthreema"
     module = "$projectDir/../domain/libthreema" // must contain Cargo.toml
     libname = "libthreema" // must match the Cargo.toml's package name
@@ -1105,34 +1113,6 @@ afterEvaluate {
     }
 }
 
-sonarqube {
-    properties {
-        property(
-            "sonar.sources",
-            listOf(
-                "src/main/",
-                "../scripts/",
-                "../scripts-internal/",
-            )
-                .joinToString(separator = ", "),
-        )
-        property(
-            "sonar.exclusions",
-            listOf(
-                "src/**/res/",
-                "src/**/res-rendezvous/",
-                "**/emojis/EmojiParser.kt",
-                "**/emojis/EmojiSpritemap.kt",
-            )
-                .joinToString(separator = ", "),
-        )
-        property("sonar.tests", "src/test/")
-        property("sonar.sourceEncoding", "UTF-8")
-        property("sonar.verbose", "true")
-        property("sonar.projectKey", "android-client")
-        property("sonar.projectName", "Threema for Android")
-    }
-}
 
 androidStem {
     includeLocalizedOnlyTemplates = true

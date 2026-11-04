@@ -1,3 +1,2 @@
-- Fixed a bug related to automatic file downloads
-- Improvements to contact synchronization
+- New: Report spam group chats and block the creator
 - Various improvements and bug fixes

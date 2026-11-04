@@ -9,7 +9,11 @@ import androidx.compose.runtime.Immutable
 @JvmInline
 value class ByteSize(val bytes: Long) : Comparable<ByteSize> {
     override fun toString(): String =
-        "$bytes bytes"
+        when {
+            bytes >= 1000 * 1000 -> "${bytes / 1000f / 1000f} megabytes"
+            bytes >= 1000 -> "${bytes / 1000f} kilobytes"
+            else -> "$bytes bytes"
+        }
 
     operator fun plus(other: ByteSize): ByteSize =
         ByteSize(bytes + other.bytes)
@@ -41,3 +45,9 @@ val Long.kiloBytes
 
 val Int.kiloBytes
     get() = ByteSize(this.toLong() * 1000)
+
+val Long.megaBytes
+    get() = ByteSize(this * 1000 * 1000)
+
+val Int.megaBytes
+    get() = ByteSize(this.toLong() * 1000 * 1000)

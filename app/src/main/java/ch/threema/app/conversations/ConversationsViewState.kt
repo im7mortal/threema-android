@@ -10,16 +10,15 @@ import ch.threema.data.datatypes.ContactNameFormat
  *  @param hidePrivateConversations   Reflects the user setting `arePrivateChatsHidden`. If this is `true`, all private marked conversations are
  *  excluded from visible items.
  *  @param hasPrivateConversations    Is `true` if at least one private-marked conversation exist that is not archived.
- *  @param archivedConversationsCount The count of all archived conversations that match an optional [searchQuery]. The count respects the users
+ *  @param archivedConversationsCount The count of all archived conversations. The count respects the users setting to hide private conversations. If
+ *  private conversations should be hidden, these will never be counted.
  *  @param availabilityStatus         The [AvailabilityStatus] of the user
- *  setting to hide private conversations. If private conversations should be hidden, these will never be counted.
  *  @param pendingAction              Used to store temporary information about a pending action the user might or might not complete. There can only be one
  *  pending action at a time. Example: the user has to configure an app lock before the selected conversation can be marked as private.
  */
 @Immutable
 data class ConversationsViewState(
     val itemsState: ItemsState,
-    val searchQuery: String?,
     val hidePrivateConversations: Boolean,
     val hasPrivateConversations: Boolean,
     val archivedConversationsCount: Long,

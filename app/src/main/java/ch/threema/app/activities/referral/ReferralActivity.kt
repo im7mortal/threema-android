@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import ch.threema.android.buildActivityIntent
 import ch.threema.android.buildIntent
 import ch.threema.android.showToast
+import ch.threema.app.BuildFlavor
 import ch.threema.app.R
 import ch.threema.app.activities.ThreemaActivity
 import ch.threema.app.compose.common.appbars.AppBar
@@ -56,7 +57,6 @@ import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.dimens.GridUnit
 import ch.threema.app.compose.theme.dimens.responsive
 import ch.threema.app.framework.EventHandler
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.MimeUtil
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.app.webviews.ReferralTosActivity
@@ -77,7 +77,7 @@ class ReferralActivity : ThreemaActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (!ConfigUtils.isReferralProgramEnabled()) {
+        if (BuildFlavor.IS_WORK) {
             finish()
             return
         }

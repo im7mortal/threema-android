@@ -5,7 +5,6 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import ch.threema.app.adapters.GroupDetailAdapter.GroupDescState
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.UserService
 import ch.threema.app.utils.DisplayableContactOrUser
@@ -16,7 +15,6 @@ import ch.threema.data.models.GroupModelData
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.domain.types.IdentityString
 import java.io.File
-import java.time.Instant
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -65,24 +63,6 @@ class GroupDetailViewModel(
         get() = savedState.get<String?>(KEY_GROUP_NAME)?.trim { it <= ' ' } ?: ""
         set(groupName) {
             savedState.set<String?>(KEY_GROUP_NAME, groupName)
-        }
-
-    var groupDesc: String?
-        get() = savedState[KEY_GROUP_DESC]
-        set(groupDesc) {
-            savedState.set<String?>(KEY_GROUP_DESC, groupDesc)
-        }
-
-    var groupDescTimestamp: Instant?
-        get() = savedState[KEY_GROUP_DESC_TIMESTAMP]
-        set(groupDescDate) {
-            savedState.set<Instant?>(KEY_GROUP_DESC_TIMESTAMP, groupDescDate)
-        }
-
-    var groupDescState: GroupDescState?
-        get() = savedState[KEY_GROUP_DESC_STATE]
-        set(groupDescState) {
-            savedState.set<GroupDescState?>(KEY_GROUP_DESC_STATE, groupDescState)
         }
 
     var groupIdentities: Array<IdentityString>
@@ -166,8 +146,5 @@ class GroupDetailViewModel(
         private const val KEY_GROUP_NAME = "name"
         private const val KEY_GROUP_IDENTITIES = "contacts"
         private const val KEY_AVATAR_REMOVED = "isRemoved"
-        private const val KEY_GROUP_DESC = "description"
-        private const val KEY_GROUP_DESC_TIMESTAMP = "descTimestamp"
-        private const val KEY_GROUP_DESC_STATE = "descState"
     }
 }

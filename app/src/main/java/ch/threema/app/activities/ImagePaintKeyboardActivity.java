@@ -29,11 +29,13 @@ import ch.threema.app.motionviews.widget.TextEntity;
 import ch.threema.android.textwatchers.SimpleTextWatcher;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.EditTextUtil;
+
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 
-public class ImagePaintKeyboardActivity extends ThreemaToolbarActivity {
+public class ImagePaintKeyboardActivity extends ThreemaToolbarActivity implements BackPressHandler {
     private static final Logger logger = getThreemaLogger("ImagePaintKeyboardActivity");
 
     public final static String INTENT_EXTRA_TEXT = "text";
@@ -58,7 +60,7 @@ public class ImagePaintKeyboardActivity extends ThreemaToolbarActivity {
 
         Drawable checkDrawable = AppCompatResources.getDrawable(this, R.drawable.ic_check);
         Objects.requireNonNull(checkDrawable).setColorFilter(
-            ConfigUtils.getColorFromAttribute(this, R.attr.colorOnSurface),
+            getColorFromAttribute(this, R.attr.colorOnSurface),
             PorterDuff.Mode.SRC_IN
         );
         actionBar.setDisplayHomeAsUpEnabled(true);
@@ -175,12 +177,7 @@ public class ImagePaintKeyboardActivity extends ThreemaToolbarActivity {
     }
 
     @Override
-    protected boolean enableOnBackPressedCallback() {
-        return true;
-    }
-
-    @Override
-    protected void handleOnBackPressed() {
+    public void handleOnBackPressed() {
         cancel();
     }
 }

@@ -14,16 +14,15 @@ import ch.threema.data.storage.DatabaseBackend
 import ch.threema.domain.models.UserState
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.protocol.csp.messages.DeleteMessage
-import ch.threema.domain.protocol.csp.messages.file.FileData
 import ch.threema.domain.protocol.csp.messages.file.FileData.RenderingType
 import ch.threema.domain.taskmanager.TaskManager
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.ContactMessageModel
 import ch.threema.storage.models.DistributionListMessageModel
+import ch.threema.storage.models.GroupMessageModel
 import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageState
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.media.FileDataModel
-import ch.threema.storage.models.group.GroupMessageModel
 import ch.threema.testhelpers.nonSecureRandomArray
 import io.mockk.every
 import io.mockk.mockk
@@ -37,24 +36,23 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
-import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import testdata.TestData
 
 class MessageUtilTest {
-    private lateinit var contactMessageModelInbox: MessageModel
-    private lateinit var contactMessageModelInboxUserAcknowledged: MessageModel
-    private lateinit var contactMessageModelInboxUserDeclined: MessageModel
-    private lateinit var contactMessageModelOutbox: MessageModel
-    private lateinit var contactMessageModelOutboxUserAcknowledged: MessageModel
-    private lateinit var contactMessageModelOutboxUserDeclined: MessageModel
+    private lateinit var contactMessageModelInbox: ContactMessageModel
+    private lateinit var contactMessageModelInboxUserAcknowledged: ContactMessageModel
+    private lateinit var contactMessageModelInboxUserDeclined: ContactMessageModel
+    private lateinit var contactMessageModelOutbox: ContactMessageModel
+    private lateinit var contactMessageModelOutboxUserAcknowledged: ContactMessageModel
+    private lateinit var contactMessageModelOutboxUserDeclined: ContactMessageModel
 
-    private lateinit var businessContactMessageModelInbox: MessageModel
-    private lateinit var businessContactMessageModelInboxUserAcknowledged: MessageModel
-    private lateinit var businessContactMessageModelInboxUserDeclined: MessageModel
-    private lateinit var businessContactMessageModelOutbox: MessageModel
-    private lateinit var businessContactMessageModelOutboxUserAcknowledged: MessageModel
-    private lateinit var businessContactMessageModelOutboxUserDeclined: MessageModel
+    private lateinit var businessContactMessageModelInbox: ContactMessageModel
+    private lateinit var businessContactMessageModelInboxUserAcknowledged: ContactMessageModel
+    private lateinit var businessContactMessageModelInboxUserDeclined: ContactMessageModel
+    private lateinit var businessContactMessageModelOutbox: ContactMessageModel
+    private lateinit var businessContactMessageModelOutboxUserAcknowledged: ContactMessageModel
+    private lateinit var businessContactMessageModelOutboxUserDeclined: ContactMessageModel
 
     private lateinit var groupMessageModelInbox: GroupMessageModel
     private lateinit var groupMessageModelOutbox: GroupMessageModel
@@ -82,14 +80,14 @@ class MessageUtilTest {
         val businessContactThreemaId = "*THREEMA"
 
         // mock object
-        this.contactMessageModelInbox = MessageModel().apply {
+        this.contactMessageModelInbox = ContactMessageModel().apply {
             identity = contactThreemaId
             isSaved = true
             isOutbox = false
             type = MessageType.TEXT
         }
 
-        this.contactMessageModelInboxUserAcknowledged = MessageModel().apply {
+        this.contactMessageModelInboxUserAcknowledged = ContactMessageModel().apply {
             identity = contactThreemaId
             isSaved = true
             isOutbox = false
@@ -97,7 +95,7 @@ class MessageUtilTest {
             state = MessageState.USERACK
         }
 
-        this.contactMessageModelInboxUserDeclined = MessageModel().apply {
+        this.contactMessageModelInboxUserDeclined = ContactMessageModel().apply {
             identity = contactThreemaId
             isSaved = true
             isOutbox = false
@@ -105,14 +103,14 @@ class MessageUtilTest {
             state = MessageState.USERDEC
         }
 
-        this.contactMessageModelOutbox = MessageModel().apply {
+        this.contactMessageModelOutbox = ContactMessageModel().apply {
             identity = contactThreemaId
             isSaved = true
             isOutbox = true
             type = MessageType.TEXT
         }
 
-        this.contactMessageModelOutboxUserAcknowledged = MessageModel().apply {
+        this.contactMessageModelOutboxUserAcknowledged = ContactMessageModel().apply {
             identity = contactThreemaId
             isSaved = true
             isOutbox = true
@@ -120,7 +118,7 @@ class MessageUtilTest {
             state = MessageState.USERACK
         }
 
-        this.contactMessageModelOutboxUserDeclined = MessageModel().apply {
+        this.contactMessageModelOutboxUserDeclined = ContactMessageModel().apply {
             identity = contactThreemaId
             isSaved = true
             isOutbox = true
@@ -128,14 +126,14 @@ class MessageUtilTest {
             state = MessageState.USERDEC
         }
 
-        this.businessContactMessageModelInbox = MessageModel().apply {
+        this.businessContactMessageModelInbox = ContactMessageModel().apply {
             identity = businessContactThreemaId
             isSaved = true
             isOutbox = false
             type = MessageType.TEXT
         }
 
-        this.businessContactMessageModelInboxUserAcknowledged = MessageModel().apply {
+        this.businessContactMessageModelInboxUserAcknowledged = ContactMessageModel().apply {
             identity = businessContactThreemaId
             isSaved = true
             isOutbox = false
@@ -143,7 +141,7 @@ class MessageUtilTest {
             state = MessageState.USERACK
         }
 
-        this.businessContactMessageModelInboxUserDeclined = MessageModel().apply {
+        this.businessContactMessageModelInboxUserDeclined = ContactMessageModel().apply {
             identity = businessContactThreemaId
             isSaved = true
             isOutbox = false
@@ -151,14 +149,14 @@ class MessageUtilTest {
             state = MessageState.USERDEC
         }
 
-        this.businessContactMessageModelOutbox = MessageModel().apply {
+        this.businessContactMessageModelOutbox = ContactMessageModel().apply {
             identity = businessContactThreemaId
             isSaved = true
             isOutbox = true
             type = MessageType.TEXT
         }
 
-        this.businessContactMessageModelOutboxUserAcknowledged = MessageModel().apply {
+        this.businessContactMessageModelOutboxUserAcknowledged = ContactMessageModel().apply {
             identity = businessContactThreemaId
             isSaved = true
             isOutbox = true
@@ -166,7 +164,7 @@ class MessageUtilTest {
             state = MessageState.USERACK
         }
 
-        this.businessContactMessageModelOutboxUserDeclined = MessageModel().apply {
+        this.businessContactMessageModelOutboxUserDeclined = ContactMessageModel().apply {
             identity = businessContactThreemaId
             isSaved = true
             isOutbox = true
@@ -198,26 +196,6 @@ class MessageUtilTest {
         unmockkStatic(ConfigUtils::class)
     }
 
-    @Suppress("DEPRECATION")
-    @Test
-    fun hasDataFile() {
-        assertFalse(MessageUtil.hasDataFile(messageModelWithType(MessageType.TEXT)))
-        assertFalse(MessageUtil.hasDataFile(messageModelWithType(MessageType.LOCATION)))
-        assertFalse(MessageUtil.hasDataFile(messageModelWithType(MessageType.STATUS)))
-        assertFalse(MessageUtil.hasDataFile(messageModelWithType(MessageType.POLL)))
-        assertTrue(MessageUtil.hasDataFile(messageModelWithType(MessageType.FILE)))
-    }
-
-    @Suppress("DEPRECATION")
-    @Test
-    fun hasThumbnailFile() {
-        assertFalse(MessageUtil.canHaveThumbnailFile(messageModelWithType(MessageType.TEXT)))
-        assertFalse(MessageUtil.canHaveThumbnailFile(messageModelWithType(MessageType.LOCATION)))
-        assertFalse(MessageUtil.canHaveThumbnailFile(messageModelWithType(MessageType.STATUS)))
-        assertFalse(MessageUtil.canHaveThumbnailFile(messageModelWithType(MessageType.POLL)))
-        assertTrue(MessageUtil.canHaveThumbnailFile(messageModelWithType(MessageType.FILE)))
-    }
-
     @Test
     fun canSendDeliveryReceipt() {
         assertTrue(MessageUtil.canSendDeliveryReceipt(this.contactMessageModelInbox, ProtocolDefines.DELIVERYRECEIPT_MSGREAD))
@@ -235,13 +213,8 @@ class MessageUtilTest {
         )
         assertFalse(MessageUtil.canSendDeliveryReceipt(this.groupMessageModelInbox, ProtocolDefines.DELIVERYRECEIPT_MSGREAD))
 
-        if (ConfigUtils.isGroupAckEnabled()) {
-            assertTrue(MessageUtil.canSendDeliveryReceipt(this.groupMessageModelInbox, ProtocolDefines.DELIVERYRECEIPT_MSGUSERACK))
-            assertTrue(MessageUtil.canSendDeliveryReceipt(this.groupMessageModelInbox, ProtocolDefines.DELIVERYRECEIPT_MSGUSERDEC))
-        } else {
-            assertFalse(MessageUtil.canSendDeliveryReceipt(this.groupMessageModelInbox, ProtocolDefines.DELIVERYRECEIPT_MSGUSERACK))
-            assertFalse(MessageUtil.canSendDeliveryReceipt(this.groupMessageModelInbox, ProtocolDefines.DELIVERYRECEIPT_MSGUSERDEC))
-        }
+        assertTrue(MessageUtil.canSendDeliveryReceipt(this.groupMessageModelInbox, ProtocolDefines.DELIVERYRECEIPT_MSGUSERACK))
+        assertTrue(MessageUtil.canSendDeliveryReceipt(this.groupMessageModelInbox, ProtocolDefines.DELIVERYRECEIPT_MSGUSERDEC))
 
         assertFalse(MessageUtil.canSendDeliveryReceipt(this.distributionListMessageModelOutbox, ProtocolDefines.DELIVERYRECEIPT_MSGREAD))
     }
@@ -390,26 +363,26 @@ class MessageUtilTest {
     fun isUnread() {
         assertTrue(
             MessageUtil.isUnread(
-                MessageModel().apply {
+                ContactMessageModel().apply {
                     isOutbox = false
-                    isStatusMessage = false
+                    type = MessageType.TEXT
                 },
             ),
         )
         assertFalse(
             MessageUtil.isUnread(
-                MessageModel().apply {
+                ContactMessageModel().apply {
                     isOutbox = true
-                    isStatusMessage = false
+                    type = MessageType.TEXT
                 },
             ),
         )
 
         assertFalse(
             MessageUtil.isUnread(
-                MessageModel().apply {
+                ContactMessageModel().apply {
                     isOutbox = false
-                    isStatusMessage = true
+                    type = MessageType.STATUS
                 },
             ),
         )
@@ -421,7 +394,7 @@ class MessageUtilTest {
     fun canMarkAsRead() {
         assertTrue(
             MessageUtil.canMarkAsRead(
-                MessageModel().apply {
+                ContactMessageModel().apply {
                     isRead = false
                     isOutbox = false
                 },
@@ -429,7 +402,7 @@ class MessageUtilTest {
         )
         assertFalse(
             MessageUtil.canMarkAsRead(
-                MessageModel().apply {
+                ContactMessageModel().apply {
                     isRead = true
                     isOutbox = false
                 },
@@ -437,7 +410,7 @@ class MessageUtilTest {
         )
         assertFalse(
             MessageUtil.canMarkAsRead(
-                MessageModel().apply {
+                ContactMessageModel().apply {
                     isRead = false
                     isOutbox = true
                 },
@@ -446,7 +419,7 @@ class MessageUtilTest {
 
         assertFalse(
             MessageUtil.canMarkAsRead(
-                MessageModel().apply {
+                ContactMessageModel().apply {
                     isRead = true
                     isOutbox = true
                 },
@@ -577,8 +550,8 @@ class MessageUtilTest {
         val distributionListMessageReceiver = TestData.createAndMockDistributionListMessageReceiver(
             distributionListId = 2L,
             identitiesWithPublicKey = listOf(
-                TestData.Identities.OTHER_4 to TestData.publicKeyAllZeros,
-                TestData.Identities.OTHER_5 to TestData.publicKeyAllZeros,
+                TestData.Identities.OTHER_4 to TestData.testPublicKey,
+                TestData.Identities.OTHER_5 to TestData.testPublicKey,
             ),
             contactModelRepositoryMock = contactModelRepositoryMock,
             databaseBackendMock = databaseBackendMock,
@@ -661,10 +634,10 @@ class MessageUtilTest {
         val distributionListMessageReceiver = TestData.createAndMockDistributionListMessageReceiver(
             distributionListId = 1L,
             identitiesWithPublicKey = listOf(
-                TestData.Identities.OTHER_4 to TestData.publicKeyAllZeros,
-                TestData.Identities.OTHER_5 to TestData.publicKeyAllZeros,
-                TestData.Identities.OTHER_2 to TestData.publicKeyAllZeros,
-                TestData.Identities.OTHER_3 to TestData.publicKeyAllZeros,
+                TestData.Identities.OTHER_4 to TestData.testPublicKey,
+                TestData.Identities.OTHER_5 to TestData.testPublicKey,
+                TestData.Identities.OTHER_2 to TestData.testPublicKey,
+                TestData.Identities.OTHER_3 to TestData.testPublicKey,
             ),
             contactModelRepositoryMock = contactModelRepositoryMock,
             databaseBackendMock = databaseBackendMock,
@@ -697,198 +670,6 @@ class MessageUtilTest {
     }
 
     @Test
-    fun hasFileWithDefaultRendering() {
-        assertFalse(MessageUtil.hasFileWithDefaultRendering(messageModelWithType(MessageType.TEXT)))
-
-        val messageWithImage: AbstractMessageModel = messageModelWithType(MessageType.FILE)
-        val image: FileDataModel = createFileDataModel(FileData.RENDERING_MEDIA)
-        messageWithImage.fileData = image
-        assertFalse(MessageUtil.hasFileWithDefaultRendering(messageWithImage))
-
-        val messageWithImageAsFile: AbstractMessageModel = messageModelWithType(MessageType.FILE)
-        val imageAsFile: FileDataModel = createFileDataModel(FileData.RENDERING_DEFAULT)
-        messageWithImageAsFile.fileData = imageAsFile
-        assertTrue(MessageUtil.hasFileWithDefaultRendering(messageWithImageAsFile))
-    }
-
-    @Test
-    fun `text message can be edited`() {
-        val message = createAbstractMessageModel(
-            type = MessageType.TEXT,
-            isOutbox = true,
-            createdAt = Instant.now(),
-            postedAt = Instant.now(),
-        )
-
-        assertTrue(message.canBeEdited())
-    }
-
-    @Test
-    fun `file message can be edited`() {
-        val message = createAbstractMessageModel(
-            type = MessageType.FILE,
-            isOutbox = true,
-            createdAt = Instant.now(),
-            postedAt = Instant.now(),
-        )
-
-        assertTrue(message.canBeEdited())
-    }
-
-    @Test
-    fun `message can be edited if it is less than 6 hours old`() {
-        val message = createAbstractMessageModel(
-            type = MessageType.TEXT,
-            isOutbox = true,
-            createdAt = Instant.now() - 5.9.hours,
-            postedAt = Instant.now(),
-        )
-
-        assertTrue(message.canBeEdited())
-    }
-
-    @Test
-    fun `message can be edited if it is less than 6 hours older than custom editTime`() {
-        val editTime = Instant.now() - 4.hours
-
-        val message = createAbstractMessageModel(
-            type = MessageType.TEXT,
-            isOutbox = true,
-            createdAt = editTime - 5.9.hours,
-            postedAt = Instant.now(),
-        )
-
-        assertTrue(message.canBeEdited(editTime = editTime))
-    }
-
-    @Test
-    fun `message can not be edited if it is more than 6 hours old`() {
-        val message = createAbstractMessageModel(
-            type = MessageType.TEXT,
-            isOutbox = true,
-            createdAt = Instant.now() - 6.1.hours,
-            postedAt = Instant.now(),
-        )
-
-        assertFalse(message.canBeEdited())
-    }
-
-    @Test
-    fun `message in notes group can still be edited even if it is older than 6 hours`() {
-        val message = createAbstractMessageModel(
-            type = MessageType.TEXT,
-            isOutbox = true,
-            createdAt = Instant.now() - 6.1.hours,
-            postedAt = Instant.now(),
-        )
-
-        assertTrue(message.canBeEdited(belongsToNotesGroup = true))
-    }
-
-    @Test
-    fun `status message can not be edited`() {
-        val message = createAbstractMessageModel(
-            type = MessageType.TEXT,
-            isStatusMessage = true,
-            isOutbox = true,
-            createdAt = Instant.now(),
-            postedAt = Instant.now(),
-        )
-
-        assertFalse(message.canBeEdited())
-    }
-
-    @Test
-    fun `message from other user can not be edited`() {
-        val message = createAbstractMessageModel(
-            type = MessageType.TEXT,
-            isOutbox = false,
-            createdAt = Instant.now(),
-            postedAt = Instant.now(),
-        )
-
-        assertFalse(message.canBeEdited())
-    }
-
-    @Test
-    fun `location message can not be edited`() {
-        val message = createAbstractMessageModel(
-            type = MessageType.LOCATION,
-            isOutbox = true,
-            createdAt = Instant.now(),
-            postedAt = Instant.now(),
-        )
-
-        assertFalse(message.canBeEdited())
-    }
-
-    @Test
-    fun `deleted message from other user can not be edited`() {
-        val message = createAbstractMessageModel(
-            type = MessageType.TEXT,
-            isOutbox = true,
-            createdAt = Instant.now(),
-            postedAt = Instant.now(),
-            isDeleted = true,
-        )
-
-        assertFalse(message.canBeEdited())
-    }
-
-    @Test
-    fun `unposted message can not be edited`() {
-        val message = createAbstractMessageModel(
-            type = MessageType.TEXT,
-            isOutbox = true,
-            createdAt = Instant.now(),
-            postedAt = null,
-        )
-
-        assertFalse(message.canBeEdited())
-    }
-
-    @Test
-    fun `unposted message can not be edited if it failed to send`() {
-        val message = createAbstractMessageModel(
-            type = MessageType.TEXT,
-            isOutbox = true,
-            createdAt = Instant.now(),
-            postedAt = null,
-            state = MessageState.SENDFAILED,
-        )
-
-        assertTrue(message.canBeEdited())
-    }
-
-    @Test
-    fun `group message can be edited (conditions apply)`() {
-        val message = mockk<GroupMessageModel> {
-            every { type } returns MessageType.TEXT
-            every { isStatusMessage } returns false
-            every { isDeleted } returns false
-            every { isOutbox } returns true
-            every { createdAt } returns Instant.now()
-            every { postedAt } returns Instant.now()
-        }
-
-        assertTrue(message.canBeEdited())
-    }
-
-    @Test
-    fun `distribution list message can not be edited`() {
-        val message = mockk<DistributionListMessageModel> {
-            every { type } returns MessageType.TEXT
-            every { isStatusMessage } returns false
-            every { isDeleted } returns false
-            every { isOutbox } returns true
-            every { createdAt } returns Instant.now()
-            every { postedAt } returns Instant.now()
-        }
-
-        assertFalse(message.canBeEdited())
-    }
-
-    @Test
     fun `canDeleteRemotely respects message age for contact receiver`() {
         // arrange
         val contactReceiver: ContactMessageReceiver = TestData.createAndMockContactMessageReceiver(
@@ -903,14 +684,9 @@ class MessageUtilTest {
         val messageCreatedAtTooOld = Instant.now() -
             DeleteMessage.DELETE_MESSAGES_MAX_AGE.milliseconds -
             1.days
-        val message: AbstractMessageModel = createAbstractMessageModel(
-            type = MessageType.TEXT,
-            isStatusMessage = false,
-            isDeleted = false,
-            isOutbox = true,
+        val message: MessageModel = createMessageModel(
             createdAt = messageCreatedAtTooOld,
             postedAt = messageCreatedAtTooOld + 100.milliseconds,
-            state = MessageState.SENT,
         )
 
         // act
@@ -940,14 +716,9 @@ class MessageUtilTest {
         val messageCreatedAtTooOld: Instant = Instant.now() -
             DeleteMessage.DELETE_MESSAGES_MAX_AGE.milliseconds -
             1.days
-        val message: AbstractMessageModel = createAbstractMessageModel(
-            type = MessageType.TEXT,
-            isStatusMessage = false,
-            isDeleted = false,
-            isOutbox = true,
+        val message: MessageModel = createMessageModel(
             createdAt = messageCreatedAtTooOld,
             postedAt = messageCreatedAtTooOld.plus(100.milliseconds),
-            state = MessageState.SENT,
         )
 
         // act
@@ -975,14 +746,9 @@ class MessageUtilTest {
             taskManager = taskManagerMock,
         )
         val messageCreatedAtYoungEnough = Instant.now() - (DeleteMessage.DELETE_MESSAGES_MAX_AGE / 2).milliseconds
-        val message: AbstractMessageModel = createAbstractMessageModel(
-            type = MessageType.TEXT,
-            isStatusMessage = false,
-            isDeleted = false,
-            isOutbox = true,
+        val message: MessageModel = createMessageModel(
             createdAt = messageCreatedAtYoungEnough,
             postedAt = messageCreatedAtYoungEnough.plus(100.milliseconds),
-            state = MessageState.SENT,
         )
 
         // act
@@ -1011,14 +777,9 @@ class MessageUtilTest {
         val messageCreatedAtTooOld = Instant.now() -
             DeleteMessage.DELETE_MESSAGES_MAX_AGE.milliseconds -
             1.days
-        val message: AbstractMessageModel = createAbstractMessageModel(
-            type = MessageType.TEXT,
-            isStatusMessage = false,
-            isDeleted = false,
-            isOutbox = true,
+        val message: MessageModel = createMessageModel(
             createdAt = messageCreatedAtTooOld,
             postedAt = messageCreatedAtTooOld.plus(100.milliseconds),
-            state = MessageState.SENT,
         )
 
         // act
@@ -1028,7 +789,7 @@ class MessageUtilTest {
         assertTrue(result)
     }
 
-    private fun messageModelWithType(messageType: MessageType) = MessageModel().apply {
+    private fun messageModelWithType(messageType: MessageType) = ContactMessageModel().apply {
         type = messageType
     }
 
@@ -1052,24 +813,19 @@ class MessageUtilTest {
             HashMap(),
         )
 
-        private fun createAbstractMessageModel(
-            type: MessageType,
-            isStatusMessage: Boolean = false,
-            isDeleted: Boolean = false,
-            isOutbox: Boolean,
+        private fun createMessageModel(
             createdAt: Instant?,
             postedAt: Instant? = null,
-            state: MessageState? = null,
-        ): AbstractMessageModel {
-            return mockk<MessageModel> {
+        ): MessageModel {
+            return mockk<ContactMessageModel> {
                 val message = this
-                every { message.type } returns type
-                every { message.isStatusMessage } returns isStatusMessage
-                every { message.isDeleted } returns isDeleted
-                every { message.isOutbox } returns isOutbox
+                every { message.type } returns MessageType.TEXT
+                every { message.isStatusMessage } returns false
+                every { message.isDeleted } returns false
+                every { message.isOutbox } returns true
                 every { message.createdAt } returns createdAt
                 every { message.postedAt } returns postedAt
-                every { message.state } returns state
+                every { message.state } returns MessageState.SENT
             }
         }
     }

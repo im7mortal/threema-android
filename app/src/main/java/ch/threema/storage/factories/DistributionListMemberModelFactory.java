@@ -1,5 +1,7 @@
 package ch.threema.storage.factories;
 
+import static ch.threema.common.DatabaseHelpers.makePlaceholders;
+
 import android.content.ContentValues;
 
 import android.database.Cursor;
@@ -11,7 +13,6 @@ import androidx.annotation.NonNull;
 import ch.threema.storage.CursorHelper;
 import ch.threema.storage.DatabaseCreationProvider;
 import ch.threema.storage.DatabaseProvider;
-import ch.threema.storage.DatabaseUtil;
 import ch.threema.storage.models.DistributionListMemberModel;
 
 public class DistributionListMemberModelFactory extends ModelFactory {
@@ -179,7 +180,7 @@ public class DistributionListMemberModelFactory extends ModelFactory {
             args[n] = String.valueOf(modelsToRemove.get(n).getId());
         }
         return getWritableDatabase().delete(this.getTableName(),
-            DistributionListMemberModel.COLUMN_ID + " IN (" + DatabaseUtil.makePlaceholders(args.length) + ")",
+            DistributionListMemberModel.COLUMN_ID + " IN (" + makePlaceholders(args.length) + ")",
             args);
     }
 

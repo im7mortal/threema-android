@@ -15,13 +15,15 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.app.ServiceCompat;
 import ch.threema.app.R;
-import ch.threema.app.activities.DummyActivity;
+import ch.threema.app.activities.CloseAppActivity;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.notifications.NotificationChannels;
 import ch.threema.app.notifications.NotificationGroups;
 import ch.threema.app.notifications.NotificationRequestCodes;
 import ch.threema.app.webclient.activities.SessionsActivity;
 
+import static ch.threema.android.PendingIntentExtensionsKt.getPendingIntentForActivity;
+import static ch.threema.android.PendingIntentExtensionsKt.getPendingIntentForService;
 import static ch.threema.app.notifications.NotificationIDs.WEBCLIENT_ACTIVE_NOTIFICATION_ID;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
@@ -65,6 +67,7 @@ public class SessionAndroidService extends Service {
             .setLocalOnly(true)
             .setGroup(NotificationGroups.WEB_DESKTOP_SESSIONS)
             .setGroupSummary(false);
+        NotificationChannels.createOrMigrateNotificationChannels(this);
         ServiceCompat.startForeground(
             this,
             WEBCLIENT_ACTIVE_NOTIFICATION_ID,
@@ -152,16 +155,13 @@ public class SessionAndroidService extends Service {
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         logger.info("onTaskRemoved");
-
-        Intent intent = new Intent(this, DummyActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(intent);
+        CloseAppActivity.closeApp(this);
     }
 
     private Notification getNotification() {
         int amountOfRunningSessions = (int) sessionService.getRunningSessionsCount();
         Intent contentIntent = new Intent(this, SessionsActivity.class);
-        PendingIntent contentPendingIntent = PendingIntent.getActivity(
+        PendingIntent contentPendingIntent = getPendingIntentForActivity(
             this,
             NotificationRequestCodes.WEBCLIENT_SESSIONS,
             contentIntent,
@@ -169,7 +169,7 @@ public class SessionAndroidService extends Service {
         );
 
         Intent stopIntent = new Intent(this, StopSessionsAndroidService.class);
-        PendingIntent stopPendingIntent = PendingIntent.getService(
+        PendingIntent stopPendingIntent = getPendingIntentForService(
             this,
             NotificationRequestCodes.WEBCLIENT_STOP_SESSION,
             stopIntent,

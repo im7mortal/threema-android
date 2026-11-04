@@ -14,7 +14,7 @@ import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.services.UserService
 import ch.threema.data.models.EmojiReactionData
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import kotlin.math.roundToInt
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -27,7 +27,7 @@ class EmojiReactionGroup :
     KoinComponent {
     private val userService: UserService by inject()
 
-    private var messageModel: AbstractMessageModel? = null
+    private var messageModel: MessageModel? = null
     private var buttonInfoList: List<ButtonInfo> = emptyList()
     private var bubbleView: View? = null
     private var messageReceiver: MessageReceiver<*>? = null
@@ -57,7 +57,7 @@ class EmojiReactionGroup :
 
     fun setMessageModel(
         messageReceiver: MessageReceiver<*>,
-        messageModel: AbstractMessageModel,
+        messageModel: MessageModel,
         reactions: List<EmojiReactionData>,
     ) {
         this.messageModel = messageModel
@@ -205,10 +205,10 @@ class EmojiReactionGroup :
     }
 
     interface OnEmojiReactionGroupClickListener {
-        fun onEmojiReactionClick(messageModel: AbstractMessageModel?, emojiSequence: String?)
-        fun onEmojiReactionLongClick(messageModel: AbstractMessageModel?, emojiSequence: String?)
-        fun onSelectButtonClick(messageModel: AbstractMessageModel?)
-        fun onMoreReactionsButtonClick(messageModel: AbstractMessageModel?)
+        fun onEmojiReactionClick(messageModel: MessageModel?, emojiSequence: String?)
+        fun onEmojiReactionLongClick(messageModel: MessageModel?, emojiSequence: String?)
+        fun onSelectButtonClick(messageModel: MessageModel?)
+        fun onMoreReactionsButtonClick(messageModel: MessageModel?)
     }
 
     override fun onClick(emojiSequence: String?) {

@@ -9,7 +9,5 @@ internal class DatabaseUpdateToVersion78(
         sqLiteDatabase.execSQL("ALTER TABLE `group_call` ADD COLUMN `protocolVersion` INTEGER DEFAULT 0")
     }
 
-    override fun getDescription() = "GroupCalls"
-
     override val version = 78
 }

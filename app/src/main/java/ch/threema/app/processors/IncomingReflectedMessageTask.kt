@@ -1,5 +1,6 @@
 package ch.threema.app.processors
 
+import ch.threema.app.di.Qualifiers
 import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.processors.incomingcspmessage.getSubTaskFromMessage
@@ -12,7 +13,6 @@ import ch.threema.app.processors.reflectedmessageupdate.ReflectedOutgoingMessage
 import ch.threema.app.processors.reflectedoutgoingmessage.getReflectedOutgoingMessageTask
 import ch.threema.app.tasks.ActiveComposableTask
 import ch.threema.app.typingindicator.TypingIndicatorManager
-import ch.threema.app.utils.AppVersionProvider
 import ch.threema.base.crypto.Nonce
 import ch.threema.base.crypto.NonceScope
 import ch.threema.base.crypto.SymmetricEncryptionService
@@ -67,6 +67,7 @@ import ch.threema.protobuf.d2d.OutgoingMessageUpdate
 import ch.threema.protobuf.d2d.SettingsSync
 import ch.threema.protobuf.d2d.UserProfileSync
 import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
 import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("IncomingReflectedMessageTask")
@@ -325,11 +326,10 @@ class IncomingReflectedMessageTask(
         ReflectedUserProfileSyncTask(
             userProfileSync = userProfileSync,
             userService = serviceManager.userService,
-            okHttpClient = serviceManager.okHttpClient,
+            blobDownloadOkHttpClient = get(qualifier = Qualifiers.okHttpBlobDownload),
             serverAddressProvider = serviceManager.serverAddressProviderService.serverAddressProvider,
             multiDevicePropertyProvider = multiDeviceManager.propertiesProvider,
             symmetricEncryptionService = symmetricEncryptionService,
-            appVersion = AppVersionProvider.appVersion,
             preferenceService = serviceManager.preferenceService,
             profilePictureRecipientsService = serviceManager.profilePicRecipientsService,
         ).run()
@@ -350,11 +350,10 @@ class IncomingReflectedMessageTask(
             groupModelRepository = serviceManager.modelRepositories.groups,
             groupService = serviceManager.groupService,
             fileService = serviceManager.fileService,
-            okHttpClient = serviceManager.okHttpClient,
+            blobDownloadOkHttpClient = get(qualifier = Qualifiers.okHttpBlobDownload),
             serverAddressProvider = serviceManager.serverAddressProviderService.serverAddressProvider,
             symmetricEncryptionService = symmetricEncryptionService,
             multiDeviceManager = multiDeviceManager,
-            conversationCategoryService = serviceManager.conversationCategoryService,
             userService = serviceManager.userService,
             globalEventBuses = globalEventBuses,
         ).run()

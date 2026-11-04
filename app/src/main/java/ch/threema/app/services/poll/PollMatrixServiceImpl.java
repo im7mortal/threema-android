@@ -199,8 +199,7 @@ public class PollMatrixServiceImpl implements PollMatrixService {
             for (int y = 0; y < choices.length; y++) {
                 PollVoteModel v = this.getVote(p, this.choices.get(y));
                 hasVoted = hasVoted || v != null;
-                choices[y] = v != null
-                    && v.getChoice() > 0;
+                choices[y] = v != null && v.getSelected();
             }
             p.otherChoose = choices;
             p.hasVoted = hasVoted;
@@ -212,8 +211,7 @@ public class PollMatrixServiceImpl implements PollMatrixService {
             Choice c = this.choices.get(y);
             for (int x = 0; x < participant.length; x++) {
                 PollVoteModel v = this.getVote(this.participants.get(x), c);
-                participant[x] = v != null
-                    && v.getChoice() > 0;
+                participant[x] = v != null && v.getSelected();
             }
             c.otherChoose = participant;
         }

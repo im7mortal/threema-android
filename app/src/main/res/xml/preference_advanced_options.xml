@@ -51,6 +51,14 @@
             android:key="@string/preferences__sentry_id"
             android:title="@string/prefs_error_reporting_id" />
 
+        <CheckBoxPreference
+            android:key="@string/preferences__store_tombstones"
+            app:isPreferenceVisible="false"
+            android:persistent="true"
+            android:title="Log tombstones for native crashes"
+            android:summary="Tombstones may contain sensitive information"
+            android:widgetLayout="@layout/preference_switch_layout" />
+
     </PreferenceCategory>
     <PreferenceCategory
         android:key="pref_key_network"
@@ -137,14 +145,10 @@
         android:key="pref_key_reset"
         android:title="@string/prefs_header_reset">
         <Preference
-            android:defaultValue=""
-            android:enabled="true"
             android:key="@string/preferences__remove_wallpapers"
             android:summary="@string/prefs_sum_remove_wallpapers"
             android:title="@string/prefs_title_remove_wallpapers" />
         <Preference
-            android:defaultValue=""
-            android:enabled="true"
             android:key="@string/preferences__reset_ringtones"
             android:summary="@string/prefs_sum_reset_ringtones"
             android:title="@string/prefs_title_reset_ringtones" />

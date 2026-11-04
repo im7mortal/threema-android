@@ -13,7 +13,7 @@ import ch.threema.data.IdentityProvider
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.domain.types.Identity
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageType
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.filterIsInstance
@@ -82,14 +82,14 @@ class ConversationRefreshMonitor(
         }
     }
 
-    private fun onNewMessage(message: AbstractMessageModel) {
+    private fun onNewMessage(message: MessageModel) {
         val conversationService = conversationService ?: return
         if (!message.isStatusMessage || message.type == MessageType.GROUP_CALL_STATUS) {
             conversationService.refreshForMessage(message, true)
         }
     }
 
-    private fun onMessagesUpdated(messages: List<AbstractMessageModel>) {
+    private fun onMessagesUpdated(messages: List<MessageModel>) {
         val conversationService = conversationService ?: return
         messages.forEach { message ->
             if (!message.isStatusMessage) {
@@ -98,7 +98,7 @@ class ConversationRefreshMonitor(
         }
     }
 
-    private fun onMessageRemoved(message: AbstractMessageModel) {
+    private fun onMessageRemoved(message: MessageModel) {
         val conversationService = conversationService ?: return
         if (!message.isStatusMessage) {
             conversationService.refreshWithDeletedMessage(message)

@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * remove star from fs status messages
+ */
 class DatabaseUpdateToVersion92(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -16,8 +19,6 @@ class DatabaseUpdateToVersion92(
             }
         }
     }
-
-    override fun getDescription() = "remove star from fs status messages"
 
     override val version = 92
 }

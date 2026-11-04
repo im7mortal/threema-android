@@ -1,7 +1,6 @@
 package ch.threema.app.activities.wizard;
 
 import android.app.Activity;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
@@ -19,43 +18,46 @@ import org.slf4j.Logger;
 import java.io.File;
 
 import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import androidx.core.content.ContextCompat;
+import ch.threema.android.permissions.NotificationPermissionContract;
 import ch.threema.app.AppConstants;
+import ch.threema.app.BuildConfig;
 import ch.threema.app.R;
 import ch.threema.app.activities.DisableBatteryOptimizationsActivity;
 import ch.threema.app.activities.ThreemaActivity;
-import ch.threema.app.activities.ThreemaAppCompatActivity;
-import ch.threema.app.ui.interop.ButtonPrimaryXml;
 import ch.threema.app.backuprestore.csv.RestoreService;
+import ch.threema.app.ui.interop.ButtonPrimaryXml;
+import ch.threema.app.backuprestore.libthreema.BackupRestoreProgressActivity;
+import ch.threema.app.backuprestore.libthreema.BackupRestoreService;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.dialogs.GenericAlertDialog;
 import ch.threema.app.dialogs.GenericProgressDialog;
 import ch.threema.app.dialogs.PasswordEntryDialog;
 import ch.threema.app.dialogs.SimpleStringAlertDialog;
 import ch.threema.app.files.TempFilesCleanupWorker;
-import ch.threema.app.services.ActivityService;
 import ch.threema.app.ui.InsetSides;
 import ch.threema.app.ui.SpacingValues;
 import ch.threema.app.ui.ViewExtensionsKt;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.DialogUtil;
 import ch.threema.app.utils.FileUtil;
 import ch.threema.app.utils.LocaleUtil;
 import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.RuntimeUtil;
+import kotlin.Lazy;
+import kotlin.Unit;
 
 import static ch.threema.android.ToastKt.showToast;
+import static ch.threema.android.UriExtensionsKt.isFileUri;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
-public class WizardBackupRestoreActivity extends ThreemaAppCompatActivity implements GenericAlertDialog.DialogClickListener,
+public class WizardBackupRestoreActivity extends ThreemaActivity implements GenericAlertDialog.DialogClickListener,
     PasswordEntryDialog.PasswordEntryDialogClickListener {
     private static final Logger logger = getThreemaLogger("WizardBackupRestoreActivity");
 
@@ -68,23 +70,24 @@ public class WizardBackupRestoreActivity extends ThreemaAppCompatActivity implem
 
     @NonNull
     private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
+
     @NonNull
-    private final ActivityService activityService = KoinJavaComponent.get(ActivityService.class);
+    private final Lazy<BackupRestoreService.Scheduler> restoreScheduler = KoinJavaComponent
+        .inject(BackupRestoreService.Scheduler.class);
 
     private File backupFile;
     private String backupPassword;
 
-    private final ActivityResultLauncher<String> permissionLauncher =
-        registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
-            // Restore backup even if permission is not granted as we do not strictly require the
-            // notification permission.
-            if (Boolean.TRUE.equals(isGranted)) {
-                logger.info("Notification permission granted, starting restore");
-            } else {
-                logger.info("Notification permission not granted, starting restore anyway");
-            }
-            startRestore();
-        });
+    private final ActivityResultLauncher<Unit> permissionLauncher = registerForActivityResult(new NotificationPermissionContract(), isGranted -> {
+        if (isGranted) {
+            logger.info("Notification permission granted, starting restore");
+        } else {
+            logger.info("Notification permission not granted, starting restore anyway");
+        }
+        // Restore backup even if permission is not granted as we do not strictly require the
+        // notification permission.
+        startRestore();
+    });
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -113,30 +116,6 @@ public class WizardBackupRestoreActivity extends ThreemaAppCompatActivity implem
         scheduler.scheduleImmediateFullCleanup();
     }
 
-    @Override
-    protected void onPause() {
-        activityService.pause(this);
-        super.onPause();
-    }
-
-    @Override
-    protected void onResume() {
-        activityService.resume(this);
-        super.onResume();
-    }
-
-    @Override
-    protected void onDestroy() {
-        activityService.destroy(this);
-        super.onDestroy();
-    }
-
-    @Override
-    public void onUserInteraction() {
-        activityService.userInteract(this);
-        super.onUserInteraction();
-    }
-
     private void initLayout() {
         setContentView(R.layout.activity_backup_restore);
 
@@ -154,7 +133,7 @@ public class WizardBackupRestoreActivity extends ThreemaAppCompatActivity implem
         backupSubtitle.setMovementMethod(LinkMovementMethod.getInstance());
 
         final @NonNull ButtonPrimaryXml safeBackupButtonCompose = findViewById(R.id.safe_backup_compose);
-        if (ConfigUtils.isWorkRestricted() && dependencies.getThreemaSafeMDMConfig().isRestoreDisabled()) {
+        if (dependencies.getAppRestrictions().isRestricted() && dependencies.getThreemaSafeMDMConfig().isRestoreDisabled()) {
             safeBackupButtonCompose.setVisibility(View.GONE);
         } else {
             safeBackupButtonCompose.setOnClickListener(v -> {
@@ -193,15 +172,21 @@ public class WizardBackupRestoreActivity extends ThreemaAppCompatActivity implem
     }
 
     private void restoreBackup(final Uri uri) {
-        if (!ContentResolver.SCHEME_FILE.equalsIgnoreCase(uri.getScheme())) {
+        if (!isFileUri(uri)) {
             // copy "file" to cache directory first
             GenericProgressDialog.newInstance(R.string.importing_files, R.string.please_wait).show(getSupportFragmentManager(), DIALOG_TAG_DOWNLOADING_BACKUP);
 
             new Thread(() -> {
-                final File file = dependencies.getFileService().copyUriToTempFile(uri, "backup_restore", ".zip");
+                // TODO(ANDR-4977): Refactor this workaround to pass the correct mime type to the actual restoration
+                String mimeType = FileUtil.getMimeTypeFromUri(this, uri);
+                String suffix = MimeUtil.MIME_TYPE_ZIP.equals(mimeType)
+                    ? ".zip"
+                    : ".backup";
+
+                final File file = dependencies.getFileService().copyUriToTempFile(uri, "backup_restore", suffix);
 
                 RuntimeUtil.runOnUiThread(() -> {
-                    DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_DOWNLOADING_BACKUP, true);
+                    DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_DOWNLOADING_BACKUP);
 
                     if (file != null) {
                         logger.info("Backup file copied, starting restore");
@@ -265,12 +250,51 @@ public class WizardBackupRestoreActivity extends ThreemaAppCompatActivity implem
     }
 
     private void startRestore() {
-        Intent intent = new Intent(this, RestoreService.class);
-        intent.putExtra(RestoreService.EXTRA_RESTORE_BACKUP_FILE, backupFile);
-        intent.putExtra(RestoreService.EXTRA_RESTORE_BACKUP_PASSWORD, backupPassword);
-        ContextCompat.startForegroundService(this, intent);
+        File file = this.backupFile;
+        String password = this.backupPassword;
 
+        if (!BuildConfig.CROSS_PLATFORM_BACKUPS_ENABLED || isLegacyBackupFile(file)) {
+            startLegacyRestore(file, password);
+        } else {
+            startBackupRestore(file, password);
+        }
+    }
+
+    private boolean isLegacyBackupFile(@Nullable File file) {
+        if (file == null) {
+            logger.warn("Backup file is not set. Cannot check mime type");
+            return false;
+        }
+        String mimeType = FileUtil.getMimeTypeFromPath(file.getAbsolutePath());
+        logger.debug("Backup file mime type: {}", mimeType);
+        return MimeUtil.isZipFile(mimeType);
+    }
+
+    private void startLegacyRestore(@NonNull File file, @NonNull String password) {
+        logger.info("Restoring legacy backup");
+        Intent intent = RestoreService.createIntent(this, file, password);
+        ContextCompat.startForegroundService(this, intent);
         setResult(Activity.RESULT_OK);
+        finish();
+    }
+
+    private void startBackupRestore(@NonNull File file, @NonNull String password) {
+        logger.info("Restoring cross platform backup");
+        try {
+            restoreScheduler.getValue().start(
+                file,
+                password
+            );
+            setResult(Activity.RESULT_OK);
+        } catch (Exception e) {
+            logger.error("Could not start restore", e);
+            setResult(Activity.RESULT_CANCELED);
+        }
+
+        Intent intent = BackupRestoreProgressActivity.createIntent(this);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+
         finish();
     }
 
@@ -316,12 +340,8 @@ public class WizardBackupRestoreActivity extends ThreemaAppCompatActivity implem
     public void onYes(@Nullable String tag, @NonNull String text, boolean isChecked, Object data) {
         this.backupFile = (File) data;
         this.backupPassword = text;
-
-        // If the notification permission is already granted, then start the restore directly
-        if (ConfigUtils.requestNotificationPermission(this, permissionLauncher, dependencies.getPreferenceService())) {
-            logger.info("Password was entered and permission granted, starting restore");
-            startRestore();
-        }
+        logger.info("Password was entered");
+        permissionLauncher.launch(Unit.INSTANCE);
     }
 
     @Override
@@ -345,14 +365,17 @@ public class WizardBackupRestoreActivity extends ThreemaAppCompatActivity implem
         switch (requestCode) {
             case REQUEST_ID_DISABLE_BATTERY_OPTIMIZATIONS:
                 logger.info("Opening restore file picker");
+                String[] mimeTypes = BuildConfig.CROSS_PLATFORM_BACKUPS_ENABLED
+                    ? new String[]{MimeUtil.MIME_TYPE_ZIP, MimeUtil.MIME_TYPE_DEFAULT}
+                    : new String[]{MimeUtil.MIME_TYPE_ZIP};
                 FileUtil.selectFile(
                     WizardBackupRestoreActivity.this,
                     null,
-                    new String[]{MimeUtil.MIME_TYPE_ZIP},
+                    mimeTypes,
                     ThreemaActivity.ACTIVITY_ID_BACKUP_PICKER,
                     false,
                     0,
-                    dependencies.getFileService().getDefaultBackupPath().getPath()
+                    dependencies.getFileService().getDefaultLegacyBackupPath().getPath()
                 );
                 break;
 

@@ -26,11 +26,10 @@ import ch.threema.data.datatypes.ContactNameFormat;
 import ch.threema.data.models.GroupModel;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
 import ch.threema.domain.protocol.csp.messages.DeleteMessage;
-import ch.threema.domain.protocol.csp.messages.file.FileData;
-import ch.threema.storage.models.AbstractMessageModel;
-import ch.threema.storage.models.DistributionListMessageModel;
-import ch.threema.storage.models.group.GroupMessageModel;
 import ch.threema.storage.models.MessageModel;
+import ch.threema.storage.models.DistributionListMessageModel;
+import ch.threema.storage.models.GroupMessageModel;
+import ch.threema.storage.models.ContactMessageModel;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.MessageType;
 import ch.threema.storage.models.data.MessageContentsType;
@@ -87,48 +86,26 @@ public class MessageUtil {
         return getDisplayDate(postedAt, isOutbox, modifiedAt);
     }
 
-    public static boolean hasDataFile(AbstractMessageModel messageModel) {
-        return messageModel != null && messageModel.getType() == MessageType.FILE;
-    }
-
-    /**
-     * Checks whether the message holds a file which should be rendered as a file attachment, i.e., not as media
-     */
-    public static boolean hasFileWithDefaultRendering(@NonNull AbstractMessageModel message) {
-        return message.getType() == MessageType.FILE && message.getFileData().getRenderingType() == FileData.RENDERING_DEFAULT;
-    }
-
-    /**
-     * This method indicates whether the message is a type that can have a thumbnail.
-     * Note that it's still possible that a message does not (yet) have a thumbnail stored,
-     * even though this method returns true.
-     */
-    public static boolean canHaveThumbnailFile(AbstractMessageModel messageModel) {
-        return messageModel != null && messageModel.getType() == MessageType.FILE;
-    }
-
-    public static boolean canSendDeliveryReceipt(AbstractMessageModel message, int receiptType) {
-        if (ConfigUtils.isGroupAckEnabled() && (receiptType == ProtocolDefines.DELIVERYRECEIPT_MSGUSERACK || receiptType == ProtocolDefines.DELIVERYRECEIPT_MSGUSERDEC)) {
-            return (message instanceof MessageModel || message instanceof GroupMessageModel)
+    public static boolean canSendDeliveryReceipt(MessageModel message, int receiptType) {
+        if (receiptType == ProtocolDefines.DELIVERYRECEIPT_MSGUSERACK || receiptType == ProtocolDefines.DELIVERYRECEIPT_MSGUSERDEC) {
+            return (message instanceof ContactMessageModel || message instanceof GroupMessageModel)
                 && !message.isOutbox()
                 && !message.isRead()
                 && !message.isStatusMessage()
-                && message.getType() != MessageType.VOIP_STATUS
-                && !((message.getMessageFlags() & ProtocolDefines.MESSAGE_FLAG_NO_DELIVERY_RECEIPTS) == ProtocolDefines.MESSAGE_FLAG_NO_DELIVERY_RECEIPTS);
+                && !message.hasMessageFlag(ProtocolDefines.MESSAGE_FLAG_NO_DELIVERY_RECEIPTS);
         } else {
-            return message instanceof MessageModel
+            return message instanceof ContactMessageModel
                 && !message.isOutbox()
                 && !message.isRead()
                 && !message.isStatusMessage()
-                && message.getType() != MessageType.VOIP_STATUS
-                && !((message.getMessageFlags() & ProtocolDefines.MESSAGE_FLAG_NO_DELIVERY_RECEIPTS) == ProtocolDefines.MESSAGE_FLAG_NO_DELIVERY_RECEIPTS);
+                && !message.hasMessageFlag(ProtocolDefines.MESSAGE_FLAG_NO_DELIVERY_RECEIPTS);
         }
     }
 
     /**
      * @return true if the message model can mark as read
      */
-    public static boolean canMarkAsRead(AbstractMessageModel message) {
+    public static boolean canMarkAsRead(MessageModel message) {
         return message != null
             && !message.isOutbox()
             && !message.isRead();
@@ -137,9 +114,9 @@ public class MessageUtil {
     /**
      * @return true if the message model can mark as consumed
      */
-    public static boolean canMarkAsConsumed(@Nullable AbstractMessageModel message) {
+    public static boolean canMarkAsConsumed(@Nullable MessageModel message) {
         return
-            (message instanceof MessageModel || message instanceof GroupMessageModel)
+            (message instanceof ContactMessageModel || message instanceof GroupMessageModel)
                 && !message.isStatusMessage()
                 && !message.isOutbox()
                 && message.getState() != MessageState.CONSUMED
@@ -151,78 +128,33 @@ public class MessageUtil {
     /**
      * @return true, if the user-acknowledge flag can be set
      */
-    public static boolean canSendUserAcknowledge(AbstractMessageModel messageModel) {
-        if (ConfigUtils.isGroupAckEnabled()) {
-            return
-                messageModel != null
-                    && (!messageModel.isOutbox() || messageModel instanceof GroupMessageModel)
-                    && messageModel.getState() != MessageState.USERACK
-                    && messageModel.getType() != MessageType.VOIP_STATUS
-                    && messageModel.getType() != MessageType.GROUP_CALL_STATUS
-                    && !messageModel.isStatusMessage()
-                    && !(messageModel instanceof DistributionListMessageModel)
-                    && !messageModel.isDeleted();
-        } else {
-            return
-                messageModel != null
-                    && !messageModel.isOutbox()
-                    && messageModel.getState() != MessageState.USERACK
-                    && messageModel.getType() != MessageType.VOIP_STATUS
-                    && messageModel.getType() != MessageType.GROUP_CALL_STATUS
-                    && !messageModel.isStatusMessage()
-                    && !(messageModel instanceof DistributionListMessageModel)
-                    && !(messageModel instanceof GroupMessageModel)
-                    && !messageModel.isDeleted();
-        }
+    public static boolean canSendUserAcknowledge(MessageModel messageModel) {
+        return
+            messageModel != null
+                && (!messageModel.isOutbox() || messageModel instanceof GroupMessageModel)
+                && messageModel.getState() != MessageState.USERACK
+                && !messageModel.isStatusMessage()
+                && !(messageModel instanceof DistributionListMessageModel)
+                && !messageModel.isDeleted();
     }
 
     /**
      * @return true, if the user-decline flag can be set
      */
-    public static boolean canSendUserDecline(AbstractMessageModel messageModel) {
-        if (ConfigUtils.isGroupAckEnabled()) {
-            return
-                messageModel != null
-                    && (!messageModel.isOutbox() || messageModel instanceof GroupMessageModel)
-                    && messageModel.getState() != MessageState.USERDEC
-                    && messageModel.getType() != MessageType.VOIP_STATUS
-                    && messageModel.getType() != MessageType.GROUP_CALL_STATUS
-                    && !messageModel.isStatusMessage()
-                    && !(messageModel instanceof DistributionListMessageModel)
-                    && !messageModel.isDeleted();
-        } else {
-            return
-                messageModel != null
-                    && !messageModel.isOutbox()
-                    && messageModel.getState() != MessageState.USERDEC
-                    && messageModel.getType() != MessageType.VOIP_STATUS
-                    && messageModel.getType() != MessageType.GROUP_CALL_STATUS
-                    && !messageModel.isStatusMessage()
-                    && !(messageModel instanceof DistributionListMessageModel)
-                    && !(messageModel instanceof GroupMessageModel)
-                    && !messageModel.isDeleted();
-        }
-    }
-
-    public static boolean canSendImageReply(@Nullable AbstractMessageModel messageModel) {
-        if (messageModel == null ||
-            messageModel.getMessageContentsType() != MessageContentsType.IMAGE ||
-            messageModel.isDeleted()) {
-            return false;
-        }
-        try {
-            return messageModel.getFileData().isDownloaded();
-        } catch (ClassCastException exception) {
-            // No file data
-            logger.warn("No file data available");
-            return false;
-        }
+    public static boolean canSendUserDecline(MessageModel messageModel) {
+        return
+            messageModel != null
+                && (!messageModel.isOutbox() || messageModel instanceof GroupMessageModel)
+                && messageModel.getState() != MessageState.USERDEC
+                && !messageModel.isStatusMessage()
+                && !(messageModel instanceof DistributionListMessageModel)
+                && !messageModel.isDeleted();
     }
 
     /**
      * @return true if the user-acknowledge flag visible
      */
-    public static boolean showStatusIcon(AbstractMessageModel messageModel) {
+    public static boolean showStatusIcon(MessageModel messageModel) {
         boolean showState = false;
         if (messageModel != null) {
             if (messageModel.getType() == MessageType.VOIP_STATUS) {
@@ -243,7 +175,7 @@ public class MessageUtil {
                         showState = messageModel.getState() == MessageState.CONSUMED;
                     }
                 }
-            } else if (messageModel instanceof MessageModel) {
+            } else if (messageModel instanceof ContactMessageModel) {
                 if (!messageModel.isOutbox()) {
                     // inbox show icon only on acknowledged/declined or consumed
                     showState = messageState != null
@@ -264,7 +196,7 @@ public class MessageUtil {
         return showState;
     }
 
-    public static boolean isUnread(@Nullable AbstractMessageModel messageModel) {
+    public static boolean isUnread(@Nullable MessageModel messageModel) {
         return messageModel != null
             && !messageModel.isStatusMessage()
             && !messageModel.isOutbox()
@@ -387,13 +319,6 @@ public class MessageUtil {
         }
     }
 
-    public static String getCaptionText(AbstractMessageModel messageModel) {
-        if (messageModel != null && messageModel.getType() == MessageType.FILE) {
-            return messageModel.getFileData().getCaption();
-        }
-        return null;
-    }
-
     /**
      * Check if the provided MessageState is a user reaction.
      *
@@ -406,7 +331,7 @@ public class MessageUtil {
 
     @NonNull
     public static MessageViewElement getViewElement(
-        @Nullable AbstractMessageModel messageModel,
+        @Nullable MessageModel messageModel,
         @NonNull final ContactNameFormat contactNameFormat
     ) {
         if (messageModel == null || messageModel.getType() == null) {
@@ -430,7 +355,7 @@ public class MessageUtil {
      * SENDING. This method only returns true for outgoing messages. Note that for file messages
      * that are in state TRANSCODING this method returns false.
      */
-    public static boolean isFileMessageBeingSent(@NonNull AbstractMessageModel model) {
+    public static boolean isFileMessageBeingSent(@NonNull MessageModel model) {
         MessageState messageState = model.getState();
         return model.isOutbox() && (
             messageState == MessageState.PENDING ||
@@ -442,7 +367,7 @@ public class MessageUtil {
     /**
      * Check whether the given message type allows remote deletion of messages. Note that only the
      * message type is considered. To check whether the user should be able to delete a message for
-     * everyone, {@link #canDeleteRemotely(AbstractMessageModel, MessageReceiver)} should be used.
+     * everyone, {@link #canDeleteRemotely(MessageModel, MessageReceiver)} should be used.
      */
     public static boolean doesMessageTypeAllowRemoteDeletion(@Nullable MessageType messageType) {
         if (messageType == null) {
@@ -464,14 +389,14 @@ public class MessageUtil {
      */
     // TODO(ANDR-4222): Refactor this method
     public static boolean canDeleteRemotely(
-        @NonNull AbstractMessageModel message,
+        @NonNull MessageModel message,
         @NonNull MessageReceiver receiver
     ) {
         return doesMessageTypeAllowRemoteDeletion(message.getType())
             && !message.isStatusMessage()
             && message.isOutbox()
             && isStillInValidTimeFrameToDeleteRemotely(message, receiver)
-            && (message instanceof MessageModel || message instanceof GroupMessageModel)
+            && (message instanceof ContactMessageModel || message instanceof GroupMessageModel)
             && (message.getPostedAt() != null && message.getState() != MessageState.SENDFAILED)
             && !message.isDeleted();
     }
@@ -480,7 +405,7 @@ public class MessageUtil {
      * @return true if the message is not older then a defined age. Messages in notes groups can be deleted indefinitely.
      */
     private static boolean isStillInValidTimeFrameToDeleteRemotely(
-        @NonNull AbstractMessageModel message,
+        @NonNull MessageModel message,
         @NonNull MessageReceiver receiver
     ) {
         final @Nullable GroupModel groupModel;
@@ -515,41 +440,5 @@ public class MessageUtil {
             default:
                 return null;
         }
-    }
-
-    /**
-     * Check whether the user should be able to star the given message.
-     */
-    public static boolean canStarMessage(AbstractMessageModel message) {
-        return (message instanceof MessageModel || message instanceof GroupMessageModel)
-            && message.getType() != null
-            && (message.getType().equals(MessageType.TEXT) ||
-            message.getType().equals(MessageType.FILE) ||
-            message.getType().equals(MessageType.LOCATION) ||
-            message.getType().equals(MessageType.POLL));
-    }
-
-    /**
-     * Check whether the user should be able to react to the given message with emojis
-     */
-    public static boolean canEmojiReact(@Nullable AbstractMessageModel messageModel) {
-        if (messageModel == null) {
-            return false;
-        }
-
-        if (messageModel.isDeleted()) {
-            return false;
-        }
-
-        if (messageModel.isStatusMessage()) {
-            return false;
-        }
-
-        return (messageModel instanceof MessageModel || messageModel instanceof GroupMessageModel)
-            && messageModel.getType() != null
-            && (messageModel.getType().equals(MessageType.TEXT) ||
-            messageModel.getType().equals(MessageType.FILE) ||
-            messageModel.getType().equals(MessageType.LOCATION) ||
-            messageModel.getType().equals(MessageType.POLL));
     }
 }

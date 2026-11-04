@@ -106,8 +106,15 @@ APP_VERSION_NAME_MAIN=$(grep '^val appVersion = "' "$APP_BUILD_GRADLE_FILE" | se
 APP_VERSION_NAME_SUFFIX=$(grep '^val betaSuffix = "' "$APP_BUILD_GRADLE_FILE" | sed 's/^val betaSuffix = "\([^"]*\)".*/\1/')
 FULL_APP_VERSION_NAME="${APP_VERSION_NAME_MAIN}${APP_VERSION_NAME_SUFFIX}-${APP_VERSION_CODE}"
 
-sdk_version=$(grep "^\s*compileSdk = [0-9]\+" "$APP_BUILD_GRADLE_FILE" | sed 's/[^0-9]*//g')
+sdk_major_version=$(grep "^\s*compileSdk = [0-9]\+" "$APP_BUILD_GRADLE_FILE" | sed 's/[^0-9]*//g')
+sdk_minor_version_line="$(grep "^\s*compileSdkMinor = [0-9]\+" "$APP_BUILD_GRADLE_FILE" || echo "")"
+if [[ "$sdk_minor_version_line" == "" ]]; then
+    sdk_version="$sdk_major_version.0"
+else
+    sdk_version="$sdk_major_version.$(echo $sdk_minor_version_line | sed 's/[^0-9]*//g')"
+fi
 build_tools_version=$(grep "^\s*buildToolsVersion = \"\([0-9]\+\.\?\)\+\"" "$APP_BUILD_GRADLE_FILE" | sed 's/[^0-9\.]*//g')
+ndk_version=$(grep "^\s*ndkVersion = \"\([0-9]\+\.\?\)\+\"" "$APP_BUILD_GRADLE_FILE" | sed 's/[^0-9\.]*//g')
 rust_version=$(grep channel "$DIR/../domain/libthreema/rust-toolchain.toml" | cut -d'"' -f2)
 
 # Validate target directory
@@ -134,6 +141,7 @@ if [ $build -eq 1 ]; then
     docker build $no_cache "$DIR/../scripts/" \
         --build-arg SDK_VERSION="$sdk_version" \
         --build-arg BUILD_TOOLS_VERSION="$build_tools_version" \
+        --build-arg NDK_VERSION="$ndk_version" \
         --build-arg RUST_VERSION="$rust_version" \
         -t "$DOCKERIMAGE:latest" \
         -t "$DOCKERIMAGE:$APP_VERSION_CODE"

@@ -8,12 +8,15 @@ import ch.threema.common.executeAsync
 import ch.threema.common.throwIfNotSuccessful
 import java.io.IOException
 import java.util.UUID
+import kotlin.text.appendLine
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.RequestBody
+import okio.BufferedSink
+import okio.source
 
 private val logger = getThreemaLogger("SentryService")
 
@@ -34,20 +37,51 @@ class SentryService(
         if (config.publicApiKey.isEmpty()) {
             return
         }
-        val request = buildRequest(buildRequestBody(record))
-        val response = okHttpClient.executeAsync(request)
-        if (!response.isSuccessful) {
-            logger.error("Sentry responded with error: {}", response.body.string())
+        val request = buildRequest(
+            body = buildRequestBody(record),
+            attachments = record.attachments ?: emptyList(),
+        )
+        okHttpClient.executeAsync(request).use { response ->
+            if (!response.isSuccessful) {
+                logger.error("Sentry responded with error: {}", response.body.string())
+            }
+            response.throwIfNotSuccessful()
         }
-        response.throwIfNotSuccessful()
     }
 
-    private fun buildRequest(body: String) = buildRequest {
+    private fun buildRequest(
+        body: String,
+        attachments: List<ErrorRecordAttachment>,
+    ) = buildRequest {
         url("https://${config.host}/api/${config.projectId}/envelope/")
         header("X-Sentry-Auth", "Sentry sentry_version=$SENTRY_VERSION, sentry_client=$CLIENT_NAME, sentry_key=${config.publicApiKey}")
         header(Http.Header.USER_AGENT, CLIENT_NAME)
         header(Http.Header.CONTENT_TYPE, CONTENT_TYPE)
-        post(body.toRequestBody(CONTENT_TYPE.toMediaType()))
+        post(
+            object : RequestBody() {
+                override fun contentType() = CONTENT_TYPE.toMediaType()
+                override fun writeTo(sink: BufferedSink) {
+                    sink.writeUtf8(body)
+
+                    attachments
+                        .filter { it.file.exists() }
+                        .forEach { attachment ->
+                            sink.writeUtf8(
+                                json.encodeToString(
+                                    AttachmentHeader(
+                                        length = attachment.file.length().toInt(),
+                                        contentType = attachment.mimeType ?: DEFAULT_ATTACHMENT_MIME_TYPE,
+                                        fileName = attachment.file.name,
+                                    ),
+                                ),
+                            )
+                            sink.writeUtf8("\n")
+                            attachment.file.source().use { source -> sink.writeAll(source) }
+                            sink.writeUtf8("\n")
+                        }
+                }
+            },
+        )
         gzip()
     }
 
@@ -145,6 +179,16 @@ class SentryService(
     private data class SentAtHeader(
         @SerialName("sent_at")
         val sentAt: String,
+    )
+
+    @Serializable
+    private data class AttachmentHeader(
+        val type: String = "attachment",
+        val length: Int,
+        @SerialName("content_type")
+        val contentType: String,
+        @SerialName("filename")
+        val fileName: String,
     )
 
     @Serializable
@@ -261,6 +305,7 @@ class SentryService(
         private const val SENTRY_VERSION = 7
         private const val CLIENT_NAME = "threema.android/1.0"
         private const val CONTENT_TYPE = "application/x-sentry-envelope"
+        private const val DEFAULT_ATTACHMENT_MIME_TYPE = "application/octet-stream"
 
         private val json = Json {
             prettyPrint = false

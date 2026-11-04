@@ -18,7 +18,7 @@ import ch.threema.app.webclient.exceptions.ConversionException;
 import ch.threema.app.webclient.services.instance.MessageDispatcher;
 import ch.threema.app.webclient.services.instance.MessageReceiver;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 
 @WorkerThread
 public class DeleteMessageHandler extends MessageReceiver {
@@ -70,7 +70,7 @@ public class DeleteMessageHandler extends MessageReceiver {
         }
 
         //load message
-        AbstractMessageModel messageModel = null;
+        MessageModel messageModel = null;
         switch (receiver.getType()) {
             case ch.threema.app.messagereceiver.MessageReceiver.Type_CONTACT:
                 messageModel = this.messageService.getContactMessageModel(messageId);

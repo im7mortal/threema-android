@@ -15,10 +15,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import ch.threema.app.R;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.MessageState;
 
-import static ch.threema.app.utils.MessageUtilKt.getUiContentColor;
+import static ch.threema.app.ui.MessageModelUiExtensionsKt.getUiContentColor;
 
 /**
  * This class caches bitmaps and resources used for the message states (e.g. sent, read, acked...)
@@ -88,10 +88,10 @@ public class StateBitmapUtil {
      * @param tintOverride If passed, it will be applied to any message state icon where the state is not either {@code SENDFAILED} or {@code FS_KEY_MISMATCH}
      */
     public void setStateDrawable(
-        Context context,
-        AbstractMessageModel messageModel,
-        @Nullable ImageView imageView,
-        @Nullable @ColorInt Integer tintOverride
+            Context context,
+            MessageModel messageModel,
+            @Nullable ImageView imageView,
+            @Nullable @ColorInt Integer tintOverride
     ) {
         if (imageView == null) {
             return;

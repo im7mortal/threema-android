@@ -4,7 +4,7 @@ import ch.threema.app.eventbus.events.ConversationEvent
 import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.services.LockAppService
 import ch.threema.localcrypto.MasterKey
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -203,7 +203,7 @@ class WidgetUpdaterMonitorTest {
     }
 
     companion object {
-        private fun mockMessage(isOutbox: Boolean, isStatusMessage: Boolean, isRead: Boolean): AbstractMessageModel =
+        private fun mockMessage(isOutbox: Boolean, isStatusMessage: Boolean, isRead: Boolean): MessageModel =
             mockk {
                 every { this@mockk.isOutbox } returns isOutbox
                 every { this@mockk.isStatusMessage } returns isStatusMessage

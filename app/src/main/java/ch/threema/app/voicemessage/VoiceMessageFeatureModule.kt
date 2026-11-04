@@ -1,16 +1,8 @@
 package ch.threema.app.voicemessage
 
-import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.viewModel
 
 val voiceMessageFeatureModule = module {
-    viewModel { params ->
-        VoiceRecorderViewModel(
-            appContext = get(),
-            messageService = get(),
-            preferenceService = get(),
-            fileService = get(),
-            messageReceiver = params.get(),
-        )
-    }
+    viewModel<VoiceRecorderViewModel>()
 }

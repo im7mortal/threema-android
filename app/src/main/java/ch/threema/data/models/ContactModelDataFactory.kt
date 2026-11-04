@@ -5,6 +5,7 @@ import ch.threema.data.datatypes.AndroidContactLookupInfo
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverride
 import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverridePolicy
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.IdColor
 import ch.threema.data.storage.DbContact
 import ch.threema.logging.logAndReportError
@@ -32,6 +33,7 @@ internal object ContactModelDataFactory :
         readReceiptPolicy = value.readReceiptPolicy,
         typingIndicatorPolicy = value.typingIndicatorPolicy,
         conversationVisibility = value.conversationVisibility,
+        conversationCategory = value.conversationCategory.serializedValue,
         androidContactLookupKey = value.androidContactLookupInfo.toDatabaseString(),
         localAvatarExpires = value.localAvatarExpires,
         isRestored = value.isRestored,
@@ -66,6 +68,7 @@ internal object ContactModelDataFactory :
         readReceiptPolicy = value.readReceiptPolicy,
         typingIndicatorPolicy = value.typingIndicatorPolicy,
         conversationVisibility = value.conversationVisibility,
+        conversationCategory = value.getConversationCategory(),
         androidContactLookupInfo = value.androidContactLookupKey.toAndroidContactLookupKey(),
         localAvatarExpires = value.localAvatarExpires,
         isRestored = value.isRestored,
@@ -107,4 +110,14 @@ internal object ContactModelDataFactory :
             expiresAt = notificationTriggerPolicyOverrideExpiresAt,
         )
     }
+
+    private fun DbContact.getConversationCategory(): ConversationCategory =
+        ConversationCategory.deserialize(conversationCategory)
+            ?: run {
+                logger.logAndReportError(
+                    "Could not deserialize conversation category value {}",
+                    conversationCategory,
+                )
+                ConversationCategory.DEFAULT
+            }
 }

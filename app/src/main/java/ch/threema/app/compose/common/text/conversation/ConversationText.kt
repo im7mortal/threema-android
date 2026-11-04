@@ -53,11 +53,16 @@ import ch.threema.app.R
 import ch.threema.app.compose.common.emoji.AsyncEmojiImage
 import ch.threema.app.compose.common.text.conversation.ConversationTextAnalyzer.Result.SearchResult
 import ch.threema.app.compose.preview.PreviewData
+import ch.threema.app.compose.preview.PreviewData.IDENTITY_BROADCAST
+import ch.threema.app.compose.preview.PreviewData.IDENTITY_ME
+import ch.threema.app.compose.preview.PreviewData.IDENTITY_OTHER_1
+import ch.threema.app.compose.preview.PreviewData.IDENTITY_OTHER_2
+import ch.threema.app.compose.preview.PreviewData.IDENTITY_OTHER_3
 import ch.threema.app.compose.theme.ThreemaThemePreview
-import ch.threema.app.preference.service.PreferenceService.Companion.EMOJI_STYLE_ANDROID
+import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.preference.service.PreferenceService.EmojiStyle
-import ch.threema.app.services.ContactService
-import ch.threema.app.utils.ConfigUtils
+import ch.threema.domain.types.Mention
+import org.koin.mp.KoinPlatform
 
 const val SPAN_TAG_BACKGROUND_MENTION = "background_mention"
 const val SPAN_ANNOTATION_BACKGROUND_MENTION_INVERTED = "mention_inverted"
@@ -69,10 +74,10 @@ const val SPAN_ANNOTATION_BACKGROUND_MENTION = "mention"
  *
  *  - **Emoji Support**:
  *  Replaces every special emoji character in [rawInput] with the corresponding Threema emoji or the systems default emoji.
- *  See [EmojiSettings] on how to customize the appearance. The default parameter respects flag [ConfigUtils.emojiStyle].
+ *  See [EmojiSettings] on how to customize the appearance. The default parameter respects the emoji style preference.
  *
  *  - **Mentions Support**:
- *  When enabled, styles mentions in the raw form of `@[0123ABCD]` or `@[@@@@@@@@]` with the provided settings from [MentionFeature.On]
+ *  When enabled, styles mentions with the provided settings from [MentionFeature.On]
  *  and publishes mention click events through [MentionFeature.On.onClickMention].
  *
  *  - **Markup Support**:
@@ -358,17 +363,19 @@ private fun TextLayoutResult.getBoundingBoxes(
 
 @Immutable
 data class EmojiSettings(
-    @EmojiStyle val style: Int,
+    val style: EmojiStyle,
     val upscalingFeature: EmojiUpscalingFeature = EmojiUpscalingFeature.Off,
 ) {
-    internal val useSystemEmojis: Boolean = style == EMOJI_STYLE_ANDROID
+    internal val useSystemEmojis: Boolean = style == EmojiStyle.ANDROID
 }
 
 object ConversationTextDefaults {
 
-    val EmojiSettings = EmojiSettings(
-        style = ConfigUtils.emojiStyle,
-    )
+    val EmojiSettings by lazy {
+        EmojiSettings(
+            style = KoinPlatform.getKoin().get<PreferenceService>().getEmojiStyle(),
+        )
+    }
 }
 
 @Suppress("ktlint:standard:discouraged-comment-location")
@@ -404,7 +411,7 @@ private fun ConversationText_Preview_Emojis(
                 rawInput = rawInput,
                 textStyle = MaterialTheme.typography.bodyMedium,
                 emojiSettings = EmojiSettings(
-                    style = EMOJI_STYLE_ANDROID,
+                    style = EmojiStyle.ANDROID,
                     upscalingFeature = EmojiUpscalingFeature.On(),
                 ),
                 mentionFeature = MentionFeature.Off,
@@ -418,20 +425,32 @@ internal class ConversationTextPreviewProviderMentions : PreviewParameterProvide
 
     override val values = sequenceOf(
         "No mentions at all in this text",
-        "Mentioning myself @[${PreviewData.IDENTITY_ME}].",
-        "Hey @[${PreviewData.IDENTITY_OTHER_1}], how are you?",
-        "Hey @[${ContactService.ALL_USERS_PLACEHOLDER_ID}], how are you all?",
-        "Hey @[${PreviewData.IDENTITY_OTHER_1}] and @[${PreviewData.IDENTITY_OTHER_2}], how are the two of you?",
-        "@[${PreviewData.IDENTITY_OTHER_1}] Mention at start",
-        "Mention at end @[${PreviewData.IDENTITY_OTHER_1}]",
-        "Chained mentions: @[${PreviewData.IDENTITY_OTHER_1}] @[${PreviewData.IDENTITY_OTHER_2}] @[${ContactService.ALL_USERS_PLACEHOLDER_ID}]",
-        "@[${PreviewData.IDENTITY_OTHER_1}] @[${PreviewData.IDENTITY_OTHER_2}] @[${ContactService.ALL_USERS_PLACEHOLDER_ID}] " +
-            "@[${PreviewData.IDENTITY_OTHER_1}] @[${PreviewData.IDENTITY_OTHER_2}] @[${ContactService.ALL_USERS_PLACEHOLDER_ID}] " +
-            "@[${PreviewData.IDENTITY_OTHER_1}] @[${PreviewData.IDENTITY_OTHER_2}] @[${ContactService.ALL_USERS_PLACEHOLDER_ID}] " +
-            "@[${PreviewData.IDENTITY_OTHER_1}] @[${PreviewData.IDENTITY_OTHER_2}] @[${ContactService.ALL_USERS_PLACEHOLDER_ID}] " +
-            "@[${PreviewData.IDENTITY_OTHER_1}] @[${PreviewData.IDENTITY_OTHER_2}] @[${ContactService.ALL_USERS_PLACEHOLDER_ID}]",
-        "Mention with an asterisks identity: @[${PreviewData.IDENTITY_BROADCAST}]",
-        "Unknown identity mention: @[${PreviewData.IDENTITY_OTHER_3}]",
+        "Mentioning myself ${Mention.Identity(IDENTITY_ME)}.",
+        "Hey ${Mention.Identity(IDENTITY_OTHER_1)}, how are you?",
+        "Hey ${Mention.AllUsers}, how are you all?",
+        "Hey ${Mention.Identity(IDENTITY_OTHER_1)} and ${Mention.Identity(IDENTITY_OTHER_2)}, how are the two of you?",
+        "${Mention.Identity(IDENTITY_OTHER_1)} Mention at start",
+        "Mention at end ${Mention.Identity(IDENTITY_OTHER_1)}",
+        "Chained mentions: ${Mention.Identity(IDENTITY_OTHER_1)} " +
+            "${Mention.Identity(IDENTITY_OTHER_2)} " +
+            "${Mention.AllUsers} ",
+        "${Mention.Identity(IDENTITY_OTHER_1)} " +
+            "${Mention.Identity(IDENTITY_OTHER_2)} " +
+            "${Mention.AllUsers} " +
+            "${Mention.Identity(IDENTITY_OTHER_1)} " +
+            "${Mention.Identity(IDENTITY_OTHER_2)} " +
+            "${Mention.AllUsers} " +
+            "${Mention.Identity(IDENTITY_OTHER_1)} " +
+            "${Mention.Identity(IDENTITY_OTHER_2)} " +
+            "${Mention.AllUsers} " +
+            "${Mention.Identity(IDENTITY_OTHER_1)} " +
+            "${Mention.Identity(IDENTITY_OTHER_2)} " +
+            "${Mention.AllUsers} " +
+            "${Mention.Identity(IDENTITY_OTHER_1)} " +
+            "${Mention.Identity(IDENTITY_OTHER_2)} " +
+            Mention.AllUsers,
+        "Mention with a broadcast identity: ${Mention.Identity(IDENTITY_BROADCAST)}",
+        "Unknown identity mention: ${Mention.Identity(IDENTITY_OTHER_3)}",
     )
 }
 
@@ -451,8 +470,8 @@ private fun ConversationText_Preview_Mentions(
                 rawInput = rawInput,
                 textStyle = MaterialTheme.typography.bodyMedium,
                 mentionFeature = MentionFeature.On(
-                    ownIdentity = PreviewData.IDENTITY_ME,
-                    identityDisplayNames = PreviewData.mentionNames,
+                    ownIdentity = IDENTITY_ME,
+                    displayNames = PreviewData.mentionNames,
                 ),
                 markupEnabled = false,
             )
@@ -615,12 +634,13 @@ internal class ConversationTextPreviewProviderHighlight : PreviewParameterProvid
         "Start \uD83C\uDF36\uD83C\uDF36\uD83C\uDF36 end" to "\uD83C\uDF36",
         "Start \uD83C\uDF36\uD83C\uDF36\uD83C\uDF36 end" to "\uD83C\uDF36\uD83C\uDF36\uD83C\uDF36",
         // Mentions
-        "Start @[${PreviewData.IDENTITY_OTHER_1}] mid end" to "Start",
-        "Start @[${PreviewData.IDENTITY_OTHER_1}] mid end" to "mid",
-        "Start @[${PreviewData.IDENTITY_OTHER_1}] mid end" to "Roberto",
-        "Start @[${PreviewData.IDENTITY_OTHER_1}] mid end" to "Diaz",
-        "Start @[${PreviewData.IDENTITY_OTHER_1}] mid end" to "Roberto Diaz",
-        "Start @[${PreviewData.IDENTITY_OTHER_1}] @[${PreviewData.IDENTITY_OTHER_1}] mid end" to "Roberto Diaz",
+        "Start ${Mention.Identity(IDENTITY_OTHER_1)} mid end" to "Start",
+        "Start ${Mention.Identity(IDENTITY_OTHER_1)} mid end" to "mid",
+        "Start ${Mention.Identity(IDENTITY_OTHER_1)} mid end" to "Roberto",
+        "Start ${Mention.Identity(IDENTITY_OTHER_1)} mid end" to "Diaz",
+        "Start ${Mention.Identity(IDENTITY_OTHER_1)} mid end" to "Roberto Diaz",
+        "Start ${Mention.Identity(IDENTITY_OTHER_1)} ${Mention.Identity(IDENTITY_OTHER_1)} mid end" to
+            "Roberto Diaz",
         // Spotlight
         PreviewData.LOREM_IPSUM_WORDS_50 to "sanctus",
         "*" + PreviewData.LOREM_IPSUM_WORDS_50 + "*" to "sanctus",
@@ -643,11 +663,11 @@ private fun ConversationText_Preview_Highlight(
                 rawInput = input.first,
                 textStyle = MaterialTheme.typography.bodyMedium,
                 emojiSettings = ConversationTextDefaults.EmojiSettings.copy(
-                    style = EMOJI_STYLE_ANDROID,
+                    style = EmojiStyle.ANDROID,
                 ),
                 mentionFeature = MentionFeature.On(
-                    ownIdentity = PreviewData.IDENTITY_ME,
-                    identityDisplayNames = PreviewData.mentionNames,
+                    ownIdentity = IDENTITY_ME,
+                    displayNames = PreviewData.mentionNames,
                 ),
                 markupEnabled = true,
                 highlightFeature = HighlightFeature.On(
@@ -668,30 +688,30 @@ internal class ConversationTextPreviewProviderAll : PreviewParameterProvider<Str
 
     override val values = sequenceOf(
         // Emojis + Mentions
-        "Start @[${PreviewData.IDENTITY_OTHER_1}] mid \uD83C\uDF36 end.",
-        "Start \uD83C\uDF36 mid @[${PreviewData.IDENTITY_OTHER_1}] end.",
+        "Start ${Mention.Identity(IDENTITY_OTHER_1)} mid \uD83C\uDF36 end.",
+        "Start \uD83C\uDF36 mid ${Mention.Identity(IDENTITY_OTHER_1)} end.",
         "Just \uD83C\uDF36 emojis \uD83D\uDC1F between \uD83D\uDC9A ongoing " +
-            "text also mentioning @[${PreviewData.IDENTITY_OTHER_1}] @[${PreviewData.IDENTITY_OTHER_2}] \uD83C\uDFD4 " +
-            "@[${ContactService.ALL_USERS_PLACEHOLDER_ID}] and not to forget @[${PreviewData.IDENTITY_BROADCAST}] \uD83C\uDFD4.",
+            "text also mentioning ${Mention.Identity(IDENTITY_OTHER_1)} ${Mention.Identity(IDENTITY_OTHER_2)} \uD83C\uDFD4 " +
+            "${Mention.AllUsers} and not to forget ${Mention.Identity(IDENTITY_BROADCAST)} \uD83C\uDFD4.",
         // Mentions + Markup
-        "Word *bold @[${PreviewData.IDENTITY_OTHER_1}]* word.",
-        "Word *@[${PreviewData.IDENTITY_OTHER_1}] bold* word.",
-        "Word _italic @[${PreviewData.IDENTITY_OTHER_1}]_ word.",
-        "Word _@[${PreviewData.IDENTITY_OTHER_1}] italic_ word.",
-        "Word ~strikethrough @[${PreviewData.IDENTITY_OTHER_1}]~ word.",
-        "Word ~@[${PreviewData.IDENTITY_OTHER_1}] strikethrough~ word.",
-        "Word *_bold-italic @[${PreviewData.IDENTITY_OTHER_1}]_* word.",
-        "Word *_@[${PreviewData.IDENTITY_OTHER_1}] bold-italic _* word.",
-        "Word *_~@[${PreviewData.IDENTITY_OTHER_1}]~_* word.",
-        "Word @[${PreviewData.IDENTITY_OTHER_1}] word *@[${PreviewData.IDENTITY_OTHER_1}]* word _@[${PreviewData.IDENTITY_OTHER_1}]_ word " +
-            "~@[${PreviewData.IDENTITY_OTHER_1}]~ word.",
+        "Word *bold ${Mention.Identity(IDENTITY_OTHER_1)}* word.",
+        "Word *${Mention.Identity(IDENTITY_OTHER_1)} bold* word.",
+        "Word _italic ${Mention.Identity(IDENTITY_OTHER_1)}_ word.",
+        "Word _${Mention.Identity(IDENTITY_OTHER_1)} italic_ word.",
+        "Word ~strikethrough ${Mention.Identity(IDENTITY_OTHER_1)}~ word.",
+        "Word ~${Mention.Identity(IDENTITY_OTHER_1)} strikethrough~ word.",
+        "Word *_bold-italic ${Mention.Identity(IDENTITY_OTHER_1)}_* word.",
+        "Word *_${Mention.Identity(IDENTITY_OTHER_1)} bold-italic _* word.",
+        "Word *_~${Mention.Identity(IDENTITY_OTHER_1)}~_* word.",
+        "Word ${Mention.Identity(IDENTITY_OTHER_1)} word *${Mention.Identity(IDENTITY_OTHER_1)}* word " +
+            "_${Mention.Identity(IDENTITY_OTHER_1)}_ word ~${Mention.Identity(IDENTITY_OTHER_1)}~ word.",
 
         // Broadcast identity mention + markup
         // TODO(ANDR-4149): Check if these 4 testcases are now rendered correctly
-        "Word @[${PreviewData.IDENTITY_BROADCAST}] word",
-        "Word @[${PreviewData.IDENTITY_BROADCAST}] word* word",
-        "Word *word @[${PreviewData.IDENTITY_BROADCAST}] word",
-        "Word *word @[${PreviewData.IDENTITY_BROADCAST}] word* word",
+        "Word ${Mention.Identity(IDENTITY_BROADCAST)} word",
+        "Word ${Mention.Identity(IDENTITY_BROADCAST)} word* word",
+        "Word *word ${Mention.Identity(IDENTITY_BROADCAST)} word",
+        "Word *word ${Mention.Identity(IDENTITY_BROADCAST)} word* word",
 
         "Word *\uD83C\uDF36* word",
         "Word _\uD83C\uDF36_ word",
@@ -701,8 +721,8 @@ internal class ConversationTextPreviewProviderAll : PreviewParameterProvider<Str
         "Word _italic \uD83C\uDF36 italic_ word",
         "Word ~strikethrough \uD83C\uDF36 strikethrough~ word",
 
-        "Word *_bold-italic @[${PreviewData.IDENTITY_OTHER_1}] bold-italic \uD83C\uDFD4_ bold \uD83C\uDFD4 *. Word ~strikethrough \uD83D\uDC9A " +
-            "word~.",
+        "Word *_bold-italic ${Mention.Identity(IDENTITY_OTHER_1)} bold-italic \uD83C\uDFD4_ bold " +
+            "\uD83C\uDFD4 *. Word ~strikethrough \uD83D\uDC9A word~.",
     )
 }
 
@@ -722,11 +742,11 @@ private fun ConversationText_Preview_All(
                 rawInput = rawInput,
                 textStyle = MaterialTheme.typography.bodyMedium,
                 emojiSettings = ConversationTextDefaults.EmojiSettings.copy(
-                    style = EMOJI_STYLE_ANDROID,
+                    style = EmojiStyle.ANDROID,
                 ),
                 mentionFeature = MentionFeature.On(
-                    ownIdentity = PreviewData.IDENTITY_ME,
-                    identityDisplayNames = PreviewData.mentionNames,
+                    ownIdentity = IDENTITY_ME,
+                    displayNames = PreviewData.mentionNames,
                 ),
                 markupEnabled = true,
                 highlightFeature = HighlightFeature.On(

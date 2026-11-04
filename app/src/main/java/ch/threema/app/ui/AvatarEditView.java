@@ -58,6 +58,7 @@ import java.util.Set;
 
 import ch.threema.android.FlowJavaCompat;
 import ch.threema.android.LifecycleAwareAsyncTask;
+import ch.threema.android.permissions.CameraPermissionContract;
 import ch.threema.app.R;
 import ch.threema.app.activities.CropImageActivity;
 import ch.threema.app.camera.CameraActivity;
@@ -84,6 +85,9 @@ import ch.threema.app.utils.FileProviderUtil;
 import ch.threema.app.utils.FileUtil;
 import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.RuntimeUtil;
+
+import static ch.threema.android.MenuExtensionsKt.tintIcons;
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.copyStream;
 
@@ -360,7 +364,7 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
         MenuBuilder menuBuilder = new MenuBuilder(getContext());
         new MenuInflater(getContext()).inflate(R.menu.view_avatar_edit, menuBuilder);
 
-        ConfigUtils.tintMenuIcons(menuBuilder, ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorOnSurface));
+        tintIcons(menuBuilder, getColorFromAttribute(getContext(), R.attr.colorOnSurface));
 
         if (!hasAvatar()) {
             menuBuilder.removeItem(R.id.menu_remove_picture);
@@ -370,8 +374,15 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
             public boolean onMenuItemSelected(@NonNull MenuBuilder menu, @NonNull MenuItem item) {
                 final int id = item.getItemId();
                 if (id == R.id.menu_take_photo) {
-                    if (ConfigUtils.requestCameraPermissions(getActivity(), getFragment(), REQUEST_CODE_CAMERA_PERMISSION)) {
+                    if (CameraPermissionContract.isPermissionGranted(getActivity())) {
                         openCamera();
+                    } else {
+                        String[] permissions = new String[]{Manifest.permission.CAMERA};
+                        if (getFragment() != null) {
+                            getFragment().requestPermissions(permissions, REQUEST_CODE_CAMERA_PERMISSION);
+                        } else {
+                            ActivityCompat.requestPermissions(getActivity(), permissions, REQUEST_CODE_CAMERA_PERMISSION);
+                        }
                     }
                 } else if (id == R.id.menu_select_from_gallery) {
                     FileUtil.selectFromGallery(getActivity(), getFragment(), REQUEST_CODE_FILE_SELECTOR_ID, false);
@@ -554,6 +565,7 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
             } else {
                 if ((getActivity() != null && !ActivityCompat.shouldShowRequestPermissionRationale(getActivity(), Manifest.permission.CAMERA)) ||
                     (getFragment() != null && !getFragment().shouldShowRequestPermissionRationale(Manifest.permission.CAMERA))) {
+                    // TODO(ANDR-5211): Use rationale as intended
                     ConfigUtils.showPermissionRationale(getContext(), null, R.string.permission_camera_photo_required);
                 }
             }
@@ -744,7 +756,7 @@ public class AvatarEditView extends FrameLayout implements DefaultLifecycleObser
             this.avatarImage.invalidate();
         } else {
             if (this.viewModel.getGroupModel() == null && this.viewModel.getContactIdentity() == null) {
-                this.avatarImage.setColorFilter(ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorOnSurface), PorterDuff.Mode.SRC_IN);
+                this.avatarImage.setColorFilter(getColorFromAttribute(getContext(), R.attr.colorOnSurface), PorterDuff.Mode.SRC_IN);
             }
         }
     }

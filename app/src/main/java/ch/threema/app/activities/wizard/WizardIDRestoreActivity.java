@@ -17,9 +17,11 @@ import com.google.android.material.textfield.TextInputLayout;
 import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
+import androidx.activity.result.ActivityResultLauncher;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.android.LifecycleAwareAsyncTask;
+import ch.threema.android.permissions.CameraPermissionContract;
 import ch.threema.android.textwatchers.Base32InputSanitizer;
 import ch.threema.app.AppConstants;
 import ch.threema.app.R;
@@ -43,6 +45,7 @@ import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.domain.protocol.api.FetchIdentityException;
 import ch.threema.domain.protocol.connection.ServerConnection;
+import kotlin.Unit;
 
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
@@ -50,7 +53,6 @@ import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 public class WizardIDRestoreActivity extends ThreemaAppCompatActivity {
     private static final Logger logger = getThreemaLogger("WizardIDRestoreActivity");
     private static final String DIALOG_TAG_RESTORE_PROGRESS = "rp";
-    private static final int PERMISSION_REQUEST_CAMERA = 1;
 
     /**
      * extremely ancient versions of the app on some platform accepted four-letter passwords when generating ID exports
@@ -65,10 +67,29 @@ public class WizardIDRestoreActivity extends ThreemaAppCompatActivity {
     private final int BACKUP_V1_STRING_LENGTH = 99;
     private final int BACKUP_V2_STRING_LENGTH = 129;
 
-    private static final int REQUEST_CODE_QR_SCANNER = 26657;
-
     @NonNull
     private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
+
+    private final ActivityResultLauncher<String> scanQrCodeLauncher = registerForActivityResult(new QRScannerActivity.Contract(), scanResult -> {
+        if (scanResult == null) {
+            return;
+        }
+        int scanResultLength = scanResult.length();
+        if (scanResultLength == BACKUP_V1_STRING_LENGTH || scanResultLength == BACKUP_V2_STRING_LENGTH) {
+            backupIdText.setText(scanResult);
+        } else {
+            showToast(this, R.string.invalid_threema_qr_code);
+            logger.error("Invalid Threema QR code");
+        }
+    });
+    private final ActivityResultLauncher<Unit> cameraPermissionLauncher = registerForActivityResult(new CameraPermissionContract(), isGranted -> {
+        if (isGranted) {
+            scanQR();
+        } else if (!shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
+            // TODO(ANDR-5211): Use rationale as intended
+            ConfigUtils.showPermissionRationale(this, findViewById(R.id.top_view), R.string.permission_camera_qr_required);
+        }
+    });
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -131,9 +152,7 @@ public class WizardIDRestoreActivity extends ThreemaAppCompatActivity {
 
         final @NonNull TextInputLayout idExportLayout = findViewById(R.id.id_export_layout);
         idExportLayout.setEndIconOnClickListener(v -> {
-            if (ConfigUtils.requestCameraPermissions(WizardIDRestoreActivity.this, null, PERMISSION_REQUEST_CAMERA)) {
-                scanQR();
-            }
+            cameraPermissionLauncher.launch(Unit.INSTANCE);
         });
 
         Intent intent = getIntent();
@@ -151,9 +170,8 @@ public class WizardIDRestoreActivity extends ThreemaAppCompatActivity {
         }
     }
 
-    public void scanQR() {
-        var intent = QRScannerActivity.createIntent(this);
-        startActivityForResult(intent, REQUEST_CODE_QR_SCANNER);
+    private void scanQR() {
+        scanQrCodeLauncher.launch(null);
     }
 
     @SuppressLint("StaticFieldLeak")
@@ -194,7 +212,7 @@ public class WizardIDRestoreActivity extends ThreemaAppCompatActivity {
 
             @Override
             protected void onPostExecute(RestoreResult result) {
-                DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_RESTORE_PROGRESS, true);
+                DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_RESTORE_PROGRESS);
 
                 if (result.isSuccess()) {
                     OverrideOneTimeHintsUseCase overrideOneTimeHintsUseCase = KoinJavaComponent.get(OverrideOneTimeHintsUseCase.class);
@@ -209,36 +227,6 @@ public class WizardIDRestoreActivity extends ThreemaAppCompatActivity {
                 }
             }
         }.execute(this, null);
-    }
-
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent intent) {
-        if (requestCode == REQUEST_CODE_QR_SCANNER && resultCode == RESULT_OK) {
-            String scanResult = QRScannerActivity.extractResult(intent);
-            if (scanResult != null) {
-                int scanResultLength = scanResult.length();
-                if (scanResultLength == BACKUP_V1_STRING_LENGTH || scanResultLength == BACKUP_V2_STRING_LENGTH) {
-                    backupIdText.setText(scanResult);
-                    backupIdText.invalidate();
-                } else {
-                    showToast(this, R.string.invalid_threema_qr_code);
-                    logger.error("Invalid Threema QR code");
-                }
-            }
-        }
-        super.onActivityResult(requestCode, resultCode, intent);
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == PERMISSION_REQUEST_CAMERA) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                scanQR();
-            } else if (!shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
-                ConfigUtils.showPermissionRationale(this, findViewById(R.id.top_view), R.string.permission_camera_qr_required);
-            }
-        }
     }
 
     private static class RestoreResult {

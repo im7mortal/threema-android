@@ -14,13 +14,16 @@ import ch.threema.app.services.DistributionListService
 import ch.threema.app.services.GroupService
 import ch.threema.app.utils.ShortcutUtil
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.data.IdentityProvider
 import ch.threema.data.datatypes.GroupIdentity
+import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.domain.types.Identity
-import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.DistributionListModel
+import ch.threema.storage.models.MessageModel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("ShortcutsUpdaterMonitor")
 
@@ -30,6 +33,8 @@ class ShortcutsUpdaterMonitor(
     private val globalEventFlows: GlobalEventFlows,
     private val preferenceService: PreferenceService,
 ) : Monitor("ShortcutsUpdaterMonitor"), KoinComponent {
+    private val identityProvider: IdentityProvider by inject()
+    private val contactModelRepository: ContactModelRepository? by injectNullableNonBinding()
     private val contactService: ContactService? by injectNullableNonBinding()
     private val groupService: GroupService? by injectNullableNonBinding()
     private val distributionListService: DistributionListService? by injectNullableNonBinding()
@@ -103,12 +108,14 @@ class ShortcutsUpdaterMonitor(
     }
 
     private fun updateShareTargetShortcuts(
-        receiver: MessageReceiver<out AbstractMessageModel>,
+        receiver: MessageReceiver<out MessageModel>,
     ) {
         try {
             ShortcutUtil.updateShareTargetShortcut(
                 receiver,
                 preferenceService.getContactNameFormat(),
+                contactModelRepository ?: return,
+                identityProvider ?: return,
             )
         } catch (e: DeadObjectException) {
             // DeadObjectException is expected to occur occasionally and there is nothing we can do about it
@@ -117,7 +124,7 @@ class ShortcutsUpdaterMonitor(
     }
 
     private fun updatePinnedShortcuts(
-        receiver: MessageReceiver<out AbstractMessageModel>,
+        receiver: MessageReceiver<out MessageModel>,
     ) {
         ShortcutUtil.updatePinnedShortcut(
             receiver,

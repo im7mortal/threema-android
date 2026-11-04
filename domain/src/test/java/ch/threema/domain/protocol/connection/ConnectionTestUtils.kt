@@ -126,7 +126,7 @@ internal class TestServerAddressProvider(
     }
 
     // The following methods should not be used by the connection
-    override fun getDirectoryServerUrl(): String {
+    override fun getDirectoryServerUrl(path: String): String {
         MUST_NOT_BE_CALLED()
     }
 

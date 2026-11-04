@@ -11,6 +11,7 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 
+@Suppress("unused")
 class NoOpRemoteSecretManagerImpl : RemoteSecretManager {
     override fun checkRemoteSecretProtection(lockData: MasterKeyState.WithRemoteSecret?) =
         RemoteSecretProtectionInstruction.NO_CHANGE_NEEDED

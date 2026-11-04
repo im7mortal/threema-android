@@ -107,10 +107,10 @@ data class PredefinedContact(
          * Return all predefined contacts for current build environment.
          */
         private fun getAllForCurrentEnvironment(): Map<IdentityString, PredefinedContact> =
-            when (BuildFlavor.current.buildEnvironment) {
+            when (BuildFlavor.buildEnvironment) {
                 BuildFlavor.BuildEnvironment.LIVE -> buildProduction()
                 BuildFlavor.BuildEnvironment.SANDBOX -> buildSandbox()
-                BuildFlavor.BuildEnvironment.ONPREM -> emptyMap() // TODO(ONPREM-164)
+                BuildFlavor.BuildEnvironment.ON_PREM -> emptyMap() // TODO(ONPREM-164)
             }
 
         private fun buildProduction(): Map<IdentityString, PredefinedContact> = listOf(

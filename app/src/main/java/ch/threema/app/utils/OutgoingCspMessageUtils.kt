@@ -32,6 +32,7 @@ import ch.threema.domain.protocol.csp.fs.ForwardSecurityMessageProcessor
 import ch.threema.domain.protocol.csp.messages.AbstractGroupMessage
 import ch.threema.domain.protocol.csp.messages.AbstractMessage
 import ch.threema.domain.protocol.csp.messages.DeleteProfilePictureMessage
+import ch.threema.domain.protocol.csp.messages.ExemptFromBlocking
 import ch.threema.domain.protocol.csp.messages.SetProfilePictureMessage
 import ch.threema.domain.protocol.csp.messages.fs.ForwardSecurityMode
 import ch.threema.domain.stores.ContactStore
@@ -46,6 +47,7 @@ import ch.threema.domain.taskmanager.toCspMessage
 import ch.threema.domain.types.IdentityString
 import ch.threema.storage.models.ContactModel.NO_PROFILE_PICTURE_BLOB_ID
 import ch.threema.storage.models.group.GroupModelOld
+import java.io.IOException
 import java.time.Instant
 
 private val logger = getThreemaLogger("OutgoingCspMessageUtils")
@@ -56,6 +58,7 @@ private val logger = getThreemaLogger("OutgoingCspMessageUtils")
  * server.
  */
 @WorkerThread
+@Throws(IOException::class)
 fun Iterable<String>.toBasicContacts(
     contactModelRepository: ContactModelRepository,
     contactStore: ContactStore,
@@ -68,6 +71,7 @@ fun Iterable<String>.toBasicContacts(
  * server.
  */
 @WorkerThread
+@Throws(IOException::class)
 fun String.toBasicContact(
     contactModelRepository: ContactModelRepository,
     contactStore: ContactStore,
@@ -81,6 +85,7 @@ fun String.toBasicContact(
  * the identity is invalid.
  */
 @WorkerThread
+@Throws(IOException::class)
 fun String.fetchContactModel(apiConnector: APIConnector): BasicContact =
     apiConnector.fetchIdentity(this)
         .let {
@@ -659,17 +664,18 @@ private fun Iterable<BasicContact>.filterBlockedRecipients(
     abstractMessage: AbstractMessage,
     identityBlockedSteps: IdentityBlockedSteps,
 ) = filter { basicContact ->
-    if (abstractMessage.exemptFromBlocking()) {
-        return@filter true
+    when (abstractMessage.exemptFromBlocking()) {
+        ExemptFromBlocking.YES -> true
+        ExemptFromBlocking.NO, ExemptFromBlocking.DEDICATED_STEPS -> {
+            // Note that DEDICATED_STEPS are only executed for incoming messages
+            // This is a general check if the receiver identity is blocked
+            val isBlocked = identityBlockedSteps.run(identity = basicContact.identity).isBlocked()
+            if (isBlocked) {
+                abstractMessage.logMessage("Skipping recipient ${basicContact.identity} for")
+            }
+            !isBlocked
+        }
     }
-
-    val isBlocked = identityBlockedSteps.run(identity = basicContact.identity).isBlocked()
-
-    if (isBlocked) {
-        abstractMessage.logMessage("Skipping recipient ${basicContact.identity} for")
-    }
-
-    !isBlocked
 }
 
 /**

@@ -9,6 +9,8 @@ import ch.threema.app.tasks.ReflectLocalGroupLeaveOrDisband
 import ch.threema.app.testutils.TestHelpers
 import ch.threema.app.testutils.clearDatabaseAndCaches
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationCategory
+import ch.threema.data.datatypes.ConversationSpamReportingState
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.ContactModelData
@@ -60,6 +62,7 @@ class DisbandGroupFlowTest : GroupFlowTest() {
         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
         conversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory = ConversationCategory.DEFAULT,
         profilePictureBlobId = null,
         androidContactLookupInfo = null,
         localAvatarExpires = null,
@@ -78,11 +81,13 @@ class DisbandGroupFlowTest : GroupFlowTest() {
         synchronizedAt = null,
         lastUpdate = Instant.now(),
         conversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory = ConversationCategory.DEFAULT,
         groupDescription = null,
         groupDescriptionChangedAt = null,
         otherMembers = setOf(initialContactData.identity),
         userState = UserState.MEMBER,
         notificationTriggerPolicyOverride = null,
+        spamReportingState = ConversationSpamReportingState.DEFAULT,
     )
 
     private val initialGroupModelData = myInitialGroupModelData.copy(
@@ -116,14 +121,13 @@ class DisbandGroupFlowTest : GroupFlowTest() {
 
         assert(myContact.identity == TestHelpers.ensureIdentity(serviceManager))
 
-        // Note that we use from sync to prevent any reflection. This is only acceptable in tests.
-        contactModelRepository.createFromSync(initialContactData)
+        contactModelRepository.persistNewContact(initialContactData)
         groupModelRepository.apply {
-            createFromSync(myInitialGroupModelData)
-            createFromSync(initialGroupModelData)
-            createFromSync(myInitialLeftGroupModelData)
-            createFromSync(myInitialKickedGroupModelData)
-            createFromSync(myInitialNotesGroupModelData)
+            persistNewGroup(myInitialGroupModelData)
+            persistNewGroup(initialGroupModelData)
+            persistNewGroup(myInitialLeftGroupModelData)
+            persistNewGroup(myInitialKickedGroupModelData)
+            persistNewGroup(myInitialNotesGroupModelData)
         }
     }
 

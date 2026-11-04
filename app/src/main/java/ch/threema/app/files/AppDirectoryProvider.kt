@@ -7,7 +7,7 @@ import java.io.File
 private val logger = getThreemaLogger("AppDirectoryProvider")
 
 class AppDirectoryProvider(
-    private val context: Context,
+    private val appContext: Context,
 ) {
     /**
      * Directory for storing the user's files, such as message file attachments, images, voice recordings, profile pictures,
@@ -17,7 +17,7 @@ class AppDirectoryProvider(
      */
     val userFilesDirectory: File by lazy {
         createIfNeeded(
-            File(context.filesDir, "user-data"),
+            File(appContext.filesDir, "user-data"),
         )
     }
 
@@ -25,7 +25,7 @@ class AppDirectoryProvider(
      * Directory for storing app specific files, such as app meta and config data, keys, ...
      * For user files, use [userFilesDirectory] instead.
      */
-    val appDataDirectory: File = context.filesDir
+    val appDataDirectory: File = appContext.filesDir
 
     /**
      * Directory formerly used for storing the user's encrypted files.
@@ -35,7 +35,7 @@ class AppDirectoryProvider(
      */
     @Deprecated("Use only for reading old files, use userFilesDirectory instead")
     val legacyUserFilesDirectory: File
-        get() = File(context.getExternalFilesDir(null), "data")
+        get() = File(appContext.getExternalFilesDir(null), "data")
 
     /**
      * Directory used for temporary files that may be shared or sent to other apps.
@@ -48,7 +48,7 @@ class AppDirectoryProvider(
      */
     val shareDirectory: File
         get() = createIfNeeded(
-            File(context.cacheDir, "share"),
+            File(appContext.cacheDir, "share"),
         )
 
     /**
@@ -58,7 +58,15 @@ class AppDirectoryProvider(
      * use [shareDirectory] instead.
      */
     val cacheDirectory: File
-        get() = context.cacheDir
+        get() = appContext.cacheDir
+
+    /**
+     * Directory used for temporarily storing tombstones from native crashes, if enabled.
+     */
+    val tombstonesDirectory: File
+        get() = createIfNeeded(
+            File(appContext.filesDir, "tombstones"),
+        )
 
     private fun createIfNeeded(directory: File): File {
         if (!directory.isDirectory()) {

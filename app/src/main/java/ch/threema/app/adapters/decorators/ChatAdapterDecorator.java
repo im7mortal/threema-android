@@ -40,16 +40,17 @@ import ch.threema.app.utils.ImageViewUtil;
 import ch.threema.app.utils.LinkifyUtil;
 import ch.threema.app.utils.MessageUtil;
 import ch.threema.app.utils.NameUtil;
+import ch.threema.app.utils.QuoteUtil;
 import ch.threema.app.utils.StateBitmapUtil;
 import ch.threema.app.utils.TextExtensionsKt;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.DistributionListMessageModel;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.MessageType;
 import ch.threema.storage.models.data.DisplayTag;
 
-import static ch.threema.app.utils.MessageUtilKt.getUiContentColor;
+import static ch.threema.app.ui.MessageModelUiExtensionsKt.getUiContentColor;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.isNullOrBlank;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
@@ -58,18 +59,18 @@ abstract public class ChatAdapterDecorator extends AdapterDecorator implements L
     private static final Logger logger = getThreemaLogger("ChatAdapterDecorator");
 
     public interface OnClickElement {
-        void onClick(AbstractMessageModel messageModel);
+        void onClick(MessageModel messageModel);
     }
 
     public interface OnLongClickElement {
-        void onLongClick(AbstractMessageModel messageModel);
+        void onLongClick(MessageModel messageModel);
     }
 
     public interface OnTouchElement {
-        boolean onTouch(MotionEvent motionEvent, AbstractMessageModel messageModel);
+        boolean onTouch(MotionEvent motionEvent, MessageModel messageModel);
     }
 
-    private final AbstractMessageModel messageModel;
+    private final MessageModel messageModel;
     protected final Helper helper;
     private final StateBitmapUtil stateBitmapUtil;
 
@@ -106,6 +107,7 @@ abstract public class ChatAdapterDecorator extends AdapterDecorator implements L
         private final ContactService contactService;
         private final FileService fileService;
         private final PollService pollService;
+        private final QuoteUtil quoteUtil;
         private final ThumbnailCache thumbnailCache;
         private final PreferenceService preferenceService;
         private final DownloadService downloadService;
@@ -125,6 +127,7 @@ abstract public class ChatAdapterDecorator extends AdapterDecorator implements L
             ContactService contactService,
             FileService fileService,
             PollService pollService,
+            QuoteUtil quoteUtil,
             ThumbnailCache thumbnailCache,
             PreferenceService preferenceService,
             DownloadService downloadService,
@@ -141,6 +144,7 @@ abstract public class ChatAdapterDecorator extends AdapterDecorator implements L
             this.contactService = contactService;
             this.fileService = fileService;
             this.pollService = pollService;
+            this.quoteUtil = quoteUtil;
             this.thumbnailCache = thumbnailCache;
             this.preferenceService = preferenceService;
             this.downloadService = downloadService;
@@ -197,6 +201,10 @@ abstract public class ChatAdapterDecorator extends AdapterDecorator implements L
             return pollService;
         }
 
+        public QuoteUtil getQuoteUtil() {
+            return quoteUtil;
+        }
+
         public Map<String, ContactCache> getContactCache() {
             return contacts;
         }
@@ -227,10 +235,10 @@ abstract public class ChatAdapterDecorator extends AdapterDecorator implements L
     }
 
     public ChatAdapterDecorator(
-        AbstractMessageModel messageModel,
-        @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
-        @NonNull LinkifyUtil.LinkifyListener linkifyListener,
-        Helper helper
+            MessageModel messageModel,
+            @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
+            @NonNull LinkifyUtil.LinkifyListener linkifyListener,
+            Helper helper
     ) {
         this.messageModel = messageModel;
         this.chatAdapterDecoratorListener = chatAdapterDecoratorListener;
@@ -257,7 +265,7 @@ abstract public class ChatAdapterDecorator extends AdapterDecorator implements L
     }
 
     @Override
-    public void onUnhandledClick(@NonNull AbstractMessageModel messageModel) {
+    public void onUnhandledClick(@NonNull MessageModel messageModel) {
         if (onClickElement != null) {
             onClickElement.onClick(messageModel);
         }
@@ -306,123 +314,113 @@ abstract public class ChatAdapterDecorator extends AdapterDecorator implements L
             return;
         }
 
-        boolean isUserMessage = !getMessageModel().isStatusMessage()
-            && getMessageModel().getType() != MessageType.STATUS
-            && getMessageModel().getType() != MessageType.GROUP_CALL_STATUS;
+        final @NonNull ComposeMessageHolder viewHolder = (ComposeMessageHolder) abstractViewHolder;
+
+        applyContentColor(viewHolder, getUiContentColor(messageModel, context));
+
+        //configure the chat message
+        configureChatMessage(viewHolder, context, position);
 
         String identity = messageModel.isOutbox()
             ? helper.getMyIdentity()
             : messageModel.getIdentity();
 
-        final @NonNull ComposeMessageHolder viewHolder = (ComposeMessageHolder) abstractViewHolder;
+        if (!messageModel.isOutbox() && groupId > 0) {
+            ContactCache contactCache = helper.getContactCache().get(identity);
+            if (contactCache == null) {
+                ContactModel contactModel = helper.getContactService().getByIdentity(messageModel.getIdentity());
+                contactCache = new ContactCache();
+                contactCache.displayName = NameUtil.getContactDisplayNameOrNickname(
+                    contactModel,
+                    true,
+                    helper.preferenceService.getContactNameFormat()
+                );
+                contactCache.avatar = helper.getContactService().getAvatar(messageModel.getIdentity(), false);
 
-        applyContentColor(viewHolder, getUiContentColor(getMessageModel(), context));
+                contactCache.contactModel = contactModel;
+                helper.getContactCache().put(identity, contactCache);
+            }
 
-        //configure the chat message
-        configureChatMessage(viewHolder, context, position);
+            if (viewHolder.senderView != null) {
+                if (isGroupedMessage) {
+                    viewHolder.senderView.setVisibility(View.VISIBLE);
+                    viewHolder.senderName.setText(contactCache.displayName);
 
-        if (isUserMessage) {
-            if (!messageModel.isOutbox() && groupId > 0) {
-
-                ContactCache contactCache = helper.getContactCache().get(identity);
-                if (contactCache == null) {
-                    ContactModel contactModel = helper.getContactService().getByIdentity(messageModel.getIdentity());
-                    contactCache = new ContactCache();
-                    contactCache.displayName = NameUtil.getContactDisplayNameOrNickname(
-                        contactModel,
-                        true,
-                        helper.preferenceService.getContactNameFormat()
-                    );
-                    contactCache.avatar = helper.getContactService().getAvatar(messageModel.getIdentity(), false);
-
-                    contactCache.contactModel = contactModel;
-                    helper.getContactCache().put(identity, contactCache);
-                }
-
-                if (viewHolder.senderView != null) {
-                    if (isGroupedMessage) {
-                        viewHolder.senderView.setVisibility(View.VISIBLE);
-                        viewHolder.senderName.setText(contactCache.displayName);
-
-                        if (identityColors != null && identityColors.containsKey(identity)) {
-                            viewHolder.senderName.setTextColor(identityColors.get(identity));
-                        } else {
-                            viewHolder.senderName.setTextColor(helper.regularColor);
-                        }
+                    if (identityColors != null && identityColors.containsKey(identity)) {
+                        viewHolder.senderName.setTextColor(identityColors.get(identity));
                     } else {
-                        // hide sender name in grouped messages
-                        viewHolder.senderView.setVisibility(View.GONE);
+                        viewHolder.senderName.setTextColor(helper.regularColor);
                     }
-                }
-
-                if (viewHolder.avatarView != null) {
-                    if (isGroupedMessage) {
-                        viewHolder.avatarView.setImageBitmap(contactCache.avatar);
-                        viewHolder.avatarView.setVisibility(View.VISIBLE);
-                        if (contactCache.contactModel != null) {
-                            viewHolder.avatarView.setIdentityTypeBadgeVisible(helper.getContactService().showIdentityTypeBadge(contactCache.contactModel));
-                        }
-                    } else {
-                        // hide avatar in grouped messages
-                        viewHolder.avatarView.setVisibility(View.INVISIBLE);
-                    }
-                }
-            } else {
-                if (viewHolder.avatarView != null) {
-                    viewHolder.avatarView.setVisibility(View.GONE);
-                }
-                if (viewHolder.senderView != null) {
+                } else {
+                    // hide sender name in grouped messages
                     viewHolder.senderView.setVisibility(View.GONE);
                 }
             }
 
-            @Nullable CharSequence displayDate = MessageUtil.getDisplayDate(
-                context,
-                messageModel.getPostedAt(),
-                messageModel.isOutbox(),
-                messageModel.getModifiedAt(),
-                true
-            );
-            if (displayDate == null) {
-                displayDate = "";
-            }
-
-            CharSequence contentDescription;
-
-            if (!isNullOrBlank(datePrefix)) {
-                contentDescription = context.getString(R.string.state_dialog_modified) + ": " + displayDate;
-                if (messageModel.isOutbox()) {
-                    displayDate = TextUtils.concat(datePrefix, " | " + displayDate);
+            if (viewHolder.avatarView != null) {
+                if (isGroupedMessage) {
+                    viewHolder.avatarView.setImageBitmap(contactCache.avatar);
+                    viewHolder.avatarView.setVisibility(View.VISIBLE);
+                    if (contactCache.contactModel != null) {
+                        viewHolder.avatarView.setIdentityTypeBadgeVisible(helper.getContactService().showIdentityTypeBadge(contactCache.contactModel));
+                    }
                 } else {
-                    displayDate = TextUtils.concat(displayDate + " | ", datePrefix);
+                    // hide avatar in grouped messages
+                    viewHolder.avatarView.setVisibility(View.INVISIBLE);
                 }
+            }
+        } else {
+            if (viewHolder.avatarView != null) {
+                viewHolder.avatarView.setVisibility(View.GONE);
+            }
+            if (viewHolder.senderView != null) {
+                viewHolder.senderView.setVisibility(View.GONE);
+            }
+        }
+
+        @NonNull CharSequence displayDate = MessageUtil.getDisplayDate(
+            context,
+            messageModel.getPostedAt(),
+            messageModel.isOutbox(),
+            messageModel.getModifiedAt(),
+            true
+        );
+
+        CharSequence contentDescription;
+
+        if (!isNullOrBlank(datePrefix)) {
+            contentDescription = context.getString(R.string.state_dialog_modified) + ": " + displayDate;
+            if (messageModel.isOutbox()) {
+                displayDate = TextUtils.concat(datePrefix, " | " + displayDate);
             } else {
-                contentDescription = displayDate;
+                displayDate = TextUtils.concat(displayDate + " | ", datePrefix);
             }
-            if (viewHolder.dateView != null) {
-                viewHolder.dateView.setText(displayDate);
-                viewHolder.dateView.setContentDescription(contentDescription);
-            }
+        } else {
+            contentDescription = displayDate;
+        }
+        if (viewHolder.dateView != null) {
+            viewHolder.dateView.setText(displayDate);
+            viewHolder.dateView.setContentDescription(contentDescription);
+        }
 
-            if (viewHolder.datePrefixIcon != null) {
-                viewHolder.datePrefixIcon.setVisibility(durationS > 0L ? View.VISIBLE : View.GONE);
-            }
+        if (viewHolder.datePrefixIcon != null) {
+            viewHolder.datePrefixIcon.setVisibility(durationS > 0L ? View.VISIBLE : View.GONE);
+        }
 
-            if (viewHolder.starredIcon != null) {
-                viewHolder.starredIcon.setVisibility((messageModel.getDisplayTags() & DisplayTag.DISPLAY_TAG_STARRED) == DisplayTag.DISPLAY_TAG_STARRED ? View.VISIBLE : View.GONE);
-            }
+        if (viewHolder.starredIcon != null) {
+            viewHolder.starredIcon.setVisibility((messageModel.getDisplayTags() & DisplayTag.DISPLAY_TAG_STARRED) == DisplayTag.DISPLAY_TAG_STARRED ? View.VISIBLE : View.GONE);
+        }
 
-            if (viewHolder.deliveredIndicator != null) {
-                stateBitmapUtil.setStateDrawable(context, messageModel, viewHolder.deliveredIndicator, null);
-            }
+        if (viewHolder.deliveredIndicator != null) {
+            stateBitmapUtil.setStateDrawable(context, messageModel, viewHolder.deliveredIndicator, null);
+        }
 
-            if (viewHolder.editedText != null) {
-                viewHolder.editedText.setVisibility(messageModel.getEditedAt() != null ? View.VISIBLE : View.GONE);
-            }
+        if (viewHolder.editedText != null) {
+            viewHolder.editedText.setVisibility(messageModel.getEditedAt() != null ? View.VISIBLE : View.GONE);
+        }
 
-            if (viewHolder.controller != null) {
-                viewHolder.controller.setIsUsedForOutboxMessage(getMessageModel().isOutbox());
-            }
+        if (viewHolder.controller != null) {
+            viewHolder.controller.setIsUsedForOutboxMessage(getMessageModel().isOutbox());
         }
     }
 
@@ -484,7 +482,7 @@ abstract public class ChatAdapterDecorator extends AdapterDecorator implements L
         return helper.getThumbnailCache();
     }
 
-    protected AbstractMessageModel getMessageModel() {
+    protected MessageModel getMessageModel() {
         return messageModel;
     }
 

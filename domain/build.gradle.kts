@@ -2,19 +2,16 @@ import com.android.build.gradle.internal.tasks.factory.dependsOn
 import utils.getGitVersion
 
 plugins {
-    alias(libs.plugins.sonarqube)
     alias(libs.plugins.java.library)
     alias(libs.plugins.java.testFixtures)
     alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.mavenPublish)
-    alias(libs.plugins.jacoco)
 }
 
 dependencies {
     implementation(project(":common"))
 
-    api(libs.kotlin.stdlib)
     api(libs.kotlinx.coroutines.core)
     api(libs.libphonenumber)
     api(libs.androidx.annotation)
@@ -53,29 +50,6 @@ tasks.withType<Test> {
     systemProperty("jna.library.path", "${project.projectDir}/libthreema/target/release")
 
     useJUnitPlatform()
-}
-
-tasks.withType<JacocoReport> {
-    reports {
-        xml.required = true
-        html.required = false
-    }
-}
-
-sonarqube {
-    properties {
-        property("sonar.projectKey", "android-client")
-        property("sonar.projectName", "Threema for Android")
-        property("sonar.sources", "src/main/")
-        property("sonar.exclusions", "src/main/java/ove/crypto/**")
-        property("sonar.tests", "src/test/")
-        property("sonar.sourceEncoding", "UTF-8")
-        property("sonar.verbose", "true")
-        property(
-            "sonar.coverage.jacoco.xmlReportPaths",
-            "${projectDir.parentFile.path}/build/reports/jacoco/codeCoverageReport/codeCoverageReport.xml",
-        )
-    }
 }
 
 afterEvaluate {

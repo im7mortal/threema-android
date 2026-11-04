@@ -16,14 +16,13 @@ import androidx.annotation.ColorInt
 import androidx.core.util.forEach
 import androidx.core.util.size
 import androidx.recyclerview.widget.RecyclerView
+import ch.threema.android.getColorFromAttribute
 import ch.threema.app.R
-import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.ui.CheckableFrameLayout
-import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.ElapsedTimeFormatter
 import ch.threema.app.utils.IconUtil
 import ch.threema.app.utils.MimeUtil
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.common.toHMMSS
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.MessageContentsType
 import com.bumptech.glide.Glide
@@ -31,34 +30,25 @@ import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.bumptech.glide.request.target.CustomViewTarget
 import com.bumptech.glide.request.transition.Transition
 import com.google.android.material.imageview.ShapeableImageView
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 class MediaGalleryAdapter(
     private val context: Context,
-    clickListener: OnClickItemListener,
-    messageReceiver: MessageReceiver<*>,
-    columnCount: Int,
+    private val clickListener: OnClickItemListener,
 ) :
     RecyclerView.Adapter<MediaGalleryAdapter.MediaGalleryHolder>() {
-    private val clickListener: OnClickItemListener
-    private val columnCount: Int
-    private val messageReceiver: MessageReceiver<*>
     private val checkedItems = SparseBooleanArray()
-    private var messageModels: MutableList<AbstractMessageModel>? = null
+    private var messageModels: MutableList<MessageModel>? = null
     private val inflater: LayoutInflater = LayoutInflater.from(context)
 
     @ColorInt
-    private val foregroundColor: Int
+    private val foregroundColor = context.getColorFromAttribute(R.attr.colorOnBackground)
 
     private val viewOutlineProvider: ViewOutlineProvider
 
     init {
-        this.clickListener = clickListener
-        this.columnCount = columnCount
-        this.messageReceiver = messageReceiver
-        this.foregroundColor = ConfigUtils.getColorFromAttribute(context, R.attr.colorOnBackground)
-
-        val cornerRadius: Int =
-            context.resources.getDimensionPixelSize(R.dimen.media_gallery_container_radius)
+        val cornerRadius = context.resources.getDimensionPixelSize(R.dimen.media_gallery_container_radius)
         this.viewOutlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
                 outline.setRoundRect(0, 0, view.width, view.height, cornerRadius.toFloat())
@@ -109,7 +99,7 @@ class MediaGalleryAdapter(
 
     override fun onBindViewHolder(holder: MediaGalleryHolder, position: Int) {
         messageModels?.let {
-            val messageModel: AbstractMessageModel = it[position]
+            val messageModel: MessageModel = it[position]
 
             if (holder.messageId != messageModel.id) {
                 val placeholderIcon: Int =
@@ -161,13 +151,13 @@ class MediaGalleryAdapter(
                                 }
 
                                 if (messageModel.messageContentsType == MessageContentsType.VIDEO) {
-                                    val duration: Long = when (messageModel.type) {
-                                        MessageType.FILE -> messageModel.fileData.durationSeconds
-                                        else -> 0
+                                    val duration = when (messageModel.type) {
+                                        MessageType.FILE -> messageModel.fileData.durationSeconds.seconds
+                                        else -> Duration.ZERO
                                     }
 
-                                    if (duration > 0) {
-                                        holder.videoDuration?.text = ElapsedTimeFormatter.secondsToString(duration)
+                                    if (duration > Duration.ZERO) {
+                                        holder.videoDuration?.text = duration.toHMMSS()
                                         holder.videoDuration?.visibility = View.VISIBLE
                                     } else {
                                         holder.videoDuration?.visibility = View.GONE
@@ -200,19 +190,19 @@ class MediaGalleryAdapter(
         }
     }
 
-    private fun decorateItem(holder: MediaGalleryHolder, messageModel: AbstractMessageModel) {
+    private fun decorateItem(holder: MediaGalleryHolder, messageModel: MessageModel) {
         holder.imageView?.scaleType = ImageView.ScaleType.CENTER
         holder.imageView?.setColorFilter(foregroundColor, PorterDuff.Mode.SRC_IN)
         holder.videoContainerView?.visibility = View.GONE
         holder.animatedFormatLabelContainer?.visibility = View.GONE
 
         if (messageModel.messageContentsType == MessageContentsType.VOICE_MESSAGE) {
-            val duration: Long = if (messageModel.type == MessageType.FILE) {
-                messageModel.fileData.durationSeconds
+            val duration = if (messageModel.type == MessageType.FILE) {
+                messageModel.fileData.durationSeconds.seconds
             } else {
-                0
+                Duration.ZERO
             }
-            holder.vmDuration?.text = ElapsedTimeFormatter.secondsToString(duration)
+            holder.vmDuration?.text = duration.toHMMSS()
             holder.vmContainerView?.visibility = View.VISIBLE
             holder.textContainerView?.visibility = View.GONE
         } else if (messageModel.type == MessageType.FILE) {
@@ -229,7 +219,7 @@ class MediaGalleryAdapter(
         return messageModels?.size ?: 0
     }
 
-    fun getItemAtPosition(position: Int): AbstractMessageModel? {
+    fun getItemAtPosition(position: Int): MessageModel? {
         return messageModels?.get(position)
     }
 
@@ -238,7 +228,7 @@ class MediaGalleryAdapter(
     }
 
     @SuppressLint("NotifyDataSetChanged")
-    fun setItems(items: MutableList<AbstractMessageModel>?) {
+    fun setItems(items: MutableList<MessageModel>?) {
         messageModels = items
         notifyDataSetChanged()
     }
@@ -281,8 +271,8 @@ class MediaGalleryAdapter(
         return checkedItems.size()
     }
 
-    fun getCheckedItems(): List<AbstractMessageModel> {
-        val items: MutableList<AbstractMessageModel> = ArrayList(checkedItems.size())
+    fun getCheckedItems(): List<MessageModel> {
+        val items: MutableList<MessageModel> = ArrayList(checkedItems.size())
         checkedItems.forEach { key, _ ->
             messageModels?.let {
                 if (key >= 0 && key < it.size) {
@@ -296,7 +286,7 @@ class MediaGalleryAdapter(
     /**
      * get specified checked item. returns null if out of range or no data available
      */
-    fun getCheckedItemAt(i: Int): AbstractMessageModel? {
+    fun getCheckedItemAt(i: Int): MessageModel? {
         if (i >= 0 && i < checkedItems.size) {
             messageModels?.let {
                 return it[checkedItems.keyAt(i)]
@@ -306,7 +296,7 @@ class MediaGalleryAdapter(
     }
 
     @SuppressLint("NotifyDataSetChanged")
-    fun removeItems(deletedMessages: List<AbstractMessageModel>) {
+    fun removeItems(deletedMessages: List<MessageModel>) {
         checkedItems.clear()
 
         if (deletedMessages.size == 1) {
@@ -323,9 +313,9 @@ class MediaGalleryAdapter(
     }
 
     interface OnClickItemListener {
-        fun onClick(messageModel: AbstractMessageModel?, view: View?, position: Int)
+        fun onClick(messageModel: MessageModel?, view: View?, position: Int)
         fun onLongClick(
-            messageModel: AbstractMessageModel?,
+            messageModel: MessageModel?,
             itemView: View?,
             position: Int,
         ): Boolean

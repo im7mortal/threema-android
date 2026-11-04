@@ -49,7 +49,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.painterResource
@@ -65,6 +64,7 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.dp
 import androidx.fragment.compose.AndroidFragment
 import ch.threema.android.buildActivityIntent
+import ch.threema.android.buildBundle
 import ch.threema.app.AppConstants
 import ch.threema.app.R
 import ch.threema.app.activities.ComposeMessageActivity.Companion.extractConversationId
@@ -77,6 +77,7 @@ import ch.threema.app.compose.common.VerificationLevelDisplay
 import ch.threema.app.compose.common.appbars.AppBar
 import ch.threema.app.compose.common.appbars.NavigationIcon
 import ch.threema.app.compose.common.avatar.AvatarAsync
+import ch.threema.app.compose.common.extensions.get
 import ch.threema.app.compose.common.immutables.ImmutableBitmap
 import ch.threema.app.compose.common.spacer.SpacerHorizontal
 import ch.threema.app.compose.common.spacer.SpacerVertical
@@ -104,9 +105,10 @@ import ch.threema.data.datatypes.DistributionListConversationId
 import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.domain.models.VerificationLevel
 import ch.threema.domain.models.WorkVerificationLevel
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.ContactMessageModel
 import ch.threema.storage.models.DistributionListMessageModel
-import ch.threema.storage.models.group.GroupMessageModel
+import ch.threema.storage.models.GroupMessageModel
+import ch.threema.storage.models.MessageModel
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.koin.core.parameter.parametersOf
 
@@ -114,12 +116,9 @@ private val logger = getThreemaLogger("ConversationActivity")
 
 class ConversationActivity : ThreemaComposeActivity() {
 
+    private lateinit var conversationId: ConversationId
+
     private val viewModel: ConversationViewModel by viewModel {
-        val conversationId: ConversationId? = intent?.extractConversationId()
-        if (conversationId == null) {
-            logger.error("Intent is missing a conversation-id")
-            finish()
-        }
         val hasInitialFocus: Boolean = intent
             ?.getBooleanExtra(AppConstants.INTENT_DATA_EDITFOCUS, false)
             ?: false
@@ -139,6 +138,14 @@ class ConversationActivity : ThreemaComposeActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val conversationId = intent.extractConversationId()
+        if (conversationId == null) {
+            logger.error("Intent is missing a conversation-id")
+            finish()
+            return
+        }
+        this.conversationId = conversationId
+
         setContent()
     }
 
@@ -150,6 +157,7 @@ class ConversationActivity : ThreemaComposeActivity() {
             logger.error("New intent is missing a conversation-id")
             return
         }
+        this.conversationId = conversationId
         val hasInitialFocus: Boolean = intent.getBooleanExtra(AppConstants.INTENT_DATA_EDITFOCUS, false)
         val initialText: String = intent.getStringExtra(AppConstants.INTENT_DATA_TEXT) ?: ""
 
@@ -268,7 +276,7 @@ class ConversationActivity : ThreemaComposeActivity() {
         @JvmOverloads
         fun createIntentJumpToMessage(
             context: Context,
-            message: AbstractMessageModel,
+            message: MessageModel,
             overrideBackToHomeBehavior: Boolean? = null,
         ) = buildActivityIntent<ConversationActivity>(context) {
             val conversationId: ConversationId =
@@ -283,7 +291,7 @@ class ConversationActivity : ThreemaComposeActivity() {
                             distributionListId = message.distributionListId,
                         )
                     }
-                    else -> {
+                    is ContactMessageModel -> {
                         val identity = message.identity
                         requireNotNull(identity) { "Message is missing identity" }
                         ContactConversationId(identity)
@@ -428,7 +436,7 @@ private fun ConversationScreenContent(
                         modifier = Modifier
                             .fillMaxHeight()
                             .width(dimensionResource(R.dimen.message_fragment_width)),
-                        arguments = Bundle().apply {
+                        arguments = buildBundle {
                             putParcelable(AppConstants.INTENT_DATA_CONVERSATION_ID, state.conversationId)
                         },
                     )
@@ -672,7 +680,7 @@ private fun AppBarContentGroupConversation(
     state: ConversationReceiverState.Group,
 ) {
     ConversationText(
-        rawInput = state.displayName.resolve(LocalContext.current),
+        rawInput = state.displayName.get(),
         textStyle = MaterialTheme.typography.titleLarge.copy(
             textDecoration = if (state.userIsMember) TextDecoration.None else TextDecoration.LineThrough,
         ),

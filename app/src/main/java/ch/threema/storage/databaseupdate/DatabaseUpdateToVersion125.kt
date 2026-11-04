@@ -30,7 +30,5 @@ internal class DatabaseUpdateToVersion125(
         )
     }
 
-    override fun getDescription() = "Corrects negative lastUpdateAt timestamp values"
-
     override val version = 125
 }

@@ -2,6 +2,8 @@ package ch.threema.app.processors.reflectedd2dsync
 
 import ch.threema.app.eventbus.EventBus
 import ch.threema.app.eventbus.events.GroupEvent
+import ch.threema.data.datatypes.ConversationCategory
+import ch.threema.data.datatypes.ConversationSpamReportingState
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.datatypes.GroupState
@@ -40,11 +42,13 @@ class ReflectedGroupSyncTaskTest {
             synchronizedAt = null,
             lastUpdate = null,
             conversationVisibility = ConversationVisibility.NORMAL,
+            conversationCategory = ConversationCategory.DEFAULT,
             groupDescription = null,
             groupDescriptionChangedAt = null,
             otherMembers = emptySet(),
             userState = UserState.MEMBER,
             notificationTriggerPolicyOverride = null,
+            spamReportingState = ConversationSpamReportingState.DEFAULT,
         )
         groupModelMock = mockk<GroupModel> {
             every { groupIdentity } returns GROUP_IDENTITY
@@ -82,11 +86,10 @@ class ReflectedGroupSyncTaskTest {
             },
             groupService = mockk(),
             fileService = mockk(),
-            okHttpClient = mockk(),
+            blobDownloadOkHttpClient = mockk(),
             serverAddressProvider = mockk(),
             symmetricEncryptionService = mockk(),
             multiDeviceManager = mockk(),
-            conversationCategoryService = mockk(),
             globalEventBuses = mockk {
                 every { groups } returns groupEventBusMock
             },

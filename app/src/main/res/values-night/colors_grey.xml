@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="dynamic_grey_300">@color/brand_grey_700</color>
+    <color name="dynamic_grey_400">@color/brand_grey_500</color>
+    <color name="dynamic_grey_500">@color/brand_grey_400</color>
+    <color name="dynamic_grey_700">@color/brand_grey_300</color>
+</resources>

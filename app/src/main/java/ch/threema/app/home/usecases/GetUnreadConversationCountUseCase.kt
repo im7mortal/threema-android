@@ -5,7 +5,6 @@ import ch.threema.app.services.ConversationTagService
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.DispatcherProvider
 import ch.threema.data.datatypes.ConversationId
-import ch.threema.domain.taskmanager.TriggerSource
 import ch.threema.storage.models.ConversationModel
 import ch.threema.storage.models.ConversationTag
 import kotlinx.coroutines.withContext
@@ -49,7 +48,6 @@ class GetUnreadConversationCountUseCase(
                     conversationTagService.removeTag(
                         conversationId = unreadId,
                         tag = ConversationTag.MARKED_AS_UNREAD,
-                        triggerSource = TriggerSource.LOCAL,
                     )
                 }
             }

@@ -6,7 +6,9 @@ import ch.threema.base.crypto.NaCl;
 
 import java.time.Instant;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import androidx.annotation.NonNull;
@@ -17,6 +19,12 @@ import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.Until;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.UserService;
+import ch.threema.data.datatypes.ConversationCategory;
+import ch.threema.data.datatypes.ConversationSpamReportingState;
+import ch.threema.data.datatypes.ConversationVisibility;
+import ch.threema.data.datatypes.GroupIdentity;
+import ch.threema.data.datatypes.IdColor;
+import ch.threema.data.models.GroupModelData;
 import ch.threema.domain.helpers.InMemoryIdentityStore;
 import ch.threema.domain.models.Contact;
 import ch.threema.domain.models.BasicContact;
@@ -183,6 +191,38 @@ public class TestHelpers {
                 .setCreatorIdentity(this.groupCreator.identity)
                 .setId(localGroupId)
                 .setUserState(userState);
+        }
+
+        @NonNull
+        public GroupModelData getGroupModelData() {
+            Set<String> otherMembers = new HashSet<>();
+            UserState userState = UserState.LEFT;
+            for (TestContact memberContact : members) {
+                String identity = memberContact.identity;
+                if (!identity.equals(userIdentity) && !identity.equals(groupCreator.identity)) {
+                    otherMembers.add(identity);
+                }
+                if (identity.equals(userIdentity)) {
+                    userState = UserState.MEMBER;
+                }
+            }
+
+            return new GroupModelData(
+                new GroupIdentity(groupCreator.identity, apiGroupId.toLong()),
+                groupName,
+                Instant.now(),
+                null,
+                null,
+                ConversationVisibility.NORMAL,
+                ConversationCategory.DEFAULT,
+                IdColor.invalid(),
+                null,
+                null,
+                otherMembers,
+                userState,
+                null,
+                ConversationSpamReportingState.DEFAULT
+            );
         }
 
         @NonNull

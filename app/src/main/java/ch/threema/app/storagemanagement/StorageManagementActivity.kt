@@ -22,11 +22,12 @@ import ch.threema.android.ToastDuration
 import ch.threema.android.awaitLayout
 import ch.threema.android.buildActivityIntent
 import ch.threema.android.context
+import ch.threema.android.dismissDialog
 import ch.threema.android.format
 import ch.threema.android.showToast
 import ch.threema.app.R
 import ch.threema.app.activities.ThreemaToolbarActivity
-import ch.threema.app.di.DIJavaCompat.isSessionScopeReady
+import ch.threema.app.di.isSessionScopeReady
 import ch.threema.app.dialogs.CancelableHorizontalProgressDialog
 import ch.threema.app.dialogs.GenericAlertDialog
 import ch.threema.app.dialogs.GenericAlertDialog.DialogClickListener
@@ -259,7 +260,7 @@ class StorageManagementActivity : ThreemaToolbarActivity(), DialogClickListener,
 
     private fun showDeleteIdentityDialog() {
         GenericAlertDialog.newInstance(
-            R.string.delete_id_title,
+            R.string.delete_id_menu_title,
             R.string.delete_id_message,
             R.string.delete_everything,
             R.string.cancel,
@@ -378,7 +379,7 @@ class StorageManagementActivity : ThreemaToolbarActivity(), DialogClickListener,
     }
 
     private fun dismissMessageDeletionProgressDialog() {
-        DialogUtil.dismissDialog(supportFragmentManager, DELETE_MESSAGES_PROGRESS_TAG, true)
+        supportFragmentManager.dismissDialog(DELETE_MESSAGES_PROGRESS_TAG)
     }
 
     private fun deleteMediaFiles(days: Int) {
@@ -449,7 +450,7 @@ class StorageManagementActivity : ThreemaToolbarActivity(), DialogClickListener,
     }
 
     private fun dismissMediaDeletionProgressDialog() {
-        DialogUtil.dismissDialog(supportFragmentManager, DELETE_MEDIA_PROGRESS_TAG, true)
+        supportFragmentManager.dismissDialog(DELETE_MEDIA_PROGRESS_TAG)
     }
 
     override fun onYes(tag: String?, data: Any?) {
@@ -482,7 +483,7 @@ class StorageManagementActivity : ThreemaToolbarActivity(), DialogClickListener,
 
     private fun showDeleteEverythingDialog() {
         GenericAlertDialog.newInstance(
-            R.string.delete_id_title,
+            R.string.delete_id_menu_title,
             R.string.delete_id_message2,
             R.string.delete_everything,
             R.string.cancel,
@@ -490,7 +491,7 @@ class StorageManagementActivity : ThreemaToolbarActivity(), DialogClickListener,
     }
 
     private fun showDeletingDialog() {
-        GenericProgressDialog.newInstance(R.string.delete_id_title, R.string.please_wait)
+        GenericProgressDialog.newInstance(R.string.delete_id_menu_title, R.string.please_wait)
             .show(supportFragmentManager, DIALOG_TAG_DELETING_ID)
     }
 
@@ -499,9 +500,9 @@ class StorageManagementActivity : ThreemaToolbarActivity(), DialogClickListener,
             try {
                 resetAppTask.execute()
             } catch (_: Exception) {
-                // if the app reset fails, it is likely that the app is left in a broken state, so we better stop it altogether.
-                exitProcess(0)
+                // ignore
             }
+            exitProcess(0)
         }
     }
 

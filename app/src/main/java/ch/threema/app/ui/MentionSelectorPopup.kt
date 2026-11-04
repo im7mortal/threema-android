@@ -10,7 +10,6 @@ import android.text.TextUtils
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver.OnGlobalLayoutListener
 import android.view.WindowManager.BadTokenException
@@ -21,19 +20,18 @@ import androidx.window.layout.WindowMetricsCalculator
 import ch.threema.android.textwatchers.SimpleTextWatcher
 import ch.threema.app.R
 import ch.threema.app.adapters.MentionSelectorAdapter
+import ch.threema.app.adapters.MentionSelectorAdapter.MentionSelectorOption
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.UserService
 import ch.threema.app.utils.AnimationUtil
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.ContactUtil
-import ch.threema.app.utils.NameUtil
-import ch.threema.common.emptyByteArray
+import ch.threema.data.IdentityProvider
 import ch.threema.data.models.GroupModel
-import ch.threema.domain.models.IdentityState
-import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.ContactModel
+import ch.threema.data.models.GroupModelData
+import ch.threema.data.repositories.ContactModelRepository
+import ch.threema.domain.types.Mention
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.textfield.TextInputLayout
 
@@ -43,7 +41,9 @@ class MentionSelectorPopup(
     private val mentionSelectorListener: MentionSelectorListener?,
     private val groupService: GroupService,
     private val contactService: ContactService,
+    private val contactModelRepository: ContactModelRepository,
     private val userService: UserService,
+    private val identityProvider: IdentityProvider,
     private val preferenceService: PreferenceService,
     private val groupModel: GroupModel,
 ) : MovingPopupWindow(context), MentionSelectorAdapter.OnClickListener {
@@ -51,7 +51,6 @@ class MentionSelectorPopup(
     private var filterText: String = ""
     private var filterStart: Int = 0
     private val recyclerView: RecyclerView
-    private val allContactModel: ContactModel = ContactModel.createUnchecked(ContactService.ALL_USERS_PLACEHOLDER_ID, emptyByteArray())
     private var editText: ComposeEditText? = null
     private val popupLayout: MaterialCardView
     private var viewableSpaceHeight = 0
@@ -73,7 +72,7 @@ class MentionSelectorPopup(
                 if (count == 0 && (' ' == last || '\n' == last) || count == 1 && (' ' == text[start] || '\n' == text[start])) {
                     editText?.post { this.run() }
                 }
-            } catch (e: IndexOutOfBoundsException) {
+            } catch (_: IndexOutOfBoundsException) {
                 // don't care, happens when deleting a char after the @ the first time around
                 // hacky because there is no other logic with the listener callback that would not mess with the rest of the logic.
             }
@@ -121,8 +120,6 @@ class MentionSelectorPopup(
         setWindowLayoutMode(0, ViewGroup.LayoutParams.WRAP_CONTENT)
         height = 1
 
-        allContactModel.setName(context.getString(R.string.all), "")
-        allContactModel.state = IdentityState.ACTIVE
         filterText = ""
         filterStart = 0
 
@@ -166,7 +163,7 @@ class MentionSelectorPopup(
                 }
         }
 
-        val coordinates = ConfigUtils.getPopupWindowPositionAboveAnchor(activity, anchorView ?: editText)
+        val coordinates = getPopupWindowPositionAboveAnchor(activity, anchorView ?: editText)
         val popupX = if (anchorView == null) 0 else coordinates[0]
         var popupY = coordinates[1]
 
@@ -224,64 +221,92 @@ class MentionSelectorPopup(
             return null
         }
 
-        var groupContacts = contactService.getByIdentities(
-            groupModelData.getAllMembers(userService.identity!!).toList(),
-        )
-        val isSortingFirstName = preferenceService.isContactListSortingFirstName()
-
-        groupContacts.sortWith { model1: ContactModel?, model2: ContactModel? ->
-            ContactUtil.getSafeNameString(model1, isSortingFirstName).compareTo(
-                ContactUtil.getSafeNameString(model2, isSortingFirstName),
-            )
-        }
-        groupContacts.add(allContactModel)
+        var options = createOptions(groupModelData)
 
         if (!init && filterText.length - filterStart > 0) {
-            val name = filterText.substring(filterStart)
-            groupContacts = groupContacts.filter { contactModel ->
-                if (
-                    userService.isMe(contactModel.identity) &&
-                    NameUtil.getQuoteName(
-                        contactModel,
-                        userService,
-                        preferenceService.getContactNameFormat(),
-                    )
-                        .contains(name, ignoreCase = true)
-                ) {
-                    return@filter true
+            val contactNameFormat = preferenceService.getContactNameFormat()
+            val query = filterText.substring(filterStart)
+            options = options.filter { option ->
+                when (option) {
+                    is MentionSelectorOption.Contact -> {
+                        option.contact.data?.getDisplayName(contactNameFormat)?.contains(query, ignoreCase = true) == true ||
+                            option.contact.data?.nickname?.contains(query, ignoreCase = true) == true ||
+                            option.contact.identity.contains(query, ignoreCase = true)
+                    }
+                    MentionSelectorOption.Me -> {
+                        userService.displayName.contains(query, ignoreCase = true) ||
+                            userService.publicNickname.contains(query, ignoreCase = true)
+                    }
+                    MentionSelectorOption.AllUsers -> false
                 }
-                ContactUtil.getSafeNameString(contactModel, isSortingFirstName)
-                    .contains(name, ignoreCase = true)
             }
-        }
-
-        if (groupContacts.isEmpty()) { // just show all selector as default placeholder if there are no more specific results
-            groupContacts.add(allContactModel)
+            if (options.isEmpty()) {
+                options = listOf(MentionSelectorOption.AllUsers)
+            }
         }
 
         if (mentionAdapter == null) {
             mentionAdapter = MentionSelectorAdapter(
                 context,
-                userService,
                 contactService,
                 groupService,
+                userService,
                 preferenceService,
                 groupModel,
             )
             mentionAdapter?.setOnClickListener(this)
         }
 
-        mentionAdapter?.setData(groupContacts)
+        mentionAdapter?.setData(options)
 
         return mentionAdapter
     }
 
-    override fun onItemClick(v: View, contactModel: ContactModel) {
-        val identity = contactModel.identity
+    private fun createOptions(groupModelData: GroupModelData): List<MentionSelectorOption> {
+        val options = mutableListOf<MentionSelectorOption>()
+
+        groupModelData.getAllMembers(identityProvider.requireIdentityString())
+            .minus(identityProvider.requireIdentityString())
+            .let(contactModelRepository::getByIdentities)
+            .forEach { contact ->
+                options.add(MentionSelectorOption.Contact(contact))
+            }
+
+        options.add(MentionSelectorOption.Me)
+
+        val sortOrder = preferenceService.getContactSortOrder()
+        options.sortWith { option1: MentionSelectorOption, option2: MentionSelectorOption ->
+            option1.getSortKey(sortOrder).compareTo(option2.getSortKey(sortOrder))
+        }
+
+        options.add(MentionSelectorOption.AllUsers)
+        return options
+    }
+
+    private fun MentionSelectorOption.getSortKey(sortOrder: PreferenceService.ContactSortOrder): String =
+        when (this) {
+            is MentionSelectorOption.Contact -> ContactUtil.getSortKey(
+                contact.identity,
+                contact.data?.firstName,
+                contact.data?.lastName,
+                contact.data?.nickname,
+                sortOrder,
+            )
+            MentionSelectorOption.Me -> ContactUtil.getSortKey(
+                userService.identity,
+                userService.publicNickname,
+                null,
+                userService.publicNickname,
+                sortOrder,
+            )
+            MentionSelectorOption.AllUsers -> ""
+        }
+
+    override fun onItemClick(mentionSelectorOption: MentionSelectorOption) {
         if (mentionSelectorListener != null) {
             dismiss()
-            mentionSelectorListener.onContactSelected(
-                identity,
+            mentionSelectorListener.onMentionOptionSelected(
+                mentionSelectorOption.toMention(identityProvider.requireIdentity()),
                 filterText.length - filterStart + 1,
                 if (filterStart > 0) filterStart - 1 else 0,
             )
@@ -310,6 +335,6 @@ class MentionSelectorPopup(
     }
 
     interface MentionSelectorListener {
-        fun onContactSelected(identity: IdentityString?, length: Int, insertPosition: Int)
+        fun onMentionOptionSelected(mention: Mention, length: Int, insertPosition: Int)
     }
 }

@@ -18,7 +18,7 @@ import ch.threema.app.webclient.Protocol;
 import ch.threema.app.webclient.converter.Receiver;
 import ch.threema.app.webclient.services.instance.MessageReceiver;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.group.GroupModelOld;
 import ch.threema.storage.models.MessageType;
@@ -121,10 +121,10 @@ public class MessageReadRequestHandler extends MessageReceiver {
                     return null;
                 }
             };
-            List<AbstractMessageModel> messages = receiver.loadMessages(filter);
+            List<MessageModel> messages = receiver.loadMessages(filter);
             new MarkAsReadRoutine(messageService, notificationService)
                 .run(messages, receiver);
-            notificationService.cancel(receiver.getConversationId());
+            notificationService.cancelAllConversationNotifications(receiver.getConversationId());
         }
     }
 

@@ -60,7 +60,10 @@ class UpdateContactNameUseCase(
                 is AndroidContactReadException.MissingPermission -> logger.warn("No permission to read the contacts", e)
                 is AndroidContactReadException.MultipleContactIdsPerLookupKey -> logger.warn("Invalid data: multiple contact ids per lookup key", e)
                 is AndroidContactReadException.MultipleLookupKeysPerContactId -> logger.warn("Invalid data: multiple lookup keys per contact id", e)
-                is AndroidContactReadException.MultipleLookupKeysPerRawContact -> logger.warn("Invalid data: multiple lookup keys per raw contact", e)
+                is AndroidContactReadException.MultipleLookupInfosPerRawContact -> logger.warn(
+                    "Invalid data: multiple lookup infos per raw contact",
+                    e,
+                )
                 is AndroidContactReadException.Other -> logger.error("Could not read contacts.", e)
             }
             return null

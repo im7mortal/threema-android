@@ -1,12 +1,12 @@
 package ch.threema.app.location
 
-import org.koin.core.module.dsl.factoryOf
-import org.koin.core.module.dsl.singleOf
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
+import org.koin.plugin.module.dsl.single
+import org.koin.plugin.module.dsl.viewModel
 
 val locationFeatureModule = module {
-    viewModelOf(::LocationAutocompleteViewModel)
-    factoryOf(::PoiRepository)
-    singleOf(::MapLibreInitializer)
+    viewModel<LocationAutocompleteViewModel>()
+    factory<PoiRepository>()
+    single<MapLibreInitializer>()
 }

@@ -1,5 +1,7 @@
 package ch.threema.app.mediaattacher;
 
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
+
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.TypedArray;
@@ -49,7 +51,7 @@ public class ControlPanelButton extends FrameLayout {
                 // Image background
                 final @ColorInt int fillColor = attributes.getColor(
                     R.styleable.ControlPanelButton_fillColor,
-                    ConfigUtils.getColorFromAttribute(context, R.attr.attach_button_background)
+                    getColorFromAttribute(context, R.attr.attach_button_background)
                 );
                 final @ColorInt int strokeColor = attributes.getColor(R.styleable.ControlPanelButton_strokeColor, -1);
                 final int fillColorAlpha = attributes.getInt(R.styleable.ControlPanelButton_fillColorAlpha, -1);
@@ -61,7 +63,7 @@ public class ControlPanelButton extends FrameLayout {
                 );
                 final @ColorInt int foregroundColor = attributes.getColor(
                     R.styleable.ControlPanelButton_foregroundColor,
-                    ConfigUtils.getColorFromAttribute(context, R.attr.colorOnSurface)
+                    getColorFromAttribute(context, R.attr.colorOnSurface)
                 );
                 ImageViewCompat.setImageTintList(labelImageView, ColorStateList.valueOf(foregroundColor));
 

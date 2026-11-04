@@ -44,18 +44,32 @@ object NotificationIDs {
     const val WEBCLIENT_ACTIVE_NOTIFICATION_ID = -22
     const val WEB_RESUME_FAILED_NOTIFICATION_ID = -23
     const val WORK_SYNC_NOTIFICATION_ID = -24
+    const val CONVERSATIONS_SUMMARY_NOTIFICATION_ID = -25
+    const val CROSS_PLATFORM_BACKUP_CREATE_ACTIVE_NOTIFICATION_ID = -26
+    const val CROSS_PLATFORM_BACKUP_CREATE_COMPLETION_NOTIFICATION_ID = -27
+    const val CROSS_PLATFORM_BACKUP_RESTORE_ACTIVE_NOTIFICATION_ID = -28
+    const val CROSS_PLATFORM_BACKUP_RESTORE_COMPLETION_NOTIFICATION_ID = -29
 
     private const val CONVERSATION_NOTIFICATION_BASE = 1000
     private const val CONVERSATION_NOTIFICATION_SPACING = NotificationRequestCodes.ConversationNotificationAction.RESERVED_RANGE
     private const val CONTACT_CONVERSATION_RANGE_SIZE = 100_000_000
     private const val GROUP_CONVERSATION_RANGE_SIZE = 100_000_000
 
+    object Offset {
+        const val DEFAULT = 0
+        const val FORWARD_SECURITY_NOTIFICATION = 1
+        const val EMOJI_REACTION_NOTIFICATION = 2
+    }
+
     /**
      * @param offset May be set to get additional notification IDs for the same conversation, for secondary types of notifications
      * Must be at least 0 and less than [CONVERSATION_NOTIFICATION_SPACING]
      */
     @JvmStatic
-    fun getNotificationIdForConversation(conversationId: ConversationId, offset: Int = 0): Int =
+    fun getNotificationIdForConversation(
+        conversationId: ConversationId,
+        offset: Int = Offset.DEFAULT,
+    ): Int =
         when (conversationId) {
             is ContactConversationId -> {
                 CONVERSATION_NOTIFICATION_BASE +

@@ -1,5 +1,7 @@
 package ch.threema.app.adapters.decorators;
 
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
+
 import android.content.Context;
 import android.content.res.ColorStateList;
 
@@ -8,17 +10,16 @@ import java.time.Instant;
 import androidx.annotation.NonNull;
 import ch.threema.app.R;
 import ch.threema.app.ui.listitemholder.ComposeMessageHolder;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.LinkifyUtil;
 import ch.threema.app.utils.LocaleUtil;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 
 public class DateSeparatorChatAdapterDecorator extends ChatAdapterDecorator {
     public DateSeparatorChatAdapterDecorator(
-        AbstractMessageModel messageModel,
-        @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
-        @NonNull LinkifyUtil.LinkifyListener linkifyListener,
-        Helper helper
+            MessageModel messageModel,
+            @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
+            @NonNull LinkifyUtil.LinkifyListener linkifyListener,
+            Helper helper
     ) {
         super(messageModel, chatAdapterDecoratorListener, linkifyListener, helper);
     }
@@ -30,7 +31,7 @@ public class DateSeparatorChatAdapterDecorator extends ChatAdapterDecorator {
     ) {
         super.applyContentColor(viewHolder, contentColor);
         viewHolder.bodyTextView.setTextColor(
-            ConfigUtils.getColorFromAttribute(viewHolder.bodyTextView.getContext(), R.attr.colorOnSurface)
+            getColorFromAttribute(viewHolder.bodyTextView.getContext(), R.attr.colorOnSurface)
         );
     }
 

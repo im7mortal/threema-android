@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -18,11 +17,11 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.preference.PreferenceManager
 import ch.threema.android.buildActivityIntent
+import ch.threema.android.checkGrantedPermission
 import ch.threema.app.BuildConfig
 import ch.threema.app.R
 import ch.threema.app.activities.PermissionRequestActivity.Companion.INTENT_PERMISSION_REQUESTS
@@ -348,8 +347,7 @@ class PermissionRequestActivity : ThreemaActivity() {
      */
     private fun updatePermissionStates() {
         for ((request, _) in permissionStates) {
-            request.granted =
-                ContextCompat.checkSelfPermission(this, request.permission) == PERMISSION_GRANTED
+            request.granted = checkGrantedPermission(request.permission)
             request.goToSettings =
                 !ActivityCompat.shouldShowRequestPermissionRationale(this, request.permission)
 

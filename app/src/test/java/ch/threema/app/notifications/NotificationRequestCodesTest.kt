@@ -1,10 +1,18 @@
 package ch.threema.app.notifications
 
+import kotlin.reflect.KVisibility
+import kotlin.reflect.full.memberProperties
+import kotlin.reflect.jvm.javaField
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class NotificationRequestCodesTest {
+
+    @Test
+    fun `static request codes sanity check`() {
+        assertTrue(REQUEST_CODES.isNotEmpty())
+    }
 
     @Test
     fun `static request codes are valid`() {
@@ -47,19 +55,8 @@ class NotificationRequestCodesTest {
     }
 
     companion object {
-        private val REQUEST_CODES = listOf(
-            NotificationRequestCodes.BACKUP_CANCEL,
-            NotificationRequestCodes.CALL_HANG_UP,
-            NotificationRequestCodes.HOME_ACTIVITY,
-            NotificationRequestCodes.LOCK_PASSPHRASE,
-            NotificationRequestCodes.NEW_CONTACTS_SYNCED,
-            NotificationRequestCodes.RESTORE_CANCEL,
-            NotificationRequestCodes.SAFE_BACKUP_FAILED,
-            NotificationRequestCodes.SERVER_MESSAGE,
-            NotificationRequestCodes.UNSENT_NOTIFICATIONS_CANCEL,
-            NotificationRequestCodes.UNSENT_NOTIFICATIONS_SEND,
-            NotificationRequestCodes.WEBCLIENT_SESSIONS,
-            NotificationRequestCodes.WEBCLIENT_STOP_SESSION,
-        )
+        private val REQUEST_CODES = NotificationRequestCodes::class.objectInstance!!::class.memberProperties
+            .filter { it.isConst && it.visibility == KVisibility.PUBLIC }
+            .map { it.javaField!!.getInt(NotificationIDs) }
     }
 }

@@ -9,6 +9,7 @@ import androidx.annotation.Nullable;
 import java.time.Instant;
 import java.util.Objects;
 
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.data.datatypes.ConversationVisibility;
 import ch.threema.data.datatypes.IdColor;
 import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverride;
@@ -31,12 +32,14 @@ public class GroupModelOld implements ReceiverModel {
     public static final String COLUMN_SYNCHRONIZED_AT = "synchronizedAt";
     public static final String COLUMN_LAST_UPDATE = "lastUpdateAt"; /* date when the conversation was last updated */
     public static final String COLUMN_CONVERSATION_VISIBILITY = "conversationVisibility";
+    public static final String COLUMN_CONVERSATION_CATEGORY = "conversationCategory";
     public static final String COLUMN_GROUP_DESC = "groupDesc";
     public static final String COLUMN_GROUP_DESC_CHANGED_TIMESTAMP = "changedGroupDescTimestamp";
     public static final String COLUMN_COLOR_INDEX = "colorIndex";
     public static final String COLUMN_USER_STATE = "userState";
     public static final String COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_POLICY = "notificationTriggerPolicyOverridePolicy";
     public static final String COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_EXPIRES_AT = "notificationTriggerPolicyOverrideExpiresAt";
+    public static final String COLUMN_SPAM_REPORTING_STATE = "spamReportingState";
 
     private String groupDesc;
     private Instant changedGroupDescTimestamp;
@@ -51,6 +54,8 @@ public class GroupModelOld implements ReceiverModel {
     private Instant lastUpdate;
     @NonNull
     private ConversationVisibility conversationVisibility = ConversationVisibility.NORMAL;
+    @NonNull
+    private ConversationCategory conversationCategory = ConversationCategory.DEFAULT;
     @NonNull
     private IdColor idColor = IdColor.invalid();
     @Nullable
@@ -139,6 +144,17 @@ public class GroupModelOld implements ReceiverModel {
 
     public GroupModelOld setConversationVisibility(@NonNull ConversationVisibility conversationVisibility) {
         this.conversationVisibility = conversationVisibility;
+        return this;
+    }
+
+    @NonNull
+    public ConversationCategory getConversationCategory() {
+        return conversationCategory;
+    }
+
+    @NonNull
+    public GroupModelOld setConversationCategory(@NonNull ConversationCategory conversationCategory) {
+        this.conversationCategory = conversationCategory;
         return this;
     }
 

@@ -7,6 +7,7 @@ import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import ch.threema.android.buildActivityIntent
+import ch.threema.android.dismissDialog
 import ch.threema.android.showToast
 import ch.threema.app.AppConstants
 import ch.threema.app.R
@@ -16,7 +17,6 @@ import ch.threema.app.dialogs.PasswordEntryDialog.PasswordEntryDialogClickListen
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.UserService
 import ch.threema.app.startup.finishAndRestartLaterIfNotReady
-import ch.threema.app.utils.DialogUtil
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.DispatcherProvider
@@ -120,7 +120,7 @@ class ExportIDActivity : AppCompatActivity(), PasswordEntryDialogClickListener {
     }
 
     private fun hideProgressDialog() {
-        DialogUtil.dismissDialog(supportFragmentManager, DIALOG_PROGRESS_ID, true)
+        supportFragmentManager.dismissDialog(DIALOG_PROGRESS_ID)
     }
 
     private fun displayIdentityBackup(result: String) {

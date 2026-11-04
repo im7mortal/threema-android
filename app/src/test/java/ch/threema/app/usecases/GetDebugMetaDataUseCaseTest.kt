@@ -3,6 +3,7 @@ package ch.threema.app.usecases
 import ch.threema.app.BuildConfig
 import ch.threema.app.BuildFlavor
 import ch.threema.app.multidevice.MultiDeviceManager
+import ch.threema.app.work.MdmSource
 import ch.threema.base.HAS_DEV_FEATURES
 import ch.threema.testhelpers.TestTimeProvider
 import ch.threema.testhelpers.utcDate
@@ -13,10 +14,10 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import org.koin.core.context.startKoin
-import org.koin.test.ClosingKoinTest
+import org.koin.test.AutoCloseKoinTest
 import org.koin.test.mock.declare
 
-class GetDebugMetaDataUseCaseTest : ClosingKoinTest {
+class GetDebugMetaDataUseCaseTest : AutoCloseKoinTest() {
 
     @BeforeTest
     fun setUp() {
@@ -50,16 +51,19 @@ class GetDebugMetaDataUseCaseTest : ClosingKoinTest {
                 every { getSentryId() } returns "my_sentry_id"
             },
             appRestrictionService = mockk {
-                every { mdmSource } returns "m"
+                every { mdmSource } returns MdmSource(
+                    hasThreemaMdmRestrictions = true,
+                    hasExternalMdmRestrictions = false,
+                )
             },
             appRestrictions = mockk {
                 every { getLicenseUsername() } returns "username"
                 every { getLicensePassword() } returns "12345678"
             },
-            timeProvider = TestTimeProvider(utcDate(2026, 4, 13)),
-            isThreemaPushUsed = {
-                true
+            preferenceService = mockk {
+                every { mustUseThreemaPush() } returns true
             },
+            timeProvider = TestTimeProvider(utcDate(2026, 4, 13)),
         )
 
         val expected = """
@@ -73,7 +77,7 @@ class GetDebugMetaDataUseCaseTest : ClosingKoinTest {
             # app
             app version:	${BuildConfig.VERSION_NAME}
             app version code:	${BuildConfig.DEFAULT_VERSION_CODE}
-            build flavor:	${BuildFlavor.current.fullDisplayName}$gitDetails
+            build flavor:	${BuildFlavor.fullDisplayName}$gitDetails
             sentry id:	my_sentry_id
 
             # app config
@@ -110,15 +114,20 @@ class GetDebugMetaDataUseCaseTest : ClosingKoinTest {
             sentryIdProvider = mockk {
                 every { getSentryId() } returns null
             },
-            appRestrictionService = null,
+            appRestrictionService = mockk {
+                every { mdmSource } returns MdmSource(
+                    hasThreemaMdmRestrictions = false,
+                    hasExternalMdmRestrictions = false,
+                )
+            },
             appRestrictions = mockk {
                 every { getLicenseUsername() } returns null
                 every { getLicensePassword() } returns null
             },
-            timeProvider = TestTimeProvider(utcDate(2026, 4, 13)),
-            isThreemaPushUsed = {
-                false
+            preferenceService = mockk {
+                every { mustUseThreemaPush() } returns false
             },
+            timeProvider = TestTimeProvider(utcDate(2026, 4, 13)),
         )
 
         val expected = """
@@ -132,7 +141,7 @@ class GetDebugMetaDataUseCaseTest : ClosingKoinTest {
             # app
             app version:	${BuildConfig.VERSION_NAME}
             app version code:	${BuildConfig.DEFAULT_VERSION_CODE}
-            build flavor:	${BuildFlavor.current.fullDisplayName}$gitDetails
+            build flavor:	${BuildFlavor.fullDisplayName}$gitDetails
 
             # app config
             has identity:	false

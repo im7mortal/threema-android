@@ -1,7 +1,7 @@
 package ch.threema.app.profilepicture
 
+import ch.threema.app.BuildFlavor
 import ch.threema.app.services.ApiService
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.base.ThreemaException
 import ch.threema.base.crypto.NaCl
 import ch.threema.base.utils.getThreemaLogger
@@ -67,7 +67,7 @@ class GroupProfilePictureUploader(
                 size = encryptedData.size,
             )
         } catch (e: IOException) {
-            if (e.isHttpAuthError() && ConfigUtils.isOnPremBuild()) {
+            if (e.isHttpAuthError() && BuildFlavor.IS_ON_PREM) {
                 logger.info("Auth token invalid")
             } else {
                 logger.error("Could not upload blob", e)

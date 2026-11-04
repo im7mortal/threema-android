@@ -6,7 +6,6 @@ import android.annotation.SuppressLint;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Service;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
@@ -26,6 +25,7 @@ import androidx.core.app.ServiceCompat;
 import androidx.documentfile.provider.DocumentFile;
 
 import org.json.JSONObject;
+import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
 import java.io.ByteArrayInputStream;
@@ -45,9 +45,9 @@ import java.util.Set;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import ch.threema.app.BuildConfig;
+import ch.threema.app.GlobalAppState;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
-import ch.threema.app.activities.DummyActivity;
+import ch.threema.app.activities.CloseAppActivity;
 import ch.threema.app.home.HomeActivity;
 import ch.threema.app.backuprestore.BackupRestoreDataConfig;
 import ch.threema.app.backuprestore.RandomUtil;
@@ -66,7 +66,6 @@ import ch.threema.app.utils.BackupUtils;
 import ch.threema.app.utils.CSVWriter;
 import ch.threema.app.utils.Counter;
 import ch.threema.app.utils.FileHandlingZipOutputStream;
-import ch.threema.app.utils.MessageUtil;
 import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.RuntimeUtil;
 import ch.threema.app.utils.ElapsedTimeFormatter;
@@ -75,6 +74,10 @@ import ch.threema.base.crypto.HashedNonce;
 import ch.threema.base.crypto.NonceFactory;
 import ch.threema.base.crypto.NonceScope;
 
+import static ch.threema.android.PendingIntentExtensionsKt.getPendingIntentForActivity;
+import static ch.threema.android.PendingIntentExtensionsKt.getPendingIntentForForegroundService;
+import static ch.threema.android.PendingIntentExtensionsKt.getPendingIntentForService;
+import static ch.threema.android.UriExtensionsKt.isFileUri;
 import static ch.threema.app.notifications.NotificationIDs.BACKUP_COMPLETION_NOTIFICATION_ID;
 import static ch.threema.app.notifications.NotificationIDs.BACKUP_NOTIFICATION_ID;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
@@ -87,13 +90,13 @@ import ch.threema.domain.identitybackup.IdentityBackup;
 import ch.threema.domain.models.AcquaintanceLevel;
 import ch.threema.storage.ChunkedSequence;
 import ch.threema.storage.DatabaseService;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.DistributionListMessageModel;
 import ch.threema.storage.models.DistributionListModel;
-import ch.threema.storage.models.group.GroupMessageModel;
+import ch.threema.storage.models.GroupMessageModel;
 import ch.threema.storage.models.group.GroupModelOld;
-import ch.threema.storage.models.MessageModel;
+import ch.threema.storage.models.ContactMessageModel;
 import ch.threema.storage.models.MessageType;
 import ch.threema.storage.models.poll.PollChoiceModel;
 import ch.threema.storage.models.poll.PollModel;
@@ -133,7 +136,6 @@ public class BackupService extends Service {
 
     private static boolean backupSuccess = false;
     private static boolean isCanceled = false;
-    private static boolean isRunning = false;
 
     @Nullable
     private Thread backupThread;
@@ -150,6 +152,7 @@ public class BackupService extends Service {
     private NotificationManagerCompat notificationManagerCompat;
     private NonceFactory nonceFactory;
     private EmojiReactionsRepository reactionsRepository;
+    private final GlobalAppState globalAppState = KoinJavaComponent.get(GlobalAppState.class);
 
     private NotificationCompat.Builder notificationBuilder;
 
@@ -160,10 +163,6 @@ public class BackupService extends Service {
     private BackupRestoreDataConfig config = null;
     private final HashMap<Integer, String> groupUidMap = new HashMap<>();
     private final Iterator<Integer> randomIterator = RandomUtil.getDistinctRandomIterator();
-
-    public static boolean isRunning() {
-        return isRunning;
-    }
 
     @Nullable
     @Override
@@ -200,7 +199,7 @@ public class BackupService extends Service {
                 boolean success = false;
                 Instant now = Instant.now();
                 DocumentFile zipFile = null;
-                Uri backupUri = this.fileService.getBackupUri();
+                Uri backupUri = this.fileService.getLegacyBackupUri();
 
                 if (backupUri == null) {
                     showBackupErrorNotification("Destination directory has not been selected yet");
@@ -210,7 +209,7 @@ public class BackupService extends Service {
 
                 String filename = "threema-backup_" + now.toEpochMilli() + "_1";
 
-                if (ContentResolver.SCHEME_FILE.equalsIgnoreCase(backupUri.getScheme())) {
+                if (isFileUri(backupUri)) {
                     zipFile = DocumentFile.fromFile(new File(backupUri.getPath(), INCOMPLETE_BACKUP_FILENAME_PREFIX + filename + ".zip"));
                     success = true;
                 } else {
@@ -237,15 +236,6 @@ public class BackupService extends Service {
 
                 showPersistentNotification();
 
-                // close connection
-                try {
-                    serviceManager.stopConnection();
-                } catch (InterruptedException e) {
-                    showBackupErrorNotification("BackupService interrupted");
-                    stopSelf();
-                    return START_NOT_STICKY;
-                }
-
                 backupThread = new Thread(() -> {
                     backup(myIdentity);
                     backupThread = null;
@@ -271,7 +261,7 @@ public class BackupService extends Service {
 
         super.onCreate();
 
-        isRunning = true;
+        globalAppState.startSpecialMode(GlobalAppState.SpecialMode.BACKUP_CREATE);
 
         notificationManagerCompat = NotificationManagerCompat.from(this);
 
@@ -324,10 +314,7 @@ public class BackupService extends Service {
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         logger.debug("onTaskRemoved");
-
-        Intent intent = new Intent(this, DummyActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(intent);
+        CloseAppActivity.closeApp(this);
     }
 
     private int getStepFactorMedia() {
@@ -341,6 +328,10 @@ public class BackupService extends Service {
     private boolean backup(@NonNull String myIdentity) {
         try (final OutputStream outputStream = getContentResolver().openOutputStream(backupFile.getUri());
              final FileHandlingZipOutputStream zipOutputStream = FileHandlingZipOutputStream.initializeZipOutputStream(outputStream, config.getPassword())) {
+
+            BackupServiceHelper helper = KoinJavaComponent.get(BackupServiceHelper.class);
+            helper.waitUntilDisconnected();
+
             logger.debug("Creating zip file {}", backupFile.getUri());
 
             // save settings
@@ -362,7 +353,7 @@ public class BackupService extends Service {
             logger.info("Count required steps for backup creation");
 
             long requiredStepsContactsAndMessages = this.databaseService.getContactModelFactory().count()
-                + this.databaseService.getMessageModelFactory().count()
+                + this.databaseService.getContactMessageModelFactory().count()
                 + this.databaseService.getGroupModelFactory().count()
                 + this.databaseService.getGroupMessageModelFactory().count();
 
@@ -383,7 +374,7 @@ public class BackupService extends Service {
                 try {
                     MessageType[] fileTypesArray = new MessageType[] { MessageType.FILE };
 
-                    long requiredStepsMedia = this.databaseService.getMessageModelFactory().countByTypes(fileTypesArray);
+                    long requiredStepsMedia = this.databaseService.getContactMessageModelFactory().countByTypes(fileTypesArray);
                     requiredStepsMedia += this.databaseService.getGroupMessageModelFactory().countByTypes(fileTypesArray);
 
                     if (this.config.backupDistributionLists()) {
@@ -678,10 +669,10 @@ public class BackupService extends Service {
                     logger.info("Back up messages for contact #{}", contactCounter);
                     try (final ByteArrayOutputStream messageBuffer = new ByteArrayOutputStream()) {
                         try (final CSVWriter messageCsv = new CSVWriter(new OutputStreamWriter(messageBuffer), messageCsvHeader)) {
-                            try (final ChunkedSequence<MessageModel> messageModels =
-                                     databaseService.getMessageModelFactory().getByIdentity(contactModel.getIdentity())) {
+                            try (final ChunkedSequence<ContactMessageModel> messageModels =
+                                     databaseService.getContactMessageModelFactory().getByIdentity(contactModel.getIdentity())) {
                                 long messageCounter = 0;
-                                for (MessageModel messageModel : messageModels) {
+                                for (ContactMessageModel messageModel : messageModels) {
                                     if (!this.next("backup message " + messageModel.getId())) {
                                         return false;
                                     }
@@ -709,7 +700,7 @@ public class BackupService extends Service {
                                             .write(Tags.TAG_MESSAGE_BODY, messageModel.getBody())
                                             .write(Tags.TAG_MESSAGE_IS_STATUS_MESSAGE, messageModel.isStatusMessage())
                                             .write(Tags.TAG_MESSAGE_CAPTION, messageModel.getCaption())
-                                            .write(Tags.TAG_MESSAGE_QUOTED_MESSAGE_ID, messageModel.getQuotedMessageId())
+                                            .write(Tags.TAG_MESSAGE_QUOTED_MESSAGE_ID, messageModel.getQuotedMessageIdString())
                                             .write(Tags.TAG_MESSAGE_DELIVERED_AT, messageModel.getDeliveredAt())
                                             .write(Tags.TAG_MESSAGE_READ_AT, messageModel.getReadAt())
                                             .write(Tags.TAG_MESSAGE_DISPLAY_TAGS, messageModel.getDisplayTags())
@@ -755,7 +746,7 @@ public class BackupService extends Service {
     }
 
     @Nullable
-    private static String serializeMessageType(@NonNull AbstractMessageModel messageModel) {
+    private static String serializeMessageType(@NonNull MessageModel messageModel) {
         MessageType messageType = messageModel.getType();
         if (messageType == null) {
             return null;
@@ -902,7 +893,7 @@ public class BackupService extends Service {
                                         .write(Tags.TAG_MESSAGE_BODY, groupMessageModel.getBody())
                                         .write(Tags.TAG_MESSAGE_IS_STATUS_MESSAGE, groupMessageModel.isStatusMessage())
                                         .write(Tags.TAG_MESSAGE_CAPTION, groupMessageModel.getCaption())
-                                        .write(Tags.TAG_MESSAGE_QUOTED_MESSAGE_ID, groupMessageModel.getQuotedMessageId())
+                                        .write(Tags.TAG_MESSAGE_QUOTED_MESSAGE_ID, groupMessageModel.getQuotedMessageIdString())
                                         .write(Tags.TAG_MESSAGE_DELIVERED_AT, groupMessageModel.getDeliveredAt())
                                         .write(Tags.TAG_MESSAGE_READ_AT, groupMessageModel.getReadAt())
                                         .write(Tags.TAG_GROUP_MESSAGE_STATES, groupMessageStates)
@@ -1205,7 +1196,7 @@ public class BackupService extends Service {
                                 .write(Tags.TAG_POLL_CHOICE_ID, pollChoiceModel.getId())
                                 .write(Tags.TAG_POLL_CHOICE_POLL_UID, BackupUtils.buildPollUid(pollModel))
                                 .write(Tags.TAG_POLL_CHOICE_API_ID, pollChoiceModel.getApiPollChoiceId())
-                                .write(Tags.TAG_POLL_CHOICE_TYPE, pollChoiceModel.getType())
+                                .write(Tags.TAG_POLL_CHOICE_TYPE, pollChoiceModel.getType().serialized)
                                 .write(Tags.TAG_POLL_CHOICE_NAME, pollChoiceModel.getName())
                                 .write(Tags.TAG_POLL_CHOICE_VOTE_COUNT, pollChoiceModel.getVoteCount())
                                 .write(Tags.TAG_POLL_CHOICE_ORDER, pollChoiceModel.getOrder())
@@ -1465,7 +1456,7 @@ public class BackupService extends Service {
                                     .write(Tags.TAG_MESSAGE_BODY, distributionListMessageModel.getBody())
                                     .write(Tags.TAG_MESSAGE_IS_STATUS_MESSAGE, distributionListMessageModel.isStatusMessage())
                                     .write(Tags.TAG_MESSAGE_CAPTION, distributionListMessageModel.getCaption())
-                                    .write(Tags.TAG_MESSAGE_QUOTED_MESSAGE_ID, distributionListMessageModel.getQuotedMessageId())
+                                    .write(Tags.TAG_MESSAGE_QUOTED_MESSAGE_ID, distributionListMessageModel.getQuotedMessageIdString())
                                     .write(Tags.TAG_MESSAGE_DELIVERED_AT, distributionListMessageModel.getDeliveredAt())
                                     .write(Tags.TAG_MESSAGE_READ_AT, distributionListMessageModel.getReadAt())
                                     .write();
@@ -1502,18 +1493,16 @@ public class BackupService extends Service {
 
 
     /**
-     * Backup all media files of the given AbstractMessageModel, if {@link MessageUtil#hasDataFile}
-     * returns true for the specified {@param messageModel}.
+     * Backup all media files of the given MessageModel
      */
     private void backupMediaFile(
         @NonNull BackupRestoreDataConfig config,
         @NonNull FileHandlingZipOutputStream zipOutputStream,
         @NonNull String filePrefix,
         @NonNull String thumbnailFilePrefix,
-        @NonNull AbstractMessageModel messageModel
+        @NonNull MessageModel messageModel
     ) {
-        if (!MessageUtil.hasDataFile(messageModel)) {
-            // its not a message model or a media message model
+        if (messageModel.getType() != MessageType.FILE) {
             return;
         }
 
@@ -1577,7 +1566,7 @@ public class BackupService extends Service {
                     sendBroadcast(new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE, backupFile.getUri()));
 
                     // Completed successfully!
-                    preferenceService.setLastDataBackupTimestamp(Instant.now());
+                    preferenceService.setLastLegacyDataBackupTimestamp(Instant.now());
                     showBackupSuccessNotification();
                     logger.info("Backup completed");
                 } else {
@@ -1598,15 +1587,6 @@ public class BackupService extends Service {
             );
         }
 
-        // try to reopen connection
-        try {
-            if (serviceManager != null) {
-                serviceManager.startConnection();
-            }
-        } catch (Exception e) {
-            logger.error("Unexpectedly failed to start connection", e);
-        }
-
         if (wakeLock != null && wakeLock.isHeld()) {
             logger.debug("Releasing wakelock");
             wakeLock.release();
@@ -1614,7 +1594,7 @@ public class BackupService extends Service {
 
         stopForeground(true);
 
-        isRunning = false;
+        globalAppState.endSpecialMode(GlobalAppState.SpecialMode.BACKUP_CREATE);
 
         // Send broadcast to indicate that the backup has been completed
         LocalBroadcastManager.getInstance(this)
@@ -1634,14 +1614,14 @@ public class BackupService extends Service {
         cancelIntent.putExtra(EXTRA_ID_CANCEL, true);
         PendingIntent cancelPendingIntent;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            cancelPendingIntent = PendingIntent.getForegroundService(
+            cancelPendingIntent = getPendingIntentForForegroundService(
                 this,
                 NotificationRequestCodes.BACKUP_CANCEL,
                 cancelIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
             );
         } else {
-            cancelPendingIntent = PendingIntent.getService(
+            cancelPendingIntent = getPendingIntentForService(
                 this,
                 NotificationRequestCodes.BACKUP_CANCEL,
                 cancelIntent,
@@ -1663,6 +1643,7 @@ public class BackupService extends Service {
     }
 
     private void startForeground(Notification notification) {
+        NotificationChannels.createOrMigrateNotificationChannels(this);
         ServiceCompat.startForeground(
             this,
             BACKUP_NOTIFICATION_ID,
@@ -1710,7 +1691,7 @@ public class BackupService extends Service {
         }
 
         Intent backupIntent = HomeActivity.createIntent(this);
-        PendingIntent pendingIntent = PendingIntent.getActivity(
+        PendingIntent pendingIntent = getPendingIntentForActivity(
             this,
             NotificationRequestCodes.HOME_ACTIVITY,
             backupIntent,
@@ -1745,7 +1726,7 @@ public class BackupService extends Service {
         String text;
 
         Intent backupIntent = HomeActivity.createIntent(this);
-        PendingIntent pendingIntent = PendingIntent.getActivity(
+        PendingIntent pendingIntent = getPendingIntentForActivity(
             this,
             NotificationRequestCodes.HOME_ACTIVITY,
             backupIntent,
@@ -1790,11 +1771,10 @@ public class BackupService extends Service {
 
         startForeground(notification);
         stopForeground(true);
-        isRunning = false;
 
-        // Send broadcast after isRunning has been set to false to indicate that there is no backup
-        // in progress anymore
-        LocalBroadcastManager.getInstance(ThreemaApplication.getAppContext())
+        globalAppState.endSpecialMode(GlobalAppState.SpecialMode.BACKUP_CREATE);
+
+        LocalBroadcastManager.getInstance(this)
             .sendBroadcast(new Intent(BACKUP_PROGRESS_INTENT)
                 .putExtra(BACKUP_PROGRESS, 100)
                 .putExtra(BACKUP_PROGRESS_STEPS, 100)

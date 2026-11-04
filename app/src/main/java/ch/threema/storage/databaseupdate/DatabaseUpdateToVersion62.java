@@ -31,11 +31,6 @@ public class DatabaseUpdateToVersion62 implements DatabaseUpdate {
     }
 
     @Override
-    public String getDescription() {
-        return "messageFlags";
-    }
-
-    @Override
     public int getVersion() {
         return 62;
     }

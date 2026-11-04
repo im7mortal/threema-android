@@ -29,11 +29,11 @@ import kotlin.test.assertEquals
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import org.koin.core.context.startKoin
-import org.koin.test.ClosingKoinTest
+import org.koin.test.AutoCloseKoinTest
 import org.koin.test.mock.declare
 import testdata.TestData
 
-class MessageViewElementFactoryTest : ClosingKoinTest {
+class MessageViewElementFactoryTest : AutoCloseKoinTest() {
 
     private lateinit var messageViewElementFactory: MessageViewElementFactory
     private lateinit var contextMock: Context

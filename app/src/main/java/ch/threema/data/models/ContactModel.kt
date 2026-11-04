@@ -12,6 +12,7 @@ import ch.threema.data.IdentityProvider
 import ch.threema.data.datatypes.AndroidContactLookupInfo
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverride
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.IdColor
 import ch.threema.data.datatypes.PredefinedContact
@@ -32,6 +33,7 @@ import ch.threema.domain.types.Identity
 import ch.threema.domain.types.IdentityString
 import java.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
+import org.koin.core.error.InstanceCreationException
 import org.koin.mp.KoinPlatform
 
 private val logger = getThreemaLogger("data.ContactModel")
@@ -69,7 +71,11 @@ class ContactModel(
      *  TODO(ANDR-4361): Remove this
      */
     private val deprecatedContactService: ContactService? by lazy {
-        val contactService = KoinPlatform.getKoinOrNull()?.getOrNull<ContactService>()
+        val contactService = try {
+            KoinPlatform.getKoinOrNull()?.getOrNull<ContactService>()
+        } catch (_: InstanceCreationException) {
+            null
+        }
         if (contactService == null) {
             logger.warn("Tried to get the contactService but it wasn't available")
         }
@@ -756,6 +762,36 @@ class ContactModel(
             methodName = "setConversationVisibilityFromSync",
             detectChanges = { originalData -> originalData.conversationVisibility != conversationVisibility },
             updateData = { originalData -> originalData.copy(conversationVisibility = conversationVisibility) },
+            updateDatabase = ::updateDatabase,
+            onUpdated = ::defaultOnUpdated,
+        )
+    }
+
+    /**
+     * Set the conversation category of the contact's 1:1 conversation.
+     */
+    fun setConversationCategoryFromLocalOrRemote(conversationCategory: ConversationCategory) {
+        this.updateFields(
+            methodName = "setConversationCategoryFromLocalOrRemote",
+            detectChanges = { originalData -> originalData.conversationCategory != conversationCategory },
+            updateData = { originalData -> originalData.copy(conversationCategory = conversationCategory) },
+            updateDatabase = ::updateDatabase,
+            onUpdated = ::defaultOnUpdated,
+            reflectUpdateTask = ReflectContactSyncUpdateTask.ReflectConversationCategoryUpdate(
+                conversationCategory = conversationCategory,
+                contactIdentity = identity,
+            ),
+        )
+    }
+
+    /**
+     * Set the conversation category of the contact's 1:1 conversation from sync.
+     */
+    fun setConversationCategoryFromSync(conversationCategory: ConversationCategory) {
+        this.updateFields(
+            methodName = "setConversationCategoryFromSync",
+            detectChanges = { originalData -> originalData.conversationCategory != conversationCategory },
+            updateData = { originalData -> originalData.copy(conversationCategory = conversationCategory) },
             updateDatabase = ::updateDatabase,
             onUpdated = ::defaultOnUpdated,
         )

@@ -100,7 +100,7 @@ class IdColor(index: Int) {
         @JvmStatic
         fun ofGroup(groupIdentity: GroupIdentity): IdColor {
             val groupCreatorIdentity = groupIdentity.creatorIdentity.toByteArray(StandardCharsets.UTF_8)
-            val apiGroupIdBin = groupIdentity.groupIdByteArray
+            val apiGroupIdBin = groupIdentity.apiGroupIdByteArray
             return (groupCreatorIdentity + apiGroupIdBin).computeIdColor()
         }
 

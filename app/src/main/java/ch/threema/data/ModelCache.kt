@@ -9,6 +9,7 @@ import ch.threema.data.models.GroupModel
 import ch.threema.data.repositories.EmojiReactionsRepository
 import ch.threema.domain.types.IdentityString
 import ch.threema.domain.types.MessageUid
+import java.util.Collections
 
 /**
  * The model cache holds a [ModelTypeCache] for every model type.
@@ -44,7 +45,7 @@ class ModelTypeCache<TIdentifier, TModel : BaseModel<*, *>> {
     /**
      * Return the cached model with the specified [identifier].
      */
-    fun get(identifier: TIdentifier): TModel? = this.map.get(identifier)
+    operator fun get(identifier: TIdentifier): TModel? = this.map.get(identifier)
 
     /**
      * Return the cached model with the specified [identifier].
@@ -64,6 +65,15 @@ class ModelTypeCache<TIdentifier, TModel : BaseModel<*, *>> {
         }
     }
 
+    operator fun set(identifier: TIdentifier, model: TModel) {
+        map.put(identifier, model)
+    }
+
+    /**
+     * Returns `true` if this cache currently holds a value for the given [identifier] that was not garbage collected.
+     */
+    fun exists(identifier: TIdentifier): Boolean = this.map.exists(identifier)
+
     /**
      * Remove the model with the specified [identifier] from the cache and return it.
      */
@@ -77,4 +87,14 @@ class ModelTypeCache<TIdentifier, TModel : BaseModel<*, *>> {
             this.map.remove(identifier)
         }
     }
+
+    /**
+     * Get a distinct snapshot of all models in this cache.
+     *
+     * Note that `UnmodifiableSet` is used to enforce immutability in Java.
+     */
+    fun values(): Set<TModel> =
+        Collections.unmodifiableSet(this.map.values())
+
+    fun isEmpty(): Boolean = this.map.isEmpty()
 }

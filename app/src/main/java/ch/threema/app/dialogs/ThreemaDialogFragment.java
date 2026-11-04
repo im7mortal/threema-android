@@ -23,7 +23,7 @@ public class ThreemaDialogFragment extends DialogFragment {
     protected @Nullable Object object;
     protected @NonNull Bundle requestData = new Bundle();
 
-    enum ClickedButton {
+    public enum ClickedButton {
         POSITIVE,
         NEGATIVE,
         NEUTRAL,

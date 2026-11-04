@@ -3,6 +3,9 @@ package ch.threema.storage.databaseupdate
 import ch.threema.storage.runDelete
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * Remove group creator from member table
+ */
 class DatabaseUpdateToVersion116(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -14,6 +17,4 @@ class DatabaseUpdateToVersion116(
     }
 
     override val version = 116
-
-    override fun getDescription() = "Remove group creator from member table"
 }

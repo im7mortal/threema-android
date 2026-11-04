@@ -48,11 +48,6 @@ public class SystemUpdateToVersion39 implements SystemUpdate {
     }
 
     @Override
-    public String getDescription() {
-        return "sync feature levels";
-    }
-
-    @Override
     public int getVersion() {
         return 39;
     }

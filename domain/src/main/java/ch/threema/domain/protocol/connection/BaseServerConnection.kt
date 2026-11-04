@@ -17,8 +17,10 @@ import java.io.IOException
 import java.net.SocketException
 import java.net.UnknownHostException
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.min
 import kotlin.math.pow
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -128,7 +130,7 @@ internal abstract class BaseServerConnection(
                     setConnectionState(ConnectionState.CONNECTED)
 
                     connectionLock = dependencies.connectionLockProvider.acquire(
-                        60_000,
+                        1.minutes,
                         ConnectionLockProvider.ConnectionLogTag.PURGE_INCOMING_MESSAGE_QUEUE,
                     )
 
@@ -325,7 +327,7 @@ internal abstract class BaseServerConnection(
         logger.info("Close socket")
         try {
             socket.close(ServerSocketCloseReason(msg))
-        } catch (e: IOException) {
+        } catch (e: Exception) {
             logger.warn("Exception when closing socket", e)
         }
     }
@@ -356,12 +358,12 @@ internal abstract class BaseServerConnection(
     /**
      * Calculate the reconnect delay with bounded exponential backoff.
      */
-    private fun getReconnectDelay(): Long {
-        val base = ProtocolDefines.RECONNECT_BASE_INTERVAL.toDouble()
-        val exponent = min(reconnectAttemptsSinceLastLogin - 1, 10)
-        val reconnectDelayS = base.pow(exponent)
-        val delayS = min(reconnectDelayS, ProtocolDefines.RECONNECT_MAX_INTERVAL.toDouble())
-        return (delayS * 1000).toLong()
+    private fun getReconnectDelay(): Duration {
+        val base = ProtocolDefines.RECONNECT_BASE_INTERVAL.inWholeSeconds.toDouble()
+        val exponent = (reconnectAttemptsSinceLastLogin - 1).coerceAtMost(10)
+        return base.pow(exponent)
+            .seconds
+            .coerceAtMost(ProtocolDefines.RECONNECT_MAX_INTERVAL)
     }
 }
 
@@ -387,7 +389,7 @@ interface ConnectionLockProvider {
         INBOUND_MESSAGE,
     }
 
-    fun acquire(timeoutMillis: Long, tag: ConnectionLogTag): ConnectionLock
+    fun acquire(timeout: Duration, tag: ConnectionLogTag): ConnectionLock
 }
 
 interface BaseServerConnectionConfiguration {

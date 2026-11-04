@@ -12,9 +12,10 @@ import java.util.List;
 
 import androidx.annotation.AnyThread;
 import androidx.annotation.NonNull;
+
+import ch.threema.android.DeviceInfo;
 import ch.threema.app.BuildConfig;
 import ch.threema.app.services.LifetimeService;
-import ch.threema.app.utils.ConfigUtils;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.storage.models.WebClientSessionModel;
 
@@ -89,8 +90,8 @@ public class WakeLockServiceImpl implements WakeLockService {
 
             // Acquire wakelock if not already held
             if (!this.wakeLock.isHeld()) {
-                if (ConfigUtils.isNokiaDevice() && Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-                    // Do not hold wake lock for longer than 15 minutes to prevent evenwell power "saver" from killing the app
+                if (DeviceInfo.isNokiaDevice() && Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+                    // Do not hold wake lock for longer than 15 minutes to prevent Evenwell power "saver" from killing the app
                     logger.warn("Limiting wake lock to 15 minutes, to avoid being killed by Evenwell");
                     this.wakeLock.acquire(15 * DateUtils.MINUTE_IN_MILLIS);
                 } else {

@@ -5,14 +5,13 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Parcel
 import android.os.Parcelable
 import androidx.activity.result.ActivityResultLauncher
 import androidx.annotation.DrawableRes
-import androidx.core.content.ContextCompat
 import androidx.preference.PreferenceManager
+import ch.threema.android.checkGrantedPermission
 import ch.threema.app.R
 import ch.threema.app.activities.PermissionRequestActivity
 
@@ -245,17 +244,8 @@ data class PermissionRequest(
         }
     }
 
-    fun isGrantedOrIgnored(context: Context, preferences: SharedPreferences): Boolean {
-        val granted = ContextCompat.checkSelfPermission(
-            context,
-            permission.getPermissionString(),
-        ) == PackageManager.PERMISSION_GRANTED
-        return if (granted) {
-            true
-        } else {
-            isIgnored(preferences)
-        }
-    }
+    fun isGrantedOrIgnored(context: Context, preferences: SharedPreferences): Boolean =
+        context.checkGrantedPermission(permission.getPermissionString()) || isIgnored(preferences)
 
     private fun isIgnored(preferences: SharedPreferences): Boolean {
         return if (permissionIgnorePreference != null) {

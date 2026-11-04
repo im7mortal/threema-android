@@ -8,14 +8,15 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 
 import org.slf4j.Logger;
 
+import ch.threema.android.DeviceInfo;
 import ch.threema.app.BuildConfig;
-import ch.threema.app.utils.ConfigUtils;
 
 /**
  * This class tries to display a notification badge on the app's launcher icon, using vendor-specific approaches.
@@ -48,7 +49,7 @@ public class BadgeUpdater {
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
-        } else if (ConfigUtils.isHuaweiDevice()) {
+        } else if (DeviceInfo.isHuaweiDevice() && !Build.MODEL.contains("Nexus")) {
             try {
                 String launcherClassName = appContext.getPackageManager().getLaunchIntentForPackage(BuildConfig.APPLICATION_ID).getComponent().getClassName();
                 Bundle localBundle = new Bundle();
@@ -59,7 +60,7 @@ public class BadgeUpdater {
             } catch (Exception e) {
                 logger.error("Exception", e);
             }
-        } else if (ConfigUtils.isSonyDevice()) {
+        } else if (DeviceInfo.isSonyDevice()) {
             try {
                 String launcherClassName = appContext.getPackageManager().getLaunchIntentForPackage(BuildConfig.APPLICATION_ID).getComponent().getClassName();
                 if (appContext.getPackageManager().resolveContentProvider("com.sonymobile.home.resourceprovider", 0) != null) {

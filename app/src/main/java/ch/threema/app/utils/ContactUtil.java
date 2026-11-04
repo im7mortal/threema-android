@@ -1,12 +1,9 @@
 package ch.threema.app.utils;
 
 import android.content.Context;
-import android.content.Intent;
-import android.database.Cursor;
 import android.graphics.drawable.Drawable;
 import android.icu.text.ListFormatter;
 import android.os.Build;
-import android.provider.ContactsContract;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 
@@ -24,6 +21,7 @@ import androidx.annotation.StringRes;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.util.Pair;
 import ch.threema.app.AppConstants;
+import ch.threema.app.BuildFlavor;
 import ch.threema.app.R;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.BlockedIdentitiesService;
@@ -157,18 +155,30 @@ public class ContactUtil {
      * returns a representation of the contact's name according to sort settings,
      * suitable for comparing
      */
-    public static String getSafeNameString(ContactModel contactModel, boolean sortOrderFirstName) {
-        String key = contactModel.getIdentity();
-        String firstName = contactModel.getFirstName();
-        String lastName = contactModel.getLastName();
+    public static String getSafeNameString(ContactModel contactModel, PreferenceService.ContactSortOrder sortOrder) {
+        return getSortKey(
+            contactModel.getIdentity(),
+            contactModel.getFirstName(),
+            contactModel.getLastName(),
+            contactModel.getPublicNickName(),
+            sortOrder
+        );
+    }
 
-        if (isNullOrEmpty(firstName) && isNullOrEmpty(lastName) && !isNullOrEmpty(contactModel.getPublicNickName())) {
-            Pair<String, String> namePair = NameUtil.getFirstLastNameFromDisplayName(contactModel.getPublicNickName().trim());
+    public static String getSortKey(
+        @Nullable String identity,
+        @Nullable String firstName,
+        @Nullable String lastName,
+        @Nullable String publicNickName,
+        @NonNull PreferenceService.ContactSortOrder sortOrder
+    ) {
+        if (isNullOrEmpty(firstName) && isNullOrEmpty(lastName) && !isNullOrEmpty(publicNickName)) {
+            Pair<String, String> namePair = NameUtil.getFirstLastNameFromDisplayName(publicNickName.trim());
             firstName = namePair.first;
             lastName = namePair.second;
         }
-
-        if (sortOrderFirstName) {
+        String key = identity;
+        if (sortOrder == PreferenceService.ContactSortOrder.FIRST_NAME) {
             if (!TextUtils.isEmpty(lastName)) {
                 key = lastName + key;
             }
@@ -186,16 +196,16 @@ public class ContactUtil {
         return key;
     }
 
-    public static @NonNull Comparator<ContactModel> getContactComparator(boolean sortOrderFirstName) {
+    public static @NonNull Comparator<ContactModel> getContactComparator(PreferenceService.ContactSortOrder sortOrder) {
         final Collator collator = Collator.getInstance();
         collator.setStrength(Collator.PRIMARY);
         return (contact1, contact2) -> collator.compare(
-            getSortKey(contact1, sortOrderFirstName), getSortKey(contact2, sortOrderFirstName)
+            getSortKey(contact1, sortOrder), getSortKey(contact2, sortOrder)
         );
     }
 
-    private static @NonNull String getSortKey(ContactModel contactModel, boolean sortOrderFirstName) {
-        String key = ContactUtil.getSafeNameString(contactModel, sortOrderFirstName);
+    private static @NonNull String getSortKey(ContactModel contactModel, PreferenceService.ContactSortOrder sortOrder) {
+        String key = ContactUtil.getSafeNameString(contactModel, sortOrder);
 
         if (contactModel.getIdentity().startsWith("*")) {
             key = "\uFFFF" + key;
@@ -208,7 +218,7 @@ public class ContactUtil {
         @NonNull WorkVerificationLevel workVerificationLevel
     ) {
         int iconResource;
-        boolean isWorkVerifiedOnWorkBuild = ConfigUtils.isWorkBuild()
+        boolean isWorkVerifiedOnWorkBuild = BuildFlavor.IS_WORK
             && workVerificationLevel == WorkVerificationLevel.WORK_SUBSCRIPTION_VERIFIED;
         switch (verificationLevel) {
             case SERVER_VERIFIED:
@@ -244,7 +254,7 @@ public class ContactUtil {
         @NonNull VerificationLevel verificationLevel,
         @NonNull WorkVerificationLevel workVerificationLevel
     ) {
-        boolean isWorkVerifiedOnWorkBuild = ConfigUtils.isWorkBuild() && workVerificationLevel == WorkVerificationLevel.WORK_SUBSCRIPTION_VERIFIED;
+        boolean isWorkVerifiedOnWorkBuild = BuildFlavor.IS_WORK && workVerificationLevel == WorkVerificationLevel.WORK_SUBSCRIPTION_VERIFIED;
         switch (verificationLevel) {
             case FULLY_VERIFIED:
                 if (isWorkVerifiedOnWorkBuild) {
@@ -274,27 +284,6 @@ public class ContactUtil {
         ));
     }
 
-    @Nullable
-    public static String getIdentityFromViewIntent(@NonNull Context context, @NonNull Intent intent) {
-        if (Intent.ACTION_VIEW.equals(intent.getAction()) && context.getString(R.string.contacts_mime_type).equals(intent.getType())) {
-            try (Cursor cursor = context.getContentResolver().query(intent.getData(), null, null, null, null)) {
-                if (cursor != null) {
-                    if (cursor.moveToNext()) {
-                        int columnIndex = cursor.getColumnIndex(ContactsContract.Data.DATA1);
-                        if (columnIndex >= 0) {
-                            return cursor.getString(columnIndex);
-                        } else {
-                            logger.warn("Invalid column index; column '{}' does not exist.", ContactsContract.Data.DATA1);
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                logger.error("Could not get identity from view intent.", e);
-            }
-        }
-        return null;
-    }
-
     public static String joinDisplayNames(
         @Nullable Context context,
         @Nullable List<ContactModel> contacts,
@@ -309,7 +298,7 @@ public class ContactUtil {
             .collect(Collectors.toList());
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && context != null) {
-            return ListFormatter.getInstance(LocaleUtil.getCurrentLocale(context)).format(contactNames);
+            return ListFormatter.getInstance(LocaleUtil.getCurrentLocale()).format(contactNames);
         } else {
             return String.join(", ", contactNames);
         }

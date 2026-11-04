@@ -197,11 +197,15 @@ public class MediaItem implements Parcelable {
             logger.info("Number of taken persistable uri permissions {}", context.getContentResolver().getPersistedUriPermissions().size());
             context.getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
         } catch (Exception e) {
-            logger.info(e.getMessage());
+            logger.error("Failed to take persistable uri permission", e);
             uri = FileUtil.getFileUri(uri);
         }
 
-        MediaItem mediaItem = new MediaItem(uri, mimeType, null);
+        var type = MimeUtil.getMediaTypeFromMimeType(context, mimeType, uri);
+        MediaItem mediaItem = new MediaItem(uri, type, mimeType, null);
+        if (type == MediaItem.TYPE_FILE) {
+            mediaItem.setRenderingType(FileData.RENDERING_DEFAULT);
+        }
 
         // Set exif orientation
         BitmapUtil.ExifOrientation exifOrientation = BitmapUtil.getExifOrientation(context, uri);
@@ -223,35 +227,6 @@ public class MediaItem implements Parcelable {
     }
 
     public MediaItem(Uri uri, @MediaType int type) {
-        init();
-
-        this.type = type;
-        this.uri = uri;
-    }
-
-    public MediaItem(Uri uri, @MediaType int type, String mimeType, String caption) {
-        init();
-
-        this.type = type;
-        this.uri = uri;
-        this.mimeType = mimeType;
-        this.caption = caption;
-    }
-
-    public MediaItem(Uri uri, String mimeType, String caption) {
-        init();
-
-        this.type = MimeUtil.getMediaTypeFromMimeType(mimeType, uri);
-        if (this.type == TYPE_FILE) {
-            this.renderingType = FileData.RENDERING_DEFAULT;
-        }
-
-        this.uri = uri;
-        this.mimeType = mimeType;
-        this.caption = caption;
-    }
-
-    private void init() {
         this.orientation = new Orientation();
         this.exifRotation = 0;
         this.durationMs = 0;
@@ -265,9 +240,16 @@ public class MediaItem implements Parcelable {
         this.videoSize = VIDEO_SIZE_DEFAULT;
         this.filename = null;
         this.deleteAfterUse = false;
-        isEdited = false;
+        this.isEdited = false;
+        this.type = type;
+        this.uri = uri;
     }
 
+    public MediaItem(Uri uri, @MediaType int type, String mimeType, String caption) {
+        this(uri, type);
+        this.mimeType = mimeType;
+        this.caption = caption;
+    }
 
     public MediaItem(Parcel in) {
         orientation = new Orientation();

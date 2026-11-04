@@ -16,18 +16,18 @@ import ch.threema.app.services.ContactService
 import ch.threema.app.services.MessageService
 import ch.threema.app.ui.AvatarView
 import ch.threema.app.utils.AdapterUtil
-import ch.threema.app.utils.MessageUtil
 import ch.threema.app.utils.NameUtil
 import ch.threema.data.IdentityProvider
 import ch.threema.data.models.EmojiReactionData
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
+import ch.threema.storage.models.supportsEmojiReactions
 
 class EmojiReactionsOverviewListAdapter(
     messageService: MessageService,
     private val contactService: ContactService,
     private val identityProvider: IdentityProvider,
     private val preferenceService: PreferenceService,
-    val messageModel: AbstractMessageModel?,
+    val messageModel: MessageModel?,
     val onItemClickListener: OnItemClickListener?,
 ) :
     ListAdapter<EmojiReactionData, EmojiReactionsOverviewListAdapter.EmojiReactionViewHolder>(
@@ -98,7 +98,7 @@ class EmojiReactionsOverviewListAdapter(
             }
             removeIconView.isVisible = data.senderIdentity == identityProvider.getIdentity()?.value &&
                 messageReceiver.emojiReactionSupport != MessageReceiver.Reactions_NONE &&
-                MessageUtil.canEmojiReact(messageModel)
+                messageModel?.supportsEmojiReactions() == true
         }
     }
 

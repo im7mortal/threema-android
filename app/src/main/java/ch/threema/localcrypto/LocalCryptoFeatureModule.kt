@@ -1,35 +1,27 @@
 package ch.threema.localcrypto
 
 import android.os.Build
-import ch.threema.app.di.Qualifiers
 import ch.threema.app.files.AppDirectoryProvider
-import ch.threema.app.onprem.OnPremCertPinning
-import ch.threema.app.restrictions.AppRestrictions
-import ch.threema.app.utils.ConfigUtils
-import ch.threema.domain.libthreema.LibthreemaHttpClient
-import ch.threema.domain.onprem.OnPremConfigStore
-import okhttp3.OkHttpClient
-import org.koin.core.module.dsl.factoryOf
-import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
+import org.koin.plugin.module.dsl.single
 
 val localCryptoFeatureModule = module {
-    singleOf(::MasterKeyManagerImpl) bind MasterKeyManager::class
+    single<MasterKeyManagerImpl>() bind MasterKeyManager::class
 
-    factoryOf(::MasterKeyCrypto)
-    factoryOf(::MasterKeyGenerator)
-    factoryOf(::MasterKeyLockStateHolder)
-    factoryOf(::MasterKeyStorageStateConverter)
-    factoryOf(::MasterKeyStorageStateHolder)
-    factoryOf(::PassphraseStore)
-    factoryOf(::RemoteSecretMonitor)
-    factoryOf(::Version1MasterKeyCrypto)
-    factoryOf(::Version2MasterKeyCrypto)
-    factoryOf(::Version2MasterKeyStorageDecoder)
-    factoryOf(::Version2MasterKeyStorageEncoder)
-    factoryOf(::KeyStoreSecretKeyManager)
-    factoryOf(::KeyStoreCrypto)
+    factory<MasterKeyCrypto>()
+    factory<MasterKeyGenerator>()
+    factory<MasterKeyLockStateHolder>()
+    factory<MasterKeyStorageStateConverter>()
+    factory<MasterKeyStorageStateHolder>()
+    factory<PassphraseStore>()
+    factory<Version1MasterKeyCrypto>()
+    factory<Version2MasterKeyCrypto>()
+    factory<Version2MasterKeyStorageDecoder>()
+    factory<Version2MasterKeyStorageEncoder>()
+    factory<KeyStoreSecretKeyManager>()
+    factory<KeyStoreCrypto>()
 
     factory {
         MasterKeyFileProvider(
@@ -51,52 +43,17 @@ val localCryptoFeatureModule = module {
                 )
             } else {
                 Version2MasterKeyFileManagerAndroid7Impl(
+                    appContext = get(),
                     legacyKeyFile = masterKeyFileProvider.getVersion2UnencryptedMasterKeyFile(),
                     encoder = get(),
                     decoder = get(),
                 )
             },
             version1KeyFileManager = Version1MasterKeyFileManager(
+                appContext = get(),
                 keyFile = masterKeyFileProvider.getVersion1MasterKeyFile(),
             ),
             storageStateConverter = get(),
         )
     }
-
-    factory<RemoteSecretManager> {
-        if (ConfigUtils.isOnPremBuild()) {
-            RemoteSecretManagerImpl(
-                remoteSecretClient = get(),
-                remoteSecretMonitor = get(),
-                shouldUseRemoteSecretProtection = {
-                    get<AppRestrictions>().isRemoteSecretEnabled()
-                },
-                getWorkServerBaseUrl = {
-                    getWorkServerBaseUrl(get())
-                },
-            )
-        } else {
-            NoOpRemoteSecretManagerImpl()
-        }
-    }
-
-    if (ConfigUtils.isOnPremBuild()) {
-        factory {
-            RemoteSecretClient(
-                clientInfo = get(),
-                httpClient = LibthreemaHttpClient(
-                    // here we need to use the best-effort OkHttp client, as we might end up in a situation where
-                    // the certificate pins of the stored OPPF are no longer valid, and we can only recover from this
-                    // by fetching the OPPF from the fallback URL.
-                    okHttpClient = OnPremCertPinning.createOkHttpClientWithoutRegularOppfFetching(
-                        baseClient = get<OkHttpClient>(qualifier = Qualifiers.okHttpBase),
-                    ),
-                ),
-            )
-        }
-    }
 }
-
-private fun getWorkServerBaseUrl(onPremConfigStore: OnPremConfigStore?): String =
-    onPremConfigStore?.get()?.work?.url
-        ?: error("cannot monitor remote secret, no stored OPPF found")

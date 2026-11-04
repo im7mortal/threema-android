@@ -4,6 +4,7 @@ import ch.threema.app.managers.ServiceManager
 import ch.threema.app.services.ContactService.ProfilePictureSharePolicy
 import ch.threema.base.SessionScoped
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.domain.models.Contact
 import ch.threema.domain.protocol.rendezvous.RendezvousConnection
 import ch.threema.domain.taskmanager.Task
@@ -92,14 +93,14 @@ open class TaskCreator(private val serviceManager: ServiceManager) {
         ReflectSettingsSyncTask.ReflectExcludeFromSyncIdentitiesSyncUpdate()
     }
 
-    fun scheduleReflectContactConversationCategory(contactIdentity: IdentityString, isPrivateChat: Boolean) = scheduleTaskAsync {
+    fun scheduleReflectContactConversationCategory(contactIdentity: IdentityString, conversationCategory: ConversationCategory) = scheduleTaskAsync {
         ReflectContactSyncUpdateTask.ReflectConversationCategoryUpdate(
             contactIdentity = contactIdentity,
-            isPrivateChat = isPrivateChat,
+            conversationCategory = conversationCategory,
         )
     }
 
-    fun scheduleReflectGroupConversationCategory(groupDatabaseId: Long, isPrivateChat: Boolean): Deferred<Unit> {
+    fun scheduleReflectGroupConversationCategory(groupDatabaseId: Long, conversationCategory: ConversationCategory): Deferred<Unit> {
         val groupModel = serviceManager.modelRepositories.groups.getByGroupDatabaseId(groupDatabaseId)
         if (groupModel == null) {
             logger.error("Group model with id {} could not be found. Cannot reflect conversation category.", groupDatabaseId)
@@ -111,7 +112,7 @@ open class TaskCreator(private val serviceManager: ServiceManager) {
         return scheduleTaskAsync {
             ReflectGroupSyncUpdateTask.ReflectGroupConversationCategoryUpdateTask(
                 groupIdentity = groupModel.groupIdentity,
-                isPrivateChat = isPrivateChat,
+                conversationCategory = conversationCategory,
             )
         }
     }

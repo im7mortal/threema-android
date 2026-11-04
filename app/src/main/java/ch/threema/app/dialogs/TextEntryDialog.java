@@ -29,6 +29,7 @@ import ch.threema.android.textwatchers.SimpleTextWatcher;
 import ch.threema.app.utils.DialogUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
+import ch.threema.domain.types.Identity;
 
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 
@@ -293,6 +294,14 @@ public class TextEntryDialog extends ThreemaDialogFragment {
 
         if (inputFilterType == INPUT_FILTER_TYPE_IDENTITY) {
             editText.setFilters(new InputFilter[]{new InputFilter.AllCaps(), new InputFilter.LengthFilter(ProtocolDefines.IDENTITY_LEN)});
+            editText.addTextChangedListener(new SimpleTextWatcher() {
+                @Override
+                public void afterTextChanged(@NonNull Editable editable) {
+                    alertDialog.getButton(DialogInterface.BUTTON_POSITIVE).setEnabled(
+                        Identity.isValidIdentity(editable.toString())
+                    );
+                }
+            });
         } else if (inputFilterType == INPUT_FILTER_TYPE_PHONE && localeService != null) {
             editText.addTextChangedListener(new PhoneNumberFormattingTextWatcher(localeService.getCountryIsoCode()));
             editText.addTextChangedListener(new SimpleTextWatcher() {

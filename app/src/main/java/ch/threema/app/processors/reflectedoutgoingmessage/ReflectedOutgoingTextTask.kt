@@ -1,7 +1,5 @@
 package ch.threema.app.processors.reflectedoutgoingmessage
 
-import androidx.core.util.component1
-import androidx.core.util.component2
 import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.managers.ServiceManager
@@ -10,7 +8,7 @@ import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.protocol.csp.messages.TextMessage
 import ch.threema.protobuf.common.CspE2eMessageType
 import ch.threema.protobuf.d2d.OutgoingMessage
-import ch.threema.storage.models.MessageModel
+import ch.threema.storage.models.ContactMessageModel
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.MessageContentsType
 import org.koin.core.component.KoinComponent
@@ -38,9 +36,9 @@ internal class ReflectedOutgoingTextTask(
             return
         }
 
-        val messageModel: MessageModel = createMessageModel(
-            MessageType.TEXT,
-            MessageContentsType.TEXT,
+        val messageModel: ContactMessageModel = createMessageModel(
+            messageType = MessageType.TEXT,
+            contentsType = MessageContentsType.TEXT,
         )
         val (body, messageId) = QuoteUtil.getBodyAndQuotedMessageId(message.text)
         messageModel.body = body

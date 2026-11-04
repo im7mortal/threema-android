@@ -8,7 +8,6 @@ import ch.threema.common.withoutLastLine
 import java.io.File
 import java.io.IOException
 import java.time.Instant
-import org.json.JSONException
 import org.json.JSONObject
 
 private val logger = getThreemaLogger("OnPremConfigStore")
@@ -55,15 +54,7 @@ class OnPremConfigStore(
             onPremConfigVerifier.verify(data)
         } catch (e: ThreemaException) {
             logger.warn("Failed to read or validate stored on-prem config", e)
-
-            // TODO(ANDR-4431): The file used to just contain the plain JSON of the OPPF without the signature. To deal with old files,
-            //  we here fall back to trying to read the file's contents as JSON. This fallback should eventually be removed and null
-            //  returned directly.
-            try {
-                JSONObject(data)
-            } catch (_: JSONException) {
-                null
-            }
+            null
         }
 
     private fun deserializeCreatedAt(data: String) =

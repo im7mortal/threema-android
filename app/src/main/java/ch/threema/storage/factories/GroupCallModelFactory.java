@@ -100,26 +100,24 @@ public class GroupCallModelFactory extends ModelFactory {
 
     @Nullable
     private GroupCallModel convert(@NonNull Cursor cursor) {
-        CursorHelper.CallbackInstance<GroupCallModel> converter = cursorHelper -> {
-            Integer protocolVersion = cursorHelper.getInt(GroupCallModel.COLUMN_PROTOCOL_VERSION);
-            String callId = cursorHelper.getString(GroupCallModel.COLUMN_CALL_ID);
-            Integer groupId = cursorHelper.getInt(GroupCallModel.COLUMN_GROUP_ID);
-            String baseUrl = cursorHelper.getString(GroupCallModel.COLUMN_SFU_BASE_URL);
-            String gck = cursorHelper.getString(GroupCallModel.COLUMN_GCK);
-            Long startedAt = cursorHelper.getLong(GroupCallModel.COLUMN_STARTED_AT);
-            Long processedAt = cursorHelper.getLong(GroupCallModel.COLUMN_PROCESSED_AT);
-            if (startedAt == null) {
-                startedAt = Instant.now().toEpochMilli();
-            }
-            if (processedAt == null) {
-                processedAt = Instant.now().toEpochMilli();
-            }
+        CursorHelper cursorHelper = new CursorHelper(cursor, getColumnIndexCache());
+        Integer protocolVersion = cursorHelper.getInt(GroupCallModel.COLUMN_PROTOCOL_VERSION);
+        String callId = cursorHelper.getString(GroupCallModel.COLUMN_CALL_ID);
+        Integer groupId = cursorHelper.getInt(GroupCallModel.COLUMN_GROUP_ID);
+        String baseUrl = cursorHelper.getString(GroupCallModel.COLUMN_SFU_BASE_URL);
+        String gck = cursorHelper.getString(GroupCallModel.COLUMN_GCK);
+        Long startedAt = cursorHelper.getLong(GroupCallModel.COLUMN_STARTED_AT);
+        Long processedAt = cursorHelper.getLong(GroupCallModel.COLUMN_PROCESSED_AT);
+        if (startedAt == null) {
+            startedAt = Instant.now().toEpochMilli();
+        }
+        if (processedAt == null) {
+            processedAt = Instant.now().toEpochMilli();
+        }
 
-            return protocolVersion == null || groupId == null || baseUrl == null || callId == null || gck == null
-                ? null
-                : new GroupCallModel(protocolVersion, callId, groupId, baseUrl, gck, startedAt, processedAt);
-        };
-        return new CursorHelper(cursor, getColumnIndexCache()).current(converter);
+        return protocolVersion == null || groupId == null || baseUrl == null || callId == null || gck == null
+            ? null
+            : new GroupCallModel(protocolVersion, callId, groupId, baseUrl, gck, startedAt, processedAt);
     }
 
     public static class Creator implements DatabaseCreationProvider {

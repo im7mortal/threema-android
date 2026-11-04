@@ -13,6 +13,7 @@ import android.view.View
 import androidx.annotation.ColorInt
 import androidx.core.net.toUri
 import androidx.core.text.toSpanned
+import ch.threema.android.getColorFromAttribute
 import ch.threema.app.R
 import java.util.Locale
 
@@ -49,11 +50,11 @@ fun CharSequence?.highlightMatches(
     }
 
     @ColorInt
-    val highlightColor: Int = ConfigUtils.getColorFromAttribute(context, android.R.attr.textColorHighlight)
+    val highlightColor: Int = context.getColorFromAttribute(android.R.attr.textColorHighlight)
 
     @ColorInt
     val foregroundColor: Int = if (drawBackground) {
-        ConfigUtils.getColorFromAttribute(context, R.attr.colorOnPrimary)
+        context.getColorFromAttribute(R.attr.colorOnPrimary)
     } else {
         highlightColor
     }

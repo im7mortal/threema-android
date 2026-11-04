@@ -4,23 +4,18 @@ import ch.threema.base.ProgressListener
 import ch.threema.base.ThreemaException
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.Http
-import ch.threema.common.buildNew
 import ch.threema.common.buildRequest
 import ch.threema.common.execute
 import ch.threema.common.getSuccessBodyOrThrow
 import ch.threema.common.toHexString
 import ch.threema.domain.protocol.ServerAddressProvider
-import ch.threema.domain.protocol.Version
 import ch.threema.domain.protocol.connection.d2m.MultiDevicePropertyProvider
 import ch.threema.domain.protocol.connection.data.leBytes
-import ch.threema.domain.protocol.csp.ProtocolDefines
-import ch.threema.domain.protocol.getUserAgent
 import java.io.ByteArrayInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.net.URL
 import kotlin.concurrent.Volatile
-import kotlin.time.Duration.Companion.seconds
 import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -42,11 +37,9 @@ private const val PROGRESS_UPDATE_STEP_SIZE = 10
  * TODO(ANDR-2869): Rework exception handling (and maybe return types)
  */
 class BlobUploader private constructor(
-    private val baseOkhttpClient: OkHttpClient,
-    private val authToken: String?,
+    private val okHttpClient: OkHttpClient,
     private val blobInputStream: InputStream,
     private val blobLength: Int,
-    private val version: Version,
     private val useMirror: Boolean,
     private val serverAddressProvider: ServerAddressProvider,
     @JvmField var progressListener: ProgressListener?,
@@ -58,70 +51,10 @@ class BlobUploader private constructor(
     @Volatile
     private var isCancelled = false
 
-    companion object {
-        private const val MULTIPART_BOUNDARY = "---------------------------Boundary_Line"
-
-        /**
-         * Use this constructor when multi-device is currently **not** active on the device. <br></br>
-         * Use `BlobUploader.mirror()` otherwise.
-         */
-        @JvmStatic
-        fun usual(
-            baseOkhttpClient: OkHttpClient,
-            authToken: String?,
-            blobData: ByteArray,
-            version: Version,
-            serverAddressProvider: ServerAddressProvider,
-            progressListener: ProgressListener?,
-            shouldPersist: Boolean,
-        ): BlobUploader = BlobUploader(
-            baseOkhttpClient = baseOkhttpClient,
-            authToken = authToken,
-            blobInputStream = ByteArrayInputStream(blobData),
-            blobLength = blobData.size,
-            version = version,
-            useMirror = false,
-            serverAddressProvider = serverAddressProvider,
-            progressListener = progressListener,
-            shouldPersist = shouldPersist,
-            multiDevicePropertyProvider = null,
-            blobScope = null,
-        )
-
-        /**
-         * Use this constructor when multi-device is currently active on the device. <br></br>
-         * Use `BlobUploader.usual()` otherwise.
-         */
-        @JvmStatic
-        fun mirror(
-            baseOkhttpClient: OkHttpClient,
-            authToken: String?,
-            blobData: ByteArray,
-            version: Version,
-            serverAddressProvider: ServerAddressProvider,
-            progressListener: ProgressListener?,
-            shouldPersist: Boolean,
-            multiDevicePropertyProvider: MultiDevicePropertyProvider,
-            blobScope: BlobScope,
-        ): BlobUploader = BlobUploader(
-            baseOkhttpClient = baseOkhttpClient,
-            authToken = authToken,
-            blobInputStream = ByteArrayInputStream(blobData),
-            blobLength = blobData.size,
-            version = version,
-            useMirror = true,
-            serverAddressProvider = serverAddressProvider,
-            shouldPersist = shouldPersist,
-            progressListener = progressListener,
-            multiDevicePropertyProvider = multiDevicePropertyProvider,
-            blobScope = blobScope,
-        )
-    }
-
     /**
      * Upload the given blob and return the blob ID on success.
      *
-     * @return blob ID as a byte array or `null` if cancelled via `cancel()`
+     * @return blob ID as a byte array or `null` if canceled via `cancel()`
      */
     @Throws(IOException::class, ThreemaException::class)
     fun upload(): ByteArray? {
@@ -129,25 +62,16 @@ class BlobUploader private constructor(
 
         val blobUploadUrl = getBlobUploadUrl()
 
-        val okHttpClientUpload: OkHttpClient = baseOkhttpClient.buildNew {
-            connectTimeout(ProtocolDefines.BLOB_CONNECT_TIMEOUT.seconds)
-            readTimeout(ProtocolDefines.BLOB_LOAD_TIMEOUT.seconds)
-        }
-
         val uploadRequest = buildRequest {
             url(blobUploadUrl)
             header(Http.Header.CONTENT_TYPE, "multipart/form-data; boundary=$MULTIPART_BOUNDARY")
-            header(Http.Header.USER_AGENT, getUserAgent(version))
-            if (authToken != null) {
-                header(Http.Header.AUTHORIZATION, "Token $authToken")
-            }
             post(buildRequestBody())
         }
 
         logger.info("Uploading blob ({} bytes) in scope {}", blobLength, blobScope)
 
         try {
-            okHttpClientUpload.execute(uploadRequest).use { response ->
+            okHttpClient.execute(uploadRequest).use { response ->
                 if (isCancelled) {
                     progressListener?.onFinished(false)
                     return null
@@ -159,7 +83,7 @@ class BlobUploader private constructor(
                 logger.info("Blob upload completed. ID = $blobIdHex")
                 return blobIdHex.hexToByteArray()
             }
-        } catch (ioException: IOException) {
+        } catch (e: IOException) {
             // Mutable field `isCancelled` will be mutated by calls to progressListener.onFinished
             val isCancelledAtTimeOfException = isCancelled
             progressListener?.onFinished(false)
@@ -169,8 +93,8 @@ class BlobUploader private constructor(
                 logger.info("Blob upload cancelled manually")
                 return null
             } else {
-                logger.error("Blob upload failed (isCancelled: false)", ioException)
-                throw ioException
+                logger.error("Blob upload failed (isCancelled: false)", e)
+                throw e
             }
         } finally {
             blobInputStream.closeQuietly()
@@ -204,13 +128,11 @@ class BlobUploader private constructor(
     /**
      * @param rawUrl A url string **without** any query parameters. The value of this will not be mutated.
      */
-    private fun appendQueryParametersForUsualServer(rawUrl: String): String {
-        return "$rawUrl?${getPersistParam()}"
-    }
+    private fun appendQueryParametersForUsualServer(rawUrl: String): String =
+        "$rawUrl?${getPersistParam()}"
 
-    private fun getPersistParam(): String {
-        return "persist=${if (shouldPersist) 1 else 0}"
-    }
+    private fun getPersistParam(): String =
+        "persist=${if (shouldPersist) 1 else 0}"
 
     /**
      * @param rawUrl An url string **without** any query parameters. The value of this will not be mutated.
@@ -293,5 +215,57 @@ class BlobUploader private constructor(
                 sink.write(bodyFooterBytes)
             }
         }
+    }
+
+    companion object {
+        private const val MULTIPART_BOUNDARY = "---------------------------Boundary_Line"
+
+        /**
+         * Use this constructor when multi-device is currently **not** active on the device.
+         * Use [mirror] otherwise.
+         */
+        @JvmStatic
+        fun usual(
+            okHttpClient: OkHttpClient,
+            blobData: ByteArray,
+            serverAddressProvider: ServerAddressProvider,
+            progressListener: ProgressListener?,
+            shouldPersist: Boolean,
+        ): BlobUploader = BlobUploader(
+            okHttpClient = okHttpClient,
+            blobInputStream = ByteArrayInputStream(blobData),
+            blobLength = blobData.size,
+            useMirror = false,
+            serverAddressProvider = serverAddressProvider,
+            progressListener = progressListener,
+            shouldPersist = shouldPersist,
+            multiDevicePropertyProvider = null,
+            blobScope = null,
+        )
+
+        /**
+         * Use this constructor when multi-device is currently active on the device.
+         * Use [usual] otherwise.
+         */
+        @JvmStatic
+        fun mirror(
+            okHttpClient: OkHttpClient,
+            blobData: ByteArray,
+            serverAddressProvider: ServerAddressProvider,
+            progressListener: ProgressListener?,
+            shouldPersist: Boolean,
+            multiDevicePropertyProvider: MultiDevicePropertyProvider,
+            blobScope: BlobScope,
+        ): BlobUploader = BlobUploader(
+            okHttpClient = okHttpClient,
+            blobInputStream = ByteArrayInputStream(blobData),
+            blobLength = blobData.size,
+            useMirror = true,
+            serverAddressProvider = serverAddressProvider,
+            shouldPersist = shouldPersist,
+            progressListener = progressListener,
+            multiDevicePropertyProvider = multiDevicePropertyProvider,
+            blobScope = blobScope,
+        )
     }
 }

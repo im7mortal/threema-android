@@ -5,26 +5,27 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import org.junit.Assume
 
 class PredefinedContactTest {
     @Test
     fun testPublicKey() {
-        val expectedThreemaChannelPublicKey = when (BuildFlavor.current.buildEnvironment) {
+        val expectedThreemaChannelPublicKey = when (BuildFlavor.buildEnvironment) {
             // Note that the live and sandbox environment use the same public key
             BuildFlavor.BuildEnvironment.LIVE, BuildFlavor.BuildEnvironment.SANDBOX ->
                 "3a38650c681435bd1fb8498e213a2919b09388f5803aa44640e0f706326a865c"
 
             // There is no threema channel in onprem
-            BuildFlavor.BuildEnvironment.ONPREM -> null
+            BuildFlavor.BuildEnvironment.ON_PREM -> null
         }
 
-        val expectedSupportPublicKey = when (BuildFlavor.current.buildEnvironment) {
+        val expectedSupportPublicKey = when (BuildFlavor.buildEnvironment) {
             // Note that the live and sandbox environment use the same public key
             BuildFlavor.BuildEnvironment.LIVE, BuildFlavor.BuildEnvironment.SANDBOX ->
                 "0f944d18324b2132c61d8e40afce60a0ebd701bb11e89be94972d4229e94722a"
 
             // There is no support chat in onprem
-            BuildFlavor.BuildEnvironment.ONPREM -> null
+            BuildFlavor.BuildEnvironment.ON_PREM -> null
         }
 
         assertEquals(
@@ -39,6 +40,8 @@ class PredefinedContactTest {
 
     @Test
     fun testSpecialContact() {
+        Assume.assumeFalse(BuildFlavor.IS_ON_PREM)
+
         val my3data = PredefinedContact.getPredefinedContact("*MY3DATA")!!
         val threemapush = PredefinedContact.getPredefinedContact("*3MAPUSH")!!
 
@@ -48,6 +51,8 @@ class PredefinedContactTest {
 
     @Test
     fun testNickname() {
+        Assume.assumeFalse(BuildFlavor.IS_ON_PREM)
+
         val my3data = PredefinedContact.getPredefinedContact("*MY3DATA")!!
         val threemapush = PredefinedContact.getPredefinedContact("*3MAPUSH")!!
 

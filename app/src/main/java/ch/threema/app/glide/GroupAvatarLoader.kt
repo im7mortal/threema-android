@@ -10,29 +10,29 @@ import com.bumptech.glide.load.Options
 import com.bumptech.glide.load.model.ModelLoader
 import com.bumptech.glide.signature.ObjectKey
 import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 class GroupAvatarLoader(
     private val context: Context,
 ) : ModelLoader<AvatarCacheServiceImpl.GroupAvatarConfig, Bitmap>, KoinComponent {
     private val groupModelRepository: GroupModelRepository? by injectNullableNonBinding()
-    private val fileService: FileService? by injectNullableNonBinding()
+    private val fileService: FileService by inject()
 
     override fun buildLoadData(
         config: AvatarCacheServiceImpl.GroupAvatarConfig,
         width: Int,
         height: Int,
         options: Options,
-    ): ModelLoader.LoadData<Bitmap>? {
-        return ModelLoader.LoadData(
+    ): ModelLoader.LoadData<Bitmap>? =
+        ModelLoader.LoadData(
             ObjectKey(config),
             GroupAvatarFetcher(
                 context = context,
                 groupModelRepository = groupModelRepository ?: return null,
-                fileService = fileService ?: return null,
+                fileService = fileService,
                 config = config,
             ),
         )
-    }
 
     override fun handles(model: AvatarCacheServiceImpl.GroupAvatarConfig) = true
 }

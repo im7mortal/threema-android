@@ -165,13 +165,16 @@ public class Utils extends Converter {
         public byte[] getAvatar(boolean highResolution, Integer maxSize) throws ConversionException {
             try {
                 Bitmap bitmap;
+                boolean shouldRecycle = false;
                 if (!highResolution) {
                     bitmap = this.getReceiver().getNotificationAvatar();
                     if (bitmap == null) {
                         // This can happen e.g. for distribution lists.
                         return null;
                     }
-                    bitmap = ThumbnailUtils.resize(bitmap, maxSize);
+                    Bitmap resizedBitmap = ThumbnailUtils.resize(bitmap, maxSize);
+                    shouldRecycle = resizedBitmap != bitmap;
+                    bitmap = resizedBitmap;
                 } else {
                     switch (this.receiverType) {
                         case MessageReceiver.Type_CONTACT:
@@ -190,7 +193,13 @@ public class Utils extends Converter {
 
                 if (bitmap != null) {
                     final int quality = highResolution ? Protocol.QUALITY_AVATAR_HIRES : Protocol.QUALITY_AVATAR_LORES;
-                    return BitmapUtil.bitmapToByteArray(bitmap, Protocol.FORMAT_AVATAR, quality);
+                    try {
+                        return BitmapUtil.bitmapToByteArray(bitmap, Protocol.FORMAT_AVATAR, quality);
+                    } finally {
+                        if (shouldRecycle) {
+                            bitmap.recycle();
+                        }
+                    }
                 }
 
                 return null;

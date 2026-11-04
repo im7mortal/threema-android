@@ -10,7 +10,7 @@ import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.base.SessionScoped;
 import ch.threema.data.datatypes.ConversationId;
 import ch.threema.domain.taskmanager.TriggerSource;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ConversationModel;
 import ch.threema.storage.models.ConversationTag;
 import ch.threema.storage.models.DistributionListModel;
@@ -82,15 +82,16 @@ public interface ConversationService {
     List<ConversationModel> getArchived(@Nullable String searchQuery);
 
     /**
-     * Return the count of archived conversations that match the search query (case-insensitive match).
+     * Returns true if there are any private conversations (with conversation category protected).
+     * @param forceReloadFromDatabase if set to true, all conversations will be reloaded from the database
      */
-    long countArchived(@Nullable String searchQuery, boolean excludePrivateConversations);
+    boolean hasAnyPrivateConversations(boolean forceReloadFromDatabase);
 
     /**
      * Marks the conversation that the message belongs to as fully read,
      * i.e., its unread count is reset and the 'unread' tag is removed if it exists.
      */
-    void markConversationAsRead(@NonNull AbstractMessageModel messageModel);
+    void markConversationAsRead(@NonNull MessageModel messageModel);
 
     /**
      * Marks the conversation as fully read,
@@ -106,12 +107,12 @@ public interface ConversationService {
     void updateContactConversation(@NonNull String identity);
 
     @Nullable
-    ConversationModel get(@Nullable AbstractMessageModel modifiedMessageModel);
+    ConversationModel get(@Nullable MessageModel modifiedMessageModel);
 
     /**
      * refresh a conversation model, based on the model of the message that triggered the change
      */
-    void refreshForMessage(AbstractMessageModel messageModel, boolean isNewMessage);
+    void refreshForMessage(MessageModel messageModel, boolean isNewMessage);
 
     /**
      * refresh conversation
@@ -146,7 +147,7 @@ public interface ConversationService {
     /**
      * refresh a conversation model with a deleted message model
      */
-    void refreshWithDeletedMessage(AbstractMessageModel modifiedMessageModel);
+    void refreshWithDeletedMessage(MessageModel modifiedMessageModel);
 
     /**
      * mark conversation as archived. Additionally, all conversation tags are removed and the unread
@@ -164,14 +165,14 @@ public interface ConversationService {
      * <br><br>
      * The listeners will only be notified if the tag did not exist before and was effectively added by this call.
      */
-    void tag(@NonNull ConversationModel conversationModel, @NonNull ConversationTag conversationTag, @NonNull TriggerSource triggerSource);
+    void tag(@NonNull ConversationModel conversationModel, @NonNull ConversationTag conversationTag);
 
     /**
      * Untag the given {@code ConversationModel} from a given {@code ConversationTag} and notify the conversation listeners with the updated model.
      * <br><br>
      * The listeners will only be notified if the tag existed and was effectively removed.
      */
-    void untag(@NonNull ConversationModel conversationModel, @NonNull ConversationTag conversationTag, @NonNull TriggerSource triggerSource);
+    void untag(@NonNull ConversationModel conversationModel, @NonNull ConversationTag conversationTag);
 
     /**
      * clear archived flag in archived conversations

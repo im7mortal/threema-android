@@ -1,6 +1,5 @@
 package ch.threema.app.compose.edithistory
 
-import android.annotation.SuppressLint
 import android.content.Context.ACCESSIBILITY_SERVICE
 import android.view.accessibility.AccessibilityManager
 import androidx.compose.foundation.layout.PaddingValues
@@ -31,15 +30,15 @@ import ch.threema.app.compose.common.anim.ExpandingBox
 import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.ui.CustomTextSelectionCallback
 import ch.threema.app.utils.LinkifyUtil
+import ch.threema.data.models.EditHistoryEntryData
 
 private val ITEM_MAX_HEIGHT = 196.dp
 
 @Composable
-@SuppressLint("ComposableLambdaParameterNaming")
 fun EditHistoryList(
     modifier: Modifier,
     contentPadding: PaddingValues,
-    editHistoryUiState: EditHistoryUiState,
+    editHistoryEntries: List<EditHistoryEntryData>,
     isOutbox: Boolean,
     shouldMarkupText: Boolean,
     linkifyListener: LinkifyUtil.LinkifyListener,
@@ -58,10 +57,9 @@ fun EditHistoryList(
     }
 
     val isItemExpandableMap = remember { mutableStateMapOf<Int, Boolean>() }
-    LaunchedEffect(editHistoryUiState.editHistoryEntries) {
+    LaunchedEffect(editHistoryEntries) {
         isItemExpandableMap.keys.retainAll(
-            editHistoryUiState.editHistoryEntries.map { it.uid }
-                .toSet(),
+            editHistoryEntries.map { it.uid }.toSet(),
         )
     }
 
@@ -72,7 +70,7 @@ fun EditHistoryList(
         item {
             headerContent?.invoke()
         }
-        if (editHistoryUiState.editHistoryEntries.isNotEmpty()) {
+        if (editHistoryEntries.isNotEmpty()) {
             item {
                 Spacer(modifier = Modifier.height(24.dp))
             }
@@ -90,7 +88,7 @@ fun EditHistoryList(
             }
             // edit history
             itemsIndexed(
-                items = editHistoryUiState.editHistoryEntries,
+                items = editHistoryEntries,
                 key = { _, editHistoryEntry -> editHistoryEntry.uid },
             ) { index, entry ->
                 val isExpandable by remember {
@@ -107,7 +105,7 @@ fun EditHistoryList(
                         .then(
                             stringResource(R.string.cd_index_in_edit_history).let {
                                 Modifier.semantics {
-                                    contentDescription = it.format(editHistoryUiState.editHistoryEntries.size - index)
+                                    contentDescription = it.format(editHistoryEntries.size - index)
                                 }
                             },
                         )
@@ -118,7 +116,7 @@ fun EditHistoryList(
                             isItemExpandableMap[entry.uid] = !isExploreByTouchEnabled.value && heightInDp > ITEM_MAX_HEIGHT
                         }
                     }
-                    if (editHistoryUiState.editHistoryEntries.size > 1) {
+                    if (editHistoryEntries.size > 1) {
                         EditHistoryTimelineItem(
                             modifier = itemModifier,
                             bubbleModifier = bubbleModifier,
@@ -129,7 +127,7 @@ fun EditHistoryList(
                             isExpanded = if (isExpandable) isExpanded else true,
                             onClick = if (isExpandable) toggleExpanded else null,
                             shouldFadeOutTimeLineTop = index == 0,
-                            shouldFadeOutTimeLineBottom = index == editHistoryUiState.editHistoryEntries.lastIndex,
+                            shouldFadeOutTimeLineBottom = index == editHistoryEntries.lastIndex,
                             textSelectionCallback = textSelectionCallback,
                         )
                     } else {

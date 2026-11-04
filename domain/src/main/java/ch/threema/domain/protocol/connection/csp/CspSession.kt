@@ -5,8 +5,10 @@ import ch.threema.base.crypto.NaCl
 import ch.threema.base.crypto.NonceCounter
 import ch.threema.common.Stopwatch
 import ch.threema.common.emptyByteArray
+import ch.threema.common.emptyDirectByteBuffer
 import ch.threema.common.generateRandomBytes
 import ch.threema.common.secureRandom
+import ch.threema.common.toDirectByteBuffer
 import ch.threema.common.toHexString
 import ch.threema.common.writeLittleEndianShort
 import ch.threema.domain.protocol.ServerAddressProvider
@@ -393,17 +395,17 @@ internal class CspSession(
         return try {
             val vouchKey = blake2bMac256(
                 key = sharedSecrets,
-                personal = "3ma-csp".encodeToByteArray(),
-                salt = "v2".encodeToByteArray(),
-                data = emptyByteArray(),
+                personal = "3ma-csp".toDirectByteBuffer(),
+                salt = "v2".toDirectByteBuffer(),
+                data = emptyDirectByteBuffer(),
             )
             blake2bMac256(
                 key = vouchKey,
-                personal = emptyByteArray(),
-                salt = emptyByteArray(),
-                data = input,
+                personal = emptyDirectByteBuffer(),
+                salt = emptyDirectByteBuffer(),
+                data = input.toDirectByteBuffer(),
             )
-        } catch (cryptoException: CryptoException.InvalidParameter) {
+        } catch (cryptoException: CryptoException.ConversionException) {
             logger.error("Failed to compute blake2b hash", cryptoException)
             throw ServerConnectionException("Failed to compute blake2b hash", cryptoException)
         }

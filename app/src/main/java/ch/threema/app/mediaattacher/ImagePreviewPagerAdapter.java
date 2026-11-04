@@ -25,8 +25,6 @@ public class ImagePreviewPagerAdapter extends FragmentStateAdapter {
         MediaAttachItem mediaAttachItem = getItem(position);
         if (mediaAttachItem != null) {
             int mediaType = mediaAttachItem.getType();
-            Bundle args = new Bundle();
-            args.putBoolean(MediaViewerActivity.EXTRA_ID_IMMEDIATE_PLAY, true);
 
             Fragment fragment = null;
             if (mediaType == MediaAttachItem.TYPE_IMAGE || mediaType == MediaAttachItem.TYPE_GIF || mediaType == MediaAttachItem.TYPE_WEBP) {
@@ -36,6 +34,11 @@ public class ImagePreviewPagerAdapter extends FragmentStateAdapter {
             }
 
             if (fragment != null) {
+                Bundle args = fragment.getArguments();
+                if (args == null) {
+                    args = new Bundle();
+                }
+                args.putBoolean(MediaViewerActivity.EXTRA_ID_IMMEDIATE_PLAY, true);
                 fragment.setArguments(args);
                 return fragment;
             }

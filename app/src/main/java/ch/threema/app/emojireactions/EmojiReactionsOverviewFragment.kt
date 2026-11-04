@@ -23,7 +23,7 @@ import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.IdentityProvider
 import ch.threema.data.models.EmojiReactionData
 import ch.threema.logging.logAndReportError
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filterNotNull
@@ -34,7 +34,7 @@ private val logger = getThreemaLogger("EmojiReactionsOverviewFragment")
 
 class EmojiReactionsOverviewFragment(
     private val emojiSequence: String,
-    private val messageModel: AbstractMessageModel,
+    private val messageModel: MessageModel,
 ) : Fragment(), EmojiReactionsOverviewListAdapter.OnItemClickListener {
     init {
         logScreenVisibility(logger)

@@ -17,7 +17,7 @@ class EditMessage(payloadData: EditMessageData) : AbstractProtobufMessage<EditMe
 
     override fun allowUserProfileDistribution() = false
 
-    override fun exemptFromBlocking() = false
+    override fun exemptFromBlocking() = ExemptFromBlocking.NO
 
     override fun createImplicitlyDirectContact() = false
 

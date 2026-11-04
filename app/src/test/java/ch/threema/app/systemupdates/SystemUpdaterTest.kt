@@ -133,7 +133,6 @@ class SystemUpdaterTest {
         val mockUpdate2 = mockk<SystemUpdate> {
             every { run() } answers { throw RuntimeException("oh oh") }
             every { version } returns 16
-            every { getDescription() } returns null
         }
         val (sharedPreferences, editor) = mockSharedPreferences(oldVersion = 10)
         val systemUpdateProvider = mockSystemUpdateProvider(
@@ -163,7 +162,6 @@ class SystemUpdaterTest {
         mockk {
             every { run() } just runs
             every { this@mockk.version } returns version
-            every { getDescription() } returns null
         }
 
     private fun mockSharedPreferences(oldVersion: Int?): Pair<SharedPreferences, SharedPreferences.Editor> {

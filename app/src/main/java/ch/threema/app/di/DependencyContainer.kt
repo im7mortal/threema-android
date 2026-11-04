@@ -11,7 +11,6 @@ import ch.threema.app.qrcodes.QrCodeGenerator
 import ch.threema.app.restrictions.AppRestrictions
 import ch.threema.app.services.BlockedIdentitiesService
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.ConversationService
 import ch.threema.app.services.DeviceService
 import ch.threema.app.services.DistributionListService
@@ -29,15 +28,16 @@ import ch.threema.app.services.RingtoneService
 import ch.threema.app.services.SensorService
 import ch.threema.app.services.ServerAddressProviderService
 import ch.threema.app.services.UserService
-import ch.threema.app.services.WallpaperService
 import ch.threema.app.services.license.LicenseService
 import ch.threema.app.services.notification.NotificationService
 import ch.threema.app.services.poll.PollService
 import ch.threema.app.tasks.TaskCreator
 import ch.threema.app.threemasafe.ThreemaSafeMDMConfig
 import ch.threema.app.threemasafe.ThreemaSafeService
+import ch.threema.app.utils.QuoteUtil
 import ch.threema.app.voip.groupcall.GroupCallManager
 import ch.threema.app.voip.services.VoipStateService
+import ch.threema.app.wallpapers.WallpaperService
 import ch.threema.app.webclient.manager.WebClientServiceManager
 import ch.threema.app.webclient.services.SessionService
 import ch.threema.data.IdentityProvider
@@ -67,7 +67,6 @@ class DependencyContainer : KoinComponent {
     val contactModelFactory: ContactModelFactory by inject()
     val contactModelRepository: ContactModelRepository by inject()
     val contactService: ContactService by inject()
-    val conversationCategoryService: ConversationCategoryService by inject()
     val conversationService: ConversationService by inject()
     val deviceService: DeviceService by inject()
     val dhSessionStore: DHSessionStore by inject()
@@ -93,6 +92,7 @@ class DependencyContainer : KoinComponent {
     val preferenceService: PreferenceService by inject()
     val profilePictureRecipientsService: ProfilePictureRecipientsService by inject()
     val qrCodeGenerator: QrCodeGenerator by inject()
+    val quoteUtil: QuoteUtil by inject()
     val ringtoneService: RingtoneService by inject()
     val sensorService: SensorService by inject()
     val serverAddressProviderService: ServerAddressProviderService by inject()

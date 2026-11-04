@@ -4,6 +4,7 @@ import ch.threema.app.managers.ServiceManager
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.emptyByteArray
 import ch.threema.domain.protocol.csp.messages.AbstractMessage
+import ch.threema.domain.protocol.csp.messages.ExemptFromBlocking
 import ch.threema.protobuf.d2d.OutgoingMessage
 
 private val logger = getThreemaLogger("ReflectedOutgoingPlaceholderTask")
@@ -33,7 +34,7 @@ internal class ReflectedOutgoingPlaceholderTask(
 private object PlaceholderMessage : AbstractMessage() {
     override fun allowUserProfileDistribution() = false
 
-    override fun exemptFromBlocking() = false
+    override fun exemptFromBlocking() = ExemptFromBlocking.NO
 
     override fun createImplicitlyDirectContact() = false
 

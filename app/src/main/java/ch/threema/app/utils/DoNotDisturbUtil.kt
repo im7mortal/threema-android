@@ -30,7 +30,7 @@ abstract class DoNotDisturbUtil(
         if (notificationTriggerPolicyOverride == null) {
             return false
         }
-        val myIdentity = identityProvider.getIdentity()?.value
+        val myIdentity = identityProvider.getIdentity()
         return if (rawMessageText != null && myIdentity != null) {
             notificationTriggerPolicyOverride.muteAppliesToMessageAt(
                 message = rawMessageText.toString(),

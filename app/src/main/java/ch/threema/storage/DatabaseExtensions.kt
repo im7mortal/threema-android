@@ -8,6 +8,7 @@ import ch.threema.localcrypto.MasterKey
 import java.nio.ByteBuffer
 import net.zetetic.database.sqlcipher.SQLiteCursor
 import net.zetetic.database.sqlcipher.SQLiteDatabase
+import net.zetetic.database.sqlcipher.SQLiteProgram
 
 inline fun <T, DB : SupportSQLiteDatabase> DB.runTransaction(
     exclusive: Boolean = true,
@@ -62,10 +63,15 @@ fun SQLiteDatabase.runDelete(
     )
 
 fun SQLiteDatabase.queryByBlob(query: String, blob: ByteArray): Cursor =
-    rawQueryWithFactory({ _, masterQuery, editTable, query ->
-        query.bindBlob(1, blob)
-        SQLiteCursor(masterQuery, editTable, query)
-    }, query, null, null)
+    rawQueryWithFactory(
+        { _, masterQuery, editTable, query ->
+            query.bindBlob(1, blob)
+            SQLiteCursor(masterQuery, editTable, query)
+        },
+        query,
+        null,
+        null,
+    )
 
 fun SQLiteDatabase.exists(
     table: String,
@@ -79,15 +85,24 @@ fun SQLiteDatabase.exists(
     }
 }
 
-fun SQLiteDatabase.existsByBlob(table: String, selection: String, blob: ByteArray): Boolean {
-    val cursor = queryByBlob("SELECT EXISTS(SELECT 1 FROM $table WHERE $selection LIMIT 1)", blob)
-    return cursor.use {
-        cursor.moveToFirst() && cursor.getInt(0) == 1
+fun buildContentValues(block: ContentValues.() -> Unit): ContentValues =
+    ContentValues().apply(block)
+
+fun SQLiteProgram.bindStringOrNull(index: Int, value: String?) {
+    if (value != null) {
+        bindString(index, value)
+    } else {
+        bindNull(index)
     }
 }
 
-fun buildContentValues(block: ContentValues.() -> Unit): ContentValues =
-    ContentValues().apply(block)
+fun SQLiteProgram.bindLongOrNull(index: Int, value: Long?) {
+    if (value != null) {
+        bindLong(index, value)
+    } else {
+        bindNull(index)
+    }
+}
 
 /**
  * Derives the database password from the master key in such a way that it is never kept in memory as a string,

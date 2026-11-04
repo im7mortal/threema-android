@@ -1,7 +1,5 @@
 package ch.threema.app.processors.reflectedoutgoingmessage
 
-import androidx.core.util.component1
-import androidx.core.util.component2
 import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.managers.ServiceManager

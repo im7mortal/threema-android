@@ -3,24 +3,20 @@ package ch.threema.domain.protocol.blob
 import ch.threema.base.ProgressListener
 import ch.threema.base.ThreemaException
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.common.Http
-import ch.threema.common.buildNew
 import ch.threema.common.buildRequest
 import ch.threema.common.execute
+import ch.threema.common.getSuccessBodyOrThrow
+import ch.threema.common.throwIfNotSuccessful
 import ch.threema.common.toHexString
 import ch.threema.domain.protocol.ServerAddressProvider
-import ch.threema.domain.protocol.Version
 import ch.threema.domain.protocol.connection.d2m.MultiDevicePropertyProvider
 import ch.threema.domain.protocol.connection.data.leBytes
-import ch.threema.domain.protocol.csp.ProtocolDefines
-import ch.threema.domain.protocol.getUserAgent
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.net.URL
 import kotlin.concurrent.Volatile
-import kotlin.time.Duration.Companion.seconds
 import okhttp3.OkHttpClient
-import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.RequestBody
 import okio.BufferedSource
 
 private val logger = getThreemaLogger("BlobLoader")
@@ -34,9 +30,8 @@ private val logger = getThreemaLogger("BlobLoader")
  * TODO(ANDR-2869): Rework exception handling (and maybe return types)
  */
 class BlobLoader private constructor(
-    private val baseOkHttpClient: OkHttpClient,
+    private val okHttpClient: OkHttpClient,
     private val blobId: ByteArray,
-    private val version: Version,
     private val useMirror: Boolean,
     private val serverAddressProvider: ServerAddressProvider,
     @JvmField var progressListener: ProgressListener?,
@@ -45,45 +40,6 @@ class BlobLoader private constructor(
 ) {
     @Volatile
     private var isCancelled = false
-
-    companion object {
-        private const val BUFFER_SIZE = 8192
-
-        @JvmStatic
-        fun usual(
-            baseOkHttpClient: OkHttpClient,
-            blobId: ByteArray,
-            version: Version,
-            serverAddressProvider: ServerAddressProvider,
-            progressListener: ProgressListener?,
-        ) = BlobLoader(
-            baseOkHttpClient = baseOkHttpClient,
-            blobId = blobId,
-            version = version,
-            useMirror = false,
-            serverAddressProvider = serverAddressProvider,
-            progressListener = progressListener,
-            multiDevicePropertyProvider = null,
-        )
-
-        @JvmStatic
-        fun mirror(
-            baseOkHttpClient: OkHttpClient,
-            blobId: ByteArray,
-            version: Version,
-            serverAddressProvider: ServerAddressProvider,
-            progressListener: ProgressListener?,
-            multiDevicePropertyProvider: MultiDevicePropertyProvider,
-        ) = BlobLoader(
-            baseOkHttpClient = baseOkHttpClient,
-            blobId = blobId,
-            version = version,
-            useMirror = true,
-            serverAddressProvider = serverAddressProvider,
-            progressListener = progressListener,
-            multiDevicePropertyProvider = multiDevicePropertyProvider,
-        )
-    }
 
     /**
      * Attempt to load the given blob.
@@ -161,26 +117,14 @@ class BlobLoader private constructor(
     private fun requestBlob(scope: BlobScope): BufferedSourceWithLength {
         val blobUrl: URL = getBlobDownloadUrl(blobId, scope)
 
-        val okHttpClientLoad = baseOkHttpClient.buildNew {
-            connectTimeout(ProtocolDefines.BLOB_CONNECT_TIMEOUT.seconds)
-            readTimeout(ProtocolDefines.BLOB_LOAD_TIMEOUT.seconds)
-        }
-
         val request = buildRequest {
             get()
             url(blobUrl)
-            header(Http.Header.USER_AGENT, getUserAgent(version))
         }
 
         logger.info("Loading blob from {}", blobUrl.host)
-
-        val response = okHttpClientLoad.execute(request)
-        if (!response.isSuccessful) {
-            logger.error("Blob download failed. HTTP response code not in range 200..299")
-            throw IOException("download request failed with code ${response.code}")
-        }
-
-        val responseBody = response.body
+        val responseBody = okHttpClient.execute(request)
+            .getSuccessBodyOrThrow()
         return BufferedSourceWithLength(
             responseBody.source(),
             responseBody.contentLength(),
@@ -196,20 +140,17 @@ class BlobLoader private constructor(
             val blobDoneUrl: URL = getBlobDoneUrl(blobId, scope)
 
             val request = buildRequest {
-                post("".toRequestBody(null))
+                post(RequestBody.EMPTY)
                 url(blobDoneUrl)
-                header(Http.Header.USER_AGENT, getUserAgent(version))
             }
 
-            baseOkHttpClient.execute(request).use { response ->
-                if (!response.isSuccessful) {
-                    logger.warn("Marking blob as done failed. HTTP response code: {}", response.code)
-                }
+            okHttpClient.execute(request).use { response ->
+                response.throwIfNotSuccessful()
             }
-        } catch (exception: IOException) {
-            logger.warn("Marking blob as done failed", exception)
-        } catch (exception: ThreemaException) {
-            logger.warn("Marking blob as done failed", exception)
+        } catch (e: IOException) {
+            logger.warn("Marking blob as done failed", e)
+        } catch (e: ThreemaException) {
+            logger.warn("Marking blob as done failed", e)
         }
     }
 
@@ -277,5 +218,40 @@ class BlobLoader private constructor(
         val length: Long,
     ) {
         fun containsContent(): Boolean = length != -1L
+    }
+
+    companion object {
+        private const val BUFFER_SIZE = 8192
+
+        @JvmStatic
+        fun usual(
+            blobDownloadOkHttpClient: OkHttpClient,
+            blobId: ByteArray,
+            serverAddressProvider: ServerAddressProvider,
+            progressListener: ProgressListener?,
+        ) = BlobLoader(
+            okHttpClient = blobDownloadOkHttpClient,
+            blobId = blobId,
+            useMirror = false,
+            serverAddressProvider = serverAddressProvider,
+            progressListener = progressListener,
+            multiDevicePropertyProvider = null,
+        )
+
+        @JvmStatic
+        fun mirror(
+            blobDownloadOkHttpClient: OkHttpClient,
+            blobId: ByteArray,
+            serverAddressProvider: ServerAddressProvider,
+            progressListener: ProgressListener?,
+            multiDevicePropertyProvider: MultiDevicePropertyProvider,
+        ) = BlobLoader(
+            okHttpClient = blobDownloadOkHttpClient,
+            blobId = blobId,
+            useMirror = true,
+            serverAddressProvider = serverAddressProvider,
+            progressListener = progressListener,
+            multiDevicePropertyProvider = multiDevicePropertyProvider,
+        )
     }
 }

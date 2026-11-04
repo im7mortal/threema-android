@@ -11,6 +11,9 @@ import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("SystemUpdateToVersion114")
 
+/**
+ * move (and encrypt) global wallpaper file
+ */
 class SystemUpdateToVersion114 : SystemUpdate {
 
     private val appContext: Context by inject()
@@ -58,6 +61,4 @@ class SystemUpdateToVersion114 : SystemUpdate {
     }
 
     override val version = 114
-
-    override fun getDescription() = "move (and encrypt) global wallpaper file"
 }

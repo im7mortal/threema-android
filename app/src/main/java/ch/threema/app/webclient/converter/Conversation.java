@@ -11,7 +11,7 @@ import ch.threema.data.models.ContactModel;
 import ch.threema.data.models.ContactModelData;
 import ch.threema.data.models.GroupModel;
 import ch.threema.data.models.GroupModelData;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ConversationModel;
 import ch.threema.storage.models.ConversationTag;
 import ch.threema.storage.models.DistributionListModel;
@@ -109,7 +109,7 @@ public class Conversation extends Converter {
         String field,
         ConversationModel conversation
     ) throws ConversionException {
-        AbstractMessageModel message = conversation.latestMessage;
+        MessageModel message = conversation.latestMessage;
         if (message != null) {
             builder.put(field, Message.convert(message, conversation.messageReceiver, false, Message.DETAILS_NO_QUOTE));
         }

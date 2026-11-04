@@ -14,8 +14,8 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.annotation.DrawableRes
 import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory
+import ch.threema.android.getColorFromAttribute
 import ch.threema.app.R
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.VCardExtractor
 import ch.threema.base.utils.getThreemaLogger
 import ezvcard.property.FormattedName
@@ -138,14 +138,12 @@ class VCardPropertyView(context: Context) : FrameLayout(context) {
             iconIncluded?.let { contactPropertyIcon.setBackgroundResource(it) }
             contactPropertyPhoto.setImageDrawable(drawableIncluded)
             contactPropertyText.setTextColor(
-                ConfigUtils.getColorFromAttribute(
-                    context,
+                context.getColorFromAttribute(
                     R.attr.colorOnBackground,
                 ),
             )
             contactPropertyType.setTextColor(
-                ConfigUtils.getColorFromAttribute(
-                    context,
+                context.getColorFromAttribute(
                     R.attr.colorOnSurface,
                 ),
             )
@@ -153,14 +151,12 @@ class VCardPropertyView(context: Context) : FrameLayout(context) {
             iconExcluded?.let { contactPropertyIcon.setBackgroundResource(it) }
             contactPropertyPhoto.setImageDrawable(drawableExcluded)
             contactPropertyText.setTextColor(
-                ConfigUtils.getColorFromAttribute(
-                    context,
+                context.getColorFromAttribute(
                     R.attr.colorOnSurfaceVariant,
                 ),
             )
             contactPropertyType.setTextColor(
-                ConfigUtils.getColorFromAttribute(
-                    context,
+                context.getColorFromAttribute(
                     R.attr.colorOnSurfaceVariant,
                 ),
             )

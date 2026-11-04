@@ -60,7 +60,7 @@ public class ThumbnailUtil {
 
         Uri uri = Uri.fromFile(file);
 
-        switch (MimeUtil.getMediaTypeFromMimeType(mimeType, uri)) {
+        switch (MimeUtil.getMediaTypeFromMimeType(context, mimeType, uri)) {
             case MediaItem.TYPE_IMAGE:
                 return BitmapUtil.safeGetBitmapFromUri(context, uri, MessageServiceImpl.THUMBNAIL_SIZE_PX, false, true, true);
             case MediaItem.TYPE_IMAGE_ANIMATED:

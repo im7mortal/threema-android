@@ -23,3 +23,31 @@ fun <T> Cursor.map(transform: (Cursor) -> T): List<T> = buildList {
         add(transform(cursor))
     }
 }
+
+/**
+ * Moves the cursor to the first position if there is one and returns the transformed result for the entry at that position, or null otherwise.
+ *
+ * Note that the cursor is *closed* afterward.
+ */
+fun <T> Cursor.firstOrNull(transform: (Cursor) -> T) = use {
+    if (moveToFirst()) {
+        transform(this)
+    } else {
+        null
+    }
+}
+
+/**
+ * Reads and returns the result of a `SELECT COUNT(*) ...` query.
+ *
+ * Note that the cursor is *closed* afterward.
+ */
+fun Cursor?.readCountQueryResult(): Long =
+    this?.use {
+        if (moveToFirst()) {
+            getLong(0)
+        } else {
+            0L
+        }
+    }
+        ?: 0L

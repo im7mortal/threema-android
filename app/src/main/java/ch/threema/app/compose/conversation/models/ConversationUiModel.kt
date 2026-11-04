@@ -10,7 +10,7 @@ import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.datatypes.ConversationId
 import ch.threema.data.datatypes.DistributionListConversationId
 import ch.threema.data.datatypes.GroupConversationId
-import ch.threema.domain.types.Identity
+import ch.threema.domain.types.Mention
 import ch.threema.storage.models.MessageType
 import java.time.Instant
 
@@ -117,7 +117,7 @@ sealed interface ConversationUiModel {
         val isDeleted: Boolean,
         val postedAt: Instant?,
         val modifiedAt: Instant?,
-        val mentionNames: Map<Identity, ResolvableString>,
+        val mentionNames: Map<Mention, ResolvableString>,
     )
 
     /**
@@ -126,6 +126,6 @@ sealed interface ConversationUiModel {
     @Immutable
     data class DraftData(
         val draft: String,
-        val mentionNames: Map<Identity, ResolvableString>,
+        val mentionNames: Map<Mention, ResolvableString>,
     )
 }

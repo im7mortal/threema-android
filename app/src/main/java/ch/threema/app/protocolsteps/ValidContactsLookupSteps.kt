@@ -1,12 +1,13 @@
 package ch.threema.app.protocolsteps
 
 import androidx.annotation.WorkerThread
+import ch.threema.app.BuildFlavor
 import ch.threema.app.services.license.LicenseService
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.base.ThreemaException
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.IdentityProvider
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.PredefinedContact
 import ch.threema.data.models.ContactModel
@@ -27,9 +28,9 @@ import ch.threema.domain.protocol.api.APIConnector
 import ch.threema.domain.protocol.api.APIConnector.FetchIdentityResult
 import ch.threema.domain.protocol.api.work.WorkContact
 import ch.threema.domain.stores.ContactStore
-import ch.threema.domain.taskmanager.NetworkException
 import ch.threema.domain.taskmanager.ProtocolException
 import ch.threema.domain.types.IdentityString
+import java.io.IOException
 import java.time.Instant
 
 private val logger = getThreemaLogger("ValidContactsLookupSteps")
@@ -64,7 +65,7 @@ class ValidContactsLookupSteps(
     fun run(identities: Set<IdentityString>): Map<IdentityString, ContactOrInit> {
         val contactOrInitMap = mutableMapOf<IdentityString, ContactOrInit>()
         val unknownIdentities = mutableSetOf<IdentityString>()
-        val myIdentity = identityProvider.getIdentityString()!!
+        val myIdentity = identityProvider.requireIdentityString()
 
         for (identity in identities) {
             val result = checkLocally(
@@ -86,7 +87,7 @@ class ValidContactsLookupSteps(
         }
 
         val unknownWorkContacts: Map<IdentityString, WorkContact> =
-            if (ConfigUtils.isWorkBuild()) {
+            if (BuildFlavor.IS_WORK) {
                 val credentials = licenseService.loadCredentials()
                 if (credentials !is UserCredentials) {
                     logger.error("Work build without user credentials")
@@ -179,14 +180,12 @@ class ValidContactsLookupSteps(
             apiConnector.fetchIdentities(unknownIdentities.toList())
         } catch (e: Exception) {
             when (e) {
-                is NetworkException -> throw ProtocolException(
+                is IOException -> throw ProtocolException(
                     e.message ?: "Could not fetch identities",
                 )
-
                 is ThreemaException -> throw ProtocolException(
                     e.message ?: "Could not fetch server url",
                 )
-
                 else -> throw e
             }
         }
@@ -265,6 +264,7 @@ class ValidContactsLookupSteps(
         syncState = ContactSyncState.INITIAL,
         acquaintanceLevel = AcquaintanceLevel.DIRECT,
         conversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory = ConversationCategory.DEFAULT,
         localAvatarExpires = null,
         androidContactLookupInfo = null,
         profilePictureBlobId = null,

@@ -19,6 +19,9 @@ import org.json.JSONException
 
 private val logger = getThreemaLogger("DatabaseUpdateToVersion107")
 
+/**
+ * add column notificationTriggerPolicyOverride for contacts and groups and copy over old preferences data
+ */
 internal class DatabaseUpdateToVersion107(
     private val sqLiteDatabase: SQLiteDatabase,
     private val context: Context,
@@ -225,8 +228,6 @@ internal class DatabaseUpdateToVersion107(
             logger.error("Failure while updating notificationTriggerPolicyOverride cells", exception)
         }
     }
-
-    override fun getDescription() = "add column notificationTriggerPolicyOverride for contacts and groups and copy over old preferences data"
 
     override val version = 107
 

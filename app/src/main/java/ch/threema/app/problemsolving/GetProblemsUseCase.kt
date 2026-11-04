@@ -1,6 +1,8 @@
 package ch.threema.app.problemsolving
 
 import android.content.Context
+import android.os.Build
+import androidx.core.app.NotificationManagerCompat
 import ch.threema.app.logging.DebugLogHelper
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.utils.ConfigUtils
@@ -32,14 +34,14 @@ class GetProblemsUseCase(
             if (ConfigUtils.isBackgroundDataRestricted(appContext)) {
                 add(Problem.BACKGROUND_DATA_RESTRICTED)
             }
-            if (ConfigUtils.isNotificationsDisabled(appContext)) {
+            if (!NotificationManagerCompat.from(appContext).areNotificationsEnabled()) {
                 add(Problem.NOTIFICATIONS_DISABLED)
             }
             if (ConfigUtils.isFullScreenNotificationsDisabled(appContext)) {
                 add(Problem.FULLSCREEN_NOTIFICATIONS_DISABLED)
             }
             if (!PowermanagerUtil.isIgnoringBatteryOptimizations(appContext)) {
-                if (preferenceService.useThreemaPush()) {
+                if (preferenceService.mustUseThreemaPush()) {
                     add(Problem.THREEMA_PUSH_BATTERY_OPTIMIZATION)
                 }
                 if (sessionService.hasRunningSessions()) {
@@ -56,6 +58,9 @@ class GetProblemsUseCase(
             }
             if (debugLogHelper.isDebugLogFileLoggingForceEnabled()) {
                 add(Problem.DEBUG_LOG_FORCE_ENABLED)
+            }
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                add(Problem.DEPRECATED_ANDROID_VERSION)
             }
         }
             .filter { problem ->

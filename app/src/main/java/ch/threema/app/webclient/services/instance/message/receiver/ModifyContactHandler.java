@@ -26,6 +26,8 @@ import ch.threema.app.webclient.converter.MsgpackObjectBuilder;
 import ch.threema.app.webclient.exceptions.ConversionException;
 import ch.threema.app.webclient.services.instance.MessageDispatcher;
 import ch.threema.app.webclient.services.instance.MessageReceiver;
+
+import static ch.threema.android.BitmapExtensionsKt.transform;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.data.models.ContactModel;
 import ch.threema.data.models.ContactModelData;
@@ -202,16 +204,14 @@ public class ModifyContactHandler extends MessageReceiver {
                 if (bmp.length > 0) {
                     Bitmap avatar = BitmapFactory.decodeByteArray(bmp, 0, bmp.length);
                     // Resize to max allowed size
-                    avatar = BitmapUtil.resizeBitmap(avatar,
-                        ProtocolDefines.PROFILE_PICTURE_WIDTH_PX,
-                        ProtocolDefines.PROFILE_PICTURE_HEIGHT_PX);
+                    Bitmap resizedAvatar = transform(avatar, b -> BitmapUtil.resizeBitmap(avatar, ProtocolDefines.PROFILE_PICTURE_WIDTH_PX, ProtocolDefines.PROFILE_PICTURE_HEIGHT_PX));
                     boolean success = this.contactService.setUserDefinedProfilePicture(
                         contactModel.getIdentity(),
                         // Without quality loss
-                        BitmapUtil.bitmapToByteArray(avatar, Bitmap.CompressFormat.PNG,
-                            100),
+                        BitmapUtil.bitmapToByteArray(resizedAvatar, Bitmap.CompressFormat.PNG, 100),
                         TriggerSource.LOCAL
                     );
+                    resizedAvatar.recycle();
                     if (!success) {
                         logger.error("Failed to set profile picture");
                         return Protocol.ERROR_INTERNAL;

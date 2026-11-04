@@ -1,8 +1,8 @@
 package ch.threema.app.passphrase
 
-import org.koin.core.module.dsl.factoryOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
 
 val passphraseFeatureModule = module {
-    factoryOf(::PassphraseStateMonitor)
+    factory<PassphraseStateMonitor>()
 }

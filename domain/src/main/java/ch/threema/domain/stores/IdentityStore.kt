@@ -41,6 +41,9 @@ interface IdentityStore {
 
     fun getIdentityString(): IdentityString?
 
+    fun requireIdentityString(): IdentityString =
+        getIdentityString() ?: error("Identity does not exist")
+
     fun getServerGroup(): String?
 
     fun getPublicKey(): ByteArray?

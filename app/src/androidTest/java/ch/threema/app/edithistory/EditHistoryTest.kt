@@ -7,23 +7,22 @@ import ch.threema.app.DangerousTest
 import ch.threema.app.asynctasks.AndroidContactLinkPolicy
 import ch.threema.app.asynctasks.ContactSyncPolicy
 import ch.threema.app.asynctasks.DeleteContactServices
-import ch.threema.app.asynctasks.EmptyOrDeleteConversationsAsyncTask
 import ch.threema.app.asynctasks.MarkContactAsDeletedBackgroundTask
 import ch.threema.app.di.injectNonBinding
 import ch.threema.app.groupflows.GroupLeaveIntent
 import ch.threema.app.home.HomeActivity
 import ch.threema.app.processors.MessageProcessorProvider
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.ConversationService
-import ch.threema.app.services.DistributionListService
 import ch.threema.app.services.GroupFlowDispatcher
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.MessageService
 import ch.threema.app.usecases.conversations.EmptyOrDeleteConversationsUseCase
 import ch.threema.app.utils.executor.BackgroundExecutor
+import ch.threema.data.datatypes.EditHistoryType
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.data.repositories.GroupModelRepository
+import ch.threema.data.storage.DbEditHistoryEntry
 import ch.threema.data.storage.EditHistoryDao
 import ch.threema.data.storage.EditHistoryDaoImpl
 import ch.threema.domain.models.MessageId
@@ -32,19 +31,19 @@ import ch.threema.domain.protocol.csp.messages.DeleteMessageData
 import ch.threema.domain.protocol.csp.messages.EditMessage
 import ch.threema.domain.protocol.csp.messages.EditMessageData
 import ch.threema.domain.protocol.csp.messages.GroupDeleteMessage
-import ch.threema.domain.protocol.csp.messages.GroupEditMessage
 import ch.threema.domain.protocol.csp.messages.GroupTextMessage
 import ch.threema.domain.protocol.csp.messages.TextMessage
+import ch.threema.storage.factories.ContactMessageModelFactory
 import ch.threema.storage.factories.GroupMessageModelFactory
-import ch.threema.storage.factories.MessageModelFactory
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.ContactMessageModel
+import ch.threema.storage.models.DistributionListMessageModel
+import ch.threema.storage.models.GroupMessageModel
 import ch.threema.storage.models.MessageModel
-import ch.threema.storage.models.group.GroupMessageModel
+import ch.threema.storage.models.getConversationId
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -59,23 +58,21 @@ import org.koin.core.component.get
 class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
     private val groupModelRepository: GroupModelRepository by injectNonBinding()
     private val groupFlowDispatcher: GroupFlowDispatcher by injectNonBinding()
-    private val conversationService: ConversationService by injectNonBinding()
-    private val distributionListService: DistributionListService by injectNonBinding()
     private val messageService: MessageService by injectNonBinding()
     private val contactService: ContactService by injectNonBinding()
     private val groupService: GroupService by injectNonBinding()
-    private val messageModelFactory: MessageModelFactory by injectNonBinding()
+    private val contactMessageModelFactory: ContactMessageModelFactory by injectNonBinding()
     private val groupMessageModelFactory: GroupMessageModelFactory by injectNonBinding()
     private val editHistoryDao: EditHistoryDao
         get() = EditHistoryDaoImpl(databaseProvider = get())
     private val contactModelRepository: ContactModelRepository by injectNonBinding()
+    private val emptyOrDeleteConversationsUseCase: EmptyOrDeleteConversationsUseCase by injectNonBinding()
     private val deleteContactServices: DeleteContactServices
         get() = DeleteContactServices(
             userService = get(),
             contactService = get(),
             conversationService = get(),
             ringtoneService = get(),
-            conversationCategoryService = get(),
             profilePictureRecipientsService = get(),
             wallpaperService = get(),
             fileService = get(),
@@ -93,7 +90,7 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
 
         messageModel.assertHistorySize(0)
 
-        messageModel.receiveEdit()
+        createEditEntryForMessageModel(messageModel)
 
         messageModel.assertHistorySize(1)
 
@@ -110,7 +107,7 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
 
         messageModel.assertHistorySize(0)
 
-        messageModel.receiveEdit()
+        createEditEntryForMessageModel(messageModel)
 
         messageModel.assertHistorySize(1)
 
@@ -144,7 +141,7 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
 
         messageModel.assertHistorySize(0)
 
-        messageModel.receiveEdit()
+        createEditEntryForMessageModel(messageModel)
 
         messageModel.assertHistorySize(1)
 
@@ -218,8 +215,7 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
 
         messageModel.assertHistorySize(0)
 
-        messageModel.receiveEdit()
-        advanceUntilIdle()
+        createEditEntryForMessageModel(messageModel)
 
         messageModel.assertHistorySize(1)
 
@@ -256,8 +252,7 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
 
         messageModel.assertHistorySize(0)
 
-        messageModel.receiveEdit()
-        advanceUntilIdle()
+        createEditEntryForMessageModel(messageModel)
 
         messageModel.assertHistorySize(1)
 
@@ -301,8 +296,7 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
 
         messageModel.assertHistorySize(0)
 
-        messageModel.receiveEdit()
-        advanceUntilIdle()
+        createEditEntryForMessageModel(messageModel)
 
         messageModel.assertHistorySize(1)
 
@@ -321,25 +315,14 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
         messageModel.assertHistorySize(0)
     }
 
-    private suspend fun AbstractMessageModel.emptyOrDeleteChat(mode: EmptyOrDeleteConversationsUseCase.Mode) {
-        val receiver = messageService.getMessageReceiver(this)
-        val deferred = CompletableDeferred<Unit>()
-        @Suppress("DEPRECATION")
-        EmptyOrDeleteConversationsAsyncTask(
-            mode,
-            arrayOf(receiver),
-            conversationService,
-            distributionListService,
-            groupModelRepository,
-            groupFlowDispatcher,
-            myContact.identity,
-            null,
-            null,
-        ) { deferred.complete(Unit) }.execute()
-        deferred.await()
+    private suspend fun MessageModel.emptyOrDeleteChat(mode: EmptyOrDeleteConversationsUseCase.Mode) {
+        emptyOrDeleteConversationsUseCase.call(
+            conversationIds = listOf(getConversationId()),
+            mode = mode,
+        )
     }
 
-    private suspend fun receiveTextMessage(): MessageModel {
+    private suspend fun receiveTextMessage(): ContactMessageModel {
         val message = TextMessage().apply {
             text = "Original Text"
             fromIdentity = contactA.identity
@@ -349,13 +332,13 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
 
         processMessage(message, contactA.identityStore)
 
-        return messageModelFactory.getByApiMessageIdAndIdentity(
+        return contactMessageModelFactory.getByApiMessageIdAndIdentity(
             message.messageId,
             message.fromIdentity,
         )!!
     }
 
-    private suspend fun MessageModel.receiveEdit() {
+    private suspend fun ContactMessageModel.receiveEdit() {
         val editMessage = EditMessage(
             EditMessageData(
                 messageId = messageId!!,
@@ -368,7 +351,7 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
         processMessage(editMessage, contactA.identityStore)
     }
 
-    private suspend fun MessageModel.receiveDelete() {
+    private suspend fun ContactMessageModel.receiveDelete() {
         val deleteMessage = DeleteMessage(
             DeleteMessageData(messageId!!),
         ).apply {
@@ -396,21 +379,6 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
         )!!
     }
 
-    private suspend fun GroupMessageModel.receiveEdit() {
-        val editMessage = GroupEditMessage(
-            EditMessageData(
-                messageId = messageId!!,
-                text = "$body Edited",
-            ),
-        ).apply {
-            apiGroupId = groupA.apiGroupId
-            groupCreator = groupA.groupCreator.identity
-            fromIdentity = identity
-            toIdentity = myContact.identity
-        }
-        processMessage(editMessage, contactA.identityStore)
-    }
-
     private suspend fun GroupMessageModel.receiveDelete() {
         val deleteMessage = GroupDeleteMessage(
             DeleteMessageData(messageId!!),
@@ -423,18 +391,18 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
         processMessage(deleteMessage, contactA.identityStore)
     }
 
-    private fun sendContactTextMessage(): MessageModel {
+    private fun sendContactTextMessage(): ContactMessageModel {
         val receiver = contactService.createReceiver(contactA.contactModel)
-        val message = messageService.sendText("Text", receiver) as MessageModel
+        val message = messageService.sendText("Text", receiver) as ContactMessageModel
         return message
     }
 
-    private fun AbstractMessageModel.sendEdit() {
+    private fun MessageModel.sendEdit() {
         val receiver = messageService.getMessageReceiver(this)
         messageService.sendEditedMessageText(this, "$body Edited", Instant.now(), receiver)
     }
 
-    private fun AbstractMessageModel.sendDelete() {
+    private fun MessageModel.sendDelete() {
         val receiver = messageService.getMessageReceiver(this)
         messageService.sendDeleteMessage(this, receiver)
     }
@@ -446,7 +414,27 @@ class EditHistoryTest : MessageProcessorProvider(), KoinComponent {
         return message
     }
 
-    private fun <T : AbstractMessageModel> T.assertHistorySize(size: Int) {
+    private fun createEditEntryForMessageModel(messageModel: MessageModel) {
+        val dbEditHistoryEntry = DbEditHistoryEntry(
+            uid = 42,
+            messageUid = messageModel.uid!!,
+            messageId = messageModel.id,
+            text = messageModel.body + " edited",
+            createdAt = Instant.ofEpochMilli(424242),
+        )
+        val editHistoryType = when (messageModel) {
+            is ContactMessageModel -> EditHistoryType.CONTACT
+            is GroupMessageModel -> EditHistoryType.GROUP
+            is DistributionListMessageModel -> error("Unexpected message model")
+        }
+
+        editHistoryDao.create(
+            dbEditHistoryEntry = dbEditHistoryEntry,
+            editHistoryType = editHistoryType,
+        )
+    }
+
+    private fun <T : MessageModel> T.assertHistorySize(size: Int) {
         assertEquals(
             size,
             editHistoryDao.findAllByMessageUid(uid!!).size,

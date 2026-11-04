@@ -14,14 +14,17 @@ import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import ch.threema.android.DeviceInfo
 import ch.threema.android.buildNotification
+import ch.threema.android.getPendingIntentForActivity
 import ch.threema.app.R
 import ch.threema.app.notifications.NotificationChannels
 import ch.threema.app.notifications.NotificationIDs
+import ch.threema.app.notifications.NotificationRequestCodes
 import ch.threema.app.startup.AppStartupError
 import ch.threema.app.startup.AppStartupMonitorImpl
 import ch.threema.app.startup.RemoteSecretMonitorRetryController
-import ch.threema.app.utils.ConfigUtils
+import ch.threema.app.utils.AppRestarter
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.DispatcherProvider
 import ch.threema.localcrypto.MasterKeyManager
@@ -42,39 +45,14 @@ class RemoteSecretMonitorService : LifecycleService(), KoinComponent {
     private val masterKeyManager: MasterKeyManager by inject()
     private val appStartupMonitor: AppStartupMonitorImpl by inject()
     private val remoteSecretMonitorRetryController: RemoteSecretMonitorRetryController by inject()
+    private val appRestarter: AppRestarter by inject()
 
     private var monitoringJob: Job? = null
-
-    override fun onCreate() {
-        logger.debug("onCreate")
-        super.onCreate()
-        createNotificationChannel()
-    }
-
-    private fun createNotificationChannel() {
-        if (!ConfigUtils.supportsNotificationChannels()) {
-            return
-        }
-
-        val notificationManager = NotificationManagerCompat.from(this)
-        val notificationChannel = NotificationChannel(
-            NotificationChannels.NOTIFICATION_CHANNEL_REMOTE_SECRET,
-            getString(R.string.remote_secret),
-            NotificationManager.IMPORTANCE_LOW,
-        )
-        notificationChannel.description = getString(R.string.remote_secret_notification_channel_description)
-        notificationChannel.enableLights(false)
-        notificationChannel.enableVibration(false)
-        notificationChannel.setShowBadge(false)
-        notificationChannel.lockscreenVisibility = Notification.VISIBILITY_SECRET
-        notificationChannel.setSound(null, null)
-
-        notificationManager.createNotificationChannel(notificationChannel)
-    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         logger.debug("onStartCommand")
         super.onStartCommand(intent, flags, startId)
+        createNotificationChannel()
         ServiceCompat.startForeground(
             this,
             NotificationIDs.REMOTE_SECRET_ACTIVE_NOTIFICATION_ID,
@@ -88,18 +66,34 @@ class RemoteSecretMonitorService : LifecycleService(), KoinComponent {
         return START_STICKY
     }
 
+    private fun createNotificationChannel() {
+        if (!DeviceInfo.supportsNotificationChannels()) {
+            return
+        }
+        val notificationChannel = NotificationChannel(
+            NotificationChannels.NOTIFICATION_CHANNEL_REMOTE_SECRET,
+            getString(R.string.remote_secret),
+            NotificationManager.IMPORTANCE_LOW,
+        )
+            .apply {
+                description = getString(R.string.remote_secret_notification_channel_description)
+                enableLights(false)
+                enableVibration(false)
+                setShowBadge(false)
+                lockscreenVisibility = Notification.VISIBILITY_SECRET
+                setSound(null, null)
+            }
+        NotificationManagerCompat.from(this).createNotificationChannel(notificationChannel)
+    }
+
     private fun createNotification(): Notification =
         buildNotification(this, NotificationChannels.NOTIFICATION_CHANNEL_REMOTE_SECRET) {
             val learnMoreUrl = getString(R.string.remote_secret_learn_more_url).toUri()
-            val contentIntent = PendingIntent.getActivity(
-                /* context = */
-                this@RemoteSecretMonitorService,
-                /* requestCode = */
-                0,
-                /* intent = */
-                Intent(Intent.ACTION_VIEW, learnMoreUrl),
-                /* flags = */
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            val contentIntent = getPendingIntentForActivity(
+                context = this@RemoteSecretMonitorService,
+                requestCode = NotificationRequestCodes.REMOTE_SECRET,
+                intent = Intent(Intent.ACTION_VIEW, learnMoreUrl),
+                flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
             setContentTitle(getString(R.string.remote_secret))
             setContentText(getString(R.string.remote_secret_notification_text))
@@ -177,12 +171,13 @@ class RemoteSecretMonitorService : LifecycleService(), KoinComponent {
         super.onDestroy()
         if (masterKeyManager.isProtectedWithRemoteSecret() == true) {
             masterKeyManager.lockWithRemoteSecret()
-            ConfigUtils.showRestartNotification(this)
+            appRestarter.showRestartNotification()
         }
     }
 
     class Scheduler(
         private val appContext: Context,
+        private val appRestarter: AppRestarter,
     ) {
         fun start() {
             logger.debug("start")
@@ -191,7 +186,7 @@ class RemoteSecretMonitorService : LifecycleService(), KoinComponent {
                 ContextCompat.startForegroundService(appContext, serviceIntent)
             } catch (e: IllegalStateException) {
                 logger.error("Could not start remote secret monitoring service", e)
-                ConfigUtils.showRestartNotification(appContext)
+                appRestarter.showRestartNotification()
             }
         }
 

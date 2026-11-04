@@ -43,8 +43,8 @@ public class TextMessage extends AbstractMessage {
     }
 
     @Override
-    public boolean exemptFromBlocking() {
-        return false;
+    public ExemptFromBlocking exemptFromBlocking() {
+        return ExemptFromBlocking.NO;
     }
 
     @Override

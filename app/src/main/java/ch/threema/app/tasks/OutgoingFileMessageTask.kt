@@ -11,7 +11,7 @@ import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.data.media.FileDataModel
 import kotlinx.serialization.Serializable
 
@@ -91,7 +91,7 @@ class OutgoingFileMessageTask(
 
     private fun FileDataModel.toFileData(
         thumbnailBlobId: ByteArray?,
-        messageModel: AbstractMessageModel,
+        messageModel: MessageModel,
     ): FileData {
         // In case there are recipients or multi device is active, we need a blob id and an
         // encryption key. Otherwise, the message will be invalid and cannot be sent. In case there

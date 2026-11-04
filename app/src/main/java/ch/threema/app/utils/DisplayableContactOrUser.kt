@@ -1,5 +1,6 @@
 package ch.threema.app.utils
 
+import ch.threema.app.BuildFlavor
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.UserService
 import ch.threema.data.repositories.ContactModelRepository
@@ -39,7 +40,7 @@ sealed interface DisplayableContactOrUser {
                         nicknameHasPrefix = true,
                     ),
                     identityState = contactModelData.activityState,
-                    showBadge = if (ConfigUtils.isWorkBuild()) {
+                    showBadge = if (BuildFlavor.IS_WORK) {
                         contactModelData.identityType == IdentityType.REGULAR && !ContactUtil.isEchoEchoOrGatewayContact(identity)
                     } else {
                         contactModelData.identityType == IdentityType.WORK

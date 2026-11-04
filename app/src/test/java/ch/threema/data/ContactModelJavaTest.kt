@@ -3,6 +3,7 @@ package ch.threema.data
 import ch.threema.data.datatypes.AndroidContactLookupInfo
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.datatypes.ContactNameFormat
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.IdColor
 import ch.threema.data.models.ContactModelData.Companion.javaCreate
@@ -60,6 +61,7 @@ class ContactModelJavaTest {
                 readReceiptPolicy = ReadReceiptPolicy.DONT_SEND,
                 typingIndicatorPolicy = TypingIndicatorPolicy.SEND,
                 conversationVisibility = ConversationVisibility.NORMAL,
+                conversationCategory = ConversationCategory.DEFAULT,
                 androidContactLookupInfo = AndroidContactLookupInfo(lookupKey = "asdf", contactId = null),
                 localAvatarExpires = null,
                 isRestored = false,

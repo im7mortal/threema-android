@@ -14,3 +14,17 @@ fun <T, V : Any> Iterable<T>.associateWithNotNull(valueSelector: (T) -> V?): Map
         this[item] = value
     }
 }
+
+fun <T> Iterable<T>.repeatingLast(): Sequence<T> = sequence {
+    val iterator = this@repeatingLast.iterator()
+    if (!iterator.hasNext()) return@sequence
+    var last = iterator.next()
+    yield(last)
+    while (iterator.hasNext()) {
+        last = iterator.next()
+        yield(last)
+    }
+    while (true) {
+        yield(last)
+    }
+}

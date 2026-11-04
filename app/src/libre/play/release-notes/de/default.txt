@@ -1,3 +1,2 @@
-- Behebung eines Fehlers beim automatischen Herunterladen von Medien
-- Verbesserungen bei der Kontaktsynchronisation
+- Neu: Spam-Gruppenchats melden und Admin blockieren
 - Verbesserungen und Behebung verschiedener Fehler

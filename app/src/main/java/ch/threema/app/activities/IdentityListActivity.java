@@ -34,7 +34,7 @@ import ch.threema.app.ui.EmptyView;
 import ch.threema.app.ui.InsetSides;
 import ch.threema.app.ui.SpacingValues;
 import ch.threema.app.ui.ViewExtensionsKt;
-import ch.threema.domain.protocol.csp.ProtocolDefines;
+import ch.threema.domain.types.Identity;
 
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 
@@ -304,7 +304,7 @@ abstract public class IdentityListActivity extends ThreemaToolbarActivity implem
 
     @Override
     public void onYes(@NonNull String tag, final @NonNull String text) {
-        if (text.length() == ProtocolDefines.IDENTITY_LEN) {
+        if (Identity.isValidIdentity(text)) {
             excludeIdentity(text);
         }
     }

@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * add group call start processed at timestamp
+ */
 internal class DatabaseUpdateToVersion83(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -29,8 +32,6 @@ internal class DatabaseUpdateToVersion83(
 
         sqLiteDatabase.execSQL("DROP TABLE `$tmpTableName`")
     }
-
-    override fun getDescription() = "add group call start processed at timestamp"
 
     override val version = 83
 }

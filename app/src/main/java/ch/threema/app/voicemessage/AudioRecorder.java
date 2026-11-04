@@ -1,5 +1,6 @@
 package ch.threema.app.voicemessage;
 
+import android.content.Context;
 import android.media.MediaRecorder;
 import android.media.MicrophoneDirection;
 import android.os.Build;
@@ -12,26 +13,39 @@ import java.io.IOException;
 import androidx.annotation.NonNull;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
-import ch.threema.app.utils.ConfigUtils;
+import ch.threema.android.DeviceInfo;
 
 public class AudioRecorder implements MediaRecorder.OnErrorListener, MediaRecorder.OnInfoListener {
     private static final Logger logger = getThreemaLogger("AudioRecorder");
 
     private OnStopListener onStopListener;
 
-    private static final int defaultSamplingRate = ConfigUtils.hasBrokenAudioRecorder() ? 44000 : 44100;
+    /**
+     * Note: The Xiaomi Mi 9T creates distorted audio recordings with a 44.1kHz sampling rate
+     */
+    private static final int defaultSamplingRate = DeviceInfo.isXiaomiDevice() && Build.MODEL.equals("Mi 9T") ? 44000 : 44100;
 
     @NonNull
-    public MediaRecorder prepare(@NonNull File outputFile) throws IOException {
+    public MediaRecorder prepare(@NonNull Context context, @NonNull File outputFile) throws IOException {
         logger.info("Preparing MediaRecorder");
-        MediaRecorder mediaRecorder = new MediaRecorder();
+        MediaRecorder mediaRecorder;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            mediaRecorder = new MediaRecorder(context.getApplicationContext());
+        } else {
+            //noinspection deprecation
+            mediaRecorder = new MediaRecorder();
+        }
 
         mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             mediaRecorder.setPrivacySensitive(true);
         }
         mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-        mediaRecorder.setOutputFile(outputFile.getPath());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            mediaRecorder.setOutputFile(outputFile);
+        } else {
+            mediaRecorder.setOutputFile(outputFile.getPath());
+        }
         mediaRecorder.setAudioChannels(1);
         mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
         mediaRecorder.setAudioEncodingBitRate(32000);

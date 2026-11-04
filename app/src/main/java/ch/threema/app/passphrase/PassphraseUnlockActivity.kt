@@ -16,27 +16,29 @@ import androidx.lifecycle.lifecycleScope
 import ch.threema.android.bindExtra
 import ch.threema.android.buildActivityIntent
 import ch.threema.android.buildIntent
+import ch.threema.android.dismissDialog
+import ch.threema.android.getColorFromAttribute
 import ch.threema.android.textwatchers.SimpleTextWatcher
-import ch.threema.app.AppConstants
-import ch.threema.app.GlobalAppState
 import ch.threema.app.R
 import ch.threema.app.activities.ThreemaActivity
 import ch.threema.app.di.awaitAppFullyReady
 import ch.threema.app.dialogs.GenericProgressDialog
 import ch.threema.app.services.LifetimeService
+import ch.threema.app.services.withConnection
 import ch.threema.app.ui.InsetSides
 import ch.threema.app.ui.SpacingValues
 import ch.threema.app.ui.ThreemaTextInputEditText
 import ch.threema.app.ui.applyDeviceInsetsAsPadding
-import ch.threema.app.utils.DialogUtil
 import ch.threema.app.utils.EditTextUtil
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.DispatcherProvider
 import ch.threema.common.consume
+import ch.threema.common.waitAtMost
 import ch.threema.localcrypto.MasterKeyManager
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputLayout
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
@@ -52,7 +54,6 @@ class PassphraseUnlockActivity : ThreemaActivity() {
     private val masterKeyManager: MasterKeyManager by inject()
     private val dispatcherProvider: DispatcherProvider by inject()
     private val lifetimeService: LifetimeService by inject()
-    private val globalAppState: GlobalAppState by inject()
 
     private lateinit var passphraseText: ThreemaTextInputEditText
     private lateinit var passphraseLayout: TextInputLayout
@@ -69,9 +70,8 @@ class PassphraseUnlockActivity : ThreemaActivity() {
         findViewById<View>(R.id.top_view).applyDeviceInsetsAsPadding(InsetSides.all(), SpacingValues.horizontal(R.dimen.grid_unit_x2))
 
         findViewById<TextView>(R.id.unlock_info).let { infoText ->
-            val array = theme.obtainStyledAttributes(intArrayOf(R.attr.colorOnSurface))
-            infoText.compoundDrawables[0].setColorFilter(array.getColor(0, -1), PorterDuff.Mode.SRC_IN)
-            array.recycle()
+            val color = getColorFromAttribute(R.attr.colorOnSurface)
+            infoText.compoundDrawables[0].setColorFilter(color, PorterDuff.Mode.SRC_IN)
         }
 
         passphraseLayout = findViewById(R.id.passphrase_layout)
@@ -188,17 +188,16 @@ class PassphraseUnlockActivity : ThreemaActivity() {
     }
 
     private fun hideUnlockingDialog() {
-        DialogUtil.dismissDialog(supportFragmentManager, DIALOG_TAG_UNLOCKING, true)
+        supportFragmentManager.dismissDialog(DIALOG_TAG_UNLOCKING)
     }
 
-    private fun triggerConnection() {
-        lifecycleScope.launch(dispatcherProvider.worker) {
-            awaitAppFullyReady()
-            if (globalAppState.isAppResumed) {
-                lifetimeService.acquireConnection(AppConstants.ACTIVITY_CONNECTION_TAG)
-            } else {
-                lifetimeService.ensureConnection()
-            }
+    private suspend fun triggerConnection() {
+        awaitAppFullyReady()
+        waitAtMost(timeout = 3.seconds) {
+            // in most cases, the app will be in the foreground after unlocking the passphrase, so a connection will be acquired anyway.
+            // to be on the safe side, however, we briefly acquire a connection here anyway, to also handle the case where the app goes to
+            // the background immediately after unlocking
+            lifetimeService.withConnection(sourceTag = "passphraseUnlock", linger = 30.seconds)
         }
     }
 

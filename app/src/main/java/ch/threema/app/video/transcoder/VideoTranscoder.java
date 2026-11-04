@@ -26,12 +26,13 @@ import java.lang.annotation.RetentionPolicy;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicReference;
 
-import ch.threema.app.utils.RuntimeUtil;
 import ch.threema.app.video.transcoder.audio.AbstractAudioTranscoder;
 import ch.threema.app.video.transcoder.audio.AudioComponent;
 import ch.threema.app.video.transcoder.audio.AudioFormatTranscoder;
 import ch.threema.app.video.transcoder.audio.AudioNullTranscoder;
 import ch.threema.app.video.transcoder.audio.UnsupportedAudioFormatException;
+
+import static ch.threema.android.UriExtensionsKt.isFileUri;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import java.util.Optional;
 
@@ -175,17 +176,7 @@ public class VideoTranscoder {
         }
 
         new Thread(() -> {
-            final @TranscoderResult int result = startSync(listener);
-
-            RuntimeUtil.runOnUiThread(() -> {
-                if (result == SUCCESS) {
-                    listener.onSuccess(mStats);
-                } else if (result == CANCELED) {
-                    listener.onCanceled();
-                } else {
-                    listener.onFailure();
-                }
-            });
+            startSync(listener);
         }).start();
     }
 
@@ -227,17 +218,8 @@ public class VideoTranscoder {
 
         try {
             cleanup();
-            cleanupSuccess = true;
         } catch (Exception e) {
             logger.error("Failed while cleaning up transcoder");
-        }
-
-        if (setupSuccess && transcoderResult == SUCCESS && cleanupSuccess) {
-            this.listener.onSuccess(mStats);
-        } else if (transcoderResult == CANCELED) {
-            this.listener.onCanceled();
-        } else {
-            this.listener.onFailure();
         }
         return transcoderResult;
     }
@@ -439,7 +421,7 @@ public class VideoTranscoder {
     }
 
     private void logResults() {
-        if (mSrcUri.getScheme().equals(ContentResolver.SCHEME_FILE)) {
+        if (isFileUri(mSrcUri)) {
             mStats.inputFileSize = Math.round(new File(mSrcUri.getPath()).length() / 1024. / 1000 * 10) / 10.;
         } else {
             Cursor returnCursor =
@@ -941,13 +923,8 @@ public class VideoTranscoder {
     //endregion
 
     public interface Listener {
-        void onSuccess(Stats stats);
 
         void onProgress(int progress);
-
-        void onCanceled();
-
-        void onFailure();
 
         void onStart();
     }

@@ -9,7 +9,6 @@ import ch.threema.app.adapters.UserListAdapter
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.BlockedIdentitiesService
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.utils.ContactUtil
 import ch.threema.common.DispatcherProvider
 import ch.threema.domain.models.IdentityState
@@ -24,7 +23,6 @@ import org.koin.android.ext.android.inject
 class WorkUserMemberListFragment : MemberListFragment() {
     private val contactService: ContactService by inject()
     private val blockedIdentitiesService: BlockedIdentitiesService by inject()
-    private val conversationCategoryService: ConversationCategoryService by inject()
     private val preferenceService: PreferenceService by inject()
     private val dispatcherProvider: DispatcherProvider by inject()
 
@@ -77,7 +75,6 @@ class WorkUserMemberListFragment : MemberListFragment() {
                 checkedItemPositions,
                 contactService,
                 blockedIdentitiesService,
-                conversationCategoryService,
                 preferenceService,
                 this@WorkUserMemberListFragment,
                 Glide.with(ThreemaApplication.getAppContext()),

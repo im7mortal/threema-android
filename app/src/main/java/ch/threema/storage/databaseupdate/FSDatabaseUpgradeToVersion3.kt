@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * add yet another version column
+ */
 internal class FSDatabaseUpgradeToVersion3(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -11,8 +14,6 @@ internal class FSDatabaseUpgradeToVersion3(
             sqLiteDatabase.rawExecSQL("ALTER TABLE session ADD COLUMN peerCurrentVersion_4dh INTEGER DEFAULT 256")
         }
     }
-
-    override fun getDescription() = "add yet another version column"
 
     override val version = VERSION
 

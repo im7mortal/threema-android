@@ -6,6 +6,7 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLSocketFactory
 import javax.net.ssl.TrustManagerFactory
 import javax.net.ssl.X509TrustManager
+import org.koin.mp.KoinPlatform
 
 object SSLUtil {
     private val defaultSSLSocketFactory: SSLSocketFactory
@@ -27,11 +28,9 @@ object SSLUtil {
      */
     @JvmStatic
     fun getSSLSocketFactory(host: String): SSLSocketFactory {
-        val sslSocketFactory = if (ConfigUtils.isOnPremBuild()) {
-            OnPremCertPinning.createSslSocketFactory(host)
-        } else {
-            defaultSSLSocketFactory
-        }
+        val sslSocketFactory = KoinPlatform.getKoin().getOrNull<OnPremCertPinning>()
+            ?.createSslSocketFactory(host)
+            ?: defaultSSLSocketFactory
         return TLSUpgradeSocketFactoryWrapper(sslSocketFactory)
     }
 }

@@ -50,20 +50,12 @@
         android:title="@string/prefs_auto_download_title">
 
         <MultiSelectListPreference
-            android:defaultValue="@array/list_auto_download_wifi_default"
-            android:entries="@array/list_auto_download"
-            android:entryValues="@array/list_auto_download_values"
             android:key="@string/preferences__auto_download_wifi"
-            android:persistent="true"
             android:icon="@drawable/ic_network_wifi_outline"
             android:title="@string/prefs_auto_download_wifi" />
 
         <MultiSelectListPreference
-            android:defaultValue="@array/list_auto_download_mobile_default"
-            android:entries="@array/list_auto_download"
-            android:entryValues="@array/list_auto_download_values"
             android:key="@string/preferences__auto_download_mobile"
-            android:persistent="true"
             android:icon="@drawable/ic_network_cell_outline"
             android:title="@string/prefs_auto_download_mobile" />
 

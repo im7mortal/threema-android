@@ -8,6 +8,9 @@ import ch.threema.storage.runUpdate
 import java.util.UUID
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * turn 'orphaned' groups into 'kicked' groups
+ */
 class DatabaseUpdateToVersion112(
     private val sqLiteDatabase: SQLiteDatabase,
     private val context: Context,
@@ -75,6 +78,4 @@ class DatabaseUpdateToVersion112(
     }
 
     override val version = 112
-
-    override fun getDescription() = "turn 'orphaned' groups into 'kicked' groups"
 }

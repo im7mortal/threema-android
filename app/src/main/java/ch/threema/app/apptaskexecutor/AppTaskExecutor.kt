@@ -60,6 +60,8 @@ class AppTaskExecutor(
 
     /**
      * Persist and schedule the given [appTask]. Suspends until the task can be persisted in case there is no access to the task persistor.
+     *
+     * @return a [Deferred] that completes once the task has finished running. It completes exceptionally if the task fails exceptionally.
      */
     suspend fun persistAndScheduleTask(appTask: PersistableAppTask): Deferred<Unit> {
         appTaskPersistenceProvider.getAppTaskPersistence().persistTask(appTask)
@@ -68,6 +70,8 @@ class AppTaskExecutor(
 
     /**
      * Schedule the given [appTask]. Note that the task will *not* be persisted, even if it is a persistable task.
+     *
+     * @return a [Deferred] that completes once the task has finished running. It completes exceptionally if the task fails exceptionally.
      */
     fun scheduleTask(appTask: AppTask): Deferred<Unit> {
         if (appTask is PersistableAppTask) {
@@ -142,12 +146,13 @@ class AppTaskExecutor(
                         completableDeferred.complete(Unit)
                     } catch (exception: Exception) {
                         logger.error("Task {} couldn't be run successfully", appTask, exception)
-                        // Note that a task that has been cancelled should not be removed from storage
+                        // Note that a task that has been canceled should not be removed from storage
                         taskWasCancelled = exception is CancellationException
                         completableDeferred.completeExceptionally(exception)
                     } finally {
                         if (appTask is PersistableAppTask && !taskWasCancelled) {
                             appTaskPersistenceProvider.getAppTaskPersistence().removePersistedTask(appTask)
+                            logger.info("Removed persisted app task {}", appTask)
                         }
                         logger.info("Task {} complete", appTask)
                     }

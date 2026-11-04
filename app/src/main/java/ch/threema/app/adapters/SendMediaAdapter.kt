@@ -33,9 +33,13 @@ class SendMediaAdapter(
     override fun getItemCount() = mm.size()
 
     override fun createFragment(position: Int): Fragment {
-        return BigMediaFragment.newInstance(mm.get(position), bottomElemHeight).also {
+        return BigMediaFragment.newInstance(
+            mm,
+            mm.get(position),
+            bottomElemHeight,
+            viewPager,
+        ).also {
             fragments[position] = it
-            it.setViewPager(viewPager)
         }
     }
 

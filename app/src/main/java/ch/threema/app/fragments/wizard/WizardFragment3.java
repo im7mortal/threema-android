@@ -40,10 +40,10 @@ import java.util.Set;
 
 import androidx.annotation.NonNull;
 import ch.threema.android.LifecycleAwareAsyncTask;
+import ch.threema.app.BuildFlavor;
 import ch.threema.app.R;
 import ch.threema.app.activities.wizard.WizardBaseActivity;
 import ch.threema.android.textwatchers.SimpleTextWatcher;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.EditTextUtil;
 import ch.threema.app.utils.RuntimeUtil;
 
@@ -101,7 +101,7 @@ public class WizardFragment3 extends WizardFragment {
         final TextInputLayout emailEditTextLayout = rootView.findViewById(R.id.wizard_email_layout);
         emailEditText = rootView.findViewById(R.id.wizard_email);
 
-        if (!ConfigUtils.isWorkBuild()) {
+        if (!BuildFlavor.IS_WORK) {
             emailEditTextLayout.setVisibility(View.GONE);
             ((TextView) rootView.findViewById(R.id.scooter)).setText(getString(R.string.new_wizard_link_mobile_only));
         }
@@ -171,7 +171,7 @@ public class WizardFragment3 extends WizardFragment {
                 }
             });
 
-            if (!ConfigUtils.isWorkBuild()) {
+            if (!BuildFlavor.IS_WORK) {
                 this.phoneEditText.setImeOptions(EditorInfo.IME_ACTION_GO);
                 this.phoneEditText.setOnKeyListener((v, keyCode, event) -> {
                     if (event.getAction() == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_ENTER) {
@@ -265,7 +265,7 @@ public class WizardFragment3 extends WizardFragment {
 
     @Override
     protected int getAdditionalInfoText() {
-        return ConfigUtils.isWorkBuild() ? R.string.new_wizard_info_link : R.string.new_wizard_info_link_phone_only;
+        return BuildFlavor.IS_WORK ? R.string.new_wizard_info_link : R.string.new_wizard_info_link_phone_only;
     }
 
     private void showEditTextError(@NonNull EditText editText, boolean show) {

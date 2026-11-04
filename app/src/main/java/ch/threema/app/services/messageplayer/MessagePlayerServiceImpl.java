@@ -12,14 +12,12 @@ import com.google.common.util.concurrent.ListenableFuture;
 import org.slf4j.Logger;
 
 import java.lang.ref.WeakReference;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import ch.threema.app.eventbus.GlobalEventBuses;
 import ch.threema.app.messagereceiver.MessageReceiver;
-import ch.threema.app.services.ConversationCategoryService;
-import ch.threema.app.services.FileService;
 import ch.threema.app.services.MessageService;
 import ch.threema.app.services.NotificationPreferenceService;
 import ch.threema.app.preference.service.PreferenceService;
@@ -28,49 +26,48 @@ import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.base.SessionScoped;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.MessageType;
 
 @SessionScoped
 public class MessagePlayerServiceImpl implements MessagePlayerService {
     private static final Logger logger = getThreemaLogger("MessagePlayerServiceImpl");
 
-    private final Map<Integer, MessagePlayer> messagePlayers = new HashMap<>();
+    private final Map<Integer, MessagePlayer> messagePlayers = new ConcurrentHashMap<>();
     private final Context context;
+    @NonNull
     private final MessageService messageService;
-    private final FileService fileService;
+    @NonNull
     private final PreferenceService preferenceService;
     @NonNull
     private final NotificationPreferenceService notificationPreferenceService;
     @NonNull
-    private final ConversationCategoryService conversationCategoryService;
-    @NonNull
     private final GlobalEventBuses globalEventBuses;
+    @NonNull
+    private final MessageFileDecryptionHelper messageFileDecryptionHelper;
 
     public MessagePlayerServiceImpl(
         @NonNull Context context,
         @NonNull MessageService messageService,
-        @NonNull FileService fileService,
         @NonNull PreferenceService preferenceService,
         @NonNull NotificationPreferenceService notificationPreferenceService,
-        @NonNull ConversationCategoryService conversationCategoryService,
-        @NonNull GlobalEventBuses globalEventBuses
+        @NonNull GlobalEventBuses globalEventBuses,
+        @NonNull MessageFileDecryptionHelper messageFileDecryptionHelper
     ) {
         this.context = context;
         this.messageService = messageService;
-        this.fileService = fileService;
         this.preferenceService = preferenceService;
         this.notificationPreferenceService = notificationPreferenceService;
-        this.conversationCategoryService = conversationCategoryService;
         this.globalEventBuses = globalEventBuses;
+        this.messageFileDecryptionHelper = messageFileDecryptionHelper;
     }
 
     @Override
     public MessagePlayer createPlayer(
-        AbstractMessageModel messageModel,
-        @Nullable WeakReference<Activity> activityWeakReference,
-        MessageReceiver<?> messageReceiver,
-        @Nullable ListenableFuture<MediaController> mediaControllerFuture
+            MessageModel messageModel,
+            @Nullable WeakReference<Activity> activityWeakReference,
+            MessageReceiver<?> messageReceiver,
+            @Nullable ListenableFuture<MediaController> mediaControllerFuture
     ) {
         int key = messageModel.getId();
         MessagePlayer o;
@@ -85,10 +82,9 @@ public class MessagePlayerServiceImpl implements MessagePlayerService {
                         o = new AudioMessagePlayer(
                             this.context,
                             this.messageService,
-                            this.fileService,
+                            this.messageFileDecryptionHelper,
                             this.preferenceService,
                             this.notificationPreferenceService,
-                            this.conversationCategoryService,
                             this.globalEventBuses,
                             messageReceiver,
                             mediaControllerFuture,
@@ -100,7 +96,7 @@ public class MessagePlayerServiceImpl implements MessagePlayerService {
                         o = new AnimatedImageDrawableMessagePlayer(
                             this.context,
                             this.messageService,
-                            this.fileService,
+                            this.messageFileDecryptionHelper,
                             this.preferenceService,
                             messageReceiver,
                             messageModel
@@ -109,7 +105,7 @@ public class MessagePlayerServiceImpl implements MessagePlayerService {
                         o = new FileMessagePlayer(
                             this.context,
                             this.messageService,
-                            this.fileService,
+                            this.messageFileDecryptionHelper,
                             messageReceiver,
                             messageModel
                         );
@@ -142,7 +138,7 @@ public class MessagePlayerServiceImpl implements MessagePlayerService {
         if (o != null) {
             o.addListener("service", new MessagePlayer.PlaybackListener() {
                 @Override
-                public void onPlay(AbstractMessageModel messageModel, boolean autoPlay) {
+                public void onPlay(MessageModel messageModel, boolean autoPlay) {
                     //call stop other players first!
                     logger.debug("onPlay autoPlay = {}", autoPlay);
 
@@ -150,25 +146,12 @@ public class MessagePlayerServiceImpl implements MessagePlayerService {
                         stopOtherPlayers(messageModel);
                     }
                 }
-
-                @Override
-                public void onPause(AbstractMessageModel messageModel) {
-                }
-
-                @Override
-                public void onStatusUpdate(AbstractMessageModel messageModel, int position) {
-                }
-
-                @Override
-                public void onStop(AbstractMessageModel messageModel) {
-                    logger.debug("onStop");
-                }
             });
         }
         return o;
     }
 
-    private void stopOtherPlayers(AbstractMessageModel messageModel) {
+    private void stopOtherPlayers(MessageModel messageModel) {
         logger.debug("stopOtherPlayers");
         synchronized (this.messagePlayers) {
             for (Map.Entry<Integer, MessagePlayer> entry : messagePlayers.entrySet()) {
@@ -232,7 +215,6 @@ public class MessagePlayerServiceImpl implements MessagePlayerService {
                 // re-attach message players to current activity
                 if (entry.getValue().isReceiverMatch(messageReceiver)) {
                     entry.getValue().setCurrentActivity(activity, messageReceiver);
-                    entry.getValue().resume(source);
                 } else {
                     entry.getValue().release();
                 }
@@ -241,7 +223,7 @@ public class MessagePlayerServiceImpl implements MessagePlayerService {
     }
 
     @Override
-    public void setTranscodeProgress(@NonNull AbstractMessageModel messageModel, int progress) {
+    public void setTranscodeProgress(@NonNull MessageModel messageModel, int progress) {
         synchronized (this.messagePlayers) {
             for (Map.Entry<Integer, MessagePlayer> entry : messagePlayers.entrySet()) {
                 if (entry.getKey().equals(messageModel.getId())) {
@@ -253,23 +235,11 @@ public class MessagePlayerServiceImpl implements MessagePlayerService {
     }
 
     @Override
-    public void setTranscodeStart(@NonNull AbstractMessageModel messageModel) {
+    public void setTranscodeStart(@NonNull MessageModel messageModel) {
         synchronized (this.messagePlayers) {
             for (Map.Entry<Integer, MessagePlayer> entry : messagePlayers.entrySet()) {
                 if (entry.getKey().equals(messageModel.getId())) {
                     entry.getValue().setTranscodeStart();
-                    return;
-                }
-            }
-        }
-    }
-
-    @Override
-    public void setTranscodeFinished(@NonNull AbstractMessageModel messageModel, boolean success, @Nullable String message) {
-        synchronized (this.messagePlayers) {
-            for (Map.Entry<Integer, MessagePlayer> entry : messagePlayers.entrySet()) {
-                if (entry.getKey().equals(messageModel.getId())) {
-                    entry.getValue().setTranscodeFinished(success, message);
                     return;
                 }
             }

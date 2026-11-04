@@ -22,7 +22,7 @@ class ExcludedSyncIdentitiesActivity : IdentityListActivity() {
 
         object : IdentityList {
             override fun getAll(): Set<IdentityString> {
-                return excludedSyncIdentitiesService.getExcludedIdentities()
+                return excludedSyncIdentitiesService.getAllExcludedIdentities()
             }
 
             override fun addIdentity(identity: IdentityString) {

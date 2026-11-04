@@ -7,8 +7,8 @@ import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.datatypes.ConversationId
 import ch.threema.domain.types.Identity
 import ch.threema.storage.DatabaseService
-import ch.threema.storage.factories.MessageModelFactory
-import ch.threema.storage.models.MessageModel
+import ch.threema.storage.factories.ContactMessageModelFactory
+import ch.threema.storage.models.ContactMessageModel
 import ch.threema.testhelpers.testDispatcherProvider
 import io.mockk.called
 import io.mockk.every
@@ -54,11 +54,11 @@ class MarkConversationAsReadUseCaseTest {
     fun `marks everything as read and cancels notification`() = runTest {
         // arrange
         val conversationId = ContactConversationId(identity = Identities.OTHER_1.value)
-        val messageModelFactoryMock = mockk<MessageModelFactory> {
-            every { getUnreadMessages(conversationId.identity) } returns emptyList<MessageModel>()
+        val contactMessageModelFactoryMock = mockk<ContactMessageModelFactory> {
+            every { getUnreadMessages(conversationId.identity) } returns emptyList<ContactMessageModel>()
         }
         val databaseServiceMock = mockk<DatabaseService>(relaxed = true) {
-            every { messageModelFactory } returns messageModelFactoryMock
+            every { contactMessageModelFactory } returns contactMessageModelFactoryMock
         }
         val conversationModel = TestData.createContactConversationModel(
             identity = Identity(conversationId.identity),
@@ -86,7 +86,7 @@ class MarkConversationAsReadUseCaseTest {
             conversationServiceMock.markConversationAsRead(conversationModel.messageReceiver)
         }
         verify(exactly = 1) {
-            notificationServiceMock.cancel(conversationId)
+            notificationServiceMock.cancelAllConversationNotifications(conversationId)
         }
     }
 }

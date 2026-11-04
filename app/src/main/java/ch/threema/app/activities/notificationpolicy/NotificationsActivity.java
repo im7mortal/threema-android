@@ -34,8 +34,12 @@ import java.time.Instant;
 import androidx.work.OneTimeWorkRequest;
 import androidx.work.OutOfQuotaPolicy;
 import androidx.work.WorkManager;
+
+import ch.threema.android.DeviceInfo;
 import ch.threema.app.AppConstants;
+import ch.threema.app.BuildFlavor;
 import ch.threema.app.R;
+import ch.threema.app.activities.BackPressHandler;
 import ch.threema.app.activities.ThreemaActivity;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.dialogs.RingtoneSelectorDialog;
@@ -47,7 +51,6 @@ import ch.threema.app.services.ServicesConstants;
 import ch.threema.app.ui.InsetSides;
 import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.utils.AnimationUtil;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.RingtoneUtil;
 import ch.threema.app.workers.ShareTargetUpdateWorker;
 import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverride;
@@ -56,12 +59,14 @@ import ch.threema.data.datatypes.ConversationId;
 import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverride;
 import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverridePolicy;
 
+import static ch.threema.android.ToastKt.showToast;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
-public abstract class NotificationsActivity extends ThreemaActivity implements ShowOnceDialog.ShowOnceDialogClickListener, RingtoneSelectorDialog.RingtoneSelectorDialogClickListener {
+public abstract class NotificationsActivity extends ThreemaActivity implements RingtoneSelectorDialog.RingtoneSelectorDialogClickListener,
+    BackPressHandler {
 
     private static final Logger logger = getThreemaLogger("NotificationsActivity");
 
@@ -125,6 +130,7 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // TODO(ANDR-4389): Improve
         if (!isSessionScopeReady()) {
             finish();
             return;
@@ -142,17 +148,31 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
             InsetSides.all()
         );
 
+        getSupportFragmentManager().setFragmentResultListener(
+            DIALOG_TAG_INDIVIDUAL_CONFIRM,
+            this,
+            (requestKey, result) -> {
+                if (result.getBoolean(ShowOnceDialog.RESULT_CONFIRMED)) {
+                    individualSettingsText.setEnabled(true);
+                    showIndividualSettings(chatName);
+                } else {
+                    notificationSettingsSwitch.setChecked(false);
+                    individualSettingsText.setEnabled(false);
+                }
+            }
+        );
+
         setClickListeners();
         ViewGroup topLayout = (ViewGroup) parentLayout.getParent();
         plusButton = findViewById(R.id.duration_plus);
         minusButton = findViewById(R.id.duration_minus);
         Button doneButton = findViewById(R.id.done_button);
 
-        if (ConfigUtils.isWorkBuild()) {
+        if (BuildFlavor.IS_WORK) {
             findViewById(R.id.work_life_warning).setVisibility(dependencies.getPreferenceService().isAfterWorkDNDEnabled() ? View.VISIBLE : View.GONE);
         }
 
-        if (ConfigUtils.supportsNotificationChannels()) {
+        if (DeviceInfo.supportsNotificationChannels()) {
             findViewById(R.id.individual_settings_container).setVisibility(View.VISIBLE);
             findViewById(R.id.notification_sound_container).setVisibility(View.GONE);
             notificationSettingsSwitch = findViewById(R.id.individual_settings_switch);
@@ -201,15 +221,15 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
     }
 
     private void showIndividualSettings(String chatName) {
-        if (!ConfigUtils.supportsNotificationChannels()) {
+        if (!DeviceInfo.supportsNotificationChannels()) {
             return;
         }
-        final boolean isGroupChat = this instanceof GroupNotificationsActivity;
-        final @NonNull Intent intent = NotificationChannels.getPerConversationChannelSettingsIntent(this, chatName, conversationId, isGroupChat);
+        final @NonNull Intent intent = NotificationChannels.getPerConversationChannelSettingsIntent(this, chatName, conversationId);
         try {
             channelSettingsLauncher.launch(intent);
         } catch (ActivityNotFoundException e) {
-            logger.debug("No settings activity found");
+            logger.error("No settings activity found", e);
+            showToast(this, R.string.no_activity_for_intent);
         }
     }
 
@@ -328,7 +348,7 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
             radioSoundDefault.setChecked(true);
         }
 
-        if (ConfigUtils.supportsNotificationChannels()) {
+        if (DeviceInfo.supportsNotificationChannels()) {
             final @NonNull String channelId = conversationId.getObfuscated().value;
             NotificationManagerCompat notificationManagerCompat = NotificationManagerCompat.from(this);
             NotificationChannelCompat notificationChannelCompat = notificationManagerCompat.getNotificationChannelCompat(channelId);
@@ -340,7 +360,8 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
                 if (isChecked) {
                     individualSettingsText.setEnabled(true);
                     if (dependencies.getPreferenceService().isOneTimeDialogShown(DIALOG_TAG_INDIVIDUAL_CONFIRM)) {
-                        onYes(DIALOG_TAG_INDIVIDUAL_CONFIRM);
+                        individualSettingsText.setEnabled(true);
+                        showIndividualSettings(chatName);
                     } else {
                         ShowOnceDialog showOnceDialog = ShowOnceDialog.newInstance(
                             R.string.individual_notification_settings,
@@ -515,14 +536,8 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
         AnimationUtil.circularObscure(parentLayout, animCenterLocation[0], animCenterLocation[1], false, this::finish);
     }
 
-
     @Override
-    protected boolean enableOnBackPressedCallback() {
-        return true;
-    }
-
-    @Override
-    protected void handleOnBackPressed() {
+    public void handleOnBackPressed() {
         onDone();
     }
 
@@ -544,22 +559,6 @@ public abstract class NotificationsActivity extends ThreemaActivity implements S
         // used to avoid flickering of status and navigation bar when activity is closed
         super.finish();
         overridePendingTransition(R.anim.fast_fade_in, R.anim.fast_fade_out);
-    }
-
-    @Override
-    public void onYes(String tag) {
-        if (DIALOG_TAG_INDIVIDUAL_CONFIRM.equals(tag)) {
-            individualSettingsText.setEnabled(true);
-            showIndividualSettings(chatName);
-        }
-    }
-
-    @Override
-    public void onCancel(String tag) {
-        if (DIALOG_TAG_INDIVIDUAL_CONFIRM.equals(tag)) {
-            notificationSettingsSwitch.setChecked(false);
-            individualSettingsText.setEnabled(false);
-        }
     }
 
     protected abstract void onContactNotificationTriggerPolicyOverrideChanged(

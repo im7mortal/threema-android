@@ -78,7 +78,7 @@ public class ActiveConversationHandler extends MessageReceiver {
         if (messageReceiver != null) {
             final ConversationModel conversationModel = this.conversationService.refresh(messageReceiver);
             if (conversationModel != null) {
-                var updated = conversationTagService.removeTag(conversationModel.getId(), ConversationTag.MARKED_AS_UNREAD, TriggerSource.LOCAL);
+                var updated = conversationTagService.removeTag(conversationModel.getId(), ConversationTag.MARKED_AS_UNREAD);
                 if (updated) {
                     GlobalEventBuses globalEventBuses = KoinJavaComponent.get(GlobalEventBuses.class);
                     globalEventBuses.getConversations().emit(new ConversationEvent.ConversationUpdated(conversationModel));

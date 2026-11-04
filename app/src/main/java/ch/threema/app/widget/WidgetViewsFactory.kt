@@ -11,7 +11,6 @@ import ch.threema.app.R
 import ch.threema.app.di.injectNullableNonBinding
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.ConversationService
 import ch.threema.app.services.DistributionListService
 import ch.threema.app.services.GroupService
@@ -22,6 +21,7 @@ import ch.threema.app.utils.LocaleUtil
 import ch.threema.app.utils.MessageUtil
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.datatypes.ContactNameFormat
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.localcrypto.MasterKeyManager
 import ch.threema.storage.models.ConversationModel
 import java.time.Instant
@@ -33,12 +33,11 @@ private val logger = getThreemaLogger("WidgetViewsFactory")
 class WidgetViewsFactory(private val context: Context) : RemoteViewsFactory, KoinComponent {
 
     private val conversationService: ConversationService? by injectNullableNonBinding()
-    private val preferenceService: PreferenceService? by injectNullableNonBinding()
+    private val preferenceService: PreferenceService by inject()
     private val lockAppService: LockAppService? by injectNullableNonBinding()
     private val contactService: ContactService? by injectNullableNonBinding()
     private val groupService: GroupService? by injectNullableNonBinding()
     private val distributionListService: DistributionListService? by injectNullableNonBinding()
-    private val conversationCategoryService: ConversationCategoryService? by injectNullableNonBinding()
     private val messageService: MessageService? by injectNullableNonBinding()
     private val notificationPreferenceService: NotificationPreferenceService by inject()
     private val masterKeyManager: MasterKeyManager by inject()
@@ -53,7 +52,7 @@ class WidgetViewsFactory(private val context: Context) : RemoteViewsFactory, Koi
             val conversationService = conversationService
             val preferenceService = preferenceService
 
-            if (conversationService == null || preferenceService == null) {
+            if (conversationService == null) {
                 logger.info("Services unavailable, showing nothing")
                 conversations = emptyList()
                 return
@@ -101,7 +100,6 @@ class WidgetViewsFactory(private val context: Context) : RemoteViewsFactory, Koi
         val contactService = contactService ?: return null
         val groupService = groupService ?: return null
         val distributionListService = distributionListService ?: return null
-        val conversationCategoryService = conversationCategoryService ?: return null
         val messageService = messageService ?: return null
 
         val conversation = conversations?.getOrNull(position) ?: return null
@@ -135,7 +133,7 @@ class WidgetViewsFactory(private val context: Context) : RemoteViewsFactory, Koi
 
             count = conversation.unreadCount
 
-            if (conversationCategoryService.isMarkedAsPrivate(conversationId = conversation.id)) {
+            if (conversation.conversationCategory == ConversationCategory.PROTECTED) {
                 message = context.getString(R.string.private_chat_subject)
             } else {
                 conversation.latestMessage?.let { latestMessage ->

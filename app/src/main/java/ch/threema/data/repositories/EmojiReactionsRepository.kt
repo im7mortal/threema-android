@@ -8,8 +8,13 @@ import ch.threema.app.utils.ThrowingConsumer
 import ch.threema.base.SessionScoped
 import ch.threema.base.ThreemaException
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.TimeProvider
 import ch.threema.data.IdentityProvider
 import ch.threema.data.ModelTypeCache
+import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationId
+import ch.threema.data.datatypes.DistributionListConversationId
+import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.data.models.EmojiReactionData
 import ch.threema.data.models.EmojiReactionsModel
 import ch.threema.data.models.toDataType
@@ -17,10 +22,11 @@ import ch.threema.data.storage.DbEmojiReaction
 import ch.threema.data.storage.EmojiReactionsDao
 import ch.threema.domain.taskmanager.TaskManager
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.ContactMessageModel
+import ch.threema.storage.models.DistributionListMessageModel
+import ch.threema.storage.models.GroupMessageModel
 import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageState
-import ch.threema.storage.models.group.GroupMessageModel
 import java.time.Instant
 import org.koin.mp.KoinPlatform
 
@@ -33,8 +39,9 @@ class EmojiReactionsRepository(
     private val identityProvider: IdentityProvider,
     private val multiDeviceManager: MultiDeviceManager,
     private val taskManager: TaskManager,
+    private val timeProvider: TimeProvider,
 ) {
-    private val myIdentity by lazy { identityProvider.getIdentityString()!! }
+    private val myIdentity by lazy { identityProvider.requireIdentityString() }
 
     // TODO(ANDR-3325): Remove message service
     private val messageService: MessageService by KoinPlatform.getKoin().inject()
@@ -42,11 +49,11 @@ class EmojiReactionsRepository(
     /**
      * Get all reactions for a message, including reactions from the old ack/dec system
      */
-    fun getReactionsByMessage(messageModel: AbstractMessageModel): EmojiReactionsModel? {
+    fun getReactionsByMessage(messageModel: MessageModel): EmojiReactionsModel? {
         logger.debug("Loading emoji reactions for message {}", messageModel.id)
         synchronized(cache) {
-            val reactionMessageIdentifier =
-                ReactionMessageIdentifier.fromMessageModel(messageModel) ?: return null
+            val reactionMessageIdentifier = ReactionMessageIdentifier.fromMessageModel(messageModel)
+                ?: return null
             return cache.getOrCreate(reactionMessageIdentifier) {
                 val dbReactions = emojiReactionDao.findAllByMessage(messageModel)
                     .map(DbEmojiReaction::toDataType)
@@ -56,19 +63,67 @@ class EmojiReactionsRepository(
         }
     }
 
+    fun <T : MessageModel> getReactionsByMessages(messageModels: List<T>): Map<T, EmojiReactionsModel> {
+        if (messageModels.isEmpty()) {
+            return emptyMap()
+        }
+        logger.debug("Loading emoji reactions for {} messages", messageModels.size)
+        synchronized(cache) {
+            val result = mutableMapOf<T, EmojiReactionsModel>()
+            val identifierAndMessageModelsWithoutCachedReactions = mutableListOf<Pair<ReactionMessageIdentifier, T>>()
+            messageModels.forEach { messageModel ->
+                val reactionMessageIdentifier = ReactionMessageIdentifier.fromMessageModel(messageModel)
+                    ?: return@forEach
+                val cachedReactionsModel = cache[reactionMessageIdentifier]
+                if (cachedReactionsModel != null) {
+                    result[messageModel] = cachedReactionsModel
+                } else {
+                    identifierAndMessageModelsWithoutCachedReactions.add(Pair(reactionMessageIdentifier, messageModel))
+                }
+            }
+
+            if (identifierAndMessageModelsWithoutCachedReactions.isEmpty()) {
+                return result
+            }
+
+            identifierAndMessageModelsWithoutCachedReactions
+                .groupBy { (identifier, _) ->
+                    // We group by message type here such that contact messages and group messages are handled separately,
+                    // as DbEmojiReaction lacks globally a unique identifier.
+                    identifier.messageType
+                }
+                .forEach { (_, identifierAndMessageModels) ->
+                    val reactionsByMessageId = identifierAndMessageModels
+                        .map { (_, messageModel) -> messageModel }
+                        .let(emojiReactionDao::findAllByMessages)
+                        .groupBy(DbEmojiReaction::messageId)
+                    identifierAndMessageModels.forEach { (reactionMessageIdentifier, messageModel) ->
+                        val dbReactions = reactionsByMessageId[messageModel.id]
+                            ?.map(DbEmojiReaction::toDataType)
+                        val allReactions = addAckDecReactions(messageModel, dbReactions?.toMutableList() ?: mutableListOf())
+                        val reactionsModel = EmojiReactionsModel(allReactions, multiDeviceManager, taskManager)
+                        cache[reactionMessageIdentifier] = reactionsModel
+                        result[messageModel] = reactionsModel
+                    }
+                }
+
+            return result
+        }
+    }
+
     /**
      * Get all reactions for a message, including reactions from the old ack/dec system
      * Returns an empty list if there are no reactions
      */
-    fun safeGetReactionsByMessage(messageModel: AbstractMessageModel): List<EmojiReactionData> {
+    fun safeGetReactionsByMessage(messageModel: MessageModel): List<EmojiReactionData> {
         return getReactionsByMessage(messageModel)?.data ?: emptyList()
     }
 
-    fun deleteAllReactionsForMessage(messageModel: AbstractMessageModel) {
+    fun deleteAllReactionsForMessage(messageModel: MessageModel) {
         logger.debug("Delete all for message with uid {}", messageModel.uid)
         emojiReactionDao.deleteAllByMessage(messageModel)
         ReactionMessageIdentifier.fromMessageModel(messageModel)?.let { reactionMessageIdentifier ->
-            cache.get(reactionMessageIdentifier)?.clear()
+            cache[reactionMessageIdentifier]?.clear()
             cache.remove(reactionMessageIdentifier)
         }
     }
@@ -80,13 +135,53 @@ class EmojiReactionsRepository(
         emojiReactionDao.deleteAll()
     }
 
-    fun getContactReactionsCount(): Long {
-        return emojiReactionDao.getContactReactionsCount()
+    /**
+     * Mark all unread reactions of the conversation identified by [conversationId] as read.
+     *
+     * Distribution list conversations cannot have reactions, so this is a no-op for them.
+     */
+    fun markConversationReactionsAsRead(conversationId: ConversationId) {
+        val readAt = timeProvider.get()
+        val targetMessageType: ReactionMessageIdentifier.TargetMessageType
+        val affectedMessageIds: Set<Int>
+        when (conversationId) {
+            is ContactConversationId -> {
+                targetMessageType = ReactionMessageIdentifier.TargetMessageType.ONE_TO_ONE
+                affectedMessageIds = emojiReactionDao.markUnreadReactionsAsReadForContactConversation(
+                    contactConversationId = conversationId,
+                    readAt = readAt,
+                )
+            }
+            is GroupConversationId -> {
+                targetMessageType = ReactionMessageIdentifier.TargetMessageType.GROUP
+                affectedMessageIds = emojiReactionDao.markUnreadReactionsAsReadForGroupConversation(
+                    groupConversationId = conversationId,
+                    readAt = readAt,
+                )
+            }
+            is DistributionListConversationId -> return
+        }
+        if (affectedMessageIds.isEmpty()) {
+            return
+        }
+        synchronized(cache) {
+            affectedMessageIds.forEach { messageId ->
+                cache.remove(
+                    ReactionMessageIdentifier(
+                        messageId = messageId,
+                        messageType = targetMessageType,
+                    ),
+                )
+            }
+        }
+        logger.debug("Marked reactions of {} messages in conversation {} as read", affectedMessageIds.size, conversationId)
     }
 
-    fun getGroupReactionsCount(): Long {
-        return emojiReactionDao.getGroupReactionsCount()
-    }
+    fun getContactReactionsCount(): Long =
+        emojiReactionDao.getContactReactionsCount()
+
+    fun getGroupReactionsCount(): Long =
+        emojiReactionDao.getGroupReactionsCount()
 
     /**
      * This method is only intended for backup creation.
@@ -108,21 +203,21 @@ class EmojiReactionsRepository(
      * Add reactions from the old ack/dec system to an existing list of emoji reactions
      */
     private fun addAckDecReactions(
-        targetMessageModel: AbstractMessageModel,
+        targetMessageModel: MessageModel,
         mutableEmojiReactions: MutableList<EmojiReactionData>,
     ): List<EmojiReactionData> {
         if (targetMessageModel is GroupMessageModel) {
             mutableEmojiReactions += targetMessageModel.groupMessageStates?.mapNotNull { (identity, reaction) ->
                 when (reaction) {
                     MessageState.USERACK.toString() -> createEmojiReactionData(
-                        targetMessageModel,
-                        identity,
+                        messageModel = targetMessageModel,
+                        senderIdentity = identity,
                         emojiSequence = EmojiUtil.THUMBS_UP_SEQUENCE,
                     )
 
                     MessageState.USERDEC.toString() -> createEmojiReactionData(
-                        targetMessageModel,
-                        identity,
+                        messageModel = targetMessageModel,
+                        senderIdentity = identity,
                         emojiSequence = EmojiUtil.THUMBS_DOWN_SEQUENCE,
                     )
 
@@ -156,17 +251,16 @@ class EmojiReactionsRepository(
     }
 
     private fun createEmojiReactionData(
-        messageModel: AbstractMessageModel,
+        messageModel: MessageModel,
         senderIdentity: IdentityString,
         emojiSequence: String,
-    ): EmojiReactionData {
-        return EmojiReactionData(
-            messageModel.id,
-            senderIdentity,
-            emojiSequence,
-            messageModel.createdAt!!,
-        )
-    }
+    ) = EmojiReactionData(
+        messageId = messageModel.id,
+        senderIdentity = senderIdentity,
+        emojiSequence = emojiSequence,
+        reactedAt = messageModel.createdAt!!,
+        readAt = messageModel.readAt,
+    )
 
     /**
      * Inserts a [DbEmojiReaction] into the db.
@@ -181,7 +275,7 @@ class EmojiReactionsRepository(
      */
     @Throws(EmojiReactionEntryCreateException::class, IllegalStateException::class)
     fun createEntry(
-        targetMessage: AbstractMessageModel,
+        targetMessage: MessageModel,
         senderIdentity: IdentityString,
         emojiSequence: String,
         reactedAt: Instant,
@@ -193,11 +287,12 @@ class EmojiReactionsRepository(
                     senderIdentity = senderIdentity,
                     emojiSequence = emojiSequence,
                     reactedAt = reactedAt,
+                    readAt = null,
                 )
                 emojiReactionDao.create(reactionEntry, targetMessage)
                 ReactionMessageIdentifier.fromMessageModel(targetMessage)
                     ?.let { reactionMessageIdentifier ->
-                        cache.get(reactionMessageIdentifier)?.addEntry(reactionEntry.toDataType())
+                        cache[reactionMessageIdentifier]?.addEntry(reactionEntry.toDataType())
                     }
             } catch (exception: SQLiteException) {
                 throw EmojiReactionEntryCreateException(exception)
@@ -229,7 +324,7 @@ class EmojiReactionsRepository(
      */
     @Throws(EmojiReactionEntryRemoveException::class, IllegalStateException::class)
     fun removeEntry(
-        targetMessage: AbstractMessageModel,
+        targetMessage: MessageModel,
         senderIdentity: IdentityString,
         emojiSequence: String,
     ) {
@@ -240,6 +335,7 @@ class EmojiReactionsRepository(
                     senderIdentity = senderIdentity,
                     emojiSequence = emojiSequence,
                     reactedAt = Instant.now(),
+                    readAt = null,
                 )
 
                 emojiReactionDao.remove(reactionEntry, targetMessage)
@@ -251,7 +347,7 @@ class EmojiReactionsRepository(
                 if (isThumbsUp || isThumbsDown) {
                     // if the existing reaction is an ackji (e.g. received earlier, before we upgraded) and one and more
                     // recipients support emoji reactions, we need to clear the ackji from our database to reflect
-                    // the withdraw in the UI (because we sent at least some of the users a WITHDRAW action)
+                    // the withdrawal in the UI (because we sent at least some of the users a WITHDRAW action)
                     //
                     // however, since it is not possible to withdraw ackjis, old clients will not receive a change
                     // which will inadvertently lead to inconsistencies
@@ -262,8 +358,7 @@ class EmojiReactionsRepository(
                 }
                 ReactionMessageIdentifier.fromMessageModel(targetMessage)
                     ?.let { reactionMessageIdentifier ->
-                        cache.get(reactionMessageIdentifier)
-                            ?.removeEntry(reactionEntry.toDataType())
+                        cache[reactionMessageIdentifier]?.removeEntry(reactionEntry.toDataType())
                     }
             } catch (exception: SQLiteException) {
                 throw EmojiReactionEntryRemoveException(exception)
@@ -273,9 +368,9 @@ class EmojiReactionsRepository(
 
     /**
      *  We need to use this compound identifier object for emoji reactions because
-     *  the [AbstractMessageModel.id] is **not** unique across different message type db tables.
+     *  the [MessageModel.id] is **not** unique across different message type db tables.
      *
-     *  @param messageId Represents the local auto-incremented message row-id ([AbstractMessageModel.id])
+     *  @param messageId Represents the local auto-incremented message row-id ([MessageModel.id])
      *  @param messageType Is either [TargetMessageType.ONE_TO_ONE] or [TargetMessageType.GROUP]. Other existing
      *  message types like for example distribution-list messages can not receive emoji reactions.
      */
@@ -286,13 +381,13 @@ class EmojiReactionsRepository(
         companion object {
             /**
              *  @return The reaction-message-identifier object or `null` if the concrete
-             *  type of [AbstractMessageModel] can not receive emoji reactions.
+             *  type of [MessageModel] can not receive emoji reactions.
              */
-            fun fromMessageModel(messageModel: AbstractMessageModel): ReactionMessageIdentifier? {
+            fun fromMessageModel(messageModel: MessageModel): ReactionMessageIdentifier? {
                 val messageType: TargetMessageType = when (messageModel) {
-                    is MessageModel -> TargetMessageType.ONE_TO_ONE
+                    is ContactMessageModel -> TargetMessageType.ONE_TO_ONE
                     is GroupMessageModel -> TargetMessageType.GROUP
-                    else -> return null
+                    is DistributionListMessageModel -> return null
                 }
                 return ReactionMessageIdentifier(
                     messageId = messageModel.id,

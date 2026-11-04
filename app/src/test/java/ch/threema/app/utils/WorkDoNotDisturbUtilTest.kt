@@ -32,6 +32,9 @@ class WorkDoNotDisturbUtilTest {
                 every { getString(R.string.preferences__working_days) } returns KEY_WORKING_DAYS
                 every { getString(R.string.preferences__work_time_start) } returns KEY_WORK_TIME_START
                 every { getString(R.string.preferences__work_time_end) } returns KEY_WORK_TIME_END
+                every { resources } returns mockk {
+                    every { getStringArray(R.array.working_days_default) } returns arrayOf("1", "2", "3", "4", "5")
+                }
             },
             sharedPreferences = sharedPreferences,
             identityProvider = mockk(),
@@ -47,11 +50,16 @@ class WorkDoNotDisturbUtilTest {
     }
 
     @Test
-    fun `enabled but no work days configured`() {
+    fun `enabled but no work days configured, use defaults`() {
         every { sharedPreferences.getBoolean(KEY_DAYS_ENABLED, false) } returns true
         every { sharedPreferences.getStringSet(KEY_WORKING_DAYS, null) } returns null
+        every { sharedPreferences.getString(KEY_WORK_TIME_START, any()) } returns "01:00"
+        every { sharedPreferences.getString(KEY_WORK_TIME_END, any()) } returns "23:00"
 
         assertFalse(doNotDisturbUtil.isDoNotDisturbActive())
+
+        timeProvider.set(1_759_658_400_000L) // a Sunday
+        assertTrue(doNotDisturbUtil.isDoNotDisturbActive())
     }
 
     @Test

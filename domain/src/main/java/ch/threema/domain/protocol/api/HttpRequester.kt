@@ -9,7 +9,6 @@ import ch.threema.domain.protocol.Version
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.protocol.getUserAgent
 import java.io.IOException
-import kotlin.time.Duration.Companion.seconds
 import okhttp3.Credentials
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -24,8 +23,8 @@ internal class HttpRequester(
     private val version: Version,
 ) {
     private val okHttpClient = okHttpClient.buildNew {
-        connectTimeout(ProtocolDefines.API_REQUEST_TIMEOUT.seconds)
-        readTimeout(ProtocolDefines.API_REQUEST_TIMEOUT.seconds)
+        connectTimeout(ProtocolDefines.API_REQUEST_TIMEOUT)
+        readTimeout(ProtocolDefines.API_REQUEST_TIMEOUT)
     }
 
     @Throws(IOException::class)

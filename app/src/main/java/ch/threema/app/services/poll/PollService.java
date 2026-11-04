@@ -18,7 +18,7 @@ import ch.threema.domain.protocol.csp.messages.poll.PollId;
 import ch.threema.domain.protocol.csp.messages.poll.PollSetupInterface;
 import ch.threema.domain.protocol.csp.messages.poll.PollVoteInterface;
 import ch.threema.domain.taskmanager.TriggerSource;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.group.GroupModelOld;
 import ch.threema.storage.models.poll.PollChoiceModel;
@@ -102,20 +102,20 @@ public interface PollService {
     boolean update(PollModel pollModel);
 
     PollPublishResult publish(
-        MessageReceiver<?> messageReceiver,
-        PollModel pollModel,
-        AbstractMessageModel abstractMessageModel,
-        @NonNull MessageId messageId,
-        @NonNull TriggerSource triggerSource
+            MessageReceiver<?> messageReceiver,
+            PollModel pollModel,
+            MessageModel messageModel,
+            @NonNull MessageId messageId,
+            @NonNull TriggerSource triggerSource
     ) throws NotAllowedException, MessageTooLongException;
 
     PollPublishResult publish(
-        MessageReceiver messageReceiver,
-        PollModel pollModel,
-        AbstractMessageModel abstractMessageModel,
-        @Nullable Collection<String> receivingIdentities,
-        @NonNull MessageId messageId,
-        @NonNull TriggerSource triggerSource
+            MessageReceiver messageReceiver,
+            PollModel pollModel,
+            MessageModel messageModel,
+            @Nullable Collection<String> receivingIdentities,
+            @NonNull MessageId messageId,
+            @NonNull TriggerSource triggerSource
     ) throws NotAllowedException, MessageTooLongException;
 
     LinkPollModel getLinkedPollModel(PollModel pollModel) throws NotAllowedException;

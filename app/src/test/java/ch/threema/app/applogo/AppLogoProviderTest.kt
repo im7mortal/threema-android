@@ -5,7 +5,6 @@ import android.graphics.BitmapFactory
 import app.cash.turbine.test
 import ch.threema.app.files.AppLogoFileHandleProvider
 import ch.threema.app.preference.service.PreferenceService
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.common.files.FileHandle
 import ch.threema.common.plus
 import ch.threema.testhelpers.expectItem
@@ -201,6 +200,6 @@ class AppLogoProviderTest {
     }
 
     companion object {
-        private const val THEME = ConfigUtils.THEME_LIGHT
+        private val THEME = AppLogoFileHandleProvider.Theme.LIGHT
     }
 }

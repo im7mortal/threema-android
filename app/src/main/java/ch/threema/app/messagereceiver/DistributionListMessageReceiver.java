@@ -18,6 +18,7 @@ import ch.threema.app.services.MessageService;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.base.crypto.SymmetricEncryptionResult;
 import ch.threema.data.datatypes.ContactNameFormat;
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.data.datatypes.ConversationId;
 import ch.threema.data.datatypes.DistributionListConversationId;
 import ch.threema.data.datatypes.NotificationTriggerPolicyOverride;
@@ -26,7 +27,7 @@ import ch.threema.domain.protocol.csp.messages.poll.PollData;
 import ch.threema.domain.protocol.csp.messages.poll.PollVote;
 import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.storage.DatabaseService;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.DistributionListMessageModel;
 import ch.threema.storage.models.DistributionListModel;
@@ -70,6 +71,14 @@ public class DistributionListMessageReceiver implements MessageReceiver<Distribu
         return this.affectedMessageReceivers;
     }
 
+    @Override
+    public ConversationCategory getConversationCategory() {
+        if (distributionListModel == null) {
+            return ConversationCategory.DEFAULT;
+        }
+        return distributionListModel.getConversationCategory();
+    }
+
     @NonNull
     @Override
     public DistributionListMessageModel createLocalModel(
@@ -89,23 +98,6 @@ public class DistributionListMessageReceiver implements MessageReceiver<Distribu
         m.setCreatedAt(Instant.now());
         m.setSaved(false);
         m.setUid(UUID.randomUUID().toString());
-
-        return m;
-    }
-
-    @Override
-    @Deprecated
-    public DistributionListMessageModel createAndSaveStatusModel(final String statusBody, final Instant postedAt) {
-        DistributionListMessageModel m = new DistributionListMessageModel(true);
-        m.setDistributionListId(this.getDistributionList().getId());
-        m.setType(MessageType.TEXT);
-        m.setPostedAt(postedAt);
-        m.setCreatedAt(Instant.now());
-        m.setSaved(true);
-        m.setUid(UUID.randomUUID().toString());
-        m.setBody(statusBody);
-
-        this.saveLocalModel(m);
 
         return m;
     }
@@ -158,7 +150,7 @@ public class DistributionListMessageReceiver implements MessageReceiver<Distribu
     public void createAndSendPollSetupMessage(
         @NonNull PollData pollData,
         @NonNull PollModel pollModel,
-        @NonNull DistributionListMessageModel abstractMessageModel,
+        @NonNull DistributionListMessageModel messageModel,
         @Nullable Collection<String> recipientIdentities,
         @NonNull TriggerSource triggerSource
     ) {
@@ -235,7 +227,7 @@ public class DistributionListMessageReceiver implements MessageReceiver<Distribu
     }
 
     @Override
-    public boolean isMessageBelongsToMe(AbstractMessageModel message) {
+    public boolean isMessageBelongsToMe(MessageModel message) {
         return
             message instanceof DistributionListMessageModel
                 && ((DistributionListMessageModel) message).getDistributionListId() == this.getDistributionList().getId();

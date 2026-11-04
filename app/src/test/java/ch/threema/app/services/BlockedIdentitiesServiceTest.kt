@@ -66,13 +66,13 @@ class BlockedIdentitiesServiceTest {
     }
 
     @Test
-    fun `persist identities`() {
-        blockedIdentitiesService.persistBlockedIdentities(setOf("ABCDEFGH", "12345678"))
+    fun `replace identities`() {
+        blockedIdentitiesService.replaceBlockedIdentitiesWithoutReflection(setOf("ABCDEFGH", "12345678"))
 
         verify(exactly = 1) { contactEventBusMock.emit(ContactEvent.ContactUpdated(Identity("ABCDEFGH"))) }
         verify(exactly = 1) { contactEventBusMock.emit(ContactEvent.ContactUpdated(Identity("12345678"))) }
 
-        blockedIdentitiesService.persistBlockedIdentities(setOf("ABCDEFGH", "TESTTEST"))
+        blockedIdentitiesService.replaceBlockedIdentitiesWithoutReflection(setOf("ABCDEFGH", "TESTTEST"))
 
         verify(exactly = 1) { contactEventBusMock.emit(ContactEvent.ContactUpdated(Identity("TESTTEST"))) }
         verify(exactly = 2) { contactEventBusMock.emit(ContactEvent.ContactUpdated(Identity("12345678"))) }

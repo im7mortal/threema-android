@@ -9,13 +9,13 @@ import android.content.Context
 import android.content.SyncResult
 import android.os.Bundle
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import ch.threema.android.checkGrantedPermission
 import ch.threema.app.ThreemaApplication.Companion.getAppContext
 import ch.threema.app.androidcontactsync.usecases.SynchronizeAndroidContactsUseCase
 import ch.threema.app.di.injectNullableNonBinding
 import ch.threema.app.listeners.SynchronizeContactsListener
 import ch.threema.app.managers.ListenerManager
 import ch.threema.app.preference.service.SynchronizedSettingsService
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.IntentDataUtil
 import ch.threema.base.utils.getThreemaLogger
 import kotlinx.coroutines.runBlocking
@@ -76,7 +76,7 @@ class ContactsSyncAdapter(context: Context, autoInitialize: Boolean) : AbstractT
             return
         }
 
-        if (!ConfigUtils.isPermissionGranted(context, Manifest.permission.WRITE_CONTACTS)) {
+        if (!context.checkGrantedPermission(Manifest.permission.WRITE_CONTACTS)) {
             logger.warn("No permission given for writing contacts. Aborting sync.")
             return
         }
@@ -105,8 +105,13 @@ class ContactsSyncAdapter(context: Context, autoInitialize: Boolean) : AbstractT
             ListenerManager.synchronizeContactsListeners.add(synchronizedContactsListener)
 
             // As we are running on a background thread, this is ok.
-            runBlocking {
-                synchronizeAndroidContactsUseCase.call()
+            try {
+                runBlocking {
+                    synchronizeAndroidContactsUseCase.call()
+                }
+            } catch (_: InterruptedException) {
+                logger.info("Sync was interrupted")
+                return
             }
         } finally {
             logger.debug(

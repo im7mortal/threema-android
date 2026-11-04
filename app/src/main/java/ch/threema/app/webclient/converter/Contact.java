@@ -1,8 +1,9 @@
 package ch.threema.app.webclient.converter;
 
+import static ch.threema.android.PermissionExtensionsKt.checkGrantedPermission;
+
 import android.Manifest;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.provider.ContactsContract;
 
@@ -11,15 +12,15 @@ import java.util.List;
 
 import androidx.annotation.AnyThread;
 import androidx.annotation.NonNull;
-import androidx.core.content.ContextCompat;
+
+import ch.threema.app.BuildFlavor;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.services.ContactService;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.ContactUtil;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.app.webclient.exceptions.ConversionException;
-import ch.threema.data.datatypes.ContactConversationId;
 import ch.threema.data.datatypes.ContactNameFormat;
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.domain.models.IdentityState;
 import ch.threema.domain.models.IdentityType;
 import ch.threema.domain.protocol.ThreemaFeature;
@@ -84,7 +85,7 @@ public class Contact extends Converter {
             builder.put(VERIFICATION_LEVEL, VerificationLevel.convert(contact.verificationLevel));
             builder.put(STATE, contact.getState().toString());
             builder.put(HIDDEN, contact.isHidden());
-            builder.maybePut(IS_WORK, ConfigUtils.isWorkBuild() && contact.isWorkVerified());
+            builder.maybePut(IS_WORK, BuildFlavor.IS_WORK && contact.isWorkVerified());
             builder.put(PUBLIC_KEY, contact.getPublicKey());
             builder.put(IDENTITY_TYPE, contact.getIdentityType() == IdentityType.WORK ? 1 : 0);
             builder.put(IS_BLOCKED, getBlockedContactsService().isBlocked(contact.getIdentity()));
@@ -94,9 +95,7 @@ public class Contact extends Converter {
             // TODO(ANDR-2708): Remove
             builder.put(FEATURE_LEVEL, ThreemaFeature.featureMaskToLevel(featureMask));
 
-            final boolean isPrivateChat = getConversationCategoryService().isMarkedAsPrivate(
-                new ContactConversationId(contact.getIdentity())
-            );
+            final boolean isPrivateChat = contact.getConversationCategory() == ConversationCategory.PROTECTED;
             builder.put(Receiver.LOCKED, isPrivateChat);
             builder.put(Receiver.VISIBLE, !isPrivateChat || !getPreferenceService().arePrivateChatsHidden());
 
@@ -118,8 +117,7 @@ public class Contact extends Converter {
         final MsgpackArrayBuilder emailBuilder = new MsgpackArrayBuilder();
 
         if (contact.isLinkedToAndroidContact()) {
-            if (ContextCompat.checkSelfPermission(getAppContext(), Manifest.permission.READ_CONTACTS)
-                == PackageManager.PERMISSION_GRANTED) {
+            if (checkGrantedPermission(getAppContext(), Manifest.permission.READ_CONTACTS)) {
                 final String lookupKey = contact.getAndroidContactLookupKey();
 
                 // Get phone details

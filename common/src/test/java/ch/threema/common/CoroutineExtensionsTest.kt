@@ -2,9 +2,11 @@ package ch.threema.common
 
 import app.cash.turbine.test
 import ch.threema.testhelpers.assertSuspendsForever
+import ch.threema.testhelpers.elapsedVirtualTime
 import ch.threema.testhelpers.expectItem
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -132,5 +134,48 @@ class CoroutineExtensionsTest {
         flow.awaitAtLeastOneSubscriber()
 
         collectionJob.cancel()
+    }
+
+    @Test
+    fun `run with retry with eventual success`() = runTest {
+        val result = runWithRetry(
+            action = { attempt ->
+                if (attempt <= 3) {
+                    error("something went wrong")
+                }
+                "Success"
+            },
+            onException = { e, attempt ->
+                if (attempt > 5) {
+                    throw e
+                }
+            },
+            getRetryDelay = {
+                1.seconds
+            },
+        )
+        assertEquals(3.seconds, elapsedVirtualTime)
+        assertEquals("Success", result)
+    }
+
+    @Test
+    fun `run with retry without eventual success`() = runTest {
+        val exception = assertFailsWith<IllegalStateException> {
+            runWithRetry(
+                action = { attempt ->
+                    error("something went wrong (attempt $attempt)")
+                },
+                onException = { e, attempt ->
+                    if (attempt > 5) {
+                        throw e
+                    }
+                },
+                getRetryDelay = {
+                    1.seconds
+                },
+            )
+        }
+        assertEquals("something went wrong (attempt 6)", exception.message)
+        assertEquals(5.seconds, elapsedVirtualTime)
     }
 }

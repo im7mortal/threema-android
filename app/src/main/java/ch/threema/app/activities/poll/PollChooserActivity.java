@@ -25,6 +25,7 @@ import java.util.List;
 import androidx.lifecycle.Lifecycle;
 import ch.threema.android.FlowJavaCompat;
 import ch.threema.app.R;
+import ch.threema.app.activities.BackPressHandler;
 import ch.threema.app.activities.ThreemaToolbarActivity;
 import ch.threema.app.adapters.poll.PollOverviewListAdapter;
 import ch.threema.app.di.DependencyContainer;
@@ -43,7 +44,7 @@ import ch.threema.storage.models.poll.PollModel;
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 
-public class PollChooserActivity extends ThreemaToolbarActivity implements ListView.OnItemClickListener {
+public class PollChooserActivity extends ThreemaToolbarActivity implements ListView.OnItemClickListener, BackPressHandler {
     private static final Logger logger = getThreemaLogger("PollChooserActivity");
 
     @NonNull
@@ -200,12 +201,7 @@ public class PollChooserActivity extends ThreemaToolbarActivity implements ListV
     }
 
     @Override
-    protected boolean enableOnBackPressedCallback() {
-        return true;
-    }
-
-    @Override
-    protected void handleOnBackPressed() {
+    public void handleOnBackPressed() {
         setResult(RESULT_CANCELED);
         finish();
     }

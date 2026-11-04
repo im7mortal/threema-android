@@ -3,6 +3,7 @@ package ch.threema.app.multidevice
 import androidx.annotation.StringRes
 import ch.threema.app.R
 
+@Suppress("unused")
 enum class DesktopClientFlavor(@StringRes val downloadLink: Int) {
     Consumer(
         downloadLink = R.string.desktop_client_download_link_threema_consumer,

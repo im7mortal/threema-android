@@ -12,6 +12,8 @@ import ch.threema.app.testutils.TestHelpers
 import ch.threema.app.testutils.TestHelpers.TestContact
 import ch.threema.app.testutils.clearDatabaseAndCaches
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationCategory
+import ch.threema.data.datatypes.ConversationSpamReportingState
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.ContactModelData
@@ -61,6 +63,7 @@ class GroupCreateTaskTest {
         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
         conversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory = ConversationCategory.DEFAULT,
         profilePictureBlobId = null,
         androidContactLookupInfo = null,
         localAvatarExpires = null,
@@ -111,13 +114,11 @@ class GroupCreateTaskTest {
 
         assert(myContact.identity == TestHelpers.ensureIdentity(serviceManager))
 
-        // Note that we use from sync to prevent any reflection. This is only acceptable in tests.
-        serviceManager.modelRepositories.contacts.createFromSync(initialContactModelData)
+        serviceManager.modelRepositories.contacts.persistNewContact(initialContactModelData)
 
-        // Note that we use from sync to prevent any reflection. This is only acceptable in tests.
         try {
             val now = Instant.now()
-            serviceManager.modelRepositories.groups.createFromSync(
+            serviceManager.modelRepositories.groups.persistNewGroup(
                 GroupModelData(
                     groupIdentity = GroupIdentity(myContact.identity, 42),
                     name = "My Group",
@@ -125,11 +126,13 @@ class GroupCreateTaskTest {
                     synchronizedAt = null,
                     lastUpdate = now,
                     conversationVisibility = ConversationVisibility.NORMAL,
+                    conversationCategory = ConversationCategory.DEFAULT,
                     userState = UserState.MEMBER,
                     otherMembers = setOf(initialContactModelData.identity),
                     groupDescription = null,
                     groupDescriptionChangedAt = null,
                     notificationTriggerPolicyOverride = null,
+                    spamReportingState = ConversationSpamReportingState.DEFAULT,
                 ),
             )
         } catch (_: GroupCreateException) {

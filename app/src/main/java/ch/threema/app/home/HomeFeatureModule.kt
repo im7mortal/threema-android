@@ -5,16 +5,16 @@ import ch.threema.app.home.usecases.GetStarredMessagesCountUseCase
 import ch.threema.app.home.usecases.GetUnreadConversationCountUseCase
 import ch.threema.app.home.usecases.SetUpThreemaChannelUseCase
 import ch.threema.app.home.usecases.ShouldShowWorkIntroScreenUseCase
-import org.koin.core.module.dsl.factoryOf
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
+import org.koin.plugin.module.dsl.viewModel
 
 val homeFeatureModule = module {
-    viewModelOf(::HomeViewModel)
-    factoryOf(::ErrorReportingDialog)
-    factoryOf(::GetUnreadConversationCountUseCase)
-    factoryOf(::GetStarredMessagesCountUseCase)
-    factoryOf(::CheckServerMessagesUseCase)
-    factoryOf(::SetUpThreemaChannelUseCase)
-    factoryOf(::ShouldShowWorkIntroScreenUseCase)
+    viewModel<HomeViewModel>()
+    factory<ErrorReportingDialog>()
+    factory<GetUnreadConversationCountUseCase>()
+    factory<GetStarredMessagesCountUseCase>()
+    factory<CheckServerMessagesUseCase>()
+    factory<SetUpThreemaChannelUseCase>()
+    factory<ShouldShowWorkIntroScreenUseCase>()
 }

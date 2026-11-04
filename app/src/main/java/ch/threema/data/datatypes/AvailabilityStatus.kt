@@ -2,7 +2,6 @@ package ch.threema.data.datatypes
 
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.Base64
-import ch.threema.common.takeUnlessBlank
 import ch.threema.domain.types.IdentityString
 import ch.threema.protobuf.d2d.sync.WorkAvailabilityStatus
 import ch.threema.protobuf.d2d.sync.WorkAvailabilityStatusCategory
@@ -24,8 +23,6 @@ sealed interface AvailabilityStatus {
 
     fun toProtocolModel(): WorkAvailabilityStatus
 
-    fun toLibthreemaModel(): ch.threema.libthreema.WorkAvailabilityStatus
-
     fun toTaskDataModel(identity: IdentityString): AvailabilityStatusTaskData
 
     fun toJson(): String = Json.encodeToString(this)
@@ -44,12 +41,6 @@ sealed interface AvailabilityStatus {
             workAvailabilityStatus {
                 category = WorkAvailabilityStatusCategory.NONE
             }
-
-        override fun toLibthreemaModel(): ch.threema.libthreema.WorkAvailabilityStatus =
-            ch.threema.libthreema.WorkAvailabilityStatus(
-                category = ch.threema.libthreema.WorkAvailabilityStatusCategory.NONE,
-                description = null,
-            )
 
         override fun toTaskDataModel(identity: IdentityString): AvailabilityStatusTaskData =
             AvailabilityStatusTaskData(
@@ -82,12 +73,6 @@ sealed interface AvailabilityStatus {
                 }
             }
 
-        override fun toLibthreemaModel(): ch.threema.libthreema.WorkAvailabilityStatus =
-            ch.threema.libthreema.WorkAvailabilityStatus(
-                category = ch.threema.libthreema.WorkAvailabilityStatusCategory.UNAVAILABLE,
-                description = description.takeUnlessBlank(),
-            )
-
         override fun toTaskDataModel(identity: IdentityString): AvailabilityStatusTaskData =
             AvailabilityStatusTaskData(
                 identity = identity,
@@ -113,12 +98,6 @@ sealed interface AvailabilityStatus {
                     description = descriptionValue
                 }
             }
-
-        override fun toLibthreemaModel(): ch.threema.libthreema.WorkAvailabilityStatus =
-            ch.threema.libthreema.WorkAvailabilityStatus(
-                category = ch.threema.libthreema.WorkAvailabilityStatusCategory.BUSY,
-                description = description.takeUnlessBlank(),
-            )
 
         override fun toTaskDataModel(identity: IdentityString): AvailabilityStatusTaskData =
             AvailabilityStatusTaskData(

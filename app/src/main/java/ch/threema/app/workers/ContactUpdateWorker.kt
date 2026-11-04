@@ -12,9 +12,9 @@ import ch.threema.android.buildOneTimeWorkRequest
 import ch.threema.android.buildPeriodicWorkRequest
 import ch.threema.android.setConstraints
 import ch.threema.android.setInitialDelay
+import ch.threema.app.GlobalAppState
 import ch.threema.app.di.awaitAppFullyReadyWithTimeout
 import ch.threema.app.preference.service.PreferenceService
-import ch.threema.app.services.ContactService
 import ch.threema.app.services.PollingHelper
 import ch.threema.app.services.UserService
 import ch.threema.app.utils.ContactUtil
@@ -42,18 +42,20 @@ class ContactUpdateWorker(
 ) : CoroutineWorker(context, workerParameters), KoinComponent {
 
     private val contactModelRepository: ContactModelRepository by inject()
-    private val contactService: ContactService by inject()
     private val apiConnector: APIConnector by inject()
     private val userService: UserService by inject()
     private val preferenceService: PreferenceService by inject()
+    private val globalAppState: GlobalAppState by inject()
 
     override suspend fun doWork(): Result {
+        if (globalAppState.specialMode != null) {
+            return Result.retry()
+        }
         awaitAppFullyReadyWithTimeout(timeout = 20.seconds)
-            ?: return Result.failure()
+            ?: return Result.retry()
 
         val success = sendFeatureMaskAndUpdateContacts(
             contactModelRepository,
-            contactService,
             apiConnector,
             userService,
             preferenceService,
@@ -123,7 +125,6 @@ class ContactUpdateWorker(
         @WorkerThread
         fun sendFeatureMaskAndUpdateContacts(
             contactModelRepository: ContactModelRepository,
-            contactService: ContactService,
             apiConnector: APIConnector,
             userService: UserService,
             preferenceService: PreferenceService,
@@ -143,17 +144,17 @@ class ContactUpdateWorker(
                 return false
             }
 
-            // TODO(ANDR-3172): Fetch all contacts using the contact model repository
-            val contactModels = contactService.find(object : ContactService.Filter {
-                override fun states(): Array<IdentityState> =
-                    arrayOf(IdentityState.ACTIVE, IdentityState.INACTIVE)
-
-                override fun fetchMissingFeatureLevel() = null
-
-                override fun includeMyself() = true
-
-                override fun includeHidden() = true
-            }).mapNotNull { contactModelRepository.getByIdentity(it.identity) }
+            val contactModels = contactModelRepository
+                .getAll()
+                .filter { contactModel ->
+                    // We only update active and inactive contacts as invalid contacts stay invalid anyway.
+                    when (contactModel.data?.activityState) {
+                        IdentityState.ACTIVE -> true
+                        IdentityState.INACTIVE -> true
+                        IdentityState.INVALID -> false
+                        null -> false
+                    }
+                }
 
             val success = if (contactModels.isNotEmpty()) {
                 fetchAndUpdateContactModels(

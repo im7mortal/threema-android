@@ -1,5 +1,6 @@
 package ch.threema.app.services.messageplayer;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.drawable.Animatable;
@@ -22,7 +23,6 @@ import ch.threema.app.R;
 import ch.threema.app.activities.MediaViewerActivity;
 import ch.threema.app.activities.ThreemaActivity;
 import ch.threema.app.messagereceiver.MessageReceiver;
-import ch.threema.app.services.FileService;
 import ch.threema.app.services.MessageService;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.utils.ConfigUtils;
@@ -31,7 +31,7 @@ import ch.threema.app.utils.RuntimeUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.data.media.FileDataModel;
 import ch.threema.storage.models.data.media.MediaMessageDataInterface;
 
@@ -46,13 +46,21 @@ public class AnimatedImageDrawableMessagePlayer extends MessagePlayer {
     private Drawable imageDrawable;
     private ImageView imageContainer;
 
-    protected AnimatedImageDrawableMessagePlayer(Context context,
-                                                 MessageService messageService,
-                                                 FileService fileService,
-                                                 PreferenceService preferenceService,
-                                                 MessageReceiver messageReceiver,
-                                                 AbstractMessageModel messageModel) {
-        super(context, messageService, fileService, messageReceiver, messageModel);
+    protected AnimatedImageDrawableMessagePlayer(
+        @NonNull
+        Context context,
+        @NonNull
+        MessageService messageService,
+        @NonNull
+        MessageFileDecryptionHelper messageFileDecryptionHelper,
+        @NonNull
+        PreferenceService preferenceService,
+        @NonNull
+        MessageReceiver<?> messageReceiver,
+        @NonNull
+        MessageModel messageModel
+    ) {
+        super(context, messageService, messageFileDecryptionHelper, messageReceiver, messageModel);
         this.preferenceService = preferenceService;
     }
 
@@ -67,8 +75,8 @@ public class AnimatedImageDrawableMessagePlayer extends MessagePlayer {
     }
 
     @Override
-    protected AbstractMessageModel setData(MediaMessageDataInterface data) {
-        AbstractMessageModel messageModel = this.getMessageModel();
+    protected MessageModel setData(MediaMessageDataInterface data) {
+        MessageModel messageModel = this.getMessageModel();
         messageModel.setFileData((FileDataModel) data);
         return messageModel;
     }
@@ -92,13 +100,14 @@ public class AnimatedImageDrawableMessagePlayer extends MessagePlayer {
     public void autoPlay(final File decryptedFile) {
         logger.debug("autoPlay(decryptedFile)");
 
-        if (this.imageContainer != null && this.currentActivityRef != null && this.currentActivityRef.get() != null && getMessageModel() != null) {
+        var activity = getCurrentActivity();
+        if (this.imageContainer != null && activity != null && getMessageModel() != null) {
             this.makePause(SOURCE_UNDEFINED);
 
             final String mimeType = getMessageModel().getFileData().getMimeType();
 
             if (ConfigUtils.isDisplayableAnimatedImageFormat(mimeType)) {
-                Glide.with(getContext())
+                Glide.with(activity)
                     .load(new File(decryptedFile.getPath()))
                     .optionalFitCenter()
                     .error(R.drawable.ic_image_outline)
@@ -117,6 +126,12 @@ public class AnimatedImageDrawableMessagePlayer extends MessagePlayer {
                     .into(imageContainer);
             }
         }
+    }
+
+    @Nullable
+    private Activity getCurrentActivity() {
+        var activityRef = currentActivityRef;
+        return activityRef != null ? activityRef.get() : null;
     }
 
     @Override
@@ -165,20 +180,6 @@ public class AnimatedImageDrawableMessagePlayer extends MessagePlayer {
                 }
             }
         }
-    }
-
-    @Override
-    public void seekTo(int pos) {
-    }
-
-    @Override
-    public int getDuration() {
-        return 0;
-    }
-
-    @Override
-    public int getPosition() {
-        return 0;
     }
 
     @Override

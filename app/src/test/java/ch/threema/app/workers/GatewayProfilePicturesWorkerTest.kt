@@ -1,5 +1,6 @@
 package ch.threema.app.workers
 
+import ch.threema.app.GlobalAppState
 import ch.threema.app.services.ApiService
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.FileService
@@ -40,6 +41,9 @@ class GatewayProfilePicturesWorkerTest {
         every { getAvatarURL(IDENTITY) } returns URL("https://test.threema.com/avatar")
         every { getAuthToken() } returns "my-token-123"
     }
+    private val globalAppStateMock = mockk<GlobalAppState> {
+        every { specialMode } returns null
+    }
 
     @get:Rule
     val koinTestRule = koinTestModuleRule {
@@ -50,6 +54,7 @@ class GatewayProfilePicturesWorkerTest {
         factory<ContactService> { contactServiceMock }
         factory<ApiService> { apiServiceMock }
         factory<FileService> { fileServiceMock }
+        factory<GlobalAppState> { globalAppStateMock }
     }
 
     @Test

@@ -10,6 +10,8 @@ import ch.threema.app.tasks.ReflectLocalGroupUpdate
 import ch.threema.app.testutils.TestHelpers
 import ch.threema.app.testutils.clearDatabaseAndCaches
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationCategory
+import ch.threema.data.datatypes.ConversationSpamReportingState
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.ContactModelData
@@ -68,6 +70,7 @@ class UpdateGroupFlowTest : GroupFlowTest() {
         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
         conversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory = ConversationCategory.DEFAULT,
         profilePictureBlobId = null,
         androidContactLookupInfo = null,
         localAvatarExpires = null,
@@ -101,6 +104,7 @@ class UpdateGroupFlowTest : GroupFlowTest() {
         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
         conversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory = ConversationCategory.DEFAULT,
         profilePictureBlobId = null,
         androidContactLookupInfo = null,
         localAvatarExpires = null,
@@ -119,11 +123,13 @@ class UpdateGroupFlowTest : GroupFlowTest() {
         synchronizedAt = null,
         lastUpdate = Instant.now(),
         conversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory = ConversationCategory.DEFAULT,
         groupDescription = null,
         groupDescriptionChangedAt = null,
         otherMembers = setOf(initialGroupMemberData.identity),
         userState = UserState.MEMBER,
         notificationTriggerPolicyOverride = null,
+        spamReportingState = ConversationSpamReportingState.DEFAULT,
     )
 
     private val initialGroupModelData = GroupModelData(
@@ -133,12 +139,14 @@ class UpdateGroupFlowTest : GroupFlowTest() {
         synchronizedAt = null,
         lastUpdate = Instant.now(),
         conversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory = ConversationCategory.DEFAULT,
         groupDescription = null,
         groupDescriptionChangedAt = null,
         // User is the only member besides from the creator
         otherMembers = emptySet(),
         userState = UserState.MEMBER,
         notificationTriggerPolicyOverride = null,
+        spamReportingState = ConversationSpamReportingState.DEFAULT,
     )
 
     private lateinit var taskManager: ControlledTaskManager
@@ -155,14 +163,13 @@ class UpdateGroupFlowTest : GroupFlowTest() {
 
         assert(myContact.identity == TestHelpers.ensureIdentity(serviceManager))
 
-        // Note that we use from sync to prevent any reflection. This is only acceptable in tests.
         contactModelRepository.apply {
-            createFromSync(initialContactData)
-            createFromSync(initialGroupMemberData)
+            persistNewContact(initialContactData)
+            persistNewContact(initialGroupMemberData)
         }
         groupModelRepository.apply {
-            createFromSync(myInitialGroupModelData)
-            createFromSync(initialGroupModelData)
+            persistNewGroup(myInitialGroupModelData)
+            persistNewGroup(initialGroupModelData)
         }
     }
 

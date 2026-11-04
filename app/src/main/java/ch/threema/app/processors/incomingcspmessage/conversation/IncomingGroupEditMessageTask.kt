@@ -4,12 +4,17 @@ import ch.threema.app.managers.ServiceManager
 import ch.threema.app.processors.incomingcspmessage.IncomingCspMessageSubTask
 import ch.threema.app.processors.incomingcspmessage.ReceiveStepsResult
 import ch.threema.app.processors.incomingcspmessage.groupcontrol.runCommonGroupReceiveSteps
-import ch.threema.app.tasks.runCommonEditMessageReceiveSteps
+import ch.threema.app.protocolsteps.CommonEditMessageReceiveSteps
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.data.datatypes.GroupMessageIdentifier
 import ch.threema.data.models.GroupModel
+import ch.threema.data.repositories.GroupModelRepository
+import ch.threema.domain.models.MessageId
 import ch.threema.domain.protocol.csp.messages.GroupEditMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.TriggerSource
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("IncomingGroupEditMessageTask")
 
@@ -17,15 +22,11 @@ class IncomingGroupEditMessageTask(
     editMessage: GroupEditMessage,
     triggerSource: TriggerSource,
     serviceManager: ServiceManager,
-) : IncomingCspMessageSubTask<GroupEditMessage>(editMessage, triggerSource, serviceManager) {
-    private val messageService by lazy { serviceManager.messageService }
-    private val groupService by lazy { serviceManager.groupService }
-    private val groupModelRepository by lazy { serviceManager.modelRepositories.groups }
-    private val identityStore by lazy { serviceManager.identityStore }
+) : IncomingCspMessageSubTask<GroupEditMessage>(editMessage, triggerSource, serviceManager), KoinComponent {
+    private val groupModelRepository: GroupModelRepository by inject()
+    private val commonEditMessageReceiveSteps: CommonEditMessageReceiveSteps by inject()
 
     override suspend fun executeMessageStepsFromRemote(handle: ActiveTaskCodec): ReceiveStepsResult {
-        logger.debug("IncomingGroupEditMessageTask id: {}", message.data.messageId)
-
         val groupModel = runCommonGroupReceiveSteps(message, handle, serviceManager)
             ?: return ReceiveStepsResult.DISCARD
 
@@ -33,8 +34,6 @@ class IncomingGroupEditMessageTask(
     }
 
     override suspend fun executeMessageStepsFromSync(): ReceiveStepsResult {
-        logger.debug("IncomingGroupEditMessageTask id: {}", message.data.messageId)
-
         val groupModel = groupModelRepository.getByCreatorIdentityAndId(
             message.groupCreator,
             message.apiGroupId,
@@ -48,26 +47,14 @@ class IncomingGroupEditMessageTask(
         return applyEdit(groupModel)
     }
 
-    private fun applyEdit(groupModel: GroupModel): ReceiveStepsResult {
-        val myIdentity = identityStore.getIdentityString()
-            ?: throw IllegalStateException("Cannot apply edit when no identity is available")
-
-        val receiver = groupService.createReceiver(groupModel) ?: run {
-            logger.error("Could not get message receiver")
-            return ReceiveStepsResult.DISCARD
-        }
-        val editedMessage = runCommonEditMessageReceiveSteps(
-            myIdentity = myIdentity,
+    private fun applyEdit(groupModel: GroupModel): ReceiveStepsResult =
+        commonEditMessageReceiveSteps.run(
             editMessageSenderIdentity = message.fromIdentity,
+            editMessageText = message.data.text,
             editMessageCreatedAt = message.timestamp,
-            messageId = message.data.messageId,
-            receiver = receiver,
-            messageService = messageService,
+            referredMessageIdentifier = GroupMessageIdentifier(
+                messageId = MessageId(message.data.messageId),
+                groupDatabaseId = groupModel.getDatabaseId(),
+            ),
         )
-            ?: return ReceiveStepsResult.DISCARD
-
-        messageService.saveEditedMessageText(editedMessage, message.data.text, message.timestamp)
-
-        return ReceiveStepsResult.SUCCESS
-    }
 }

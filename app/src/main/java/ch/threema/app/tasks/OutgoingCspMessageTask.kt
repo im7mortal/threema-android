@@ -41,10 +41,10 @@ import ch.threema.domain.taskmanager.catchAllExceptNetworkException
 import ch.threema.domain.taskmanager.catchExceptNetworkException
 import ch.threema.domain.types.IdentityString
 import ch.threema.storage.DatabaseService
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.ContactMessageModel
+import ch.threema.storage.models.GroupMessageModel
 import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageState
-import ch.threema.storage.models.group.GroupMessageModel
 import ch.threema.storage.models.group.GroupModelOld
 import java.time.Instant
 import org.koin.core.component.KoinComponent
@@ -123,7 +123,7 @@ sealed class OutgoingCspMessageTask :
      */
     suspend fun sendContactMessage(
         message: AbstractMessage,
-        messageModel: MessageModel?,
+        messageModel: ContactMessageModel?,
         toIdentity: IdentityString,
         messageId: MessageId,
         createdAt: Instant,
@@ -353,7 +353,7 @@ sealed class OutgoingCspMessageTask :
      *
      * @throws IllegalArgumentException if the message id of the message model is null
      */
-    protected fun ensureMessageId(messageModel: AbstractMessageModel): MessageId {
+    protected fun ensureMessageId(messageModel: MessageModel): MessageId {
         val apiMessageId = messageModel.apiMessageId
         requireNotNull(apiMessageId) {
             "Message id of message model is null"
@@ -370,7 +370,7 @@ sealed class OutgoingCspMessageTask :
     protected fun getMessageModel(
         @MessageReceiverType receiverType: Int,
         messageModelId: Int,
-    ): AbstractMessageModel? {
+    ): MessageModel? {
         return when (receiverType) {
             MessageReceiver.Type_CONTACT -> getContactMessageModel(messageModelId)
             MessageReceiver.Type_GROUP -> getGroupMessageModel(messageModelId)
@@ -381,7 +381,7 @@ sealed class OutgoingCspMessageTask :
     /**
      * Get the contact message model with the given local database message model id.
      */
-    protected fun getContactMessageModel(messageModelId: Int): MessageModel? {
+    protected fun getContactMessageModel(messageModelId: Int): ContactMessageModel? {
         val messageModel = messageService.getContactMessageModel(messageModelId)
         if (messageModel == null) {
             logger.warn("Could not find contact message model with id {}", messageModelId)
@@ -403,7 +403,7 @@ sealed class OutgoingCspMessageTask :
     /**
      * Set the message model state to [MessageState.SENDFAILED] and save the model to the database.
      */
-    protected fun AbstractMessageModel.saveWithStateFailed() {
+    protected fun MessageModel.saveWithStateFailed() {
         logger.info("Setting message state of model with message id {} to failed", apiMessageId)
         state = MessageState.SENDFAILED
         messageService.save(this)

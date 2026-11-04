@@ -30,7 +30,7 @@ import ch.threema.data.models.EmojiReactionData
 import ch.threema.data.models.EmojiReactionsModel
 import ch.threema.data.repositories.EmojiReactionsRepository
 import ch.threema.logging.logAndReportError
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
@@ -49,7 +49,7 @@ class EmojiReactionsPickerActivity : ThreemaToolbarActivity(), EmojiPicker.Emoji
     private val messageService: MessageService by inject()
     private val emojiReactionsRepository: EmojiReactionsRepository by inject()
 
-    private var messageModel: AbstractMessageModel? = null
+    private var messageModel: MessageModel? = null
     private lateinit var parentLayout: LinearLayout
     private var emojiPicker: EmojiPicker? = null
 
@@ -64,7 +64,7 @@ class EmojiReactionsPickerActivity : ThreemaToolbarActivity(), EmojiPicker.Emoji
             overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, 0)
         }
 
-        messageModel = IntentDataUtil.getAbstractMessageModel(intent, messageService)
+        messageModel = IntentDataUtil.getMessageModel(intent, messageService)
         if (messageModel == null) {
             finish()
             return false
@@ -166,7 +166,7 @@ class EmojiReactionsPickerActivity : ThreemaToolbarActivity(), EmojiPicker.Emoji
             return
         }
 
-        val messageReceiver: MessageReceiver<AbstractMessageModel> = messageService.getMessageReceiver(messageModel)
+        val messageReceiver: MessageReceiver<MessageModel> = messageService.getMessageReceiver(messageModel)
 
         // If this is a group message, we have to check if we are still an active member of the group
         if (messageReceiver is GroupMessageReceiver) {
@@ -183,7 +183,7 @@ class EmojiReactionsPickerActivity : ThreemaToolbarActivity(), EmojiPicker.Emoji
         CoroutineScope(Dispatchers.Default).launch {
             runCatching {
                 messageService.sendEmojiReaction(
-                    messageModel as AbstractMessageModel,
+                    messageModel as MessageModel,
                     emojiCodeString,
                     messageReceiver,
                     false,

@@ -2,10 +2,12 @@ package ch.threema.app.restrictions
 
 import android.content.Context
 import android.os.Bundle
+import ch.threema.app.BuildFlavor
 import ch.threema.app.R
 import ch.threema.app.services.license.LicenseService
 import ch.threema.app.services.license.LicenseServiceUser
-import ch.threema.app.utils.ConfigUtils
+import ch.threema.app.work.LegacyWorkPropertiesUpdater
+import ch.threema.app.work.MdmSource
 import ch.threema.domain.models.UserCredentials
 import ch.threema.domain.protocol.api.work.WorkMDMSettings
 import io.mockk.every
@@ -16,15 +18,14 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Assume
 import org.junit.BeforeClass
 import org.koin.core.context.startKoin
-import org.koin.test.ClosingKoinTest
+import org.koin.test.AutoCloseKoinTest
 import org.koin.test.mock.declare
 
-class AppRestrictionServiceImplTest : ClosingKoinTest {
+class AppRestrictionServiceImplTest : AutoCloseKoinTest() {
 
     @BeforeTest
     fun setUp() {
@@ -42,7 +43,6 @@ class AppRestrictionServiceImplTest : ClosingKoinTest {
             },
             applyAppRestrictionsWorkerScheduler = mockk(relaxed = true),
             getExternalMdmParameters = { bundle },
-            workInfoUpdater = mockk(),
         )
 
         service.reload()
@@ -85,7 +85,6 @@ class AppRestrictionServiceImplTest : ClosingKoinTest {
             },
             applyAppRestrictionsWorkerScheduler = mockk(relaxed = true),
             getExternalMdmParameters = { bundle },
-            workInfoUpdater = mockk(),
         )
 
         service.reload()
@@ -127,7 +126,6 @@ class AppRestrictionServiceImplTest : ClosingKoinTest {
             },
             applyAppRestrictionsWorkerScheduler = mockk(relaxed = true),
             getExternalMdmParameters = { bundle },
-            workInfoUpdater = mockk(),
         )
 
         service.reload()
@@ -143,7 +141,13 @@ class AppRestrictionServiceImplTest : ClosingKoinTest {
         assertNotNull(loadedRestrictions)
         assertEquals(bundle, loadedRestrictions)
 
-        assertEquals("me", service.mdmSource)
+        assertEquals(
+            expected = MdmSource(
+                hasThreemaMdmRestrictions = true,
+                hasExternalMdmRestrictions = true,
+            ),
+            actual = service.mdmSource,
+        )
     }
 
     @Test
@@ -156,7 +160,6 @@ class AppRestrictionServiceImplTest : ClosingKoinTest {
             mdmSettingsStore = mdmSettingsStore,
             applyAppRestrictionsWorkerScheduler = applyAppRestrictionsWorkerSchedulerMock,
             getExternalMdmParameters = { mockBundle() },
-            workInfoUpdater = mockk(),
         )
 
         service.storeWorkMDMSettings(settings)
@@ -175,11 +178,16 @@ class AppRestrictionServiceImplTest : ClosingKoinTest {
             },
             applyAppRestrictionsWorkerScheduler = mockk(),
             getExternalMdmParameters = { mockBundle() },
-            workInfoUpdater = mockk(),
         )
 
         assertEquals(settings, service.getWorkMDMSettings())
-        assertNull(service.mdmSource)
+        assertEquals(
+            expected = MdmSource(
+                hasThreemaMdmRestrictions = false,
+                hasExternalMdmRestrictions = false,
+            ),
+            actual = service.mdmSource,
+        )
     }
 
     @Test
@@ -196,11 +204,16 @@ class AppRestrictionServiceImplTest : ClosingKoinTest {
             },
             applyAppRestrictionsWorkerScheduler = mockk(),
             getExternalMdmParameters = { mockBundle() },
-            workInfoUpdater = mockk(),
         )
 
         assertEquals(settings, service.getWorkMDMSettings())
-        assertEquals("m", service.mdmSource)
+        assertEquals(
+            expected = MdmSource(
+                hasThreemaMdmRestrictions = true,
+                hasExternalMdmRestrictions = false,
+            ),
+            actual = service.mdmSource,
+        )
     }
 
     @Test
@@ -227,7 +240,6 @@ class AppRestrictionServiceImplTest : ClosingKoinTest {
             mdmSettingsStore = mdmSettingsStoreMock,
             applyAppRestrictionsWorkerScheduler = mockk(relaxed = true),
             getExternalMdmParameters = { bundleMock },
-            workInfoUpdater = mockk(),
         )
 
         assertEquals(
@@ -314,7 +326,6 @@ class AppRestrictionServiceImplTest : ClosingKoinTest {
             },
             applyAppRestrictionsWorkerScheduler = mockk(relaxed = true),
             getExternalMdmParameters = { applicationRestrictions },
-            workInfoUpdater = mockk(),
         )
 
         // Act
@@ -364,7 +375,8 @@ class AppRestrictionServiceImplTest : ClosingKoinTest {
             putString("th_license_username", "John")
             putString("th_license_password", "Password2")
         }
-        val workInfoUpdaterMock = mockk<WorkInfoUpdater>(relaxed = true)
+        val legacyWorkPropertiesUpdaterMock = mockk<LegacyWorkPropertiesUpdater>(relaxed = true)
+        declare<LegacyWorkPropertiesUpdater> { legacyWorkPropertiesUpdaterMock }
         val service = AppRestrictionServiceImpl(
             appContext = mockContext(),
             mdmSettingsStore = mockk {
@@ -375,13 +387,12 @@ class AppRestrictionServiceImplTest : ClosingKoinTest {
             },
             applyAppRestrictionsWorkerScheduler = mockk(relaxed = true),
             getExternalMdmParameters = { applicationRestrictions },
-            workInfoUpdater = workInfoUpdaterMock,
         )
 
         service.reload()
 
         verify { licenseServiceMock.saveCredentials(UserCredentials(username = "John", password = "Password2")) }
-        verify { workInfoUpdaterMock.updateWorkInfo(licenseServiceMock) }
+        verify { legacyWorkPropertiesUpdaterMock.runAsynchronously() }
     }
 
     private fun mockBundle(): Bundle {
@@ -417,7 +428,7 @@ class AppRestrictionServiceImplTest : ClosingKoinTest {
         @BeforeClass
         @JvmStatic
         fun assumeWorkBuild() {
-            Assume.assumeTrue(ConfigUtils.isWorkBuild())
+            Assume.assumeTrue(BuildFlavor.IS_WORK)
         }
     }
 }

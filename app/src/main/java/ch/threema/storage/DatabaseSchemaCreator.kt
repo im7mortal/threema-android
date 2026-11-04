@@ -4,6 +4,7 @@ import ch.threema.storage.factories.AppTaskPersistenceFactory
 import ch.threema.storage.factories.ContactAvailabilityStatusModelFactory
 import ch.threema.storage.factories.ContactEditHistoryEntryModelFactory
 import ch.threema.storage.factories.ContactEmojiReactionModelFactory
+import ch.threema.storage.factories.ContactMessageModelFactory
 import ch.threema.storage.factories.ContactModelFactory
 import ch.threema.storage.factories.ConversationTagFactory
 import ch.threema.storage.factories.DistributionListMemberModelFactory
@@ -18,7 +19,6 @@ import ch.threema.storage.factories.GroupModelFactory
 import ch.threema.storage.factories.GroupPollModelFactory
 import ch.threema.storage.factories.IdentityPollModelFactory
 import ch.threema.storage.factories.IncomingGroupSyncRequestLogModelFactory
-import ch.threema.storage.factories.MessageModelFactory
 import ch.threema.storage.factories.OutgoingGroupSyncRequestLogModelFactory
 import ch.threema.storage.factories.PollChoiceModelFactory
 import ch.threema.storage.factories.PollModelFactory
@@ -41,7 +41,7 @@ object DatabaseSchemaCreator {
     private fun getDatabaseCreationProviders() =
         arrayOf<DatabaseCreationProvider>(
             ContactModelFactory.Creator(),
-            MessageModelFactory.Creator(),
+            ContactMessageModelFactory.Creator(),
             GroupModelFactory.Creator(),
             GroupMemberModelFactory.Creator(),
             GroupMessageModelFactory.Creator(),

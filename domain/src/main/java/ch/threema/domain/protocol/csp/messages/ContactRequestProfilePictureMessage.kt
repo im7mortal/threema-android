@@ -13,7 +13,7 @@ class ContactRequestProfilePictureMessage : AbstractMessage() {
 
     override fun allowUserProfileDistribution(): Boolean = false
 
-    override fun exemptFromBlocking(): Boolean = false
+    override fun exemptFromBlocking(): ExemptFromBlocking = ExemptFromBlocking.NO
 
     override fun createImplicitlyDirectContact(): Boolean = false
 

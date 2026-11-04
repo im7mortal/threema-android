@@ -17,7 +17,7 @@ import org.koin.android.ext.android.inject
 
 private val logger = getThreemaLogger("ProfilePicRecipientsActivity")
 
-class ProfilePicRecipientsActivity : MemberChooseActivity() {
+class ProfilePicRecipientsActivity : MemberChooseActivity(), BackPressHandler {
     init {
         logScreenVisibility(logger)
     }
@@ -69,8 +69,6 @@ class ProfilePicRecipientsActivity : MemberChooseActivity() {
     override fun getNotice(): Int = R.string.prefs_sum_receive_profilepics_recipients_list
 
     override fun getMode(): Int = MODE_PROFILE_PIC_RECIPIENTS
-
-    override fun enableOnBackPressedCallback(): Boolean = true
 
     override fun handleOnBackPressed() {
         this.menuNext(selectedContacts)

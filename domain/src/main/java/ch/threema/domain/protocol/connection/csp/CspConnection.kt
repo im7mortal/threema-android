@@ -13,6 +13,7 @@ import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.stores.IdentityStore
 import ch.threema.domain.taskmanager.IncomingMessageProcessor
 import ch.threema.domain.taskmanager.TaskManager
+import kotlin.time.Duration
 
 /**
  * Only this interface is exposed to other modules
@@ -26,7 +27,7 @@ internal class CspConnectionImpl(
     override fun onConnected() {
         socket.let {
             if (it is CspSocket) {
-                it.setSocketSoTimeout(ProtocolDefines.READ_TIMEOUT * 1000)
+                it.setSocketSoTimeout(ProtocolDefines.READ_TIMEOUT)
             }
         }
     }
@@ -34,7 +35,7 @@ internal class CspConnectionImpl(
     override fun onCspAuthenticated() {
         socket.let {
             if (it is CspSocket) {
-                it.setSocketSoTimeout(0)
+                it.setSocketSoTimeout(Duration.ZERO)
             }
         }
     }

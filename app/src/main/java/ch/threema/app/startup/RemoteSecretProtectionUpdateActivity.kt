@@ -31,9 +31,10 @@ import ch.threema.app.startup.components.ErrorState
 import ch.threema.app.startup.components.LoadingState
 import ch.threema.app.startup.models.RemoteSecretUpdateStatus
 import ch.threema.app.startup.models.RemoteSecretUpdateType
-import ch.threema.app.utils.ConfigUtils
+import ch.threema.app.utils.AppRestarter
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
+import org.koin.android.ext.android.inject
 import org.koin.androidx.compose.koinViewModel
 
 private val logger = getThreemaLogger("RemoteSecretProtectionUpdateActivity")
@@ -47,6 +48,8 @@ class RemoteSecretProtectionUpdateActivity : AppCompatActivity() {
         logScreenVisibility(logger)
     }
 
+    private val appRestarter: AppRestarter by inject()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         disableEnterTransition()
@@ -58,7 +61,7 @@ class RemoteSecretProtectionUpdateActivity : AppCompatActivity() {
             EventHandler(viewModel) { event ->
                 when (event) {
                     RemoteSecretProtectionUpdateViewModelEvent.Done -> {
-                        ConfigUtils.scheduleAppRestart(context)
+                        appRestarter.scheduleAppRestart()
                     }
                     RemoteSecretProtectionUpdateViewModelEvent.PromptForCredentials -> {
                         startActivity(EnterSerialActivity.createIntent(context))

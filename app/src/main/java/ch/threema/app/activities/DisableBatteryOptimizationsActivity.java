@@ -1,5 +1,6 @@
 package ch.threema.app.activities;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -12,20 +13,26 @@ import android.text.format.DateUtils;
 import android.view.Gravity;
 import android.widget.Toast;
 
+import androidx.activity.result.contract.ActivityResultContract;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 
 import org.slf4j.Logger;
 
+import ch.threema.android.DeviceInfo;
 import ch.threema.app.BuildConfig;
 import ch.threema.app.R;
 import ch.threema.app.dialogs.GenericAlertDialog;
 import ch.threema.app.utils.ConfigUtils;
+
+import static ch.threema.android.PermissionExtensionsKt.checkPermissionInManifest;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.utils.PowermanagerUtil.isIgnoringBatteryOptimizations;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
+
+import java.lang.reflect.Method;
 
 /**
  * Guides user through the process of disabling battery optimization energy saving option.
@@ -77,7 +84,7 @@ public class DisableBatteryOptimizationsActivity extends ThreemaActivity impleme
 
         Intent intent = getIntent();
 
-        if (ConfigUtils.getMIUIVersion() >= 11) {
+        if (hasMIUIBatteryOptimizations()) {
             String bodyText = getString(R.string.miui_battery_optimization, getString(R.string.app_name));
             GenericAlertDialog.newInstance(R.string.battery_optimizations_title, bodyText, R.string.ok, 0).show(getSupportFragmentManager(), DIALOG_TAG_MIUI_WARNING);
             return;
@@ -98,6 +105,26 @@ public class DisableBatteryOptimizationsActivity extends ThreemaActivity impleme
         }
     }
 
+    private static boolean hasMIUIBatteryOptimizations() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || !DeviceInfo.isXiaomiDevice()) {
+            return false;
+        }
+        try {
+            Class<?> c = Class.forName("android.os.SystemProperties");
+            Method get = c.getMethod("get", String.class);
+            String version = (String) get.invoke(c, "ro.miui.ui.version.name");
+
+            if (version != null) {
+                return version.startsWith("V11") ||
+                    version.startsWith("V12") ||
+                    version.startsWith("V13") ||
+                    version.startsWith("V14");
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
+    }
+
     @Override
     public void onConfigurationChanged(@NonNull Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
@@ -106,6 +133,7 @@ public class DisableBatteryOptimizationsActivity extends ThreemaActivity impleme
     private void showRationaleDialog() {
         GenericAlertDialog dialog = GenericAlertDialog.newInstance(
             R.string.battery_optimizations_title,
+            // TODO(ANDR-5311): This use of the "name" placeholder results in questionable grammar. A more suitable string should be used
             String.format(getString(R.string.battery_optimizations_explain), name, getString(R.string.app_name)),
             R.string.disable,
             cancelLabel
@@ -132,7 +160,7 @@ public class DisableBatteryOptimizationsActivity extends ThreemaActivity impleme
     private void launchDisableFlow() {
         // If the REQUEST_IGNORE_BATTERY_OPTIMIZATIONS permission is granted (versions that
         // aren't distributed through Google Play), then a permission can be requested directly.
-        if (ConfigUtils.checkManifestPermission(this, getPackageName(), "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS")) {
+        if (checkPermissionInManifest(this, getPackageName(), "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS")) {
             final Uri appUri = Uri.parse("package:" + BuildConfig.APPLICATION_ID);
             final Intent newIntent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, appUri);
             try {
@@ -189,6 +217,12 @@ public class DisableBatteryOptimizationsActivity extends ThreemaActivity impleme
         }
     }
 
+    @Override
+    public void onDialogCanceled(@Nullable String tag, @Nullable Object data) {
+        setResult(RESULT_CANCELED);
+        finish();
+    }
+
     private void removeHandlers() {
         if (dropDownHandler != null) {
             dropDownHandler.removeCallbacksAndMessages(null);
@@ -235,9 +269,23 @@ public class DisableBatteryOptimizationsActivity extends ThreemaActivity impleme
     }
 
     @NonNull
-    public static Intent createIntent(@NonNull Context context, @NonNull String name) {
+    private static Intent createIntent(@NonNull Context context, @NonNull String name) {
         Intent intent = new Intent(context, DisableBatteryOptimizationsActivity.class);
         intent.putExtra(EXTRA_NAME, name);
         return intent;
+    }
+
+    public static class Contract extends ActivityResultContract<String, Boolean> {
+
+        @NonNull
+        @Override
+        public Intent createIntent(@NonNull Context context, String name) {
+            return DisableBatteryOptimizationsActivity.createIntent(context, name);
+        }
+
+        @Override
+        public Boolean parseResult(int resultCode, @Nullable Intent intent) {
+            return resultCode == Activity.RESULT_OK;
+        }
     }
 }

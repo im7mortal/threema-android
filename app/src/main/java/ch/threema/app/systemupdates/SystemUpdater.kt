@@ -65,14 +65,14 @@ class SystemUpdater(
     private fun processUpdates() {
         while (!updates.isEmpty()) {
             val update = updates.remove()
-            logger.info("Running system update to {}", update.fullDescription)
+            logger.info("Running system update to version {}", update.version)
             try {
                 update.run()
             } catch (e: Exception) {
                 logger.error("Failed to run system update", e)
                 throw SystemUpdateException(update.version)
             }
-            logger.info("System update to {} successful", update.fullDescription)
+            logger.info("System update to version {} successful", update.version)
             storeVersionNumber(update.version)
         }
     }
@@ -85,14 +85,6 @@ class SystemUpdater(
             putInt(PREF_SYSTEM_UPDATE_VERSION, versionNumber)
         }
     }
-
-    private val SystemUpdate.fullDescription: String
-        get() = buildString {
-            append("version $version")
-            getDescription()?.let { description ->
-                append(" ($description)")
-            }
-        }
 
     companion object {
         private const val PREF_SYSTEM_UPDATE_VERSION = "system_update_version_number"

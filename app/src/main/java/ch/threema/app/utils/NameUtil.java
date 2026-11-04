@@ -16,10 +16,11 @@ import ch.threema.data.datatypes.ContactNameFormat;
 import ch.threema.data.models.ContactModelData;
 import ch.threema.data.models.GroupModelData;
 import ch.threema.data.repositories.ContactModelRepository;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.DistributionListModel;
 import ch.threema.storage.models.group.GroupModelOld;
+
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
@@ -32,7 +33,7 @@ public class NameUtil {
     }
 
     /**
-     * Deprecated: See {@code GetGroupDisplayNameUseCase}
+     * Deprecated: See {@link ch.threema.app.usecases.groups.GetGroupDisplayNameUseCase}
      */
     @NonNull
     @Deprecated
@@ -57,7 +58,7 @@ public class NameUtil {
                 ch.threema.data.models.ContactModel contactModel =
                     contactModelRepository.getByIdentity(identity);
                 if (contactModel != null) {
-                    return getContactDisplayName(contactModel, contactNameFormat);
+                    return getContactDisplayNameOrNickname(contactModel, true, contactNameFormat);
                 } else {
                     return identity;
                 }
@@ -181,13 +182,12 @@ public class NameUtil {
 
     @Nullable
     public static String getContactDisplayNameOrNickname(
-        @Nullable Context context,
-        @Nullable AbstractMessageModel messageModel,
+        @Nullable MessageModel messageModel,
         @NonNull ContactService contactService,
         @NonNull UserService userService,
         @NonNull ContactNameFormat contactNameFormat
     ) {
-        if (context == null || messageModel == null) {
+        if (messageModel == null) {
             return null;
         }
         if (messageModel.isOutbox()) {
@@ -208,9 +208,6 @@ public class NameUtil {
         @NonNull ContactNameFormat contactNameFormat
     ) {
         @Nullable String shortname = null;
-        if (identity.equals(ContactService.ALL_USERS_PLACEHOLDER_ID)) {
-            return ThreemaApplication.getAppContext().getString(R.string.all);
-        }
         if (contactService != null) {
             shortname = NameUtil.getShortName(contactService.getByIdentity(identity), contactNameFormat);
         }
@@ -239,7 +236,7 @@ public class NameUtil {
     @Nullable
     public static String getShortName(
         @Nullable Context context,
-        @Nullable AbstractMessageModel messageModel,
+        @Nullable MessageModel messageModel,
         @NonNull ContactService contactService,
         @NonNull ContactNameFormat contactNameFormat
     ) {
@@ -360,6 +357,52 @@ public class NameUtil {
         }
     }
 
+    /**
+     * Return the display name for a contact, or fall back to the nickname.
+     */
+    @NonNull
+    public static String getContactDisplayNameOrNickname(
+        @Nullable ch.threema.data.models.ContactModel contactModel,
+        boolean nicknameWithPrefix,
+        @NonNull ContactNameFormat contactNameFormat
+    ) {
+        if (contactModel == null) {
+            return "";
+        }
+        String displayName = NameUtil.getContactDisplayName(contactModel, contactNameFormat);
+        ContactModelData contactModelData = contactModel.getData();
+        String nickName = null;
+        if (contactModelData != null) {
+            nickName = contactModelData.nickname;
+        }
+        if (
+            displayName.equals(contactModel.getIdentity()) &&
+                nickName != null &&
+                !nickName.isEmpty() &&
+                !displayName.equals(nickName)) {
+            return nicknameWithPrefix ? "~" + nickName : nickName;
+        } else {
+            return displayName;
+        }
+    }
+
+    @NonNull
+    public static String getContactDisplayNameOrNickname(
+        @NonNull String identity,
+        @Nullable String firstName,
+        @Nullable String lastName,
+        @Nullable String nickName,
+        boolean nicknameWithPrefix,
+        @NonNull ContactNameFormat contactNameFormat
+    ) {
+        final @NonNull String displayName = NameUtil.getContactDisplayName(identity, firstName, lastName, contactNameFormat);
+        if (displayName.equals(identity) && nickName != null && !nickName.isEmpty() && !displayName.equals(nickName)) {
+            return nicknameWithPrefix ? "~" + nickName : nickName;
+        } else {
+            return displayName;
+        }
+    }
+
     @NonNull
     public static String getContactDisplayNameOrNickname(
         @NonNull String identity,
@@ -416,9 +459,6 @@ public class NameUtil {
     ) {
         if (contactService == null || userService == null || identity == null) {
             return (identity != null) ? identity : "";
-        }
-        if (ContactService.ALL_USERS_PLACEHOLDER_ID.equals(identity)) {
-            return ThreemaApplication.getAppContext().getString(R.string.all);
         }
         final @Nullable ContactModel contactModel = contactService.getByIdentity(identity);
         final @NonNull String quoteName = getQuoteName(contactModel, userService, contactNameFormat);

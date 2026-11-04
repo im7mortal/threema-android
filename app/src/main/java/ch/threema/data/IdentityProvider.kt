@@ -8,6 +8,16 @@ interface IdentityProvider {
 
     fun getIdentityString(): IdentityString?
 
+    fun requireIdentity(): Identity =
+        getIdentity() ?: error("Identity not available")
+
+    /**
+     * Returns the current identity.
+     *
+     * @throws IllegalStateException if no identity is currently available.
+     */
+    fun requireIdentityString(): IdentityString
+
     fun hasIdentity() =
         getIdentity() != null
 }

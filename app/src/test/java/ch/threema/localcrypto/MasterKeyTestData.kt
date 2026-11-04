@@ -1,7 +1,8 @@
 package ch.threema.localcrypto
 
 import ch.threema.common.Base64
-import ch.threema.common.emptyByteArray
+import ch.threema.common.emptyDirectByteBuffer
+import ch.threema.common.toDirectByteBuffer
 import ch.threema.libthreema.blake2bMac256
 import ch.threema.localcrypto.models.RemoteSecret
 import ch.threema.localcrypto.models.RemoteSecretAuthenticationToken
@@ -22,9 +23,9 @@ object MasterKeyTestData {
         RemoteSecretHash(
             blake2bMac256(
                 key = value,
-                personal = "3ma-rs".toByteArray(),
-                salt = "rsh".toByteArray(),
-                data = emptyByteArray(),
+                personal = "3ma-rs".toDirectByteBuffer(),
+                salt = "rsh".toDirectByteBuffer(),
+                data = emptyDirectByteBuffer(),
             ),
         )
 

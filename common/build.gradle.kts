@@ -1,12 +1,11 @@
 plugins {
     alias(libs.plugins.java.library)
     alias(libs.plugins.kotlin.jvm)
-    alias(libs.plugins.jacoco)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 dependencies {
     // Standard libraries
-    api(libs.kotlin.stdlib)
     api(libs.kotlinx.coroutines.core)
 
     // Dependency injection
@@ -36,28 +35,6 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
-}
-
-tasks.withType<JacocoReport> {
-    reports {
-        xml.required = true
-        html.required = false
-    }
-}
-
-sonarqube {
-    properties {
-        property("sonar.projectKey", "android-client")
-        property("sonar.projectName", "Threema for Android")
-        property("sonar.sources", "src/main/")
-        property("sonar.tests", "src/test/")
-        property("sonar.sourceEncoding", "UTF-8")
-        property("sonar.verbose", "true")
-        property(
-            "sonar.coverage.jacoco.xmlReportPaths",
-            "${projectDir.parentFile.path}/build/reports/jacoco/codeCoverageReport/codeCoverageReport.xml",
-        )
-    }
 }
 
 java {

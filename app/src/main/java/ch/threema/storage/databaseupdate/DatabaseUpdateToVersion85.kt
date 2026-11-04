@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * add display tags field
+ */
 internal class DatabaseUpdateToVersion85(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -16,8 +19,6 @@ internal class DatabaseUpdateToVersion85(
             }
         }
     }
-
-    override fun getDescription() = "add display tags field"
 
     override val version = 85
 }

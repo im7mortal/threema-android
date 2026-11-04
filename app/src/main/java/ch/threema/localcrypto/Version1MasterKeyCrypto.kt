@@ -2,6 +2,7 @@ package ch.threema.localcrypto
 
 import ch.threema.common.models.CryptographicByteArray
 import ch.threema.common.secureContentEquals
+import ch.threema.common.toDirectByteBuffer
 import ch.threema.common.xor
 import ch.threema.domain.libthreema.LibthreemaJavaBridge.createScryptParameters
 import ch.threema.libthreema.scrypt
@@ -32,8 +33,8 @@ class Version1MasterKeyCrypto {
         salt: CryptographicByteArray,
     ): ByteArray =
         scrypt(
-            password = String(passphrase).toByteArray(),
-            salt = salt.value,
+            password = passphrase.toDirectByteBuffer(),
+            salt = salt.value.toDirectByteBuffer(),
             parameters = createScryptParameters(outputLength = MasterKeyConfig.KEY_LENGTH.toByte()),
         )
 }

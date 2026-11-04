@@ -9,10 +9,10 @@ import ch.threema.domain.protocol.csp.messages.file.FileData
 import ch.threema.domain.protocol.csp.messages.file.GroupFileMessage
 import ch.threema.protobuf.common.CspE2eMessageType
 import ch.threema.protobuf.d2d.OutgoingMessage
+import ch.threema.storage.models.GroupMessageModel
 import ch.threema.storage.models.MessageState
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.media.FileDataModel
-import ch.threema.storage.models.group.GroupMessageModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -56,8 +56,8 @@ internal class ReflectedOutgoingGroupFileTask(
         // 2. Map the FileData object to a FileDataModel instance (field "downloaded" is false)
         val fileDataModel: FileDataModel = FileDataModel.fromIncomingFileData(fileData)
 
-        // 3. Create the actual AbstractMessageModel containing the file and receiver information
-        val groupMessageModel: GroupMessageModel = createMessageModelFromFileMessage(
+        // 3. Create the actual GroupMessageModel containing the file and receiver information
+        val groupMessageModel: GroupMessageModel = createGroupMessageModelFromFileMessage(
             groupFileMessage = message,
             fileDataModel = fileDataModel,
             fileData = fileData,
@@ -72,12 +72,12 @@ internal class ReflectedOutgoingGroupFileTask(
     }
 
     /**
-     *  @return A new instance of `AbstractMessageModel` with type [MessageType.FILE] containing
+     *  @return A new instance of `GroupMessageModel` with type [MessageType.FILE] containing
      *  the `body` and `dataObject` from the passed file information.
      *  The messages receiver information is set according to the [messageReceiver].
      *  State will be [MessageState.SENDING].
      */
-    private fun createMessageModelFromFileMessage(
+    private fun createGroupMessageModelFromFileMessage(
         groupFileMessage: GroupFileMessage,
         fileDataModel: FileDataModel,
         fileData: FileData,

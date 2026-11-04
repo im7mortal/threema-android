@@ -7,6 +7,7 @@ import ch.threema.app.di.injectNullableNonBinding
 import ch.threema.app.errorreporting.SentryIdProvider
 import ch.threema.app.logging.AppVersionHistoryManager
 import ch.threema.app.multidevice.MultiDeviceManager
+import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.restrictions.AppRestrictionService
 import ch.threema.app.restrictions.AppRestrictions
 import ch.threema.base.HAS_DEV_FEATURES
@@ -27,9 +28,9 @@ class GetDebugMetaDataUseCase(
     private val appVersionHistoryManager: AppVersionHistoryManager,
     private val sentryIdProvider: SentryIdProvider,
     private val appRestrictions: AppRestrictions,
-    private val appRestrictionService: AppRestrictionService?,
+    private val appRestrictionService: AppRestrictionService,
+    private val preferenceService: PreferenceService,
     private val timeProvider: TimeProvider,
-    private val isThreemaPushUsed: () -> Boolean,
 ) : KoinComponent {
     private val multiDeviceManager: MultiDeviceManager? by injectNullableNonBinding()
 
@@ -38,9 +39,7 @@ class GetDebugMetaDataUseCase(
         appendDeviceInfo()
         appendAppInfo()
         appendAppConfig()
-        if (appRestrictionService != null) {
-            appendRestrictions(appRestrictionService)
-        }
+        appendRestrictions(appRestrictionService)
         appendVersionHistory()
     }
 
@@ -56,7 +55,7 @@ class GetDebugMetaDataUseCase(
         section("app") {
             keyValuePair("app version", BuildConfig.VERSION_NAME)
             keyValuePair("app version code", BuildConfig.DEFAULT_VERSION_CODE)
-            keyValuePair("build flavor", BuildFlavor.current.fullDisplayName)
+            keyValuePair("build flavor", BuildFlavor.fullDisplayName)
             if (HAS_DEV_FEATURES) {
                 keyValuePair("git commit", BuildConfig.GIT_HASH)
                 keyValuePair("git branch", BuildConfig.GIT_BRANCH)
@@ -80,15 +79,17 @@ class GetDebugMetaDataUseCase(
                 },
             )
             keyValuePair("uses multi device", multiDeviceManager?.isMultiDeviceActive)
-            keyValuePair("uses threema push", isThreemaPushUsed())
+            keyValuePair("uses threema push", preferenceService.mustUseThreemaPush())
         }
     }
 
     private fun StringBuilder.appendRestrictions(appRestrictionService: AppRestrictionService) {
-        section("restrictions") {
-            keyValuePair("mdm source", appRestrictionService.mdmSource)
-            keyValuePair("username configured", appRestrictions.getLicenseUsername() != null)
-            keyValuePair("password configured", appRestrictions.getLicensePassword() != null)
+        appRestrictionService.mdmSource.getStringRepresentation()?.let { mdmSourceString ->
+            section("restrictions") {
+                keyValuePair("mdm source", mdmSourceString)
+                keyValuePair("username configured", appRestrictions.getLicenseUsername() != null)
+                keyValuePair("password configured", appRestrictions.getLicensePassword() != null)
+            }
         }
     }
 

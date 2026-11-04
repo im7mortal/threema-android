@@ -1,13 +1,14 @@
 package ch.threema.app.compose.common.text
 
+import ch.threema.android.ResolvableString
 import ch.threema.android.ResourceIdString
 import ch.threema.app.R
 import ch.threema.app.compose.common.text.conversation.ConversationTextAnalyzer
 import ch.threema.app.compose.common.text.conversation.ConversationTextAnalyzer.Result
-import ch.threema.app.services.ContactService
 import ch.threema.data.datatypes.ContactNameFormat
 import ch.threema.data.datatypes.MentionNameData
 import ch.threema.domain.types.Identity
+import ch.threema.domain.types.Mention
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -142,7 +143,7 @@ class ConversationTextAnalyzerTest {
     @Test
     fun `finds mentions if no other content exists`() {
         // arrange
-        val rawInput = "@[${TestData.Identities.OTHER_1}]@[${TestData.Identities.OTHER_2}]@[${ContactService.ALL_USERS_PLACEHOLDER_ID}]"
+        val rawInput = "@[${TestData.Identities.OTHER_1}]@[${TestData.Identities.OTHER_2}]@[@@@@@@@@]"
 
         // act
         val result = ConversationTextAnalyzer.analyze(
@@ -154,7 +155,7 @@ class ConversationTextAnalyzerTest {
         assertAnalyzeResult(result, itemCount = 3) {
             assertMention(startsAtIndex = 0, forIdentity = TestData.Identities.OTHER_1)
             assertMention(startsAtIndex = 11, forIdentity = TestData.Identities.OTHER_2)
-            assertMention(startsAtIndex = 22, forIdentity = Identity(ContactService.ALL_USERS_PLACEHOLDER_ID))
+            assertMentionForAllUsers(startsAtIndex = 22)
         }
     }
 
@@ -162,7 +163,7 @@ class ConversationTextAnalyzerTest {
     fun `finds mentions if no other content besides spaces exists`() {
         // arrange
         val rawInput =
-            " @[${TestData.Identities.OTHER_1}]  @[${TestData.Identities.OTHER_2}]  @[${ContactService.ALL_USERS_PLACEHOLDER_ID}]  " +
+            " @[${TestData.Identities.OTHER_1}]  @[${TestData.Identities.OTHER_2}]  @[@@@@@@@@]  " +
                 "@[${TestData.Identities.BROADCAST}]"
 
         // act
@@ -175,7 +176,7 @@ class ConversationTextAnalyzerTest {
         assertAnalyzeResult(result, itemCount = 4) {
             assertMention(startsAtIndex = 1, forIdentity = TestData.Identities.OTHER_1)
             assertMention(startsAtIndex = 14, forIdentity = TestData.Identities.OTHER_2)
-            assertMention(startsAtIndex = 27, forIdentity = Identity(ContactService.ALL_USERS_PLACEHOLDER_ID))
+            assertMentionForAllUsers(startsAtIndex = 27)
             assertMention(startsAtIndex = 40, forIdentity = TestData.Identities.BROADCAST)
         }
     }
@@ -201,7 +202,7 @@ class ConversationTextAnalyzerTest {
     @Test
     fun `finds all mention types in between text`() {
         // arrange
-        val rawInput = "Text @[${TestData.Identities.OTHER_1}] text @[${ContactService.ALL_USERS_PLACEHOLDER_ID}] text " +
+        val rawInput = "Text @[${TestData.Identities.OTHER_1}] text @[@@@@@@@@] text " +
             "@[${TestData.Identities.BROADCAST}] Prefix"
 
         // act
@@ -213,7 +214,7 @@ class ConversationTextAnalyzerTest {
         // assert
         assertAnalyzeResult(result, itemCount = 3) {
             assertMention(startsAtIndex = 5, forIdentity = TestData.Identities.OTHER_1)
-            assertMention(startsAtIndex = 22, forIdentity = Identity(ContactService.ALL_USERS_PLACEHOLDER_ID))
+            assertMentionForAllUsers(startsAtIndex = 22)
             assertMention(startsAtIndex = 39, forIdentity = TestData.Identities.BROADCAST)
         }
     }
@@ -381,7 +382,7 @@ class ConversationTextAnalyzerTest {
 
         // assert
         assertEquals(1, result.size)
-        assertTrue(result.containsKey(TestData.Identities.OTHER_1))
+        assertTrue(result.containsKey(Mention.Identity(TestData.Identities.OTHER_1)))
     }
 
     @Test
@@ -398,13 +399,13 @@ class ConversationTextAnalyzerTest {
 
         // assert
         assertEquals(1, result.size)
-        assertTrue(result.containsKey(TestData.Identities.ME))
+        assertTrue(result.containsKey(Mention.Identity(TestData.Identities.ME)))
     }
 
     @Test
     fun `findResolvableMentionNames should find mention all`() {
         // arrange
-        val input = "Start @[${ContactService.ALL_USERS_PLACEHOLDER_ID}] end."
+        val input = "Start @[@@@@@@@@] end."
 
         // act
         val result = ConversationTextAnalyzer.findResolvableMentionNames(
@@ -415,8 +416,8 @@ class ConversationTextAnalyzerTest {
 
         // assert
         assertEquals(
-            mapOf(
-                Identity(ContactService.ALL_USERS_PLACEHOLDER_ID) to ResourceIdString(R.string.all),
+            mapOf<Mention, ResolvableString>(
+                Mention.AllUsers to ResourceIdString(R.string.all),
             ),
             result,
         )
@@ -436,7 +437,7 @@ class ConversationTextAnalyzerTest {
 
         // assert
         assertEquals(1, result.size)
-        assertTrue(result.containsKey(TestData.Identities.BROADCAST))
+        assertTrue(result.containsKey(Mention.Identity(TestData.Identities.BROADCAST)))
     }
 
     @Test
@@ -459,7 +460,7 @@ class ConversationTextAnalyzerTest {
     fun `findResolvableMentionNames finds multiple mentions`() {
         // arrange
         val input = "Start @[${TestData.Identities.OTHER_4}] mid @[${TestData.Identities.OTHER_2}]@[${TestData.Identities.OTHER_1}]" +
-            "@[${ContactService.ALL_USERS_PLACEHOLDER_ID}] mid @[${TestData.Identities.ME}]."
+            "@[@@@@@@@@] mid @[${TestData.Identities.ME}]."
 
         // act
         val result = ConversationTextAnalyzer.findResolvableMentionNames(
@@ -471,10 +472,10 @@ class ConversationTextAnalyzerTest {
         // assert
 
         assertEquals(4, result.size)
-        assertTrue(result.containsKey(TestData.Identities.OTHER_2))
-        assertTrue(result.containsKey(TestData.Identities.OTHER_1))
-        assertTrue(result.containsKey(Identity(ContactService.ALL_USERS_PLACEHOLDER_ID)))
-        assertTrue(result.containsKey(TestData.Identities.ME))
+        assertTrue(result.containsKey(Mention.Identity(TestData.Identities.OTHER_2)))
+        assertTrue(result.containsKey(Mention.Identity(TestData.Identities.OTHER_1)))
+        assertTrue(result.containsKey(Mention.AllUsers))
+        assertTrue(result.containsKey(Mention.Identity(TestData.Identities.ME)))
     }
 
     @Test
@@ -491,7 +492,7 @@ class ConversationTextAnalyzerTest {
 
         // assert
         assertEquals(1, result.size)
-        assertTrue(result.containsKey(TestData.Identities.OTHER_2))
+        assertTrue(result.containsKey(Mention.Identity(TestData.Identities.OTHER_2)))
     }
 
     @Test
@@ -557,7 +558,7 @@ class ConversationTextAnalyzerTest {
 
         // assert
         assertEquals(1, result.size)
-        assertTrue(result.containsKey(TestData.Identities.OTHER_2))
+        assertTrue(result.containsKey(Mention.Identity(TestData.Identities.OTHER_2)))
     }
 
     @Test
@@ -589,7 +590,7 @@ class ConversationTextAnalyzerTest {
         // assert
         results.forEach { result ->
             assertEquals(1, result.size)
-            assertTrue(result.containsKey(TestData.Identities.OTHER_1))
+            assertTrue(result.containsKey(Mention.Identity(TestData.Identities.OTHER_1)))
         }
     }
 
@@ -617,7 +618,14 @@ class ConversationTextAnalyzerTest {
             val mention: Result.SearchResult? = items[startsAtIndex]
             assertNotNull(mention, "No mention result item found at index $startsAtIndex")
             assertIs<Result.SearchResult.Mention>(mention)
-            assertEquals(forIdentity, mention.identity)
+            assertEquals(Mention.Identity(forIdentity), mention.mention)
+        }
+
+        private fun Result.assertMentionForAllUsers(startsAtIndex: Int) {
+            val mention: Result.SearchResult? = items[startsAtIndex]
+            assertNotNull(mention, "No mention result item found at index $startsAtIndex")
+            assertIs<Result.SearchResult.Mention>(mention)
+            assertIs<Mention.AllUsers>(mention.mention)
         }
     }
 }

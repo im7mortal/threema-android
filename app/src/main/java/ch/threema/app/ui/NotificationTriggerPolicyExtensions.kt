@@ -1,13 +1,13 @@
 package ch.threema.app.ui
 
 import ch.threema.app.R
-import ch.threema.app.services.ContactService
 import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverride
 import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverridePolicy
 import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverride
 import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverridePolicy
 import ch.threema.data.datatypes.NotificationTriggerPolicyOverride
-import ch.threema.domain.types.IdentityString
+import ch.threema.domain.types.Identity
+import ch.threema.domain.types.Mention
 import java.time.Instant
 
 /**
@@ -39,7 +39,7 @@ fun NotificationTriggerPolicyOverride<*>.getIconResAt(instant: Instant): Int? = 
     }
 }
 
-fun NotificationTriggerPolicyOverride<*>.muteAppliesToMessageAt(message: String, instant: Instant, myIdentity: IdentityString): Boolean =
+fun NotificationTriggerPolicyOverride<*>.muteAppliesToMessageAt(message: String, instant: Instant, myIdentity: Identity): Boolean =
     when (this) {
         is ContactNotificationTriggerPolicyOverride -> {
             when (policy) {
@@ -52,19 +52,17 @@ fun NotificationTriggerPolicyOverride<*>.muteAppliesToMessageAt(message: String,
         }
 
         is GroupNotificationTriggerPolicyOverride -> {
+            if (!muteAppliesAt(instant)) {
+                return false
+            }
             when (policy) {
-                GroupNotificationTriggerPolicyOverridePolicy.MENTIONED -> when {
-                    !muteAppliesAt(instant) -> false
-                    message.contains("@[${ContactService.ALL_USERS_PLACEHOLDER_ID}]") -> false
-                    message.contains("@[$myIdentity]") -> false
-                    else -> true
+                GroupNotificationTriggerPolicyOverridePolicy.MENTIONED -> {
+                    Mention.findMatches(message)
+                        .none { match ->
+                            match.mention.includes(myIdentity)
+                        }
                 }
-
-                GroupNotificationTriggerPolicyOverridePolicy.NEVER -> {
-                    // In case the policy indicates that we should not show a notification for any message, we just need to check whether it applies
-                    // at the given instant.
-                    muteAppliesAt(instant)
-                }
+                GroupNotificationTriggerPolicyOverridePolicy.NEVER -> true
             }
         }
     }

@@ -2,11 +2,12 @@ package ch.threema.app.asynctasks
 
 import androidx.annotation.WorkerThread
 import ch.threema.app.BuildConfig
-import ch.threema.app.utils.ConfigUtils
+import ch.threema.app.BuildFlavor
 import ch.threema.app.utils.executor.BackgroundTask
 import ch.threema.base.crypto.NaCl
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.IdColor
 import ch.threema.data.models.ContactModel
@@ -80,7 +81,7 @@ class AddOrUpdateWorkContactBackgroundTask(
     override fun runInBackground(): ContactModel? {
         logger.info("Adding or updating work contact with identity {}", workContact.threemaId)
 
-        if (!ConfigUtils.isWorkBuild()) {
+        if (!BuildFlavor.IS_WORK) {
             logger.error("Cannot add or update work contact in non-work builds")
             return null
         }
@@ -139,6 +140,7 @@ class AddOrUpdateWorkContactBackgroundTask(
                         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
                         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
                         conversationVisibility = ConversationVisibility.NORMAL,
+                        conversationCategory = ConversationCategory.DEFAULT,
                         androidContactLookupInfo = null,
                         localAvatarExpires = null,
                         isRestored = false,

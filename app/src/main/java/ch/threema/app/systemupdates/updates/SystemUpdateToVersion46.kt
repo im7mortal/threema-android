@@ -7,6 +7,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import org.koin.core.component.inject
 
+/**
+ * convert recent emojis
+ */
 class SystemUpdateToVersion46 : SystemUpdate {
     private val oldEmojiSet = arrayOf(
         "#\u20E3",
@@ -1869,8 +1872,6 @@ class SystemUpdateToVersion46 : SystemUpdate {
         } catch (_: Exception) {
             null
         }
-
-    override fun getDescription() = "convert recent emojis"
 
     override val version = 46
 

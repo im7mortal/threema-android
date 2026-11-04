@@ -1,556 +1,491 @@
 package ch.threema.data.repositories
 
-import ch.threema.KoinTestRule
 import ch.threema.app.TestMultiDeviceManager
 import ch.threema.app.TestNonceStore
 import ch.threema.app.TestTaskManager
-import ch.threema.app.eventbus.GlobalEventBuses
-import ch.threema.app.eventbus.GlobalEventFlows
-import ch.threema.app.multidevice.MultiDeviceManager
-import ch.threema.app.testutils.TestHelpers
+import ch.threema.app.eventbus.GlobalEventBusesImpl
 import ch.threema.base.crypto.NonceFactory
-import ch.threema.common.DispatcherProvider
-import ch.threema.data.IdentityProvider
-import ch.threema.data.datatypes.AndroidContactLookupInfo
-import ch.threema.data.datatypes.AvailabilityStatus
-import ch.threema.data.datatypes.ConversationVisibility
-import ch.threema.data.datatypes.IdColor
-import ch.threema.data.models.ContactModelData
-import ch.threema.domain.helpers.TransactionAckTaskCodec
+import ch.threema.data.storage.SqliteDatabaseBackend
 import ch.threema.domain.helpers.UnusedTaskCodec
 import ch.threema.domain.models.AcquaintanceLevel
-import ch.threema.domain.models.ContactSyncState
-import ch.threema.domain.models.IdentityState
-import ch.threema.domain.models.IdentityType
-import ch.threema.domain.models.ReadReceiptPolicy
-import ch.threema.domain.models.TypingIndicatorPolicy
-import ch.threema.domain.models.VerificationLevel
-import ch.threema.domain.models.WorkVerificationLevel
-import ch.threema.domain.types.Identity
-import ch.threema.domain.types.IdentityString
-import ch.threema.storage.factories.ContactModelFactory
-import ch.threema.storage.models.ContactModel
-import ch.threema.test.TestData.PUBLIC_KEY
+import ch.threema.test.TestData.Identities
+import ch.threema.test.TestData.PublicKeys
+import ch.threema.test.TestData.createContactModelData
+import ch.threema.test.TestData.createDbContact
 import ch.threema.test.TestDatabaseProvider
-import ch.threema.testhelpers.nonSecureRandomArray
-import ch.threema.testhelpers.randomIdentity
-import io.mockk.every
-import io.mockk.mockk
-import java.time.Instant
+import ch.threema.test.TestIdentityProvider
+import ch.threema.testhelpers.TestDispatcherProvider
+import ch.threema.testhelpers.TestTimeProvider
 import junit.framework.TestCase.assertNotNull
-import kotlin.getValue
 import kotlin.test.BeforeTest
 import kotlin.test.Test
-import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.test.fail
-import kotlinx.coroutines.runBlocking
-import org.junit.Rule
-import org.junit.runner.RunWith
-import org.junit.runners.Parameterized
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
-import org.koin.dsl.module
 
-@RunWith(value = Parameterized::class)
-class ContactModelRepositoryTest(private val contactModelData: ContactModelData) : KoinComponent {
-    private val globalEventFlows: GlobalEventFlows by inject()
-    private val globalEventBuses: GlobalEventBuses by inject()
-    private val dispatcherProvider: DispatcherProvider by inject()
+/**
+ * @see ContactModelRepositoryParameterizedTest
+ */
+class ContactModelRepositoryTest {
 
-    // Services where MD is disabled
-    private lateinit var databaseProvider: TestDatabaseProvider
-    private lateinit var contactModelFactory: ContactModelFactory
-    private lateinit var multiDeviceManager: TestMultiDeviceManager
-    private lateinit var taskManager: TestTaskManager
-    private lateinit var nonceFactory: NonceFactory
+    private lateinit var sqliteDatabaseBackend: SqliteDatabaseBackend
     private lateinit var contactModelRepository: ContactModelRepository
 
-    // Services where MD is enabled
-    private lateinit var databaseProviderMd: TestDatabaseProvider
-    private lateinit var contactModelFactoryMd: ContactModelFactory
-    private lateinit var taskCodecMd: TransactionAckTaskCodec
-    private lateinit var multiDeviceManagerMd: TestMultiDeviceManager
-    private lateinit var taskManagerMd: TestTaskManager
-    private lateinit var nonceFactoryMd: NonceFactory
-    private lateinit var contactModelRepositoryMd: ContactModelRepository
-
-    private enum class TestTriggerSource {
-        FROM_LOCAL,
-        FROM_REMOTE,
-    }
-
-    private var isMultiDeviceEnabled = false
-
-    private val instrumentedTestModule = module {
-        factory<MultiDeviceManager> {
-            if (isMultiDeviceEnabled) {
-                multiDeviceManagerMd
-            } else {
-                multiDeviceManager
-            }
-        }
-    }
-
-    @get:Rule
-    val koinTestRule = KoinTestRule(
-        modules = listOf(instrumentedTestModule),
-    )
-
     @BeforeTest
-    fun before() {
-        val identityProviderMock: IdentityProvider = mockk {
-            every { getIdentity() } returns Identity(TestHelpers.TEST_CONTACT.identity)
-            every { getIdentityString() } returns TestHelpers.TEST_CONTACT.identity
-        }
-
-        // Instantiate services where MD is disabled
-        this.databaseProvider = TestDatabaseProvider()
-        multiDeviceManager = TestMultiDeviceManager()
-        taskManager = TestTaskManager(UnusedTaskCodec())
-        nonceFactory = NonceFactory(TestNonceStore())
-        this.contactModelFactory = ContactModelFactory(databaseProvider, identityProviderMock)
-        this.contactModelRepository = ModelRepositories(
-            databaseProvider = databaseProvider,
-            identityProvider = identityProviderMock,
-            multiDeviceManager = multiDeviceManager,
-            taskManager = taskManager,
-            nonceFactory = nonceFactory,
-            globalEventBuses = globalEventBuses,
-            globalEventFlows = globalEventFlows,
-            dispatcherProvider = dispatcherProvider,
-        ).contacts
-
-        // Instantiate services where MD is enabled
-        this.databaseProviderMd = TestDatabaseProvider()
-        this.taskCodecMd = TransactionAckTaskCodec()
-        multiDeviceManagerMd = TestMultiDeviceManager(
-            isMultiDeviceActive = true,
-            isMdDisabledOrSupportsFs = false,
+    fun beforeTest() {
+        val testDispatcherProvider = TestDispatcherProvider()
+        val testTimeProvider = TestTimeProvider()
+        val identityProvider = TestIdentityProvider(
+            identity = Identities.ME,
         )
-        taskManagerMd = TestTaskManager(taskCodecMd)
-        nonceFactoryMd = NonceFactory(TestNonceStore())
-        this.contactModelFactoryMd = ContactModelFactory(databaseProviderMd, identityProviderMock)
-        this.contactModelRepositoryMd = ModelRepositories(
-            databaseProvider = databaseProviderMd,
-            identityProvider = identityProviderMock,
-            multiDeviceManager = multiDeviceManagerMd,
-            taskManager = taskManagerMd,
-            nonceFactory = nonceFactoryMd,
+        val databaseProvider = TestDatabaseProvider()
+        val globalEventBuses = GlobalEventBusesImpl(
+            dispatcherProvider = testDispatcherProvider,
+        )
+        sqliteDatabaseBackend = SqliteDatabaseBackend(
+            databaseProvider = databaseProvider,
+            identityProvider = identityProvider,
+        )
+        contactModelRepository = ModelRepositories(
+            databaseProvider = databaseProvider,
+            identityProvider = identityProvider,
+            multiDeviceManager = TestMultiDeviceManager(
+                isMultiDeviceActive = false,
+            ),
+            taskManager = TestTaskManager(UnusedTaskCodec()),
+            nonceFactory = NonceFactory(TestNonceStore()),
             globalEventBuses = globalEventBuses,
-            globalEventFlows = globalEventFlows,
-            dispatcherProvider = dispatcherProvider,
+            globalEventFlows = globalEventBuses,
+            dispatcherProvider = testDispatcherProvider,
+            timeProvider = testTimeProvider,
         ).contacts
-    }
-
-    /**
-     * Test creation of a new contact from local.
-     */
-    @Test
-    fun createFromLocal() {
-        testCreateFromLocalOrRemote(contactModelData, TestTriggerSource.FROM_LOCAL)
-    }
-
-    /**
-     * Test creation of a new contact from remote.
-     */
-    @Test
-    fun createFromRemote() {
-        testCreateFromLocalOrRemote(contactModelData, TestTriggerSource.FROM_REMOTE)
-    }
-
-    /**
-     * Test creation of a new contact from sync.
-     */
-    @Test
-    fun createFromSync() {
-        testCreateFromSync(contactModelData)
-    }
-
-    /**
-     * Test creation of a new contact from local twice. The first time a new contact should be
-     * created. The second time a [ContactStoreException] should be thrown.
-     */
-    @Test
-    fun createFromLocalTwice() {
-        testCreateFromLocalOrRemoteTwice(contactModelData, TestTriggerSource.FROM_LOCAL)
-    }
-
-    /**
-     * Test creation of a new contact from remote twice. The first time a new contact should be
-     * created. The second time a [ContactStoreException] should be thrown.
-     */
-    @Test
-    fun createFromRemoteTwice() {
-        testCreateFromLocalOrRemoteTwice(contactModelData, TestTriggerSource.FROM_REMOTE)
-    }
-
-    /**
-     * Test creation of a new contact from sync twice. The first time a new contact should be
-     * created. The second time a [ContactStoreException] should be thrown.
-     */
-    @Test
-    fun createFromSyncTwice() {
-        testCreateFromSyncTwice(contactModelData)
-    }
-
-    @Test
-    fun getByIdentityNotFound() {
-        val model = contactModelRepository.getByIdentity("ABCDEFGH")
-        assertNull(model)
-        val modelMd = contactModelRepositoryMd.getByIdentity("ABCDEFGH")
-        assertNull(modelMd)
-    }
-
-    @Test
-    fun getByIdentityExisting() {
-        val identity = randomIdentity()
-        val publicKey = nonSecureRandomArray(32)
-
-        // Create contact using "old model"
-        contactModelFactory.create(ContactModel.create(identity, publicKey))
-        contactModelFactoryMd.create(ContactModel.create(identity, publicKey))
-
-        // Fetch contact using "new model"
-        val model = contactModelRepository.getByIdentity(identity)!!
-        val modelMd = contactModelRepositoryMd.getByIdentity(identity)!!
-        assertEquals(model.identity, modelMd.identity)
-        assertContentEquals(model.data, modelMd.data)
-        assertEquals(identity, model.identity)
-        assertEquals(identity, model.data?.identity)
-        assertContentEquals(publicKey, model.data?.publicKey)
-    }
-
-    @Test
-    fun userCannotBeAddedAsContact() {
-        assertFailsWith<InvalidContactException> {
-            contactModelRepository.createFromSync(
-                contactModelData = contactModelData.copy(identity = TestHelpers.TEST_CONTACT.identity),
-            )
-        }
-    }
-
-    private fun testCreateFromLocalOrRemote(
-        contactModelData: ContactModelData,
-        triggerSource: TestTriggerSource,
-    ) {
-        assertNull(contactModelRepository.getByIdentity(contactModelData.identity))
-        assertNull(contactModelRepositoryMd.getByIdentity(contactModelData.identity))
-
-        val (newModel, newModelMd) = runBlocking {
-            when (triggerSource) {
-                TestTriggerSource.FROM_LOCAL -> {
-                    declareNonMdDependencies()
-                    val newModel = contactModelRepository.createFromLocal(contactModelData)
-
-                    declareMdDependencies()
-                    val newModelMd = contactModelRepositoryMd.createFromLocal(contactModelData)
-
-                    newModel to newModelMd
-                }
-
-                TestTriggerSource.FROM_REMOTE -> {
-                    declareNonMdDependencies()
-                    val newContactModel = contactModelRepository.createFromRemote(
-                        contactModelData = contactModelData,
-                        handle = UnusedTaskCodec(),
-                    )
-
-                    declareMdDependencies()
-                    val newContactModelMd =
-                        contactModelRepositoryMd.createFromRemote(
-                            contactModelData = contactModelData,
-                            handle = taskCodecMd,
-                        )
-
-                    newContactModel to newContactModelMd
-                }
-            }
-        }
-
-        // Assert that a transaction has been executed in the MD context
-        assertEquals(1, taskCodecMd.transactionBeginCount)
-        assertEquals(1, taskCodecMd.transactionCommitCount)
-
-        val queriedModel = contactModelRepository.getByIdentity(contactModelData.identity)
-        assertEquals(newModel, queriedModel)
-
-        val queriedModelMd = contactModelRepositoryMd.getByIdentity(contactModelData.identity)
-        assertEquals(newModelMd, queriedModelMd)
-
-        assertContentEquals(contactModelData, newModel.data)
-        assertContentEquals(contactModelData, newModelMd.data)
-
-        // Reset transaction count in case this test is run several times
-        taskCodecMd.transactionBeginCount = 0
-        taskCodecMd.transactionCommitCount = 0
-    }
-
-    /**
-     * Insert the given [contactModelData] twice (from local or remote; depending on the given
-     * [triggerSource]): The first time this should create a new contact, the second time it should
-     * throw a [ContactStoreException].
-     */
-    private fun testCreateFromLocalOrRemoteTwice(
-        contactModelData: ContactModelData,
-        triggerSource: TestTriggerSource,
-    ) {
-        assertNull(contactModelRepository.getByIdentity(contactModelData.identity))
-        assertNull(contactModelRepositoryMd.getByIdentity(contactModelData.identity))
-
-        val (runCreation, runCreationMd) = when (triggerSource) {
-            TestTriggerSource.FROM_LOCAL -> {
-                val runCreation = suspend {
-                    declareNonMdDependencies()
-                    contactModelRepository.createFromLocal(contactModelData)
-                }
-                val runCreationMd = suspend {
-                    declareMdDependencies()
-                    contactModelRepositoryMd.createFromLocal(contactModelData)
-                }
-
-                runCreation to runCreationMd
-            }
-
-            TestTriggerSource.FROM_REMOTE -> {
-                val runCreation = suspend {
-                    declareNonMdDependencies()
-                    contactModelRepository.createFromRemote(
-                        contactModelData = contactModelData,
-                        handle = UnusedTaskCodec(),
-                    )
-                }
-                val runCreationMd = suspend {
-                    declareMdDependencies()
-                    contactModelRepositoryMd.createFromRemote(
-                        contactModelData = contactModelData,
-                        handle = taskCodecMd,
-                    )
-                }
-
-                runCreation to runCreationMd
-            }
-        }
-
-        // Insert it for the first time
-        val (newModel, newModelMd) = runBlocking {
-            runCreation() to runCreationMd()
-        }
-
-        // Assert that a transaction has been executed in the MD context
-        assertEquals(1, taskCodecMd.transactionBeginCount)
-        assertEquals(1, taskCodecMd.transactionCommitCount)
-
-        val queriedModel = contactModelRepository.getByIdentity(contactModelData.identity)
-        assertEquals(newModel, queriedModel)
-
-        val queriedModelMd = contactModelRepositoryMd.getByIdentity(contactModelData.identity)
-        assertEquals(newModelMd, queriedModelMd)
-
-        assertContentEquals(contactModelData, newModel.data)
-        assertContentEquals(contactModelData, newModelMd.data)
-
-        // Insert for the second time and assert that an exception is thrown
-        assertFailsWith<ContactStoreException> { runBlocking { runCreation() } }
-        assertFailsWith<ContactReflectException> { runBlocking { runCreationMd() } }
-
-        // Assert that there is still only one transaction and therefore the transaction has not
-        // been executed again (due to precondition failure)
-        assertEquals(1, taskCodecMd.transactionBeginCount)
-        assertEquals(1, taskCodecMd.transactionCommitCount)
-
-        // Reset transaction count in case this test is run several times
-        taskCodecMd.transactionBeginCount = 0
-        taskCodecMd.transactionCommitCount = 0
-    }
-
-    private fun testCreateFromSync(contactModelData: ContactModelData) {
-        // Assert that the contact does not exist yet
-        assertNull(contactModelRepositoryMd.getByIdentity(contactModelData.identity))
-
-        // Create the contact
-        val contactModel = contactModelRepositoryMd.createFromSync(contactModelData)
-
-        // Assert that no transactions were created and no messages were sent
-        assertEquals(0, taskCodecMd.transactionBeginCount)
-        assertEquals(0, taskCodecMd.transactionCommitCount)
-        assertTrue(taskCodecMd.outboundMessages.isEmpty())
-
-        // Assert that the contact data has been inserted correctly
-        val addedData = contactModel.data!!
-        assertContentEquals(contactModelData, addedData)
-
-        // Reset transaction count in case this test is run several times
-        taskCodecMd.transactionBeginCount = 0
-        taskCodecMd.transactionCommitCount = 0
-    }
-
-    /**
-     * Insert the given [contactModelData] twice from sync: The first time this should create a new
-     * contact, the second time it should throw a [ContactStoreException].
-     */
-    private fun testCreateFromSyncTwice(contactModelData: ContactModelData) {
-        // Assert that the contact does not exist yet
-        assertNull(contactModelRepositoryMd.getByIdentity(contactModelData.identity))
-
-        // Create the contact
-        val contactModel = contactModelRepositoryMd.createFromSync(contactModelData)
-
-        // Assert that no transactions were created and no messages were sent
-        assertEquals(0, taskCodecMd.transactionBeginCount)
-        assertEquals(0, taskCodecMd.transactionCommitCount)
-        assertTrue(taskCodecMd.outboundMessages.isEmpty())
-
-        // Assert that the contact data has been inserted correctly
-        val addedData = contactModel.data!!
-        assertContentEquals(contactModelData, addedData)
-
-        // Assert that the contact data cannot be inserted again (as it already exists)
-        assertFailsWith<ContactStoreException> {
-            contactModelRepositoryMd.createFromSync(contactModelData)
-        }
-
-        // Reset transaction count in case this test is run several times
-        taskCodecMd.transactionBeginCount = 0
-        taskCodecMd.transactionCommitCount = 0
     }
 
     @Test
     fun updateNickname() {
-        // Create contact using "old model"
-        val identity = randomIdentity()
-        contactModelFactory.create(
-            ContactModel.create(
-                identity,
-                nonSecureRandomArray(32),
+        // Create contact using the sqlite database backend directly
+        val identity = Identities.OTHER_1
+        val publicKey = PublicKeys.OTHER_1
+        sqliteDatabaseBackend.createContact(
+            dbContacts = arrayOf(
+                createDbContact(identity, publicKey),
             ),
         )
 
         // Fetch model
-        val model: ch.threema.data.models.ContactModel? =
-            contactModelRepository.getByIdentity(identity)
-        assertNotNull(model)
-        assertEquals(null, model!!.data?.nickname)
-        model.setNicknameFromSync("testnick")
-        assertEquals("testnick", model.data?.nickname)
-    }
-
-    private fun declareNonMdDependencies() {
-        isMultiDeviceEnabled = false
-    }
-
-    private fun declareMdDependencies() {
-        isMultiDeviceEnabled = true
-    }
-
-    private fun assertContentEquals(expected: ContactModelData?, actual: ContactModelData?) {
-        if (expected == null && actual == null) {
-            return
-        }
-
-        if (expected == null) {
-            fail("Actual data expected to be null")
-        }
-
-        if (actual == null) {
-            fail("Actual data expected to be non null")
-        }
-
-        assertEquals(expected.identity, actual.identity)
-        assertContentEquals(expected.publicKey, actual.publicKey)
-        assertEquals(expected.createdAt, actual.createdAt)
-        assertEquals(expected.firstName, actual.firstName)
-        assertEquals(expected.lastName, actual.lastName)
-        assertEquals(expected.nickname, actual.nickname)
-        assertEquals(expected.idColor, actual.idColor)
-        assertEquals(expected.verificationLevel, actual.verificationLevel)
-        assertEquals(expected.workVerificationLevel, actual.workVerificationLevel)
-        assertEquals(expected.identityType, actual.identityType)
-        assertEquals(expected.acquaintanceLevel, actual.acquaintanceLevel)
-        assertEquals(expected.activityState, actual.activityState)
-        assertEquals(expected.syncState, actual.syncState)
-        assertEquals(expected.featureMask, actual.featureMask)
-        assertEquals(expected.readReceiptPolicy, actual.readReceiptPolicy)
-        assertEquals(expected.typingIndicatorPolicy, actual.typingIndicatorPolicy)
+        val contactModel = contactModelRepository.getByIdentity(identity)
+        assertNotNull(contactModel)
+        assertNull(contactModel!!.data?.nickname)
+        contactModel.setNicknameFromSync("test-nick")
         assertEquals(
-            expected.notificationTriggerPolicyOverride,
-            actual.notificationTriggerPolicyOverride,
+            expected = "test-nick",
+            actual = contactModel.data?.nickname,
         )
-        assertEquals(expected.androidContactLookupInfo, actual.androidContactLookupInfo)
-
-        // TODO(ANDR-2998): Assert that notification sound policy override are set correctly
-
-        // Just in case there are new fields added that are not explicitly compared here
-        assertEquals(expected, actual)
     }
 
-    companion object {
-        @JvmStatic
-        @Parameterized.Parameters
-        fun initialValuesSet() = setOf(
-            getInitialContactModelData(),
-            getInitialContactModelData(publicKey = PUBLIC_KEY),
-            getInitialContactModelData(createdAt = Instant.ofEpochMilli(42)),
-            getInitialContactModelData(identityType = IdentityType.WORK),
-            getInitialContactModelData(acquaintanceLevel = AcquaintanceLevel.GROUP_OR_DELETED),
-            getInitialContactModelData(activityState = IdentityState.INACTIVE),
-            getInitialContactModelData(featureMask = 64.toULong()),
+    @Test
+    fun allExistWithAcquaintanceLevel_empty_input() {
+        // act
+        val allExistDirect = contactModelRepository.allExistWithAcquaintanceLevel(
+            identities = emptySet(),
+            acquaintanceLevel = AcquaintanceLevel.DIRECT,
+        )
+        val allExistGroupOrDeleted = contactModelRepository.allExistWithAcquaintanceLevel(
+            identities = emptySet(),
+            acquaintanceLevel = AcquaintanceLevel.GROUP_OR_DELETED,
         )
 
-        private fun getInitialContactModelData(
-            identity: IdentityString = "ABCDEFGH",
-            publicKey: ByteArray = PUBLIC_KEY,
-            createdAt: Instant = Instant.now(),
-            lastUpdateAt: Instant? = null,
-            firstName: String = "",
-            lastName: String = "",
-            nickname: String? = null,
-            verificationLevel: VerificationLevel = VerificationLevel.UNVERIFIED,
-            workVerificationLevel: WorkVerificationLevel = WorkVerificationLevel.NONE,
-            identityType: IdentityType = IdentityType.REGULAR,
-            acquaintanceLevel: AcquaintanceLevel = AcquaintanceLevel.DIRECT,
-            activityState: IdentityState = IdentityState.ACTIVE,
-            syncState: ContactSyncState = ContactSyncState.INITIAL,
-            featureMask: ULong = 0u,
-            readReceiptPolicy: ReadReceiptPolicy = ReadReceiptPolicy.DEFAULT,
-            typingIndicatorPolicy: TypingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
-            androidContactLookupInfo: AndroidContactLookupInfo? = null,
-            localAvatarExpires: Instant? = null,
-            isRestored: Boolean = false,
-            profilePictureBlobId: ByteArray? = null,
-            jobTitle: String? = null,
-            department: String? = null,
-        ) = ContactModelData(
-            identity = identity,
-            publicKey = publicKey,
-            createdAt = createdAt,
-            lastUpdateAt = lastUpdateAt,
-            firstName = firstName,
-            lastName = lastName,
-            nickname = nickname,
-            idColor = IdColor.ofIdentity(identity),
-            verificationLevel = verificationLevel,
-            workVerificationLevel = workVerificationLevel,
-            identityType = identityType,
-            acquaintanceLevel = acquaintanceLevel,
-            activityState = activityState,
-            syncState = syncState,
-            featureMask = featureMask,
-            readReceiptPolicy = readReceiptPolicy,
-            typingIndicatorPolicy = typingIndicatorPolicy,
-            conversationVisibility = ConversationVisibility.NORMAL,
-            androidContactLookupInfo = androidContactLookupInfo,
-            localAvatarExpires = localAvatarExpires,
-            isRestored = isRestored,
-            profilePictureBlobId = profilePictureBlobId,
-            jobTitle = jobTitle,
-            department = department,
-            notificationTriggerPolicyOverride = null,
-            availabilityStatus = AvailabilityStatus.None,
-            workLastFullSyncAt = null,
+        // assert
+        assertTrue(allExistDirect)
+        assertTrue(allExistGroupOrDeleted)
+    }
+
+    @Test
+    fun allExistWithAcquaintanceLevel_empty_cache_and_database() {
+        // act
+        val allExist = contactModelRepository.allExistWithAcquaintanceLevel(
+            identities = setOf(
+                Identities.OTHER_1.value,
+                Identities.OTHER_2.value,
+            ),
+            acquaintanceLevel = AcquaintanceLevel.DIRECT,
+        )
+
+        // assert
+        assertFalse(allExist)
+    }
+
+    /**
+     * Finds none because of identities (acquaintance level actually matches)
+     */
+    @Test
+    fun allExistWithAcquaintanceLevel_none_1() {
+        // arrange
+        // Contact 1 and 2 are in model cache, contact 3 and 4 are not
+        contactModelRepository.persistNewContact(
+            createContactModelData(
+                identity = Identities.OTHER_1,
+                publicKey = PublicKeys.OTHER_1,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+        )
+        contactModelRepository.persistNewContact(
+            createContactModelData(
+                identity = Identities.OTHER_2,
+                publicKey = PublicKeys.OTHER_2,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+        )
+
+        sqliteDatabaseBackend.createContact(
+            createDbContact(
+                identity = Identities.OTHER_3,
+                publicKey = PublicKeys.OTHER_3,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+            createDbContact(
+                identity = Identities.OTHER_4,
+                publicKey = PublicKeys.OTHER_4,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+        )
+
+        // act
+        val allExist = contactModelRepository.allExistWithAcquaintanceLevel(
+            identities = setOf(
+                Identities.ME.value,
+                Identities.OTHER_5.value,
+            ),
+            acquaintanceLevel = AcquaintanceLevel.DIRECT,
+        )
+
+        // assert
+        assertFalse(allExist)
+    }
+
+    /**
+     * Finds none because of acquaintance level (identities actually match)
+     */
+    @Test
+    fun allExistWithAcquaintanceLevel_none_2() {
+        // arrange
+        // Contact 1 and 2 are in model cache, contact 3 and 4 are not
+        contactModelRepository.persistNewContact(
+            createContactModelData(
+                identity = Identities.OTHER_1,
+                publicKey = PublicKeys.OTHER_1,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+        )
+        contactModelRepository.persistNewContact(
+            createContactModelData(
+                identity = Identities.OTHER_2,
+                publicKey = PublicKeys.OTHER_2,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+        )
+
+        sqliteDatabaseBackend.createContact(
+            createDbContact(
+                identity = Identities.OTHER_3,
+                publicKey = PublicKeys.OTHER_3,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+            createDbContact(
+                identity = Identities.OTHER_4,
+                publicKey = PublicKeys.OTHER_4,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+        )
+
+        // act
+        val allExist = contactModelRepository.allExistWithAcquaintanceLevel(
+            identities = setOf(
+                Identities.OTHER_1.value,
+                Identities.OTHER_3.value,
+            ),
+            acquaintanceLevel = AcquaintanceLevel.GROUP_OR_DELETED,
+        )
+
+        // assert
+        assertFalse(allExist)
+    }
+
+    @Test
+    fun allExistWithAcquaintanceLevel_partial_cache() {
+        // arrange
+        // Contact 1, 2 and 3 are in model cache
+        contactModelRepository.persistNewContact(
+            createContactModelData(
+                identity = Identities.OTHER_1,
+                publicKey = PublicKeys.OTHER_1,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+        )
+        contactModelRepository.persistNewContact(
+            createContactModelData(
+                identity = Identities.OTHER_2,
+                publicKey = PublicKeys.OTHER_2,
+                acquaintanceLevel = AcquaintanceLevel.GROUP_OR_DELETED,
+            ),
+        )
+        contactModelRepository.persistNewContact(
+            createContactModelData(
+                identity = Identities.OTHER_3,
+                publicKey = PublicKeys.OTHER_3,
+                acquaintanceLevel = AcquaintanceLevel.GROUP_OR_DELETED,
+            ),
+        )
+
+        // act
+        val allExist = contactModelRepository.allExistWithAcquaintanceLevel(
+            identities = setOf(
+                Identities.OTHER_1.value,
+                Identities.OTHER_2.value,
+                Identities.OTHER_3.value,
+            ),
+            acquaintanceLevel = AcquaintanceLevel.DIRECT,
+        )
+
+        // assert
+        assertFalse(allExist)
+    }
+
+    @Test
+    fun allExistWithAcquaintanceLevel_partial_database() {
+        // arrange
+        // Contact 1 is in model cache, contacts 2, 3, and 4 are not
+        contactModelRepository.persistNewContact(
+            createContactModelData(
+                identity = Identities.OTHER_1,
+                publicKey = PublicKeys.OTHER_1,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+        )
+        sqliteDatabaseBackend.createContact(
+            createDbContact(
+                identity = Identities.OTHER_2,
+                publicKey = PublicKeys.OTHER_2,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+            createDbContact(
+                identity = Identities.OTHER_3,
+                publicKey = PublicKeys.OTHER_3,
+                acquaintanceLevel = AcquaintanceLevel.GROUP_OR_DELETED,
+            ),
+            createDbContact(
+                identity = Identities.OTHER_4,
+                publicKey = PublicKeys.OTHER_4,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+        )
+
+        // act
+        val allExist = contactModelRepository.allExistWithAcquaintanceLevel(
+            identities = setOf(
+                Identities.OTHER_2.value,
+                Identities.OTHER_3.value,
+                Identities.OTHER_4.value,
+            ),
+            acquaintanceLevel = AcquaintanceLevel.DIRECT,
+        )
+
+        // assert
+        assertFalse(allExist)
+    }
+
+    @Test
+    fun allExistWithAcquaintanceLevel_all_cache() {
+        // arrange
+        contactModelRepository.persistNewContact(
+            createContactModelData(
+                identity = Identities.OTHER_1,
+                publicKey = PublicKeys.OTHER_1,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+        )
+        contactModelRepository.persistNewContact(
+            createContactModelData(
+                identity = Identities.OTHER_2,
+                publicKey = PublicKeys.OTHER_2,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+        )
+        contactModelRepository.persistNewContact(
+            createContactModelData(
+                identity = Identities.OTHER_3,
+                publicKey = PublicKeys.OTHER_3,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+        )
+
+        // act
+        val allExist = contactModelRepository.allExistWithAcquaintanceLevel(
+            identities = setOf(
+                Identities.OTHER_1.value,
+                Identities.OTHER_2.value,
+            ),
+            acquaintanceLevel = AcquaintanceLevel.DIRECT,
+        )
+
+        // assert
+        assertTrue(allExist)
+    }
+
+    @Test
+    fun allExistWithAcquaintanceLevel_all_database() {
+        // arrange
+        sqliteDatabaseBackend.createContact(
+            createDbContact(
+                identity = Identities.OTHER_1,
+                publicKey = PublicKeys.OTHER_1,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+            createDbContact(
+                identity = Identities.OTHER_2,
+                publicKey = PublicKeys.OTHER_2,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+            createDbContact(
+                identity = Identities.OTHER_3,
+                publicKey = PublicKeys.OTHER_3,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+            createDbContact(
+                identity = Identities.OTHER_4,
+                publicKey = PublicKeys.OTHER_4,
+                acquaintanceLevel = AcquaintanceLevel.GROUP_OR_DELETED,
+            ),
+            createDbContact(
+                identity = Identities.OTHER_5,
+                publicKey = PublicKeys.OTHER_5,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+        )
+
+        // act
+        val allExist = contactModelRepository.allExistWithAcquaintanceLevel(
+            identities = setOf(
+                Identities.OTHER_1.value,
+                Identities.OTHER_2.value,
+                Identities.OTHER_3.value,
+                Identities.OTHER_5.value,
+            ),
+            acquaintanceLevel = AcquaintanceLevel.DIRECT,
+        )
+
+        // assert
+        assertTrue(allExist)
+    }
+
+    @Test
+    fun allExistWithAcquaintanceLevel_all_cache_and_database_mix() {
+        // arrange
+        contactModelRepository.persistNewContact(
+            createContactModelData(
+                identity = Identities.OTHER_1,
+                publicKey = PublicKeys.OTHER_1,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+        )
+        sqliteDatabaseBackend.createContact(
+            createDbContact(
+                identity = Identities.OTHER_2,
+                publicKey = PublicKeys.OTHER_2,
+                acquaintanceLevel = AcquaintanceLevel.GROUP_OR_DELETED,
+            ),
+            createDbContact(
+                identity = Identities.OTHER_3,
+                publicKey = PublicKeys.OTHER_3,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+        )
+
+        // act
+        val allExist = contactModelRepository.allExistWithAcquaintanceLevel(
+            identities = setOf(
+                Identities.OTHER_1.value,
+                Identities.OTHER_3.value,
+            ),
+            acquaintanceLevel = AcquaintanceLevel.DIRECT,
+        )
+
+        // assert
+        assertTrue(allExist)
+    }
+
+    @Test
+    fun allExistWithAcquaintanceLevel_all() {
+        // arrange
+        sqliteDatabaseBackend.createContact(
+            createDbContact(
+                identity = Identities.OTHER_1,
+                publicKey = PublicKeys.OTHER_1,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+            createDbContact(
+                identity = Identities.OTHER_2,
+                publicKey = PublicKeys.OTHER_2,
+                acquaintanceLevel = AcquaintanceLevel.GROUP_OR_DELETED,
+            ),
+            createDbContact(
+                identity = Identities.OTHER_3,
+                publicKey = PublicKeys.OTHER_3,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+        )
+
+        // act
+        val allExist = contactModelRepository.allExistWithAcquaintanceLevel(
+            identities = setOf(
+                Identities.OTHER_1.value,
+                Identities.OTHER_3.value,
+            ),
+            acquaintanceLevel = AcquaintanceLevel.DIRECT,
+        )
+
+        // assert
+        assertTrue(allExist)
+    }
+
+    @Test
+    fun countExisting() {
+        // arrange
+        sqliteDatabaseBackend.createContact(
+            createDbContact(
+                identity = Identities.OTHER_1,
+                publicKey = PublicKeys.OTHER_1,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+            createDbContact(
+                identity = Identities.OTHER_2,
+                publicKey = PublicKeys.OTHER_2,
+                acquaintanceLevel = AcquaintanceLevel.GROUP_OR_DELETED,
+            ),
+            createDbContact(
+                identity = Identities.OTHER_3,
+                publicKey = PublicKeys.OTHER_3,
+                acquaintanceLevel = AcquaintanceLevel.DIRECT,
+            ),
+        )
+
+        // assert
+        assertEquals(
+            1u,
+            contactModelRepository.countExisting(setOf(Identities.OTHER_1.value)),
+        )
+        assertEquals(
+            2u,
+            contactModelRepository.countExisting(setOf(Identities.OTHER_1.value, Identities.OTHER_2.value)),
+        )
+        assertEquals(
+            1u,
+            contactModelRepository.countExisting(setOf(Identities.OTHER_2.value)),
+        )
+        assertEquals(
+            0u,
+            contactModelRepository.countExisting(setOf(Identities.OTHER_4.value)),
         )
     }
 }

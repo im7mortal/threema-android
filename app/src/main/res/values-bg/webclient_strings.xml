@@ -39,6 +39,6 @@
     <string name="webclient_diagnostics_intro">Натиснете на „Старт\", за да започнете теста.</string>
     <string name="webclient_diagnostics_done">Готово. Ако изпитвате проблеми с връзката към настолното приложение или уеб клиента, моля да изпратите този файл до поддръжката на Threema.</string>
     <string name="webclient_scanned_md_linking_qr_code_title">Грешен QR код</string>
-    <!-- ${app_name_desktop} is a placeholder for the Desktop app's name, e.g. "Threema". ${md_link_device} is a placeholder for the name of a UI element. They must be left as they are and not translated. -->
+    <!-- ${app_name_desktop} is a placeholder for the Desktop app's name, e.g. "Threema". ${menu_settings} is a placeholder for the name of the Settings menu entry. ${md_link_device} is a placeholder for the name of a UI element. They must be left as they are and not translated. -->
     <string name="webclient_scanned_md_linking_qr_code_message">QR кодът, който сканирахте, е на новото бета настолно приложение. \n\nОтидете в „Основното меню &gt; ${app_name_desktop} 2,0 за настолен компютър (бета)“ и изберете ${md_link_device}, за да го свържете с настолното приложение.</string>
 </resources>

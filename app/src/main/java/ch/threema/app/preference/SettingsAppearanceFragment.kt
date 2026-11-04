@@ -11,12 +11,14 @@ import ch.threema.app.R
 import ch.threema.app.dialogs.GenericAlertDialog
 import ch.threema.app.managers.ListenerManager
 import ch.threema.app.preference.service.PreferenceService
+import ch.threema.app.preference.service.PreferenceService.EmojiStyle
 import ch.threema.app.restrictions.AppRestrictions
-import ch.threema.app.services.WallpaperService
 import ch.threema.app.services.avatarcache.AvatarCacheService
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.LocaleUtil.mapLocaleToPredefinedLocales
 import ch.threema.app.utils.logScreenVisibility
+import ch.threema.app.wallpapers.SelectWallpaperContract
+import ch.threema.app.wallpapers.WallpaperService
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.datatypes.ContactNameFormat
 import com.google.android.material.color.DynamicColors
@@ -36,18 +38,14 @@ class SettingsAppearanceFragment : ThreemaPreferenceFragment() {
     private val avatarCacheService: AvatarCacheService by inject()
     private val appRestrictions: AppRestrictions by inject()
 
-    private var oldTheme: Int = 0
-
     private val wallpaperService: WallpaperService by inject()
 
     private var showBadge: CheckBoxPreference? = null
     private var showBadgeChecked = false
 
-    private val onWallpaperResultLauncher = wallpaperService.getWallpaperActivityResultLauncher(
-        this,
-        null,
-        null,
-    )
+    private val selectWallpaperLauncher = registerForActivityResult(SelectWallpaperContract()) {
+        // nothing to do here
+    }
 
     override fun initializePreferences() {
         this.showBadge = getPrefOrNull(R.string.preferences__show_unread_badge)
@@ -135,28 +133,30 @@ class SettingsAppearanceFragment : ThreemaPreferenceFragment() {
 
     private fun initBiggerSingleEmojisPref() {
         getPrefOrNull<CheckBoxPreference>(R.string.preferences__bigger_single_emojis)?.onChange<Boolean> { enabled ->
-            ConfigUtils.setBiggerSingleEmojis(enabled)
+            preferenceService.setBiggerSingleEmojis(enabled)
         }
     }
 
     private fun initThemePref() {
         val themePreference = getPref<DropDownPreference>(R.string.preferences__theme)
-        var themeIndex: Int = ConfigUtils.getAppThemePrefsSettings(requireContext()).toInt()
-        val themeArray = resources.getStringArray(R.array.list_theme)
-
-        if (themeIndex >= themeArray.size) {
-            themeIndex = 0
-        }
-
-        oldTheme = themeIndex
-
-        themePreference.summary = themeArray[themeIndex]
+        val options = listOf(
+            PreferenceService.Theme.LIGHT to getString(R.string.list_theme_light),
+            PreferenceService.Theme.DARK to getString(R.string.list_theme_dark),
+            PreferenceService.Theme.FOLLOW_SYSTEM to getString(R.string.system_default),
+        )
+        themePreference.entries = options.map { it.second }.toTypedArray()
+        themePreference.entryValues = options.map { it.first.serialized }.toTypedArray()
+        var currentTheme = preferenceService.getTheme()
+        themePreference.value = currentTheme.serialized
+        themePreference.summary = (options.find { it.first == currentTheme } ?: options[0]).second
         themePreference.onChange<String> { newThemeString ->
-            val newTheme = newThemeString.toInt()
-            if (newTheme != oldTheme) {
-                ConfigUtils.saveAppThemeToPrefs(newTheme.toString(), requireContext())
-                themePreference.summary = themeArray[newTheme]
-
+            val newTheme = PreferenceService.Theme.deserialize(newThemeString)
+                ?: PreferenceService.Theme.FOLLOW_SYSTEM
+            if (newTheme != currentTheme) {
+                currentTheme = newTheme
+                preferenceService.setTheme(newTheme)
+                AppCompatDelegate.setDefaultNightMode(newTheme.mode)
+                themePreference.summary = (options.find { it.first == newTheme } ?: options[0]).second
                 avatarCacheService.clear()
                 val isDefaultContactPictureColored = preferenceService.isDefaultContactPictureColored()
                 ListenerManager.contactSettingsListeners.handle { listener ->
@@ -169,46 +169,51 @@ class SettingsAppearanceFragment : ThreemaPreferenceFragment() {
 
     private fun initEmojiStylePref() {
         val emojiPreference = getPref<DropDownPreference>(R.string.preferences__emoji_style)
-
-        var emojiIndex: Int = preferenceManager.sharedPreferences?.getString(
-            resources.getString(R.string.preferences__emoji_style),
-            "0",
-        )?.toInt() ?: 0
-        val emojiArray = resources.getStringArray(R.array.list_emoji_style)
-        if (emojiIndex >= emojiArray.size) {
-            emojiIndex = 0
+        val options = listOf(
+            EmojiStyle.DEFAULT to getString(R.string.prefs_default_emojis),
+            EmojiStyle.ANDROID to getString(R.string.prefs_android_emojis),
+        )
+        emojiPreference.entries = options.map { it.second }.toTypedArray()
+        emojiPreference.entryValues = options.map { it.first.serialized }.toTypedArray()
+        var currentStyle = preferenceService.getEmojiStyle()
+        fun updatePreference(newStyle: EmojiStyle) {
+            emojiPreference.summary = (options.first { it.first == newStyle }).second
+            emojiPreference.setValueIndex(options.indexOfFirst { it.first == newStyle })
+            if (newStyle != currentStyle) {
+                preferenceService.setEmojiStyle(newStyle)
+                ConfigUtils.recreateActivity(activity)
+                currentStyle = newStyle
+            }
         }
-        val oldEmojiStyle = emojiIndex
-        emojiPreference.summary = emojiArray[emojiIndex]
+        updatePreference(currentStyle)
         emojiPreference.onChange<String> { newEmojiStyleString ->
-            val newEmojiStyle = newEmojiStyleString.toInt()
-            if (newEmojiStyle != oldEmojiStyle) {
-                if (newEmojiStyle == PreferenceService.EMOJI_STYLE_ANDROID) {
-                    val dialog = GenericAlertDialog.newInstance(
-                        R.string.prefs_android_emojis,
-                        R.string.android_emojis_warning,
-                        R.string.ok,
-                        R.string.cancel,
-                    )
-                    dialog.setData(newEmojiStyle)
-                    dialog.setCallback(
-                        object : GenericAlertDialog.DialogClickListener {
-                            override fun onYes(tag: String?, data: Any?) {
-                                ConfigUtils.setEmojiStyle(activity, data as Int)
-                                updateEmojiPrefs(data)
-                                ConfigUtils.recreateActivity(activity)
-                            }
+            val newEmojiStyle = EmojiStyle.deserialize(newEmojiStyleString) ?: EmojiStyle.DEFAULT
+            if (newEmojiStyle != currentStyle) {
+                when (newEmojiStyle) {
+                    EmojiStyle.DEFAULT -> {
+                        updatePreference(newEmojiStyle)
+                    }
+                    EmojiStyle.ANDROID -> {
+                        val dialog = GenericAlertDialog.newInstance(
+                            R.string.prefs_android_emojis,
+                            R.string.android_emojis_warning,
+                            R.string.ok,
+                            R.string.cancel,
+                        )
+                        dialog.setData(newEmojiStyle)
+                        dialog.setCallback(
+                            object : GenericAlertDialog.DialogClickListener {
+                                override fun onYes(tag: String?, data: Any?) {
+                                    updatePreference(EmojiStyle.ANDROID)
+                                }
 
-                            override fun onNo(tag: String?, data: Any?) {
-                                updateEmojiPrefs(PreferenceService.EMOJI_STYLE_DEFAULT)
-                            }
-                        },
-                    )
-                    dialog.show(parentFragmentManager, "android_emojis")
-                } else {
-                    ConfigUtils.setEmojiStyle(activity, newEmojiStyle)
-                    updateEmojiPrefs(newEmojiStyle)
-                    ConfigUtils.recreateActivity(activity)
+                                override fun onNo(tag: String?, data: Any?) {
+                                    updatePreference(EmojiStyle.DEFAULT)
+                                }
+                            },
+                        )
+                        dialog.show(parentFragmentManager, "android_emojis")
+                    }
                 }
             }
         }
@@ -262,12 +267,7 @@ class SettingsAppearanceFragment : ThreemaPreferenceFragment() {
 
     private fun initWallpaperPref() {
         getPref<Preference>(R.string.preferences__wallpaper).onClick {
-            wallpaperService.selectWallpaper(
-                this@SettingsAppearanceFragment,
-                onWallpaperResultLauncher,
-                null,
-                null,
-            )
+            selectWallpaperLauncher.launch(SelectWallpaperContract.Target.GlobalWallpaper)
         }
     }
 
@@ -303,11 +303,5 @@ class SettingsAppearanceFragment : ThreemaPreferenceFragment() {
                 isSelectable = false
             }
         }
-    }
-
-    private fun updateEmojiPrefs(newEmojiStyle: Int) {
-        val preference = getPref<DropDownPreference>(R.string.preferences__emoji_style)
-        preference.setValueIndex(newEmojiStyle)
-        preference.summary = resources.getStringArray(R.array.list_emoji_style)[newEmojiStyle]
     }
 }

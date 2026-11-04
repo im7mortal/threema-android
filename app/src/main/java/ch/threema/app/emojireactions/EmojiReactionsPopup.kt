@@ -27,8 +27,8 @@ import ch.threema.app.utils.ViewUtil
 import ch.threema.data.datatypes.ContactNameFormat
 import ch.threema.data.models.EmojiReactionsModel
 import ch.threema.data.repositories.EmojiReactionsRepository
-import ch.threema.storage.models.AbstractMessageModel
-import ch.threema.storage.models.group.GroupMessageModel
+import ch.threema.storage.models.GroupMessageModel
+import ch.threema.storage.models.MessageModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -55,7 +55,7 @@ class EmojiReactionsPopup(
             context.resources.getDimensionPixelSize(R.dimen.reaction_popup_emoji_size)
     private val popupHorizontalOffset =
         context.resources.getDimensionPixelSize(R.dimen.reaction_popup_content_margin_horizontal)
-    private var messageModel: AbstractMessageModel? = null
+    private var messageModel: MessageModel? = null
     private val selectedBackgroundColor = ResourcesCompat.getDrawable(
         context.resources,
         R.drawable.shape_emoji_popup_selected_background,
@@ -136,7 +136,7 @@ class EmojiReactionsPopup(
 
     fun show(
         originView: View,
-        messageModel: AbstractMessageModel?,
+        messageModel: MessageModel?,
     ) {
         if (messageModel == null) {
             return
@@ -290,14 +290,14 @@ class EmojiReactionsPopup(
         }
     }
 
-    private fun AbstractMessageModel?.getDisplayNameOrNickname(contactNameFormat: ContactNameFormat): String? =
+    private fun MessageModel?.getDisplayNameOrNickname(contactNameFormat: ContactNameFormat): String? =
         this?.let { messageModel ->
-            NameUtil.getContactDisplayNameOrNickname(context, messageModel, contactService, userService, contactNameFormat)
+            NameUtil.getContactDisplayNameOrNickname(messageModel, contactService, userService, contactNameFormat)
         }
 
     interface EmojiReactionsPopupListener {
-        fun onTopReactionClicked(messageModel: AbstractMessageModel, emojiSequence: String)
-        fun onAddReactionClicked(messageModel: AbstractMessageModel)
+        fun onTopReactionClicked(messageModel: MessageModel, emojiSequence: String)
+        fun onAddReactionClicked(messageModel: MessageModel)
     }
 
     companion object {

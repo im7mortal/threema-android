@@ -367,7 +367,7 @@
                     android:layout_height="wrap_content"
                     android:layout_gravity="left"
                     android:layout_marginBottom="16dp"
-                    android:text="@string/delete_id_title" />
+                    android:text="@string/delete_id_menu_title" />
 
             </LinearLayout>
         </LinearLayout>

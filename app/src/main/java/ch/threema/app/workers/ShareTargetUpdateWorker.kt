@@ -13,13 +13,14 @@ import ch.threema.android.buildPeriodicWorkRequest
 import ch.threema.android.setConstraints
 import ch.threema.android.setInitialDelay
 import ch.threema.app.BuildConfig
-import ch.threema.app.backuprestore.csv.BackupService
+import ch.threema.app.GlobalAppState
 import ch.threema.app.di.awaitAppFullyReadyWithTimeout
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ConversationService
-import ch.threema.app.services.UserService
 import ch.threema.app.utils.ShortcutUtil
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.data.IdentityProvider
+import ch.threema.data.repositories.ContactModelRepository
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import org.koin.core.component.KoinComponent
@@ -32,19 +33,24 @@ class ShareTargetUpdateWorker(
     workerParams: WorkerParameters,
 ) : CoroutineWorker(context, workerParams), KoinComponent {
 
-    private val userService: UserService by inject()
     private val preferenceService: PreferenceService by inject()
     private val conversationService: ConversationService by inject()
+    private val contactModelRepository: ContactModelRepository by inject()
+    private val identityProvider: IdentityProvider by inject()
+    private val globalAppState: GlobalAppState by inject()
 
     override suspend fun doWork(): Result {
-        logger.info("Updating share target shortcuts")
-
-        awaitAppFullyReadyWithTimeout(timeout = 20.seconds)
-            ?: return Result.failure()
-
-        if (userService.hasIdentity() && !BackupService.isRunning()) {
-            ShortcutUtil.publishRecentChatsAsShareTargets(preferenceService, conversationService)
+        if (!identityProvider.hasIdentity()) {
+            return Result.success()
         }
+        if (globalAppState.specialMode != null) {
+            return Result.retry()
+        }
+        awaitAppFullyReadyWithTimeout(timeout = 20.seconds)
+            ?: return Result.retry()
+
+        logger.info("Updating share target shortcuts")
+        ShortcutUtil.publishRecentChatsAsShareTargets(preferenceService, conversationService, contactModelRepository, identityProvider)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             applicationContext.getSystemService<UsageStatsManager>()?.let { usageStatsManager ->

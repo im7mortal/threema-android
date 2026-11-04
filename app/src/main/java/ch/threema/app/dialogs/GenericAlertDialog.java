@@ -210,6 +210,10 @@ public class GenericAlertDialog extends ThreemaDialogFragment {
         default void onNo(@Nullable String tag, @Nullable Object data) {
         }
 
+        default void onDialogCanceled(@Nullable String tag, @Nullable Object data) {
+            onNo(tag, data);
+        }
+
         default void onNeutral(@Nullable String tag, @Nullable Object data) {
             // optional interface
         }
@@ -340,7 +344,7 @@ public class GenericAlertDialog extends ThreemaDialogFragment {
     @Override
     public void onCancel(@NonNull DialogInterface dialogInterface) {
         if (callback != null) {
-            callback.onNo(getTag(), object);
+            callback.onDialogCanceled(getTag(), object);
         }
     }
 

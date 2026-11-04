@@ -1,13 +1,8 @@
 package ch.threema.app.contactdetails
 
-import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.viewModel
 
 val contactDetailsFeatureModule = module {
-    viewModel { parameters ->
-        ContactDetailViewModel(
-            contactModelRepository = get(),
-            identity = parameters.get(),
-        )
-    }
+    viewModel<ContactDetailViewModel>()
 }

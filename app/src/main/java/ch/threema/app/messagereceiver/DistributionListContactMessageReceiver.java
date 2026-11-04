@@ -6,7 +6,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.base.ThreemaException;
 import ch.threema.base.crypto.SymmetricEncryptionResult;
-import ch.threema.storage.models.MessageModel;
+import ch.threema.storage.models.ContactMessageModel;
 
 public class DistributionListContactMessageReceiver extends ContactMessageReceiver {
     private SymmetricEncryptionResult fileEncryptionResult;
@@ -27,7 +27,7 @@ public class DistributionListContactMessageReceiver extends ContactMessageReceiv
         @Nullable byte[] thumbnailBlobIdIgnored,
         @Nullable byte[] fileBlobIdIgnored,
         @Nullable SymmetricEncryptionResult encryptionResultIgnored,
-        @NonNull MessageModel messageModel,
+        @NonNull ContactMessageModel messageModel,
         @Nullable Collection<String> recipientIdentities
     ) throws ThreemaException {
         if (fileBlobId == null || fileEncryptionResult == null) {

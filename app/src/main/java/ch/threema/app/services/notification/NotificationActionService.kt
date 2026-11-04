@@ -15,6 +15,7 @@ import ch.threema.android.showToast
 import ch.threema.app.AppConstants
 import ch.threema.app.BuildConfig
 import ch.threema.app.R
+import ch.threema.app.di.awaitSessionScopeReady
 import ch.threema.app.di.injectNullableNonBinding
 import ch.threema.app.emojis.EmojiUtil
 import ch.threema.app.messagereceiver.MessageReceiver
@@ -24,8 +25,12 @@ import ch.threema.app.services.withConnection
 import ch.threema.app.utils.IntentDataUtil
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.takeUnlessBlank
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.common.waitAtMost
+import ch.threema.data.datatypes.ConversationId
+import ch.threema.storage.models.MessageModel
+import ch.threema.storage.models.getConversationId
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.runBlocking
 import org.koin.core.component.KoinComponent
 
 private val logger = getThreemaLogger("NotificationActionService")
@@ -37,6 +42,11 @@ class NotificationActionService : IntentService(TAG), KoinComponent {
 
     @Deprecated("Deprecated in Java")
     override fun onHandleIntent(intent: Intent?) {
+        runBlocking {
+            waitAtMost(10.seconds) {
+                awaitSessionScopeReady()
+            }
+        }
         val messageReceiver = intent?.let { IntentDataUtil.getMessageReceiverFromIntent(this, intent) }
         if (messageReceiver == null) {
             showToast(R.string.verify_failed)
@@ -69,7 +79,7 @@ class NotificationActionService : IntentService(TAG), KoinComponent {
     }
 
     @WorkerThread
-    private fun ack(messageReceiver: MessageReceiver<*>, messageModel: AbstractMessageModel) {
+    private fun ack(messageReceiver: MessageReceiver<*>, messageModel: MessageModel) {
         sendEmojiReaction(
             messageReceiver = messageReceiver,
             messageModel = messageModel,
@@ -79,7 +89,7 @@ class NotificationActionService : IntentService(TAG), KoinComponent {
     }
 
     @WorkerThread
-    private fun dec(messageReceiver: MessageReceiver<*>, messageModel: AbstractMessageModel) {
+    private fun dec(messageReceiver: MessageReceiver<*>, messageModel: MessageModel) {
         sendEmojiReaction(
             messageReceiver = messageReceiver,
             messageModel = messageModel,
@@ -90,7 +100,7 @@ class NotificationActionService : IntentService(TAG), KoinComponent {
 
     private fun sendEmojiReaction(
         messageReceiver: MessageReceiver<*>,
-        messageModel: AbstractMessageModel,
+        messageModel: MessageModel,
         emojiSequence: String,
         @StringRes toastMessage: Int,
     ) {
@@ -111,9 +121,7 @@ class NotificationActionService : IntentService(TAG), KoinComponent {
                     messageReceiver,
                     false,
                 )
-                messageModel.uid?.let { messageUid ->
-                    notificationService.cancelConversationNotification(messageUid)
-                }
+                notificationService.cancelAllConversationNotifications(messageModel.getConversationId())
                 showToast(toastMessage)
             } catch (e: Exception) {
                 logger.error("Failed to send emoji reaction", e)
@@ -140,7 +148,7 @@ class NotificationActionService : IntentService(TAG), KoinComponent {
             try {
                 messageService.sendText(message, messageReceiver)
                 messageService.markConversationAsRead(messageReceiver, notificationService)
-                notificationService.cancel(messageReceiver.getConversationId())
+                notificationService.cancelAllConversationNotifications(messageReceiver.getConversationId())
 
                 showToast(R.string.message_sent)
                 return true
@@ -163,7 +171,7 @@ class NotificationActionService : IntentService(TAG), KoinComponent {
         lifetimeService.withConnection(TAG, linger = NOTIFICATION_ACTION_CONNECTION_LINGER) {
             messageService.markConversationAsRead(messageReceiver, notificationService)
         }
-        notificationService.cancel(messageReceiver.getConversationId())
+        notificationService.cancelAllConversationNotifications(messageReceiver.getConversationId())
     }
 
     private fun showToast(@StringRes stringRes: Int) {
@@ -181,29 +189,29 @@ class NotificationActionService : IntentService(TAG), KoinComponent {
         private const val ACTION_ACK = BuildConfig.APPLICATION_ID + ".ACK"
         private const val ACTION_DEC = BuildConfig.APPLICATION_ID + ".DEC"
 
-        fun createReplyIntent(context: Context, messageReceiver: MessageReceiver<*>): Intent =
+        fun createReplyIntent(context: Context, conversationId: ConversationId): Intent =
             buildServiceIntent<NotificationActionService>(context) {
-                setAction(ACTION_REPLY)
-                IntentDataUtil.addMessageReceiverToIntent(this, messageReceiver)
+                action = ACTION_REPLY
+                IntentDataUtil.addConversationIdToIntent(this, conversationId)
             }
 
-        fun createMarkAsReadIntent(context: Context, messageReceiver: MessageReceiver<*>): Intent =
+        fun createMarkAsReadIntent(context: Context, conversationId: ConversationId): Intent =
             buildServiceIntent<NotificationActionService>(context) {
-                setAction(ACTION_MARK_AS_READ)
-                IntentDataUtil.addMessageReceiverToIntent(this, messageReceiver)
+                action = ACTION_MARK_AS_READ
+                IntentDataUtil.addConversationIdToIntent(this, conversationId)
             }
 
-        fun createAckIntent(context: Context, messageReceiver: MessageReceiver<*>, messageId: Int): Intent =
+        fun createAckIntent(context: Context, conversationId: ConversationId, messageId: Int): Intent =
             buildServiceIntent<NotificationActionService>(context) {
-                setAction(ACTION_ACK)
-                IntentDataUtil.addMessageReceiverToIntent(this, messageReceiver)
+                action = ACTION_ACK
+                IntentDataUtil.addConversationIdToIntent(this, conversationId)
                 putExtra(AppConstants.INTENT_DATA_MESSAGE_ID, messageId)
             }
 
-        fun createDecIntent(context: Context, messageReceiver: MessageReceiver<*>, messageId: Int): Intent =
+        fun createDecIntent(context: Context, conversationId: ConversationId, messageId: Int): Intent =
             buildServiceIntent<NotificationActionService>(context) {
-                setAction(ACTION_DEC)
-                IntentDataUtil.addMessageReceiverToIntent(this, messageReceiver)
+                action = ACTION_DEC
+                IntentDataUtil.addConversationIdToIntent(this, conversationId)
                 putExtra(AppConstants.INTENT_DATA_MESSAGE_ID, messageId)
             }
 

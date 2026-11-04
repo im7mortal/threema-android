@@ -15,17 +15,18 @@ class RatingService(
     private val ratingReferenceProvider: RatingReferenceProvider,
     private val okHttpClient: OkHttpClient,
     private val serverAddressProvider: ServerAddressProvider,
+    private val appVersion: String,
 ) {
     @WorkerThread
     @Throws(ThreemaException::class)
-    fun sendRating(rating: Int, text: String, version: String) {
+    fun sendRating(rating: Int, text: String) {
         try {
             val request = buildRequest {
                 url(serverAddressProvider.getAppRatingUrl().get(rating))
                 post(
                     FormBody.Builder()
                         .add("ref", ratingReferenceProvider.getOrCreateRatingReference())
-                        .add("feedback", createFeedbackString(text, version))
+                        .add("feedback", createFeedbackString(text))
                         .build(),
                 )
             }
@@ -40,11 +41,11 @@ class RatingService(
         }
     }
 
-    private fun createFeedbackString(text: String, version: String) =
+    private fun createFeedbackString(text: String) =
         buildString {
             appendLine(text.trim())
             appendLine()
             appendLine("---")
-            appendLine(version)
+            appendLine(appVersion)
         }
 }

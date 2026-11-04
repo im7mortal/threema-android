@@ -123,14 +123,14 @@ class ReflectedSettingsSyncTask(
     private fun applyBlockedIdentities(settings: Settings) {
         if (settings.hasBlockedIdentities()) {
             logger.info("Applying blocked identities")
-            blockedIdentitiesService.persistBlockedIdentities(settings.blockedIdentities.identitiesList.toSet())
+            blockedIdentitiesService.replaceBlockedIdentitiesWithoutReflection(settings.blockedIdentities.identitiesList.toSet())
         }
     }
 
     private fun applyExcludeFromSyncIdentities(settings: Settings) {
         if (settings.hasExcludeFromSyncIdentities()) {
             logger.info("Applying exclude from sync identities")
-            excludedSyncIdentitiesService.setExcludedIdentities(settings.excludeFromSyncIdentities.identitiesList.toSet(), TriggerSource.SYNC)
+            excludedSyncIdentitiesService.replaceExcludedIdentities(settings.excludeFromSyncIdentities.identitiesList.toSet(), TriggerSource.SYNC)
         }
     }
 }

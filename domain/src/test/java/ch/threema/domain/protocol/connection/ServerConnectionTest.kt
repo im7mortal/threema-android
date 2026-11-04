@@ -3,7 +3,8 @@ package ch.threema.domain.protocol.connection
 import app.cash.turbine.test
 import ch.threema.base.crypto.NaCl
 import ch.threema.base.crypto.NonceCounter
-import ch.threema.common.emptyByteArray
+import ch.threema.common.emptyDirectByteBuffer
+import ch.threema.common.toDirectByteBuffer
 import ch.threema.domain.protocol.ServerAddressProvider
 import ch.threema.libthreema.blake2bMac256
 import ch.threema.testhelpers.expectItem
@@ -187,15 +188,15 @@ internal abstract class ServerConnectionTest {
         val ss2 = NaCl(tskSecret, TestIdentityStore.ckPublic).sharedSecret
         val vouchKey = blake2bMac256(
             key = ss1 + ss2,
-            personal = "3ma-csp".encodeToByteArray(),
-            salt = "v2".encodeToByteArray(),
-            data = emptyByteArray(),
+            personal = "3ma-csp".toDirectByteBuffer(),
+            salt = "v2".toDirectByteBuffer(),
+            data = emptyDirectByteBuffer(),
         )
         val expectedVouch = blake2bMac256(
             key = vouchKey,
-            personal = emptyByteArray(),
-            salt = emptyByteArray(),
-            data = sck + tckPublic,
+            personal = emptyDirectByteBuffer(),
+            salt = emptyDirectByteBuffer(),
+            data = (sck + tckPublic).toDirectByteBuffer(),
         )
         val vouch = decryptedLoginStream.readNBytes(32)
         assertContentEquals(expectedVouch, vouch)

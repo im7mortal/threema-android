@@ -2,191 +2,68 @@ package ch.threema.app
 
 import ch.threema.app.multidevice.DesktopClientFlavor
 
-sealed class BuildFlavor(
-    val gradleName: String,
-    val licenseType: LicenseType,
-    val buildEnvironment: BuildEnvironment,
-    private val displayName: String,
-    val desktopClientFlavor: DesktopClientFlavor,
-) {
-    companion object {
-        @JvmStatic
-        val current: BuildFlavor by lazy {
-            when (BuildConfig.FLAVOR) {
-                None.gradleName -> None
-                LocalDev.gradleName -> LocalDev
-                StoreGoogle.gradleName -> StoreGoogle
-                StoreThreema.gradleName -> StoreThreema
-                StoreGoogleWork.gradleName -> StoreGoogleWork
-                Green.gradleName -> Green
-                SandboxWork.gradleName -> SandboxWork
-                OnPrem.gradleName -> OnPrem
-                Blue.gradleName -> Blue
-                Hms.gradleName -> Hms
-                HmsWork.gradleName -> HmsWork
-                Libre.gradleName -> Libre
-                else -> throw IllegalStateException("Unhandled build flavor " + BuildConfig.FLAVOR)
-            }
-        }
+@Suppress("KotlinConstantConditions", "SimplifyBooleanWithConstants")
+object BuildFlavor {
+
+    @JvmStatic
+    val licenseType: LicenseType =
+        BuildFlavorConstants.licenseType
+
+    @JvmStatic
+    val buildEnvironment: BuildEnvironment = when {
+        IS_ON_PREM -> BuildEnvironment.ON_PREM
+        IS_SANDBOX -> BuildEnvironment.SANDBOX
+        else -> BuildEnvironment.LIVE
     }
+
+    @JvmStatic
+    val fullDisplayName: String =
+        BuildFlavorConstants.DISPLAY_NAME + if (BuildConfig.DEBUG) " (DEBUG)" else ""
+
+    /**
+     * Return whether the self-updater is supported or not.
+     */
+    const val MAY_SELF_UPDATE: Boolean =
+        UpdateCapabilityConstants.MAY_SELF_UPDATE
+
+    /**
+     * Return whether this build flavor always uses Threema Push.
+     */
+    const val FORCE_THREEMA_PUSH: Boolean =
+        ServiceTypeConstants.FORCE_THREEMA_PUSH
+
+    /**
+     * Return whether this build flavor uses the sandbox build environment.
+     */
+    const val IS_SANDBOX: Boolean =
+        BuildFlavorConstants.IS_SANDBOX
+
+    const val IS_WORK: Boolean =
+        AppTypeConstants.IS_WORK
+
+    const val IS_ON_PREM: Boolean =
+        AppTypeConstants.IS_ON_PREM
+
+    const val IS_LIBRE: Boolean =
+        BuildConfig.FLAVOR == "libre"
+
+    const val IS_HMS: Boolean =
+        BuildConfig.FLAVOR == "hms" || BuildConfig.FLAVOR == "hms_work"
+
+    val desktopClientFlavor: DesktopClientFlavor =
+        BuildFlavorConstants.desktopClientFlavor
 
     enum class LicenseType {
         NONE,
         GOOGLE,
         SERIAL,
-        GOOGLE_WORK,
         HMS,
-        HMS_WORK,
-        ONPREM,
-        ;
-
-        fun isOnPrem() =
-            this == ONPREM
-
-        fun isWork() =
-            when (this) {
-                GOOGLE_WORK,
-                HMS_WORK,
-                ONPREM,
-                -> true
-                else -> false
-            }
+        WORK,
     }
 
     enum class BuildEnvironment {
         LIVE,
         SANDBOX,
-        ONPREM,
+        ON_PREM,
     }
-
-    data object None : BuildFlavor(
-        gradleName = "none",
-        licenseType = LicenseType.NONE,
-        buildEnvironment = BuildEnvironment.LIVE,
-        displayName = "DEV",
-        desktopClientFlavor = DesktopClientFlavor.Consumer,
-    )
-
-    data object LocalDev : BuildFlavor(
-        gradleName = "localdev",
-        licenseType = LicenseType.SERIAL,
-        buildEnvironment = BuildEnvironment.LIVE,
-        displayName = "Local Dev",
-        desktopClientFlavor = DesktopClientFlavor.Consumer,
-    )
-
-    data object StoreGoogle : BuildFlavor(
-        gradleName = "store_google",
-        licenseType = LicenseType.GOOGLE,
-        buildEnvironment = BuildEnvironment.LIVE,
-        displayName = "Google Play",
-        desktopClientFlavor = DesktopClientFlavor.Consumer,
-    )
-
-    data object StoreThreema : BuildFlavor(
-        gradleName = "store_threema",
-        licenseType = LicenseType.SERIAL,
-        buildEnvironment = BuildEnvironment.LIVE,
-        displayName = "Threema Shop",
-        desktopClientFlavor = DesktopClientFlavor.Consumer,
-    )
-
-    data object StoreGoogleWork : BuildFlavor(
-        gradleName = "store_google_work",
-        licenseType = LicenseType.GOOGLE_WORK,
-        buildEnvironment = BuildEnvironment.LIVE,
-        displayName = "Work",
-        desktopClientFlavor = DesktopClientFlavor.Work,
-    )
-
-    data object Green : BuildFlavor(
-        gradleName = "green",
-        licenseType = LicenseType.NONE,
-        buildEnvironment = BuildEnvironment.SANDBOX,
-        displayName = "Green",
-        desktopClientFlavor = DesktopClientFlavor.Green,
-    )
-
-    data object SandboxWork : BuildFlavor(
-        gradleName = "sandbox_work",
-        licenseType = LicenseType.GOOGLE_WORK,
-        buildEnvironment = BuildEnvironment.SANDBOX,
-        displayName = "Sandbox Work",
-        desktopClientFlavor = DesktopClientFlavor.Blue,
-    )
-
-    data object OnPrem : BuildFlavor(
-        gradleName = "onprem",
-        licenseType = LicenseType.ONPREM,
-        buildEnvironment = BuildEnvironment.ONPREM,
-        displayName = "OnPrem",
-        desktopClientFlavor = DesktopClientFlavor.OnPrem,
-    )
-
-    data object Blue : BuildFlavor(
-        gradleName = "blue",
-        licenseType = LicenseType.GOOGLE_WORK,
-        buildEnvironment = BuildEnvironment.SANDBOX,
-        displayName = "Blue",
-        desktopClientFlavor = DesktopClientFlavor.Blue,
-    )
-
-    data object Hms : BuildFlavor(
-        gradleName = "hms",
-        licenseType = LicenseType.HMS,
-        buildEnvironment = BuildEnvironment.LIVE,
-        displayName = "HMS",
-        desktopClientFlavor = DesktopClientFlavor.Consumer,
-    )
-
-    data object HmsWork : BuildFlavor(
-        gradleName = "hms_work",
-        licenseType = LicenseType.HMS_WORK,
-        buildEnvironment = BuildEnvironment.LIVE,
-        displayName = "HMS Work",
-        desktopClientFlavor = DesktopClientFlavor.Work,
-    )
-
-    data object Libre : BuildFlavor(
-        gradleName = "libre",
-        licenseType = LicenseType.SERIAL,
-        buildEnvironment = BuildEnvironment.LIVE,
-        displayName = "Libre",
-        desktopClientFlavor = DesktopClientFlavor.Consumer,
-    )
-
-    val fullDisplayName: String by lazy {
-        displayName + if (BuildConfig.DEBUG) " (DEBUG)" else ""
-    }
-
-    /**
-     * Return whether the self-updater is supported or not.
-     */
-    val maySelfUpdate: Boolean
-        get() = this is StoreThreema
-
-    /**
-     * Return whether this build flavor always uses Threema Push.
-     */
-    val forceThreemaPush: Boolean
-        get() = this is Libre
-
-    /**
-     * Return whether this build flavor is "libre", meaning that it contains
-     * no proprietary services.
-     */
-    val isLibre
-        get() = this is Libre
-
-    /**
-     * Return whether this build flavor uses the sandbox build environment.
-     */
-    val isSandbox: Boolean
-        get() = buildEnvironment == BuildEnvironment.SANDBOX
-
-    val isWork: Boolean
-        get() = licenseType.isWork()
-
-    val isOnPrem: Boolean
-        get() = licenseType.isOnPrem()
 }

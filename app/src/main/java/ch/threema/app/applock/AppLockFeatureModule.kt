@@ -1,9 +1,9 @@
 package ch.threema.app.applock
 
-import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.single
 
 val appLockFeatureModule = module {
-    singleOf(::AppLockUtil)
-    singleOf(::AppLockNotificationUpdaterMonitor)
+    single<AppLockUtil>()
+    single<AppLockNotificationUpdaterMonitor>()
 }

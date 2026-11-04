@@ -4,6 +4,9 @@ import ch.threema.app.stores.EncryptedPreferenceStore
 import ch.threema.app.stores.PreferenceStore
 import org.koin.core.component.inject
 
+/**
+ * remove obsolete preferences
+ */
 class SystemUpdateToVersion120 : SystemUpdate {
 
     private val preferenceStore: PreferenceStore by inject()
@@ -17,8 +20,6 @@ class SystemUpdateToVersion120 : SystemUpdate {
     }
 
     override val version = 120
-
-    override fun getDescription() = "remove obsolete preferences"
 
     companion object {
         private val KEYS = arrayOf(

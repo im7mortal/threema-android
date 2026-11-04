@@ -3,9 +3,13 @@ package ch.threema.app.preference.service
 import android.net.Uri
 import androidx.annotation.IntDef
 import androidx.annotation.StringRes
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.runtime.Immutable
+import ch.threema.app.backupcenter.models.LastLocalDataBackupInfo
+import ch.threema.app.backupcenter.models.LocalDataBackupPassword
+import ch.threema.app.files.AppLogoFileHandleProvider
 import ch.threema.app.services.ContactService.ProfilePictureUploadData
 import ch.threema.app.threemasafe.ThreemaSafeServerInfo
-import ch.threema.app.utils.ConfigUtils.AppThemeSetting
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.datatypes.ContactNameFormat
 import ch.threema.data.datatypes.ConversationIdObfuscated
@@ -43,11 +47,22 @@ interface PreferenceService {
     )
     annotation class StarredMessagesSortOrder
 
-    @IntDef(
-        EMOJI_STYLE_DEFAULT,
-        EMOJI_STYLE_ANDROID,
-    )
-    annotation class EmojiStyle
+    enum class ContactSortOrder {
+        FIRST_NAME,
+        LAST_NAME,
+    }
+
+    @Immutable
+    enum class EmojiStyle(val serialized: String) {
+        DEFAULT("0"),
+        ANDROID("1"),
+        ;
+
+        companion object {
+            fun deserialize(serialized: String): EmojiStyle? =
+                entries.find { it.serialized == serialized }
+        }
+    }
 
     enum class ErrorReportingState {
         ALWAYS_ASK,
@@ -68,9 +83,34 @@ interface PreferenceService {
         }
     }
 
-    fun isCustomWallpaperEnabled(): Boolean
+    enum class Theme(val serialized: String, @AppCompatDelegate.NightMode val mode: Int) {
+        LIGHT("0", AppCompatDelegate.MODE_NIGHT_NO),
+        DARK("1", AppCompatDelegate.MODE_NIGHT_YES),
+        FOLLOW_SYSTEM("2", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM),
+        ;
 
-    fun setCustomWallpaperEnabled(enabled: Boolean)
+        companion object {
+            fun deserialize(serialized: String): Theme? =
+                entries.find { it.serialized == serialized }
+        }
+    }
+
+    enum class AutoDownloadType(val serialized: String) {
+        IMAGE("1"),
+        VOICE_MESSAGE("3"),
+        VIDEO("2"),
+        FILE("8"),
+        ;
+
+        companion object {
+            fun deserialize(serialized: String): AutoDownloadType? =
+                AutoDownloadType.entries.find { it.serialized == serialized }
+        }
+    }
+
+    fun getTheme(): Theme
+
+    fun setTheme(theme: Theme)
 
     fun isEnterToSend(): Boolean
 
@@ -105,6 +145,17 @@ interface PreferenceService {
 
     fun setOppfUrl(oppfUrl: String?)
 
+    fun getEmojiStyle(): EmojiStyle
+
+    fun useDefaultEmojiStyle(): Boolean =
+        getEmojiStyle() == EmojiStyle.DEFAULT
+
+    fun setEmojiStyle(emojiStyle: EmojiStyle)
+
+    fun isBiggerSingleEmojis(): Boolean
+
+    fun setBiggerSingleEmojis(biggerSingleEmoji: Boolean)
+
     fun getRecentEmojis(): List<String>
 
     fun setRecentEmojis(list: List<String>)
@@ -113,12 +164,11 @@ interface PreferenceService {
 
     fun setEmojiSearchIndexVersion(version: Int)
 
-    /**
-     * Whether to use Threema Push instead of another push service.
-     */
-    fun useThreemaPush(): Boolean
+    fun mustUseThreemaPush(): Boolean
 
-    fun setUseThreemaPush(value: Boolean)
+    fun setMustUseThreemaPush(value: Boolean)
+
+    fun watchMustUseThreemaPush(): Flow<Boolean>
 
     fun isSaveMedia(): Boolean
 
@@ -138,9 +188,7 @@ interface PreferenceService {
 
     fun setLastIDBackupReminderTimestamp(lastIDBackupReminderTimestamp: Instant?)
 
-    fun getContactListSorting(): String
-
-    fun isContactListSortingFirstName(): Boolean
+    fun getContactSortOrder(): ContactSortOrder
 
     fun getContactNameFormat(): ContactNameFormat
 
@@ -151,6 +199,7 @@ interface PreferenceService {
     fun getLastIDBackupReminderTimestamp(): Instant?
 
     fun getTransmittedFeatureMask(): Long
+
     fun setTransmittedFeatureMask(transmittedFeatureMask: Long)
 
     fun getLastFeatureMaskTransmission(): Instant?
@@ -159,15 +208,7 @@ interface PreferenceService {
 
     fun getEncryptedList(listName: String): Array<String>
 
-    fun getList(listName: String): Array<String>
-
-    fun setList(listName: String, elements: Array<String>)
-
     fun setEncryptedList(listName: String, elements: Array<String>)
-
-    fun getStringMap(listName: String): Map<String, String?>
-
-    fun setStringMap(listName: String, map: Map<String, String?>)
 
     fun showInactiveContacts(): Boolean
 
@@ -193,9 +234,6 @@ interface PreferenceService {
 
     fun setFileSendInfoShown(shown: Boolean)
 
-    @EmojiStyle
-    fun getEmojiStyle(): Int
-
     fun setLockoutDeadline(deadline: Instant?)
 
     fun getLockoutDeadline(): Instant?
@@ -212,9 +250,9 @@ interface PreferenceService {
 
     fun isUseProximitySensor(): Boolean
 
-    fun setAppLogoExpiresAt(expiresAt: Instant?, @AppThemeSetting theme: String)
+    fun setAppLogoExpiresAt(expiresAt: Instant?, theme: AppLogoFileHandleProvider.Theme)
 
-    fun getAppLogoExpiresAt(@AppThemeSetting theme: String): Instant?
+    fun getAppLogoExpiresAt(theme: AppLogoFileHandleProvider.Theme): Instant?
 
     fun arePrivateChatsHidden(): Boolean
 
@@ -319,9 +357,13 @@ interface PreferenceService {
 
     fun allowWebrtcIpv6(): Boolean
 
-    fun getMobileAutoDownload(): Set<String>
+    fun getMobileAutoDownload(): Set<AutoDownloadType>
 
-    fun getWifiAutoDownload(): Set<String>
+    fun setMobileAutoDownload(types: Set<AutoDownloadType>)
+
+    fun getWifiAutoDownload(): Set<AutoDownloadType>
+
+    fun setWifiAutoDownload(types: Set<AutoDownloadType>)
 
     fun setRatingReference(reference: String?)
 
@@ -455,17 +497,31 @@ interface PreferenceService {
 
     fun showDeveloperMenu(): Boolean
 
-    fun getDataBackupUri(): Uri?
+    fun getLegacyDataBackupUri(): Uri?
 
-    fun setDataBackupUri(newUri: Uri?)
+    fun setLegacyDataBackupUri(newUri: Uri?)
 
-    fun getDataBackupPickerLaunched(): Instant?
+    fun getLegacyDataBackupPickerLaunched(): Instant?
 
-    fun setDataBackupPickerLaunched(timestamp: Instant?)
+    fun setLegacyDataBackupPickerLaunched(timestamp: Instant?)
 
-    fun getLastDataBackupTimestamp(): Instant?
+    fun getLastLegacyDataBackupTimestamp(): Instant?
 
-    fun setLastDataBackupTimestamp(timestamp: Instant?)
+    fun setLastLegacyDataBackupTimestamp(timestamp: Instant?)
+
+    fun getLocalDataBackupPassword(): LocalDataBackupPassword?
+
+    fun setLocalDataBackupPassword(localDataBackupPassword: LocalDataBackupPassword?)
+
+    fun getLastLocalDataBackupInfo(): LastLocalDataBackupInfo?
+
+    fun setLastLocalDataBackupInfo(info: LastLocalDataBackupInfo?)
+
+    fun watchLastLocalDataBackupInfo(): Flow<LastLocalDataBackupInfo?>
+
+    fun getLocalDataBackupLocation(): Uri?
+
+    fun setLocalDataBackupLocation(location: Uri?)
 
     fun getMatchToken(): String?
 
@@ -483,7 +539,7 @@ interface PreferenceService {
 
     fun getPipPosition(): Int
 
-    fun getVideoCallsProfile(): String?
+    fun getVideoCallsProfile(): String
 
     fun setPollOverviewHidden(hidden: Boolean)
 
@@ -548,16 +604,9 @@ interface PreferenceService {
 
     fun setLastShortcutUpdateTimestamp(timestamp: Instant?)
 
-    /**
-     * Set the last timestamp when the notification permission has been requested.
-     */
-    fun setLastNotificationPermissionRequestTimestamp(timestamp: Instant?)
+    fun hasRequestedNotificationPermission(): Boolean
 
-    /**
-     * Get the last timestamp when the notification permission has been requested. If the
-     * notification permission has not yet been requested, null is returned.
-     */
-    fun getLastNotificationPermissionRequestTimestamp(): Instant?
+    fun setHasRequestedNotificationPermission(requested: Boolean)
 
     fun getLastMultiDeviceGroupCheckTimestamp(): Instant?
 
@@ -600,7 +649,9 @@ interface PreferenceService {
      */
     fun watchAvailabilityStatus(): Flow<AvailabilityStatus?>
 
-    fun clear()
+    fun shouldShowEmojiReactionNotificationsInContactConversations(): Boolean
+
+    fun shouldShowEmojiReactionNotificationsInGroupConversations(): Boolean
 
     companion object {
         const val IMAGE_SCALE_DEFAULT = -1
@@ -619,9 +670,6 @@ interface PreferenceService {
 
         const val STARRED_MESSAGES_SORT_ORDER_DATE_DESCENDING = 0
         const val STARRED_MESSAGES_SORT_ORDER_DATE_ASCENDING = 1
-
-        const val EMOJI_STYLE_DEFAULT = 0
-        const val EMOJI_STYLE_ANDROID = 1
 
         const val PROFILEPIC_RELEASE_NOBODY = 0
         const val PROFILEPIC_RELEASE_EVERYONE = 1

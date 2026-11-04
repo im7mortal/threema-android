@@ -27,11 +27,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import ch.threema.app.AppConstants;
+import ch.threema.app.BuildFlavor;
+import ch.threema.app.GlobalAppState;
 import ch.threema.app.R;
 import ch.threema.app.activities.ThreemaAppCompatActivity;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.webviews.PrivacyPolicyActivity;
-import ch.threema.app.backuprestore.csv.RestoreService;
 import ch.threema.app.threemasafe.ThreemaSafeMDMConfig;
 import ch.threema.app.ui.InsetSides;
 import ch.threema.app.ui.SpacingValues;
@@ -39,6 +40,8 @@ import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.utils.AnimationUtil;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.SynchronizeContactsUtil;
+
+import static ch.threema.android.PermissionExtensionsKt.checkGrantedPermission;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
@@ -50,6 +53,8 @@ public class WizardIntroActivity extends ThreemaAppCompatActivity {
 
     private static final int ACTIVITY_RESULT_PRIVACY_POLICY = 9442;
 
+    @NonNull
+    private final GlobalAppState globalAppState = KoinJavaComponent.get(GlobalAppState.class);
     @NonNull
     private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
 
@@ -67,7 +72,7 @@ public class WizardIntroActivity extends ThreemaAppCompatActivity {
     }, (ActivityResultCallback<Boolean>) result -> {
         if (Boolean.TRUE.equals(result) &&
             (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
-                || ConfigUtils.isPermissionGranted(WizardIntroActivity.this, Manifest.permission.POST_NOTIFICATIONS))
+                || checkGrantedPermission(WizardIntroActivity.this, Manifest.permission.POST_NOTIFICATIONS))
         ) {
             // When the backup is being restored and notifications can be shown, then exit the intro
             // activity. Otherwise, the activity is resumed and if a backup is being restored, the
@@ -135,7 +140,7 @@ public class WizardIntroActivity extends ThreemaAppCompatActivity {
 
         TextView privacyPolicyExplainText = findViewById(R.id.wizard_privacy_policy_explain);
         if (isNullOrEmpty(getString(R.string.privacy_policy_url)) ||
-            (ConfigUtils.isOnPremBuild() && !ConfigUtils.isDemoOPServer(dependencies.getPreferenceService()))) {
+            (BuildFlavor.IS_ON_PREM && !ConfigUtils.isDemoOPServer(dependencies.getPreferenceService()))) {
             privacyPolicyExplainText.setVisibility(View.GONE);
         } else {
             String privacyPolicy = getString(R.string.privacy_policy);
@@ -166,7 +171,7 @@ public class WizardIntroActivity extends ThreemaAppCompatActivity {
     protected void onResume() {
         super.onResume();
 
-        if (RestoreService.isRunning()) {
+        if (globalAppState.getSpecialMode() != null) {
             finish();
         }
     }
@@ -199,7 +204,7 @@ public class WizardIntroActivity extends ThreemaAppCompatActivity {
      * @return false if there is no conflict, true if it is incompatible
      */
     private boolean isContactSyncSettingConflict() {
-        if (ConfigUtils.isWorkBuild()) {
+        if (BuildFlavor.IS_WORK) {
             if (dependencies.getAppRestrictions().isContactSyncEnabled() && SynchronizeContactsUtil.isRestrictedProfile(this)) {
                 showMDMContactsSyncDialog();
                 return true;

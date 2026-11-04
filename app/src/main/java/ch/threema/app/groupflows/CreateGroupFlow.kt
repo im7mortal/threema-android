@@ -15,6 +15,8 @@ import ch.threema.app.utils.OutgoingCspMessageServices
 import ch.threema.app.utils.executor.BackgroundTask
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.secureRandom
+import ch.threema.data.datatypes.ConversationCategory
+import ch.threema.data.datatypes.ConversationSpamReportingState
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.GroupModel
@@ -69,11 +71,13 @@ class CreateGroupFlow(
             synchronizedAt = null,
             lastUpdate = now,
             conversationVisibility = ConversationVisibility.NORMAL,
+            conversationCategory = ConversationCategory.DEFAULT,
             groupDescription = null,
             groupDescriptionChangedAt = null,
             otherMembers = groupCreateProperties.members - myIdentity,
             userState = UserState.MEMBER,
             notificationTriggerPolicyOverride = null,
+            spamReportingState = ConversationSpamReportingState.DEFAULT,
         )
     }
 

@@ -12,6 +12,9 @@ import kotlin.Lazy;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.deleteRecursively;
 
+/**
+ * delete obsolete temp directories
+ */
 public class SystemUpdateToVersion63 implements SystemUpdate {
     private static final Logger logger = getThreemaLogger("SystemUpdateToVersion63");
 
@@ -33,11 +36,6 @@ public class SystemUpdateToVersion63 implements SystemUpdate {
                 logger.error("Exception", e);
             }
         }
-    }
-
-    @Override
-    public String getDescription() {
-        return "delete obsolete temp directories";
     }
 
     @Override

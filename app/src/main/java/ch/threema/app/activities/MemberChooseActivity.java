@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Set;
 
 import ch.threema.android.ActivityExtensionsKt;
+import ch.threema.app.BuildFlavor;
 import ch.threema.app.R;
 import ch.threema.app.adapters.FilterableListAdapter;
 import ch.threema.app.di.DependencyContainer;
@@ -58,6 +59,7 @@ import ch.threema.app.utils.RuntimeUtil;
 import ch.threema.app.utils.SnackbarUtil;
 import ch.threema.storage.models.ContactModel;
 
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.common.JavaCompat.isNullOrBlank;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
@@ -228,7 +230,7 @@ abstract public class MemberChooseActivity extends ThreemaToolbarActivity implem
         viewPager.setAdapter(null);
         viewPager.removeAllViews();
 
-        if (ConfigUtils.isWorkBuild()) {
+        if (BuildFlavor.IS_WORK) {
             tabLayout.addTab(tabLayout.newTab()
                 .setIcon(R.drawable.ic_work_outline)
                 .setContentDescription(R.string.title_tab_work_users));
@@ -512,7 +514,7 @@ abstract public class MemberChooseActivity extends ThreemaToolbarActivity implem
         if (tab != null) {
             if (count > 0) {
                 tab.getOrCreateBadge().setNumber(count);
-                tab.getBadge().setBackgroundColor(ConfigUtils.getColorFromAttribute(this, R.attr.colorPrimary));
+                tab.getBadge().setBackgroundColor(getColorFromAttribute(this, R.attr.colorPrimary));
                 tab.getBadge().setVisible(true);
             } else {
                 if (tab.getBadge() != null) {

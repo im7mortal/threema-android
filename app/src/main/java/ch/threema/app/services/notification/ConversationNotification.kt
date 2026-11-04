@@ -3,36 +3,21 @@ package ch.threema.app.services.notification
 import android.net.Uri
 import androidx.annotation.WorkerThread
 import androidx.core.app.Person
-import ch.threema.app.emojis.EmojiMarkupUtil
-import ch.threema.app.services.MessageService.MessageString
 import ch.threema.app.services.notification.NotificationService.FetchCacheUri
-import ch.threema.storage.models.MessageType
+import ch.threema.domain.types.MessageUid
 import java.time.Instant
 
-class ConversationNotification(
-    messageString: MessageString,
-    val createdAt: Instant?,
-    val id: Int,
-    val uid: String?,
-    val group: ConversationNotificationGroup,
-    private val fetchThumbnailUri: FetchCacheUri?,
+sealed class ConversationNotification(
+    val messageId: Int,
+    val messageUid: MessageUid,
+    val conversationHandle: NotificationConversationHandle,
+    val createdAt: Instant,
     val thumbnailMimeType: String?,
-    senderPerson: Person?,
-    val messageType: MessageType?,
-    val isMessageEdited: Boolean,
-    val isMessageDeleted: Boolean,
+    val fetchThumbnailUri: FetchCacheUri?,
+    val senderPerson: Person?,
 ) {
-    val message: CharSequence =
-        messageString.message
-            ?.let(EmojiMarkupUtil.getInstance()::addTextSpans)
-            ?: ""
 
-    val rawMessage: CharSequence = messageString.rawMessage
-        ?: ""
-
-    val senderPerson: Person? =
-        senderPerson
-            ?.takeIf { message.isNotBlank() }
+    abstract val shouldApplySenderPerson: Boolean
 
     private var thumbnailUri: Uri? = null
 

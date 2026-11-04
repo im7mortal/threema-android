@@ -1,23 +1,27 @@
 package ch.threema.app.preference
 
 import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.result.launch
+import androidx.fragment.app.setFragmentResultListener
+import androidx.lifecycle.lifecycleScope
 import androidx.preference.CheckBoxPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.TwoStatePreference
-import ch.threema.android.ToastDuration
+import ch.threema.android.dismissDialog
+import ch.threema.android.permissions.ContactPermissionsContract
 import ch.threema.android.showToast
 import ch.threema.app.R
 import ch.threema.app.activities.BlockedIdentitiesActivity
 import ch.threema.app.activities.ExcludedSyncIdentitiesActivity
 import ch.threema.app.dialogs.GenericAlertDialog
 import ch.threema.app.dialogs.GenericProgressDialog
+import ch.threema.app.dialogs.ThreemaDialogFragment.onClickPositiveButton
 import ch.threema.app.listeners.SynchronizeContactsListener
 import ch.threema.app.managers.ListenerManager
 import ch.threema.app.preference.service.PreferenceService
@@ -26,19 +30,22 @@ import ch.threema.app.restrictions.AppRestrictions
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.LockAppService
 import ch.threema.app.services.SynchronizeContactsService
-import ch.threema.app.utils.*
+import ch.threema.app.utils.ConfigUtils
+import ch.threema.app.utils.ShortcutUtil
+import ch.threema.app.utils.SynchronizeContactsUtil
+import ch.threema.app.utils.logScreenVisibility
 import ch.threema.app.workers.ShareTargetUpdateWorker
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.localcrypto.exceptions.MasterKeyLockedException
-import com.google.android.material.snackbar.BaseTransientBottomBar.BaseCallback
-import com.google.android.material.snackbar.Snackbar
+import ch.threema.common.DispatcherProvider
+import kotlin.coroutines.resume
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
 
 private val logger = getThreemaLogger("SettingsPrivacyFragment")
 
-class SettingsPrivacyFragment :
-    ThreemaPreferenceFragment(),
-    GenericAlertDialog.DialogClickListener {
+class SettingsPrivacyFragment : ThreemaPreferenceFragment() {
     init {
         logScreenVisibility(logger)
     }
@@ -50,6 +57,7 @@ class SettingsPrivacyFragment :
     private val synchronizedSettingsService: SynchronizedSettingsService by inject()
     private val appRestrictions: AppRestrictions by inject()
     private val shareTargetUpdateWorkerScheduler: ShareTargetUpdateWorker.Scheduler by inject()
+    private val dispatcherProvider: DispatcherProvider by inject()
 
     private lateinit var disableScreenshot: CheckBoxPreference
     private var disableScreenshotChecked = false
@@ -61,41 +69,57 @@ class SettingsPrivacyFragment :
     private val synchronizeContactsListener: SynchronizeContactsListener =
         object : SynchronizeContactsListener {
             override fun onStarted() {
-                RuntimeUtil.runOnUiThread {
+                viewLifecycleOwner.lifecycleScope.launch {
                     updateView()
-                    GenericProgressDialog.newInstance(
-                        R.string.wizard1_sync_contacts,
-                        R.string.please_wait,
-                    ).show(parentFragmentManager, DIALOG_TAG_SYNC_CONTACTS)
+                    if (isAdded) {
+                        GenericProgressDialog.newInstance(
+                            R.string.wizard1_sync_contacts,
+                            R.string.please_wait,
+                        ).show(parentFragmentManager, DIALOG_TAG_SYNC_CONTACTS)
+                    }
                 }
             }
 
             override fun onFinished() {
-                RuntimeUtil.runOnUiThread {
+                viewLifecycleOwner.lifecycleScope.launch {
                     updateView()
-                    if (this@SettingsPrivacyFragment.isAdded) {
-                        DialogUtil.dismissDialog(
-                            parentFragmentManager,
-                            DIALOG_TAG_SYNC_CONTACTS,
-                            true,
-                        )
+                    if (isAdded) {
+                        parentFragmentManager.dismissDialog(DIALOG_TAG_SYNC_CONTACTS)
                     }
                 }
             }
 
             override fun onError() {
-                RuntimeUtil.runOnUiThread {
+                viewLifecycleOwner.lifecycleScope.launch {
                     updateView()
-                    if (this@SettingsPrivacyFragment.isAdded) {
-                        DialogUtil.dismissDialog(
-                            parentFragmentManager,
-                            DIALOG_TAG_SYNC_CONTACTS,
-                            true,
-                        )
+                    if (isAdded) {
+                        parentFragmentManager.dismissDialog(DIALOG_TAG_SYNC_CONTACTS)
                     }
                 }
             }
         }
+
+    private val contactPermissionsLauncher = registerForActivityResult(ContactPermissionsContract()) { isGranted ->
+        if (isGranted) {
+            launchContactsSync()
+        } else {
+            disableSyncFromLocal()
+            if (!shouldShowRequestPermissionRationale(Manifest.permission.READ_CONTACTS)) {
+                // TODO(ANDR-5211): Use rationale as intended
+                ConfigUtils.showPermissionRationale(context, fragmentView, R.string.permission_contacts_sync_required)
+            }
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        setFragmentResultListener(DIALOG_TAG_RESET_RECEIPTS) { _, bundle ->
+            onClickPositiveButton(bundle) {
+                resetReceipts()
+            }
+        }
+    }
 
     override fun initializePreferences() {
         disableScreenshot = getPref(synchronizedSettingsService.getScreenshotPolicySetting().preferenceKey)
@@ -107,15 +131,10 @@ class SettingsPrivacyFragment :
         }
 
         initContactSyncPref()
-
         initWorkRestrictedPrefs()
-
         initExcludedSyncIdentitiesPref()
-
         initBlockedContactsPref()
-
         initResetReceiptsPref()
-
         initDirectSharePref()
 
         updateView()
@@ -141,11 +160,10 @@ class SettingsPrivacyFragment :
 
     override fun onDestroyView() {
         ListenerManager.synchronizeContactsListeners.remove(synchronizeContactsListener)
-        if (isAdded) {
-            DialogUtil.dismissDialog(parentFragmentManager, DIALOG_TAG_VALIDATE, true)
-            DialogUtil.dismissDialog(parentFragmentManager, DIALOG_TAG_SYNC_CONTACTS, true)
-            DialogUtil.dismissDialog(parentFragmentManager, DIALOG_TAG_DISABLE_SYNC, true)
-        }
+        parentFragmentManager.dismissDialog(DIALOG_TAG_VALIDATE)
+        parentFragmentManager.dismissDialog(DIALOG_TAG_SYNC_CONTACTS)
+        parentFragmentManager.dismissDialog(DIALOG_TAG_DISABLE_SYNC)
+        parentFragmentManager.dismissDialog(DIALOG_TAG_RESET_RECEIPTS)
         super.onDestroyView()
     }
 
@@ -157,19 +175,15 @@ class SettingsPrivacyFragment :
     }
 
     private fun updateView() {
-        if (appRestrictions.isContactSyncEnabledOrNull() == null && !SynchronizeContactsUtil.isRestrictedProfile(activity)) {
-            contactSyncPreference.apply {
-                isEnabled = !synchronizeContactsService.isSynchronizationInProgress
-            }
+        if (appRestrictions.isContactSyncEnabledOrNull() == null && !SynchronizeContactsUtil.isRestrictedProfile(requireContext())) {
+            contactSyncPreference.isEnabled = !synchronizeContactsService.isSynchronizationInProgress
         }
     }
 
     private fun initContactSyncPref() {
         contactSyncPreference = getPref(synchronizedSettingsService.getContactSyncPolicySetting().preferenceKey)
-        contactSyncPreference.summaryOn =
-            getString(R.string.prefs_sum_sync_contacts_on, getString(R.string.app_name))
-        contactSyncPreference.summaryOff =
-            getString(R.string.prefs_sum_sync_contacts_off, getString(R.string.app_name))
+        contactSyncPreference.summaryOn = getString(R.string.prefs_sum_sync_contacts_on, getString(R.string.app_name))
+        contactSyncPreference.summaryOff = getString(R.string.prefs_sum_sync_contacts_off, getString(R.string.app_name))
 
         if (SynchronizeContactsUtil.isRestrictedProfile(activity)) {
             // restricted android profile (e.g. guest user)
@@ -194,7 +208,7 @@ class SettingsPrivacyFragment :
     }
 
     private fun initWorkRestrictedPrefs() {
-        if (ConfigUtils.isWorkRestricted()) {
+        if (appRestrictions.isRestricted()) {
             if (appRestrictions.isBlockUnknownOrNull() != null) {
                 val blockUnknown: CheckBoxPreference = getPref(synchronizedSettingsService.getUnknownContactPolicySetting().preferenceKey)
                 blockUnknown.isEnabled = false
@@ -227,15 +241,14 @@ class SettingsPrivacyFragment :
 
     private fun initResetReceiptsPref() {
         getPref<Preference>("pref_reset_receipts").onClick {
-            val dialog = GenericAlertDialog.newInstance(
+            GenericAlertDialog.newInstance(
                 R.string.prefs_title_reset_receipts,
-                // TODO(ANDR-3686)
-                getString(R.string.prefs_sum_reset_receipts) + "?",
+                R.string.confirm_sum_reset_receipts,
                 R.string.yes,
                 R.string.no,
+                DIALOG_TAG_RESET_RECEIPTS,
             )
-            dialog.targetFragment = this@SettingsPrivacyFragment
-            dialog.show(parentFragmentManager, DIALOG_TAG_RESET_RECEIPTS)
+                .show(parentFragmentManager)
         }
     }
 
@@ -255,83 +268,39 @@ class SettingsPrivacyFragment :
         }
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String?>,
-        grantResults: IntArray,
-    ) {
-        when (requestCode) {
-            PERMISSION_REQUEST_CONTACTS -> if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                launchContactsSync()
-            } else if (!shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
-                disableSyncFromLocal()
-                ConfigUtils.showPermissionRationale(
-                    context,
-                    fragmentView,
-                    R.string.permission_contacts_sync_required,
-                    object : BaseCallback<Snackbar?>() {},
-                )
-            } else {
-                disableSyncFromLocal()
-            }
-        }
-    }
-
     private fun launchContactsSync() {
-        // start a Sync
         synchronizeContactsService.instantiateSynchronizationAndRun()
     }
 
     private fun enableSyncFromLocal() {
         logger.info("Enabling contact synchronization")
-        try {
-            if (synchronizeContactsService.enableSyncFromLocal() &&
-                ConfigUtils.requestContactPermissions(
-                    requireActivity(),
-                    this@SettingsPrivacyFragment,
-                    PERMISSION_REQUEST_CONTACTS,
-                )
-            ) {
-                launchContactsSync()
-            }
-        } catch (e: MasterKeyLockedException) {
-            logger.error("Exception", e)
+        if (synchronizeContactsService.enableSyncFromLocal()) {
+            contactPermissionsLauncher.launch()
         }
     }
 
     private fun disableSyncFromLocal() {
         logger.info("Disabling contact synchronization")
-        GenericProgressDialog.newInstance(R.string.app_name, R.string.please_wait).show(parentFragmentManager, DIALOG_TAG_DISABLE_SYNC)
-        Thread(
-            {
-                synchronizeContactsService.disableSyncFromLocal {
-                    RuntimeUtil.runOnUiThread {
-                        DialogUtil.dismissDialog(
-                            parentFragmentManager,
-                            DIALOG_TAG_DISABLE_SYNC,
-                            true,
-                        )
-                        contactSyncPreference.isChecked = false
+        lifecycleScope.launch {
+            GenericProgressDialog.newInstance(R.string.app_name, R.string.please_wait)
+                .show(parentFragmentManager, DIALOG_TAG_DISABLE_SYNC)
+            withContext(dispatcherProvider.worker) {
+                suspendCancellableCoroutine { continuation ->
+                    synchronizeContactsService.disableSyncFromLocal {
+                        continuation.resume(Unit)
                     }
                 }
-            },
-            "DisableSync",
-        ).start()
+            }
+            parentFragmentManager.dismissDialog(DIALOG_TAG_DISABLE_SYNC)
+            contactSyncPreference.isChecked = false
+        }
     }
 
     private fun resetReceipts() {
-        Thread(
-            {
-                contactService.resetReceiptsSettings()
-                showToast(R.string.reset_successful, ToastDuration.SHORT)
-            },
-            "ResetReceiptSettings",
-        ).start()
-    }
-
-    override fun onYes(tag: String?, data: Any?) {
-        resetReceipts()
+        lifecycleScope.launch(dispatcherProvider.worker) {
+            contactService.resetReceiptsSettings()
+            showToast(R.string.reset_successful)
+        }
     }
 
     companion object {
@@ -339,7 +308,5 @@ class SettingsPrivacyFragment :
         private const val DIALOG_TAG_SYNC_CONTACTS = "syncC"
         private const val DIALOG_TAG_DISABLE_SYNC = "dissync"
         private const val DIALOG_TAG_RESET_RECEIPTS = "rece"
-
-        private const val PERMISSION_REQUEST_CONTACTS = 1
     }
 }

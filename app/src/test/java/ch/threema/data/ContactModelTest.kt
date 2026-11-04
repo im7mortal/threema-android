@@ -6,6 +6,7 @@ import ch.threema.common.emptyByteArray
 import ch.threema.common.plus
 import ch.threema.data.datatypes.AndroidContactLookupInfo
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.IdColor
 import ch.threema.data.models.ContactModel
@@ -79,7 +80,7 @@ class ContactModelTest {
             identity = TestData.Identities.OTHER_1.value,
             data = ContactModelData(
                 identity = TestData.Identities.OTHER_1.value,
-                publicKey = TestData.publicKeyAllZeros,
+                publicKey = TestData.testPublicKey,
                 createdAt = now,
                 lastUpdateAt = null,
                 firstName = "Firstname",
@@ -96,6 +97,7 @@ class ContactModelTest {
                 readReceiptPolicy = ReadReceiptPolicy.SEND,
                 typingIndicatorPolicy = TypingIndicatorPolicy.DONT_SEND,
                 conversationVisibility = ConversationVisibility.NORMAL,
+                conversationCategory = ConversationCategory.DEFAULT,
                 androidContactLookupInfo = null,
                 localAvatarExpires = now,
                 isRestored = true,
@@ -115,7 +117,7 @@ class ContactModelTest {
 
         val contactModelData = contact.data!!
         assertEquals(TestData.Identities.OTHER_1.value, contactModelData.identity)
-        assertEquals(TestData.publicKeyAllZeros, contactModelData.publicKey)
+        assertEquals(TestData.testPublicKey, contactModelData.publicKey)
         assertEquals(now, contactModelData.createdAt)
         assertEquals("Firstname", contactModelData.firstName)
         assertEquals("Lastname", contactModelData.lastName)

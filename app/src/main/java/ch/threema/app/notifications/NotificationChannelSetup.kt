@@ -12,6 +12,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.edit
 import androidx.preference.PreferenceManager
 import ch.threema.android.setSound
+import ch.threema.app.BuildFlavor
 import ch.threema.app.R
 import ch.threema.app.notifications.NotificationChannels.NOTIFICATION_CHANNELGROUP_CHAT
 import ch.threema.app.notifications.NotificationChannels.NOTIFICATION_CHANNELGROUP_GROUP_CHAT
@@ -35,7 +36,6 @@ import ch.threema.app.notifications.migrations.NotificationChannelMigration
 import ch.threema.app.notifications.migrations.Version1Migration
 import ch.threema.app.notifications.migrations.Version2Migration
 import ch.threema.app.notifications.migrations.Version3Migration
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.RingtoneUtil
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.DispatcherProvider
@@ -248,7 +248,7 @@ class NotificationChannelSetup(
         }
 
         // work sync notification
-        if (ConfigUtils.isWorkBuild()) {
+        if (BuildFlavor.IS_WORK) {
             createChannel(
                 channelId = NOTIFICATION_CHANNEL_WORK_SYNC,
                 channelName = getString(R.string.work_data_sync),
@@ -335,7 +335,7 @@ class NotificationChannelSetup(
 
             // get rid of foreground service channels
             safelyDeleteChannel(NOTIFICATION_CHANNEL_BACKUP_RESTORE_IN_PROGRESS)
-            if (ConfigUtils.isWorkBuild()) {
+            if (BuildFlavor.IS_WORK) {
                 safelyDeleteChannel(NOTIFICATION_CHANNEL_WORK_SYNC)
             }
             safelyDeleteChannel(NOTIFICATION_CHANNEL_VOICE_MSG_PLAYER)

@@ -1,9 +1,9 @@
 package ch.threema.app.troubleshooting
 
 import ch.threema.app.troubleshooting.contacts.ContactsDiagnosticsViewModel
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.viewModel
 
 val troubleShootingFeatureModule = module {
-    viewModelOf(::ContactsDiagnosticsViewModel)
+    viewModel<ContactsDiagnosticsViewModel>()
 }

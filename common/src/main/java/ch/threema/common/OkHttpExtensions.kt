@@ -6,14 +6,36 @@ import java.time.Instant
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromStream
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.ResponseBody
 import okhttp3.coroutines.executeAsync
+import okhttp3.internal.closeQuietly
 
 fun buildRequest(block: Request.Builder.() -> Unit): Request =
     Request.Builder().apply(block).build()
+
+fun Request.buildNew(block: Request.Builder.() -> Unit): Request =
+    newBuilder().apply(block).build()
+
+inline fun <reified T> Request.Builder.postJson(json: Json, data: T) {
+    post(json.encodeToString<T>(data).toRequestBody())
+}
+
+fun Request.Builder.copyHeaderFrom(other: Request, header: String) {
+    other.header(header)?.let { value ->
+        header(header, value)
+    }
+}
+
+@OptIn(ExperimentalSerializationApi::class)
+inline fun <reified T> ResponseBody.decodeJson(json: Json): T =
+    json.decodeFromStream<T>(byteStream())
 
 fun OkHttpClient.buildNew(block: OkHttpClient.Builder.() -> Unit): OkHttpClient =
     newBuilder().apply(block).build()
@@ -38,12 +60,17 @@ suspend inline fun OkHttpClient.executeAsync(request: Request): Response =
 
 @Throws(HttpResponseException::class)
 fun Response.getSuccessBodyOrThrow(): ResponseBody =
-    (if (isSuccessful) body else null)
-        ?: throw HttpResponseException(code)
+    if (isSuccessful) {
+        body
+    } else {
+        closeQuietly()
+        throw HttpResponseException(code)
+    }
 
 @Throws(HttpResponseException::class)
 fun Response.throwIfNotSuccessful() {
     if (!isSuccessful) {
+        closeQuietly()
         throw HttpResponseException(code)
     }
 }

@@ -106,8 +106,9 @@ private fun PollData.AssessmentType.toModelType(): PollModel.Assessment = when (
     PollData.AssessmentType.MULTIPLE -> PollModel.Assessment.MULTIPLE_CHOICE
 }
 
-private fun PollDataChoice.toPollChoiceModel(): PollChoiceModel = PollChoiceModel()
-    .setName(this.name)
-    .setOrder(this.order)
-    .setVoteCount(this.totalVotes)
-    .setApiPollChoiceId(this.id)
+private fun PollDataChoice.toPollChoiceModel(): PollChoiceModel = PollChoiceModel(
+    name = name,
+    order = order,
+    voteCount = totalVotes,
+    apiPollChoiceId = id,
+)

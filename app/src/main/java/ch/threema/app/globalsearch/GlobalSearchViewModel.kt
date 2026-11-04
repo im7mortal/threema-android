@@ -5,8 +5,8 @@ import androidx.lifecycle.viewModelScope
 import ch.threema.app.services.MessageService
 import ch.threema.app.services.MessageService.MessageFilterFlags
 import ch.threema.common.DispatcherProvider
-import ch.threema.storage.models.AbstractMessageModel
-import ch.threema.storage.models.group.GroupMessageModel
+import ch.threema.storage.models.GroupMessageModel
+import ch.threema.storage.models.MessageModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,7 +24,7 @@ class GlobalSearchViewModel(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val _messageModels = MutableStateFlow<List<AbstractMessageModel>>(emptyList())
+    private val _messageModels = MutableStateFlow<List<MessageModel>>(emptyList())
     val messageModels = _messageModels.asStateFlow()
 
     private var searchJob: Job? = null
@@ -48,7 +48,7 @@ class GlobalSearchViewModel(
         }
     }
 
-    private suspend fun getMessagesForText(queryString: String?, @MessageFilterFlags filterFlags: Int): List<AbstractMessageModel> =
+    private suspend fun getMessagesForText(queryString: String?, @MessageFilterFlags filterFlags: Int): List<MessageModel> =
         withContext(dispatcherProvider.io) {
             messageService.getMessagesForText(queryString, filterFlags, false)
         }

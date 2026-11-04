@@ -23,10 +23,11 @@ import ch.threema.app.utils.QuoteUtil;
 import ch.threema.app.webclient.Protocol;
 import ch.threema.app.webclient.services.instance.MessageDispatcher;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 import ch.threema.data.repositories.ServerMessageModelRepository;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ServerMessageModel;
 
 @WorkerThread
@@ -50,7 +51,7 @@ public class TextMessageCreateHandler extends MessageCreateHandler {
     }
 
     @Override
-    protected AbstractMessageModel handle(List<ch.threema.app.messagereceiver.MessageReceiver> receivers, Map<String, Value> message) throws Exception {
+    protected MessageModel handle(List<ch.threema.app.messagereceiver.MessageReceiver> receivers, Map<String, Value> message) throws Exception {
         final Map<String, Value> messageData = this.getData(message, false, new String[]{
             TextMessageCreateHandler.FIELD_TEXT,
         });
@@ -72,7 +73,7 @@ public class TextMessageCreateHandler extends MessageCreateHandler {
                     }
                 );
 
-                AbstractMessageModel quotedMessageModel = null;
+                MessageModel quotedMessageModel = null;
                 int quotedMessageID = Integer.valueOf(quoteMap.get(FIELD_QUOTE_MESSAGE_ID).toString());
                 if (receivers.get(0) instanceof ContactMessageReceiver) {
                     quotedMessageModel = messageService.getContactMessageModel(quotedMessageID);
@@ -83,10 +84,14 @@ public class TextMessageCreateHandler extends MessageCreateHandler {
                 }
 
                 if (quotedMessageModel != null) {
-                    text = QuoteUtil.quote(text,
-                        quoteMap.get(FIELD_QUOTE_IDENTITY).toString(),
-                        quoteMap.get(FIELD_QUOTE_TEXT).toString(),
-                        quotedMessageModel);
+                    var quoteIdentity = quoteMap.get(FIELD_QUOTE_IDENTITY).toString();
+                    var quoteText = quoteMap.get(FIELD_QUOTE_TEXT).toString();
+                    if (!isNullOrEmpty(quoteIdentity) && !isNullOrEmpty(quoteText)) {
+                        text = QuoteUtil.createQuotedMessageBody(
+                            text,
+                            quotedMessageModel.getMessageId()
+                        );
+                    }
                 }
             } catch (MessagePackException x) {
                 logger.error("Ignoring MessagePackException when handling quote", x);
@@ -99,10 +104,10 @@ public class TextMessageCreateHandler extends MessageCreateHandler {
                 .MessageValidationException(Protocol.ERROR_VALUE_TOO_LONG, true);
         }
 
-        AbstractMessageModel firstMessageModel = null;
+        MessageModel firstMessageModel = null;
 
         for (ch.threema.app.messagereceiver.MessageReceiver receiver : receivers) {
-            AbstractMessageModel model = this.messageService.sendText(text, receiver);
+            MessageModel model = this.messageService.sendText(text, receiver);
 
             if (firstMessageModel == null) {
                 firstMessageModel = model;

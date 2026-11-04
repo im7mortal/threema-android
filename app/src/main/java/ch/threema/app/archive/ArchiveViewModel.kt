@@ -1,27 +1,20 @@
 package ch.threema.app.archive
 
 import android.content.Context
-import android.view.View
-import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ch.threema.app.R
-import ch.threema.app.asynctasks.EmptyOrDeleteConversationsAsyncTask
 import ch.threema.app.compose.conversation.models.ConversationListItemUiModel
 import ch.threema.app.compose.conversation.models.ConversationUiModel
 import ch.threema.app.drafts.DraftManager
 import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.eventbus.events.ConversationEvent
-import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.ConversationService
 import ch.threema.app.services.DistributionListService
-import ch.threema.app.services.GroupFlowDispatcher
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.RingtoneService
-import ch.threema.app.services.UserService
 import ch.threema.app.typingindicator.TypingIndicatorProvider
 import ch.threema.app.usecases.availabilitystatus.WatchAllContactAvailabilityStatusesUseCase
 import ch.threema.app.usecases.avatar.GetAndPrepareAvatarUseCase
@@ -32,19 +25,14 @@ import ch.threema.app.usecases.conversations.WatchArchivedConversationListItemsU
 import ch.threema.app.usecases.conversations.WatchArchivedConversationsUseCase
 import ch.threema.app.usecases.conversations.WatchAvatarIterationsUseCase
 import ch.threema.app.usecases.groups.WatchGroupCallsUseCase
+import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.TimeProvider
 import ch.threema.common.takeUnlessEmpty
 import ch.threema.common.toggle
-import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.datatypes.ContactNameFormat
 import ch.threema.data.datatypes.ConversationId
-import ch.threema.data.datatypes.DistributionListConversationId
 import ch.threema.data.datatypes.GroupConversationId
-import ch.threema.data.repositories.GroupModelRepository
 import ch.threema.domain.taskmanager.TriggerSource
-import ch.threema.storage.models.ContactModel
-import ch.threema.storage.models.DistributionListModel
-import ch.threema.storage.models.ReceiverModel
 import ch.threema.storage.models.group.GroupModelOld
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -53,30 +41,30 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private val logger = getThreemaLogger("ArchiveViewModel")
+
 class ArchiveViewModel(
     private val appContext: Context,
-    private val userService: UserService,
     private val conversationService: ConversationService,
-    private val conversationCategoryService: ConversationCategoryService,
     private val contactService: ContactService,
     private val groupService: GroupService,
     private val distributionListService: DistributionListService,
     private val ringtoneService: RingtoneService,
-    private val groupModelRepository: GroupModelRepository,
     private val draftManager: DraftManager,
     private val globalEventBuses: GlobalEventBuses,
     private val watchArchivedConversationsUseCase: WatchArchivedConversationsUseCase,
     private val watchGroupCallsUseCase: WatchGroupCallsUseCase,
     private val typingIndicatorProvider: TypingIndicatorProvider,
-    private val groupFlowDispatcher: GroupFlowDispatcher,
     private val getAndPrepareAvatarUseCase: GetAndPrepareAvatarUseCase,
     preferenceService: PreferenceService,
+    private val emptyOrDeleteConversationsUseCase: EmptyOrDeleteConversationsUseCase,
     private val watchAvatarIterationsUseCase: WatchAvatarIterationsUseCase,
     private val watchContactNameFormatSettingUseCase: WatchContactNameFormatSettingUseCase,
     private val watchAllMentionNamesUseCase: WatchAllMentionNamesUseCase,
@@ -88,7 +76,6 @@ class ArchiveViewModel(
         watchArchivedConversationsUseCase = watchArchivedConversationsUseCase,
         watchGroupCallsUseCase = watchGroupCallsUseCase,
         typingIndicatorProvider = typingIndicatorProvider,
-        conversationCategoryService = conversationCategoryService,
         contactService = contactService,
         groupService = groupService,
         distributionListService = distributionListService,
@@ -149,6 +136,9 @@ class ArchiveViewModel(
             .filter(ConversationListItemUiModel::isChecked)
             .map(ConversationListItemUiModel::model)
 
+    private val _deletionInProgress = MutableStateFlow(false)
+    val deletionInProgress = _deletionInProgress.asStateFlow()
+
     private val _events: MutableSharedFlow<ArchiveScreenEvent> = MutableSharedFlow()
     val events = _events.asSharedFlow()
 
@@ -200,7 +190,7 @@ class ArchiveViewModel(
         viewModelScope.launch {
             val selectedConversationUiModels: List<ConversationUiModel> = currentlySelectedConversations
             if (selectedConversationUiModels.isEmpty()) {
-                _events.emit(ArchiveScreenEvent.ConversationsDeleted)
+                _events.emit(ArchiveScreenEvent.ConversationsDeleted(0))
                 return@launch
             }
             var title: String = appContext.resources.getString(
@@ -245,63 +235,29 @@ class ArchiveViewModel(
         }
     }
 
-    // TODO(ANDR-4087): Remove the referenced view from these layers
-    fun confirmDeleteCurrentlySelected(
-        supportFragmentManager: FragmentManager,
-        snackbarFeedbackView: View?,
-    ) {
-        val selectedConversationIds = currentlySelectedConversations.map(ConversationUiModel::conversationId)
-
-        val contactModels: List<ContactModel> = selectedConversationIds
-            .filterIsInstance<ContactConversationId>()
-            .map(ContactConversationId::identity)
-            .let { identities ->
-                contactService.getByIdentities(identities)
-            }
-
-        val groupModels: List<GroupModelOld> = selectedConversationIds
-            .filterIsInstance<GroupConversationId>()
-            .map { groupConversationId ->
-                // TODO(ANDR-4354): Remove this cast to Int
-                groupConversationId.groupDatabaseId.toInt()
-            }
-            .let { groupDatabaseIds ->
-                groupService.getByIds(groupDatabaseIds)
-            }
-
-        val distributionListModels: List<DistributionListModel> = selectedConversationIds
-            .filterIsInstance<DistributionListConversationId>()
-            .map(DistributionListConversationId::distributionListId)
-            .let { distributionListIds: List<Long> ->
-                distributionListService.getByIds(distributionListIds)
-            }
-
-        val receiverModels: List<ReceiverModel> = contactModels + groupModels + distributionListModels
-        val messageReceivers: List<MessageReceiver<*>> = receiverModels.mapNotNull { receiverModel ->
-            when (receiverModel) {
-                is ContactModel -> contactService.createReceiver(receiverModel)
-                is GroupModelOld -> groupService.createReceiver(receiverModel)
-                is DistributionListModel -> distributionListService.createReceiver(receiverModel)
-                else -> null
+    fun confirmDeleteCurrentlySelected() {
+        viewModelScope.launch {
+            _deletionInProgress.value = true
+            try {
+                val conversationIds = currentlySelectedConversations.map(ConversationUiModel::conversationId)
+                val result = emptyOrDeleteConversationsUseCase.call(
+                    conversationIds = conversationIds,
+                    mode = EmptyOrDeleteConversationsUseCase.Mode.DELETE,
+                )
+                when (result) {
+                    is EmptyOrDeleteConversationsUseCase.Result.Completed -> {
+                        // TODO(ANDR-4175): Remove this event bus call when the conversation cache also holds archived conversations and calls ConversationListener.onRemoved correctly
+                        globalEventBuses.conversations.emit(ConversationEvent.AllConversationsUpdated)
+                        _events.emit(ArchiveScreenEvent.ConversationsDeleted(result.successCount))
+                    }
+                    EmptyOrDeleteConversationsUseCase.Result.UnknownConversation -> {
+                        logger.warn("Conversation(s) to delete not found")
+                    }
+                }
+            } finally {
+                _deletionInProgress.value = false
             }
         }
-        EmptyOrDeleteConversationsAsyncTask(
-            EmptyOrDeleteConversationsUseCase.Mode.DELETE,
-            messageReceivers.toTypedArray(),
-            conversationService,
-            distributionListService,
-            groupModelRepository,
-            groupFlowDispatcher,
-            userService.identity!!,
-            supportFragmentManager,
-            snackbarFeedbackView,
-        ) {
-            viewModelScope.launch {
-                // TODO(ANDR-4175): Remove this event bus call when the conversation cache also holds archived conversations and calls ConversationListener.onRemoved correctly
-                globalEventBuses.conversations.emit(ConversationEvent.AllConversationsUpdated)
-                _events.emit(ArchiveScreenEvent.ConversationsDeleted)
-            }
-        }.execute()
     }
 
     suspend fun provideAvatarBitmap(conversationId: ConversationId) =

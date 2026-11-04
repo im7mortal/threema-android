@@ -12,11 +12,11 @@ import java.lang.ref.WeakReference;
 
 import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.base.SessionScoped;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 
 @SessionScoped
 public interface MessagePlayerService {
-    MessagePlayer createPlayer(AbstractMessageModel m, @Nullable WeakReference<Activity> activityWeakReference, MessageReceiver<?> messageReceiver, @Nullable ListenableFuture<MediaController> mediaControllerFuture);
+    MessagePlayer createPlayer(MessageModel m, @Nullable WeakReference<Activity> activityWeakReference, MessageReceiver<?> messageReceiver, @Nullable ListenableFuture<MediaController> mediaControllerFuture);
 
     void release();
 
@@ -26,9 +26,7 @@ public interface MessagePlayerService {
 
     void resumeAll(Activity activity, MessageReceiver<?> messageReceiver, int source);
 
-    void setTranscodeProgress(@NonNull AbstractMessageModel messageModel, int progress);
+    void setTranscodeProgress(@NonNull MessageModel messageModel, int progress);
 
-    void setTranscodeStart(@NonNull AbstractMessageModel messageModel);
-
-    void setTranscodeFinished(@NonNull AbstractMessageModel messageModel, boolean success, @Nullable String message);
+    void setTranscodeStart(@NonNull MessageModel messageModel);
 }

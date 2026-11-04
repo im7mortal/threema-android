@@ -5,6 +5,7 @@ import android.widget.Toast
 import androidx.annotation.CallSuper
 import androidx.fragment.app.FragmentManager
 import ch.threema.android.ToastDuration
+import ch.threema.android.dismissDialog
 import ch.threema.android.showToast
 import ch.threema.app.GlobalListeners
 import ch.threema.app.R
@@ -14,20 +15,19 @@ import ch.threema.app.asynctasks.ContactSyncPolicy.EXCLUDE
 import ch.threema.app.asynctasks.ContactSyncPolicy.INCLUDE
 import ch.threema.app.dialogs.CancelableHorizontalProgressDialog
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.ConversationService
 import ch.threema.app.services.ExcludedSyncIdentitiesService
 import ch.threema.app.services.FileService
 import ch.threema.app.services.ProfilePictureRecipientsService
 import ch.threema.app.services.RingtoneService
 import ch.threema.app.services.UserService
-import ch.threema.app.services.WallpaperService
 import ch.threema.app.services.notification.NotificationService
 import ch.threema.app.utils.AndroidContactUtil
 import ch.threema.app.utils.DialogUtil
 import ch.threema.app.utils.RuntimeUtil
 import ch.threema.app.utils.ShortcutUtil
 import ch.threema.app.utils.executor.BackgroundTask
+import ch.threema.app.wallpapers.WallpaperService
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.repositories.ContactModelRepository
@@ -38,7 +38,9 @@ import ch.threema.domain.taskmanager.TriggerSource
 import ch.threema.domain.types.IdentityString
 import ch.threema.storage.factories.ContactModelFactory
 import ch.threema.storage.models.ContactModel
+import java.io.IOException
 import java.lang.ref.WeakReference
+import kotlinx.coroutines.runBlocking
 
 private const val DIALOG_TAG_DELETE_CONTACT = "dc"
 
@@ -52,7 +54,6 @@ data class DeleteContactServices(
     val contactService: ContactService,
     val conversationService: ConversationService,
     val ringtoneService: RingtoneService,
-    val conversationCategoryService: ConversationCategoryService,
     val profilePictureRecipientsService: ProfilePictureRecipientsService,
     val wallpaperService: WallpaperService,
     val fileService: FileService,
@@ -188,7 +189,7 @@ open class MarkContactAsDeletedBackgroundTask(
         deleteContactServices.contactService.invalidateCache(identity)
 
         // Cancel notifications
-        deleteContactServices.notificationService.cancel(ContactConversationId(identity))
+        deleteContactServices.notificationService.cancelAllConversationNotifications(ContactConversationId(identity))
 
         contactModel.setAcquaintanceLevelFromLocal(AcquaintanceLevel.GROUP_OR_DELETED)
 
@@ -260,13 +261,18 @@ open class DeleteAllContactsBackgroundTask(
         val contactConversationId = ContactConversationId(identity)
 
         deleteContactServices.ringtoneService.removeCustomRingtone(contactConversationId)
-        deleteContactServices.conversationCategoryService.persistRemovePrivateMark(contactConversationId)
         deleteContactServices.profilePictureRecipientsService.remove(identity)
-        deleteContactServices.wallpaperService.removeWallpaper(contactConversationId)
+        try {
+            runBlocking {
+                deleteContactServices.wallpaperService.setConversationWallpaper(contactConversationId, WallpaperService.Wallpaper.Default)
+            }
+        } catch (e: IOException) {
+            logger.error("Failed to delete wallpaper", e)
+        }
         deleteContactServices.fileService.removeAndroidDefinedProfilePicture(identity)
         deleteContactServices.fileService.removeUserDefinedProfilePicture(identity)
         deleteContactServices.fileService.removeContactDefinedProfilePicture(identity)
-        deleteContactServices.notificationService.cancel(contactConversationId)
+        deleteContactServices.notificationService.cancelAllConversationNotifications(contactConversationId)
         ShortcutUtil.deleteShareTargetShortcut(contactConversationId)
         ShortcutUtil.deletePinnedShortcut(contactConversationId)
 
@@ -308,11 +314,7 @@ open class DialogMarkContactAsDeletedBackgroundTask(
     override fun runAfter(result: Set<String>) {
         super.runAfter(result)
 
-        DialogUtil.dismissDialog(
-            fragmentManager,
-            DIALOG_TAG_DELETE_CONTACT,
-            true,
-        )
+        fragmentManager.dismissDialog(DIALOG_TAG_DELETE_CONTACT)
 
         val context = contextRef.get() ?: return
 

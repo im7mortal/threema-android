@@ -1,5 +1,7 @@
 package ch.threema.app.utils;
 
+import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ObjectAnimator;
@@ -29,9 +31,13 @@ import androidx.transition.Fade;
 import androidx.transition.Transition;
 import androidx.transition.TransitionManager;
 
+import org.slf4j.Logger;
+
 import ch.threema.app.R;
 
 public class AnimationUtil {
+    private static final Logger logger = getThreemaLogger("AnimationUtil");
+
     public static void expand(final View v, final Runnable onFinishRunnable, final boolean willChangeBounds) {
         v.measure(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         final int targetHeight = v.getMeasuredHeight();
@@ -424,11 +430,15 @@ public class AnimationUtil {
      */
     public static void setFadingVisibility(View view, int visibility) {
         if (view.getVisibility() != visibility) {
-            Transition transition = new Fade();
-            transition.setDuration(170);
-            transition.addTarget(view);
-            TransitionManager.endTransitions((ViewGroup) view.getParent());
-            TransitionManager.beginDelayedTransition((ViewGroup) view.getParent(), transition);
+            try {
+                Transition transition = new Fade();
+                transition.setDuration(170);
+                transition.addTarget(view);
+                TransitionManager.endTransitions((ViewGroup) view.getParent());
+                TransitionManager.beginDelayedTransition((ViewGroup) view.getParent(), transition);
+            } catch (Exception e) {
+                logger.error("Failed to fade view visibility", e);
+            }
             view.setVisibility(visibility);
         }
     }

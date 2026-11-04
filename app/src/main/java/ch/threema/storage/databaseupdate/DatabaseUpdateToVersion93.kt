@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * add editedAt field for messages
+ */
 internal class DatabaseUpdateToVersion93(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -15,8 +18,6 @@ internal class DatabaseUpdateToVersion93(
             }
         }
     }
-
-    override fun getDescription() = "add editedAt field for messages"
 
     override val version = 93
 }

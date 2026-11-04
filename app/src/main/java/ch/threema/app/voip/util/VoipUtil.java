@@ -3,7 +3,6 @@ package ch.threema.app.voip.util;
 import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.os.Build;
 import android.telecom.TelecomManager;
 import android.telephony.TelephonyManager;
@@ -17,7 +16,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentManager;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import ch.threema.android.LifecycleAwareAsyncTask;
@@ -32,6 +30,8 @@ import ch.threema.app.utils.DialogUtil;
 import ch.threema.app.voip.activities.CallActivity;
 import ch.threema.app.voip.services.VoipCallService;
 import ch.threema.app.voip.services.VoipStateService;
+
+import static ch.threema.android.PermissionExtensionsKt.checkGrantedPermission;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 import static ch.threema.base.TestUtilKt.isInDeviceTest;
@@ -40,12 +40,10 @@ import ch.threema.domain.protocol.ThreemaFeature;
 import ch.threema.logging.ThreemaLogger;
 import ch.threema.storage.models.ContactModel;
 
-
 public class VoipUtil {
     private static final Logger logger = getThreemaLogger("VoipUtil");
 
     private static final String DIALOG_TAG_FETCHING_FEATURE_MASK = "fetchingFeatureMask";
-    private static final String DIALOG_TAG_PSTN_OUTGOING = "pstn_outgoing";
 
     /**
      * Send a VoIP broadcast without any intent extras
@@ -71,19 +69,10 @@ public class VoipUtil {
         LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
     }
 
-    /**
-     * Send a command to a service
-     */
-    public static void sendVoipCommand(Context context, Class service, String action) {
-        final Intent intent = new Intent(context, service);
-        intent.setAction(action);
-        context.startService(intent);
-    }
-
-    // TODO(ANDR-1953): It looks like all usages of sendVoipCommand(Context, Class, String)
-    //  actually send a hangup command. So they could be refactored to call this method instead.
     public static void sendOneToOneCallHangupCommand(@NonNull Context context) {
-        sendVoipCommand(context, VoipCallService.class, VoipCallService.ACTION_HANGUP);
+        final Intent intent = new Intent(context, VoipCallService.class);
+        intent.setAction(VoipCallService.ACTION_HANGUP);
+        context.startService(intent);
     }
 
     /**
@@ -93,13 +82,23 @@ public class VoipUtil {
      * @param contactModel     The contact to call
      * @return true if the call could be initiated, false otherwise
      */
+    @Deprecated
     public static boolean initiateCall(
         @NonNull final AppCompatActivity activity,
         @NonNull final ContactModel contactModel,
         boolean launchVideo,
         @Nullable Runnable onFinishRunnable
     ) {
+        return initiateCall(activity, contactModel.getIdentity(), contactModel.getFeatureMask(), launchVideo, onFinishRunnable);
+    }
 
+    public static boolean initiateCall(
+        @NonNull final AppCompatActivity activity,
+        @NonNull final String contactIdentity,
+        @NonNull final long contactFeatureMask,
+        boolean launchVideo,
+        @Nullable Runnable onFinishRunnable
+    ) {
         final ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager == null) {
             return false;
@@ -114,7 +113,7 @@ public class VoipUtil {
             return false;
         }
 
-        if (serviceManager.getBlockedIdentitiesService().isBlocked(contactModel.getIdentity())) {
+        if (serviceManager.getBlockedIdentitiesService().isBlocked(contactIdentity)) {
             Toast.makeText(activity, R.string.blocked_cannot_send, Toast.LENGTH_LONG).show();
             return false;
         }
@@ -132,7 +131,7 @@ public class VoipUtil {
             return false;
         }
 
-        if (!ThreemaFeature.canVoip(contactModel.getFeatureMask()) || (ConfigUtils.isVideoCallsEnabled() && !ThreemaFeature.canVideocall(contactModel.getFeatureMask()))) {
+        if (!ThreemaFeature.canVoip(contactFeatureMask) || (ConfigUtils.isVideoCallsEnabled() && !ThreemaFeature.canVideocall(contactFeatureMask))) {
             // 1.a Try to fetch the feature mask
 
             // Start fetching routine in a separate thread
@@ -148,13 +147,13 @@ public class VoipUtil {
                 protected Exception doInBackground(Void params) {
                     try {
                         // Reset the cache (only for Beta?)
-                        UpdateFeatureLevelRoutine.removeTimeCache(contactModel.getIdentity());
+                        UpdateFeatureLevelRoutine.removeTimeCache(contactIdentity);
 
                         new UpdateFeatureLevelRoutine(
                             serviceManager.getModelRepositories().getContacts(),
                             serviceManager.getUserService(),
                             serviceManager.getApiConnector(),
-                            Collections.singletonList(contactModel.getIdentity())
+                            Collections.singletonList(contactIdentity)
                         ).run();
                     } catch (Exception e) {
                         return e;
@@ -165,8 +164,8 @@ public class VoipUtil {
                 @Override
                 protected void onPostExecute(Exception exception) {
                     if (!activity.isDestroyed()) {
-                        DialogUtil.dismissDialog(activity.getSupportFragmentManager(), DIALOG_TAG_FETCHING_FEATURE_MASK, true);
-                        phoneAction(activity, activity.getSupportFragmentManager(), contactModel, onFinishRunnable != null, launchVideo);
+                        DialogUtil.dismissDialog(activity.getSupportFragmentManager(), DIALOG_TAG_FETCHING_FEATURE_MASK);
+                        phoneAction(activity, activity.getSupportFragmentManager(), contactIdentity, contactFeatureMask, onFinishRunnable != null, launchVideo);
                         if (onFinishRunnable != null) {
                             onFinishRunnable.run();
                         }
@@ -174,7 +173,10 @@ public class VoipUtil {
                 }
             }.execute(activity, null);
         } else {
-            phoneAction(activity, activity.getSupportFragmentManager(), contactModel, onFinishRunnable != null, launchVideo);
+            phoneAction(activity, activity.getSupportFragmentManager(), contactIdentity, contactFeatureMask, onFinishRunnable != null, launchVideo);
+            if (onFinishRunnable != null) {
+                onFinishRunnable.run();
+            }
         }
 
         return true;
@@ -186,11 +188,12 @@ public class VoipUtil {
     private static void phoneAction(
         final AppCompatActivity activity,
         final FragmentManager fragmentManager,
-        final ContactModel contactModel,
+        final String contactIdentity,
+        final long contactFeatureMask,
         boolean useToast,
         boolean launchVideo
     ) {
-        if (!ThreemaFeature.canVoip(contactModel.getFeatureMask()) && !isInDeviceTest()) {
+        if (!ThreemaFeature.canVoip(contactFeatureMask) && !isInDeviceTest()) {
             if (useToast) {
                 Toast.makeText(ThreemaApplication.getAppContext(), R.string.voip_incompatible, Toast.LENGTH_LONG).show();
             } else {
@@ -199,7 +202,7 @@ public class VoipUtil {
         } else {
             final Intent callActivityIntent = new Intent(activity, CallActivity.class);
             callActivityIntent.putExtra(VoipCallService.EXTRA_ACTIVITY_MODE, CallActivity.MODE_OUTGOING_CALL);
-            callActivityIntent.putExtra(VoipCallService.EXTRA_CONTACT_IDENTITY, contactModel.getIdentity());
+            callActivityIntent.putExtra(VoipCallService.EXTRA_CONTACT_IDENTITY, contactIdentity);
             callActivityIntent.putExtra(VoipCallService.EXTRA_IS_INITIATOR, true);
             callActivityIntent.putExtra(VoipCallService.EXTRA_LAUNCH_VIDEO, launchVideo);
             callActivityIntent.putExtra(VoipCallService.EXTRA_CALL_ID, -1L);
@@ -231,7 +234,7 @@ public class VoipUtil {
      */
     @RequiresApi(api = Build.VERSION_CODES.S)
     private static boolean isPSTNCallOngoingAndroidS(@NonNull Context context) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
+        if (checkGrantedPermission(context, Manifest.permission.READ_PHONE_STATE)) {
             TelecomManager telecomManager = (TelecomManager) context.getSystemService(Context.TELECOM_SERVICE);
             return telecomManager != null && telecomManager.isInCall();
         }

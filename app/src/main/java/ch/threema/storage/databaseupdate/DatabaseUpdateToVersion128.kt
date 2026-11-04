@@ -3,6 +3,8 @@ package ch.threema.storage.databaseupdate
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
 /**
+ * Assign a random message id for messages that require a message id but are missing one.
+ *
  * The logic of this [DatabaseUpdate] was moved from [DatabaseUpdateToVersion123] to re-apply it.
  */
 internal class DatabaseUpdateToVersion128(
@@ -40,8 +42,6 @@ internal class DatabaseUpdateToVersion128(
             """.trimIndent(),
         )
     }
-
-    override fun getDescription() = "assign a random message id for messages that require a message id but are missing one"
 
     override val version = 128
 }

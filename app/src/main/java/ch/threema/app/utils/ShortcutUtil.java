@@ -27,9 +27,10 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 import ch.threema.app.AppConstants;
 import ch.threema.app.BuildConfig;
@@ -38,8 +39,6 @@ import ch.threema.app.ThreemaApplication;
 import ch.threema.app.activities.ComposeMessageActivity;
 import ch.threema.app.activities.MainActivity;
 import ch.threema.app.activities.RecipientListActivity;
-import ch.threema.app.backuprestore.csv.BackupService;
-import ch.threema.app.backuprestore.csv.RestoreService;
 import ch.threema.app.conversation.ConversationActivity;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.messagereceiver.ContactMessageReceiver;
@@ -55,14 +54,18 @@ import ch.threema.app.voip.services.VoipCallService;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
+import ch.threema.data.IdentityProvider;
 import ch.threema.data.datatypes.ContactConversationId;
 import ch.threema.data.datatypes.ContactNameFormat;
 import ch.threema.data.datatypes.ConversationId;
 import ch.threema.data.datatypes.ConversationIdObfuscated;
 import ch.threema.data.datatypes.DistributionListConversationId;
 import ch.threema.data.datatypes.GroupConversationId;
-import ch.threema.storage.models.AbstractMessageModel;
-import ch.threema.storage.models.ContactModel;
+import ch.threema.data.models.ContactModel;
+import ch.threema.data.models.GroupModel;
+import ch.threema.data.models.GroupModelData;
+import ch.threema.data.repositories.ContactModelRepository;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ConversationModel;
 
 public final class ShortcutUtil {
@@ -94,7 +97,7 @@ public final class ShortcutUtil {
 
     @WorkerThread
     public static void createPinnedShortcut(
-        MessageReceiver<? extends AbstractMessageModel> messageReceiver,
+        MessageReceiver<? extends MessageModel> messageReceiver,
         int type,
         @NonNull ContactNameFormat contactNameFormat
     ) {
@@ -121,7 +124,7 @@ public final class ShortcutUtil {
 
     @WorkerThread
     public static void updatePinnedShortcut(
-        @NonNull MessageReceiver<? extends AbstractMessageModel> messageReceiver,
+        @NonNull MessageReceiver<? extends MessageModel> messageReceiver,
         @NonNull ContactNameFormat contactNameFormat
     ) {
         final @NonNull ConversationIdObfuscated conversationIdObfuscated = messageReceiver.getConversationId().getObfuscated();
@@ -148,7 +151,7 @@ public final class ShortcutUtil {
      */
     @WorkerThread
     public static boolean updatePinnedShortcut(
-        @NonNull MessageReceiver<? extends AbstractMessageModel> messageReceiver,
+        @NonNull MessageReceiver<? extends MessageModel> messageReceiver,
         int type,
         @NonNull ContactNameFormat contactNameFormat
     ) {
@@ -209,7 +212,7 @@ public final class ShortcutUtil {
 
     @NonNull
     private static CommonShortcutInfo getCommonShortcutInfo(
-        @NonNull MessageReceiver<? extends AbstractMessageModel> messageReceiver,
+        @NonNull MessageReceiver<? extends MessageModel> messageReceiver,
         int type,
         @NonNull ContactNameFormat contactNameFormat
     ) {
@@ -271,7 +274,7 @@ public final class ShortcutUtil {
 
     @Nullable
     public static ShortcutInfoCompat getPinnedShortcutInfo(
-        MessageReceiver<? extends AbstractMessageModel> messageReceiver,
+        MessageReceiver<? extends MessageModel> messageReceiver,
         int type,
         @NonNull ContactNameFormat contactNameFormat
     ) {
@@ -282,7 +285,7 @@ public final class ShortcutUtil {
             if (messageReceiver instanceof ContactMessageReceiver) {
                 person = ConversationNotificationUtil.getPerson(
                     getContactService(),
-                    ((ContactMessageReceiver) messageReceiver).getContact(),
+                    ((ContactMessageReceiver) messageReceiver).getContactModel(),
                     messageReceiver.getDisplayName(contactNameFormat)
                 );
             }
@@ -323,7 +326,7 @@ public final class ShortcutUtil {
     }
 
     @NonNull
-    private static Intent getShareTargetShortcutIntent(MessageReceiver<? extends AbstractMessageModel> messageReceiver) {
+    private static Intent getShareTargetShortcutIntent(MessageReceiver<? extends MessageModel> messageReceiver) {
         Intent intent = new Intent(getContext(), RecipientListActivity.class);
         intent.setAction(Intent.ACTION_DEFAULT);
         IntentDataUtil.addMessageReceiverToIntent(intent, messageReceiver);
@@ -337,7 +340,9 @@ public final class ShortcutUtil {
     @WorkerThread
     public static void publishRecentChatsAsShareTargets(
         @NonNull PreferenceService preferenceService,
-        @NonNull ConversationService conversationService
+        @NonNull ConversationService conversationService,
+        @NonNull ContactModelRepository contactModelRepository,
+        @NonNull IdentityProvider identityProvider
     ) {
         if (!preferenceService.isDirectShare()) {
             return;
@@ -345,11 +350,6 @@ public final class ShortcutUtil {
 
         if (ShortcutManagerCompat.isRateLimitingActive(getContext())) {
             logger.info("Shortcuts are currently rate limited. Exiting");
-            return;
-        }
-
-        if (BackupService.isRunning() || RestoreService.isRunning()) {
-            logger.info("Backup / Restore is running. Exiting");
             return;
         }
 
@@ -429,7 +429,9 @@ public final class ShortcutUtil {
                 ShortcutInfoCompat shortcutInfoCompat = getShareTargetShortcutInfo(
                     conversation.messageReceiver,
                     i,
-                    preferenceService.getContactNameFormat()
+                    preferenceService.getContactNameFormat(),
+                    contactModelRepository,
+                    identityProvider
                 );
                 if (shortcutInfoCompat != null) {
                     shareTargetShortcuts.add(shortcutInfoCompat);
@@ -492,7 +494,9 @@ public final class ShortcutUtil {
     @WorkerThread
     public static void updateShareTargetShortcut(
         @Nullable MessageReceiver<?> messageReceiver,
-        @NonNull ContactNameFormat contactNameFormat
+        @NonNull ContactNameFormat contactNameFormat,
+        @NonNull ContactModelRepository contactModelRepository,
+        @NonNull IdentityProvider identityProvider
     ) {
         if (messageReceiver == null) {
             return;
@@ -501,7 +505,13 @@ public final class ShortcutUtil {
             List<ShortcutInfoCompat> shortcutInfos = ShortcutManagerCompat.getDynamicShortcuts(getContext());
             for (ShortcutInfoCompat shortcutInfo : shortcutInfos) {
                 if (shortcutInfo.getId().equals(messageReceiver.getConversationId().getObfuscated().value)) {
-                    ShortcutInfoCompat updatedShortcutInfo = getShareTargetShortcutInfo(messageReceiver, shortcutInfo.getRank(), contactNameFormat);
+                    ShortcutInfoCompat updatedShortcutInfo = getShareTargetShortcutInfo(
+                        messageReceiver,
+                        shortcutInfo.getRank(),
+                        contactNameFormat,
+                        contactModelRepository,
+                        identityProvider
+                    );
                     ShortcutManagerCompat.updateShortcuts(getContext(), Collections.singletonList(updatedShortcutInfo));
                     return;
                 }
@@ -536,13 +546,15 @@ public final class ShortcutUtil {
     private static ShortcutInfoCompat getShareTargetShortcutInfo(
         @NonNull MessageReceiver messageReceiver,
         int rank,
-        @NonNull ContactNameFormat contactNameFormat
+        @NonNull ContactNameFormat contactNameFormat,
+        @NonNull ContactModelRepository contactModelRepository,
+        @NonNull IdentityProvider identityProvider
     ) {
         Person person = null;
         if (messageReceiver instanceof ContactMessageReceiver) {
             person = ConversationNotificationUtil.getPerson(
                 getContactService(),
-                ((ContactMessageReceiver) messageReceiver).getContact(),
+                ((ContactMessageReceiver) messageReceiver).getContactModel(),
                 messageReceiver.getDisplayName(contactNameFormat)
             );
         }
@@ -550,10 +562,12 @@ public final class ShortcutUtil {
         List<Person> persons = new ArrayList<>();
         if (messageReceiver instanceof GroupMessageReceiver) {
             try {
-                Collection<ContactModel> contactModels = ServiceManager.require()
-                    .getGroupService()
-                    .getMembers(((GroupMessageReceiver) messageReceiver).getGroup());
-                for (ContactModel contactModel : contactModels) {
+                List<ContactModel> allMembers = getAllMembers(
+                    (GroupMessageReceiver) messageReceiver,
+                    contactModelRepository,
+                    identityProvider
+                );
+                for (ContactModel contactModel : allMembers) {
                     persons.add(
                         ConversationNotificationUtil.getPerson(
                             getContactService(),
@@ -604,8 +618,37 @@ public final class ShortcutUtil {
         return null;
     }
 
+    private static List<ch.threema.data.models.ContactModel> getAllMembers(
+        @NonNull GroupMessageReceiver messageReceiver,
+        @NonNull ContactModelRepository contactModelRepository,
+        @NonNull IdentityProvider identityProvider
+    ) {
+        GroupModel groupModel = messageReceiver.getGroupModel();
+        if (groupModel == null) {
+            return Collections.emptyList();
+        }
+        GroupModelData groupModelData = groupModel.getData();
+        if (groupModelData == null) {
+            return Collections.emptyList();
+        }
+        String myIdentity = identityProvider.getIdentityString();
+        if (myIdentity == null) {
+            return Collections.emptyList();
+        }
+
+        Set<String> identities = groupModelData.getAllMembers(myIdentity);
+        List<ContactModel> contactModels = new LinkedList<>();
+        for (String identity : identities) {
+            ContactModel contactModel = contactModelRepository.getByIdentity(identity);
+            if (contactModel != null) {
+                contactModels.add(contactModel);
+            }
+        }
+        return contactModels;
+    }
+
     @NonNull
-    private static PersistableBundle putShareTargetExtras(@NonNull MessageReceiver<? extends AbstractMessageModel> messageReceiver) {
+    private static PersistableBundle putShareTargetExtras(@NonNull MessageReceiver<? extends MessageModel> messageReceiver) {
         PersistableBundle persistableBundle = new PersistableBundle();
 
         switch (messageReceiver.getType()) {

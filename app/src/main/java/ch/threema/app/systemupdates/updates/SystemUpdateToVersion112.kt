@@ -9,6 +9,9 @@ import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("SystemUpdateToVersion112")
 
+/**
+ * convert user profile picture to jpeg
+ */
 class SystemUpdateToVersion112 : SystemUpdate {
 
     private val userService: UserService by inject()
@@ -44,6 +47,4 @@ class SystemUpdateToVersion112 : SystemUpdate {
     }
 
     override val version = 112
-
-    override fun getDescription() = "convert user profile picture to jpeg"
 }

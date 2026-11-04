@@ -138,25 +138,23 @@ public class VoipVideoParams implements ToSignalingMessage {
      * Create a VoipVideoParams object from a string setting, depending on the current metering state.
      */
     public static @NonNull VoipVideoParams getParamsFromSetting(
-        @Nullable String setting,
+        @NonNull String setting,
         @Nullable Boolean isMetered
     ) {
-        if (setting != null) {
-            switch (setting) {
-                case "0": // AUTO
-                    if (isMetered != null && isMetered) {
-                        return VoipVideoParams.low();
-                    } else {
-                        return VoipVideoParams.high();
-                    }
-                case "1": // LOW BANDWIDTH
+        switch (setting) {
+            case "0": // AUTO
+                if (isMetered != null && isMetered) {
                     return VoipVideoParams.low();
-                case "2": // HIGHEST QUALITY
-                    return VoipVideoParams.max();
-            }
+                } else {
+                    return VoipVideoParams.high();
+                }
+            case "1": // LOW BANDWIDTH
+                return VoipVideoParams.low();
+            case "2": // HIGHEST QUALITY
+                return VoipVideoParams.max();
+            default: // DEFAULT
+                return VoipVideoParams.high();
         }
-        // DEFAULT
-        return VoipVideoParams.high();
     }
 
     //endregion

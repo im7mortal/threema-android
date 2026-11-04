@@ -3,6 +3,7 @@ package ch.threema.domain.protocol.csp.messages.voip
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.protocol.csp.messages.BadMessageException
+import ch.threema.domain.protocol.csp.messages.ExemptFromBlocking
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallAnswerMessage.Companion.fromByteArray
 import ch.threema.domain.protocol.csp.messages.voip.VoipCallAnswerMessage.Companion.fromReflected
 import ch.threema.protobuf.d2d.IncomingMessage
@@ -34,7 +35,7 @@ class VoipCallAnswerMessage : VoipMessage() {
         return action != null && action == VoipCallAnswerData.Action.ACCEPT
     }
 
-    override fun exemptFromBlocking(): Boolean = false
+    override fun exemptFromBlocking(): ExemptFromBlocking = ExemptFromBlocking.NO
 
     override fun createImplicitlyDirectContact(): Boolean = false
 

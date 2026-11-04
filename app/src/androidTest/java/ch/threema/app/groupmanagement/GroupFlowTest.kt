@@ -2,16 +2,19 @@ package ch.threema.app.groupmanagement
 
 import ch.threema.KoinTestRule
 import ch.threema.app.TestMultiDeviceManager
+import ch.threema.app.apptaskexecutor.AppTaskExecutor
 import ch.threema.app.di.modules.sessionScopedModule
 import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.services.GroupFlowDispatcher
 import ch.threema.common.stateFlowOf
+import ch.threema.data.IdentityProvider
 import ch.threema.domain.protocol.connection.ConnectionState
 import ch.threema.domain.protocol.connection.ServerConnection
 import ch.threema.domain.taskmanager.TaskManager
 import org.junit.Rule
 import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
 import org.koin.core.component.inject
 import org.koin.core.module.Module
 
@@ -64,30 +67,33 @@ abstract class GroupFlowTest : KoinComponent {
         taskManager: TaskManager,
         connection: ServerConnection = ConnectionLoggedIn,
     ) = GroupFlowDispatcher(
-        serviceManager.modelRepositories.contacts,
-        serviceManager.modelRepositories.groups,
-        serviceManager.contactService,
-        serviceManager.groupService,
-        serviceManager.groupCallManager,
-        serviceManager.userService,
-        serviceManager.contactStore,
-        serviceManager.identityStore,
-        serviceManager.forwardSecurityMessageProcessor,
-        serviceManager.nonceFactory,
-        serviceManager.preferenceService,
-        serviceManager.synchronizedSettingsService,
-        when (setupConfig) {
+        contactModelRepository = serviceManager.modelRepositories.contacts,
+        groupModelRepository = serviceManager.modelRepositories.groups,
+        contactService = serviceManager.contactService,
+        groupService = serviceManager.groupService,
+        groupCallManager = serviceManager.groupCallManager,
+        userService = serviceManager.userService,
+        contactStore = serviceManager.contactStore,
+        identityStore = serviceManager.identityStore,
+        identityProvider = get<IdentityProvider>(),
+        forwardSecurityMessageProcessor = serviceManager.forwardSecurityMessageProcessor,
+        nonceFactory = serviceManager.nonceFactory,
+        preferenceService = serviceManager.preferenceService,
+        synchronizedSettingsService = serviceManager.synchronizedSettingsService,
+        multiDeviceManager = when (setupConfig) {
             SetupConfig.MULTI_DEVICE_ENABLED -> testMultiDeviceManagerEnabled
             SetupConfig.MULTI_DEVICE_DISABLED -> testMultiDeviceManagerDisabled
         },
-        serviceManager.groupProfilePictureUploader,
-        serviceManager.apiConnector,
-        serviceManager.fileService,
-        serviceManager.databaseService,
-        taskManager,
-        connection,
-        serviceManager.identityBlockedSteps,
-        globalEventBuses,
+        groupProfilePictureUploader = serviceManager.groupProfilePictureUploader,
+        apiConnector = serviceManager.apiConnector,
+        fileService = serviceManager.fileService,
+        databaseService = serviceManager.databaseService,
+        taskManager = taskManager,
+        appTaskExecutor = get<AppTaskExecutor>(),
+        connection = connection,
+        identityBlockedSteps = serviceManager.identityBlockedSteps,
+        globalEventBuses = globalEventBuses,
+        blockedIdentitiesService = serviceManager.blockedIdentitiesService,
     )
 
     /**

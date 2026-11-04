@@ -17,12 +17,8 @@ fun AppCompatActivity.registerSimpleActivityResultContract(callback: (ActivityRe
         callback(result)
     }
 
+// TODO(ANDR-5173): Remove this
 fun Fragment.registerPermissionResultContract(callback: (isGranted: Boolean) -> Unit = {}): ActivityResultLauncher<String> =
-    registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-        callback(isGranted)
-    }
-
-fun AppCompatActivity.registerPermissionResultContract(callback: (isGranted: Boolean) -> Unit = {}): ActivityResultLauncher<String> =
     registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         callback(isGranted)
     }

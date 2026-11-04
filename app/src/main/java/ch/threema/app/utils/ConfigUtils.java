@@ -4,40 +4,27 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
-import android.app.AlarmManager;
-import android.app.Notification;
-import android.app.PendingIntent;
 import android.content.ContentProviderOperation;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.OperationApplicationException;
-import android.content.SharedPreferences;
-import android.content.pm.ConfigurationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.content.res.Resources;
-import android.content.res.TypedArray;
-import android.graphics.ColorMatrixColorFilter;
-import android.graphics.PorterDuff;
-import android.graphics.Rect;
-import android.graphics.drawable.Drawable;
 import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.RemoteException;
 import android.provider.Settings;
-import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.Menu;
-import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -49,50 +36,30 @@ import com.google.android.material.snackbar.Snackbar;
 import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
-import java.lang.reflect.Method;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.annotation.AttrRes;
-import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.Px;
-import androidx.annotation.RequiresApi;
-import androidx.annotation.StringDef;
 import androidx.annotation.StringRes;
-import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
 import androidx.appcompat.view.menu.MenuBuilder;
 import androidx.appcompat.widget.SearchView;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
-import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
-import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.MenuCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
-import androidx.preference.PreferenceManager;
-import androidx.window.layout.WindowMetrics;
-import androidx.window.layout.WindowMetricsCalculator;
-import androidx.work.ExistingWorkPolicy;
-import androidx.work.OneTimeWorkRequest;
-import androidx.work.WorkManager;
 import ch.threema.app.BuildConfig;
 import ch.threema.app.BuildFlavor;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.home.HomeActivity;
-import ch.threema.app.dialogs.SimpleStringAlertDialog;
 import ch.threema.app.managers.ServiceManager;
-import ch.threema.app.notifications.NotificationChannels;
-import ch.threema.app.notifications.NotificationIDs;
 import ch.threema.app.preference.service.SynchronizedSettingsService;
 import ch.threema.app.restrictions.AppRestrictionService;
 import ch.threema.app.restrictions.AppRestrictions;
@@ -100,50 +67,21 @@ import ch.threema.app.services.LockAppService;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.services.license.LicenseService;
 import ch.threema.app.threemasafe.ThreemaSafeConfigureActivity;
-import ch.threema.app.workers.RestartWorker;
 
+import static ch.threema.android.PermissionExtensionsKt.checkGrantedPermission;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static android.content.res.Configuration.UI_MODE_NIGHT_YES;
-import static androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM;
 import static androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO;
 import static androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES;
-import static ch.threema.app.preference.service.PreferenceService.EMOJI_STYLE_DEFAULT;
-import static ch.threema.app.utils.IntentDataUtil.PENDING_INTENT_FLAG_MUTABLE;
-import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class ConfigUtils {
     private static final Logger logger = getThreemaLogger("ConfigUtils");
 
     private static final int CONTENT_PROVIDER_BATCH_SIZE = 50;
-    private static final String WORKER_RESTART_AFTER_RESTORE = "restartAfterRestore";
 
-    /* app theme settings in shared preferences */
-    @StringDef({THEME_LIGHT, THEME_DARK, THEME_FOLLOW_SYSTEM})
-    public @interface AppThemeSetting {
-    }
-
-    public static final String THEME_LIGHT = "0";
-    public static final String THEME_DARK = "1";
-    public static final String THEME_FOLLOW_SYSTEM = "2";
-
-    private static Integer miuiVersion = null;
-
-    @PreferenceService.EmojiStyle
-    public static int emojiStyle = 0;
-
-    private static final String LICENSE_URL_THEME_VALUE_LIGHT = "light";
-    private static final String LICENSE_URL_THEME_VALUE_DARK = "dark";
-
-    private static Boolean isTablet = null, isBiggerSingleEmojis = null;
+    private static Boolean isTablet = null;
     private static int preferredThumbnailWidth = -1, preferredAudioMessageWidth = -1, currentDayNightMode;
-
-    private static final float[] NEGATIVE_MATRIX = {
-        -1.0f, 0, 0, 0, 255, // red
-        0, -1.0f, 0, 0, 255, // green
-        0, 0, -1.0f, 0, 255, // blue
-        0, 0, 0, 1.0f, 0  // alpha
-    };
 
     public static boolean isTabletLayout(Context context) {
         if (isTablet != null) {
@@ -168,69 +106,6 @@ public class ConfigUtils {
 
     public static boolean isLandscape(Context context) {
         return context.getResources().getBoolean(R.bool.is_landscape);
-    }
-
-    public static boolean isAmazonDevice() {
-        return (Build.MANUFACTURER.equals("Amazon"));
-    }
-
-    public static boolean isHuaweiDevice() {
-        return (Build.MANUFACTURER.equalsIgnoreCase("Huawei") && !Build.MODEL.contains("Nexus"));
-    }
-
-    public static boolean isSamsungDevice() {
-        return (Build.MANUFACTURER.equalsIgnoreCase("Samsung"));
-    }
-
-    public static boolean isSonyDevice() {
-        return (Build.MANUFACTURER.equalsIgnoreCase("Sony"));
-    }
-
-    public static boolean isNokiaDevice() {
-        return Build.MANUFACTURER.equalsIgnoreCase("HMD Global");
-    }
-
-    public static boolean supportsNotificationChannels() {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O;
-    }
-
-    public static boolean supportsPictureInPicture(Context context) {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE);
-    }
-
-    /**
-     * Get the supported gl es version on this device. Note that in cases where the version could
-     * not be determined, {@link Double#NaN} is returned.
-     * Note that this check may not work on all devices. On some devices, this returns version 3.0
-     * even if only version 2.x is supported. However, on some devices this check works.
-     */
-    public static double getSupportedGlEsVersion(@NonNull Context context) {
-        try {
-            ActivityManager activityManager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-            ConfigurationInfo configurationInfo = activityManager.getDeviceConfigurationInfo();
-            double supportedGlVersion = Double.parseDouble(configurationInfo.getGlEsVersion());
-            logger.debug("GlEs version: {}", supportedGlVersion);
-            return supportedGlVersion;
-        } catch (Exception e) {
-            logger.error("Could not determine gl es version", e);
-            return Double.NaN;
-        }
-    }
-
-    /**
-     * Check if this device has a bug related to media codec's async mode as described here https://github.com/google/ExoPlayer/issues/10021
-     */
-    public static boolean hasAsyncMediaCodecBug() {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && ConfigUtils.isSamsungDevice() && Build.MODEL.startsWith("SM-G97");
-    }
-
-    /* device creates distorted audio recordings with a 44.1kHz sampling rate */
-    public static boolean hasBrokenAudioRecorder() {
-        return ConfigUtils.isXiaomiDevice() && "Mi 9T".equals(Build.MODEL);
-    }
-
-    public static boolean hasScopedStorage() {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q;
     }
 
     public static boolean isCallsEnabled() {
@@ -286,116 +161,11 @@ public class ConfigUtils {
         }
     }
 
-    public static boolean isXiaomiDevice() {
-        return Build.MANUFACTURER.equalsIgnoreCase("Xiaomi");
-    }
-
-    /**
-     * return current MIUI version level or 0 if no Xiaomi device or MIUI version is not recognized or not relevant
-     *
-     * @return MIUI version level or 0
-     */
-    public static int getMIUIVersion() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || !isXiaomiDevice()) {
-            return 0;
-        }
-        if (miuiVersion == null) {
-            miuiVersion = 0;
-
-            try {
-                Class<?> c = Class.forName("android.os.SystemProperties");
-                Method get = c.getMethod("get", String.class);
-                String version = (String) get.invoke(c, "ro.miui.ui.version.name");
-
-                if (version != null) {
-                    if (version.startsWith("V10")) {
-                        miuiVersion = 10;
-                    } else if (version.startsWith("V11")) {
-                        miuiVersion = 11;
-                    } else if (version.startsWith("V12")) {
-                        miuiVersion = 12;
-                    } else if (version.startsWith("V13")) {
-                        miuiVersion = 13;
-                    } else if (version.startsWith("V14")) {
-                        miuiVersion = 14;
-                    }
-                }
-            } catch (Exception ignored) {
-            }
-        }
-        return miuiVersion;
-    }
-
-    /**
-     * Set the setting for the app wide theme and optionally save to shared prefs and apply setting to system
-     *
-     * @param theme One of THEME_LIGHT, THEME_DARK or THEME_FOLLOW_SYSTEM
-     */
-    public static void saveAppThemeToPrefs(@AppThemeSetting String theme, Context context) {
-        PreferenceManager.getDefaultSharedPreferences(ThreemaApplication.getAppContext()).edit().putString(ThreemaApplication.getAppContext().getString(R.string.preferences__theme), String.valueOf(theme)).apply();
-        AppCompatDelegate.setDefaultNightMode(getDayNightModeFromAppThemeSetting(theme));
-        getCurrentDayNightMode(context);
-    }
-
-    public static @AppThemeSetting String getAppThemeSettingFromDayNightMode(@AppCompatDelegate.NightMode int dayNightMode) {
-        switch (dayNightMode) {
-            case MODE_NIGHT_NO:
-                return THEME_LIGHT;
-            case MODE_NIGHT_YES:
-                return THEME_DARK;
-            default:
-                return THEME_FOLLOW_SYSTEM;
-        }
-    }
-
-    public static @AppCompatDelegate.NightMode int getDayNightModeFromAppThemeSetting(@AppThemeSetting String appThemeSetting) {
-        switch (appThemeSetting) {
-            case THEME_DARK:
-                return MODE_NIGHT_YES;
-            case THEME_LIGHT:
-                return MODE_NIGHT_NO;
-            default:
-                return MODE_NIGHT_FOLLOW_SYSTEM;
-        }
-    }
-
-    @SuppressLint("WrongConstant")
-    public static @AppThemeSetting String getAppThemePrefsSettings(@NonNull Context context) {
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-
-        // set default day/night setting depending on app type
-        @AppThemeSetting String appThemeSetting = null;
-        if (prefs != null) {
-            appThemeSetting = prefs.getString(context.getString(R.string.preferences__theme), null);
-        }
-        if (isNullOrEmpty(appThemeSetting)) {
-            // fix default setting according to app flavor
-            appThemeSetting = BuildConfig.DEFAULT_APP_THEME;
-            if (prefs != null) {
-                prefs.edit().putString(context.getString(R.string.preferences__theme), BuildConfig.DEFAULT_APP_THEME).apply();
-            }
-        }
-        return appThemeSetting;
-    }
-
-    public static @AppCompatDelegate.NightMode int getAppThemePrefs(@NonNull Context context) {
-        return getDayNightModeFromAppThemeSetting(getAppThemePrefsSettings(context));
-    }
-
     public static boolean isTheDarkSide(@NonNull Context context) {
-        return getCurrentDayNightMode(context) == MODE_NIGHT_YES;
-    }
-
-    /**
-     * Get current day night of the system
-     *
-     * @return Either MODE_NIGHT_NO or MODE_NIGHT_YES
-     */
-    public static @AppCompatDelegate.NightMode int getCurrentDayNightMode(@NonNull Context context) {
         if (context != ThreemaApplication.getAppContext()) {
             currentDayNightMode = (context.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == UI_MODE_NIGHT_YES ? MODE_NIGHT_YES : MODE_NIGHT_NO;
         }
-        return currentDayNightMode;
+        return currentDayNightMode == MODE_NIGHT_YES;
     }
 
     /**
@@ -407,83 +177,11 @@ public class ConfigUtils {
         currentDayNightMode = dayNightMode;
     }
 
-    public static @ColorInt int getColorFromAttribute(@NonNull Context context, @AttrRes int attr) {
-        try (TypedArray typedArray = context.getTheme().obtainStyledAttributes(new int[]{attr})) {
-            return typedArray.getColor(0, -1);
-        }
-    }
-
-    /**
-     * Tint the icons of a complete menu to the provided color. This is necessary when using MenuInflater which does not support the iconTint attribute
-     * (SupportMenuInflater / startSupportActionMode respects iconTint)
-     *
-     * @param menu  The menu to tint
-     * @param color The ColorInt to tint the icons
-     */
-    public static void tintMenuIcons(@NonNull Menu menu, @ColorInt int color) {
-        for (int i = 0, size = menu.size(); i < size; i++) {
-            final MenuItem menuItem = menu.getItem(i);
-            tintMenuIcon(menuItem, color);
-            if (menuItem.hasSubMenu() && menuItem.getSubMenu() != null) {
-                tintMenuIcons(menuItem.getSubMenu(), color);
-            }
-        }
-    }
-
-    public static void tintMenuIcon(@Nullable final MenuItem menuItem, @ColorInt int color) {
-        if (menuItem != null) {
-            final Drawable drawable = menuItem.getIcon();
-            if (drawable != null) {
-                drawable.mutate();
-                drawable.setColorFilter(color, PorterDuff.Mode.SRC_IN);
-            }
-        }
-    }
-
-    public static void tintMenuIcon(@NonNull Context context, @Nullable final MenuItem menuItem, @AttrRes int colorAttr) {
-        tintMenuIcon(menuItem, getColorFromAttribute(context, colorAttr));
-    }
-
-    public static void setEmojiStyle(Context context, int newStyle) {
-        if (newStyle != -1) {
-            emojiStyle = newStyle;
-        } else {
-            emojiStyle = Integer.parseInt(
-                PreferenceManager.getDefaultSharedPreferences(context).getString(context.getString(R.string.preferences__emoji_style), "0")
-            );
-        }
-    }
-
-    public static boolean isBiggerSingleEmojis(Context context) {
-        if (isBiggerSingleEmojis == null) {
-            isBiggerSingleEmojis = PreferenceManager.getDefaultSharedPreferences(context).getBoolean(context.getString(R.string.preferences__bigger_single_emojis), true);
-        }
-        return isBiggerSingleEmojis;
-    }
-
-    public static void setBiggerSingleEmojis(boolean value) {
-        isBiggerSingleEmojis = value;
-    }
-
-    public static boolean isDefaultEmojiStyle() {
-        return emojiStyle == EMOJI_STYLE_DEFAULT;
-    }
-
-    @NonNull
-    private static String getVersionUrlParamValue() {
-        return getAppVersion();
-    }
-
     /**
      * Get user-facing application version string including alpha/beta version suffix
      */
     public static String getAppVersion() {
         return BuildConfig.VERSION_NAME;
-    }
-
-    @NonNull
-    public static String getRatingAppVersion() {
-        return BuildConfig.VERSION_NAME + "/" + BuildFlavor.getCurrent().getFullDisplayName();
     }
 
     /**
@@ -517,7 +215,7 @@ public class ConfigUtils {
         info.append(Build.MANUFACTURER).append(";")
             .append(Build.MODEL).append("/")
             .append(Build.VERSION.RELEASE).append("/")
-            .append(BuildFlavor.getCurrent().getFullDisplayName());
+            .append(BuildFlavor.getFullDisplayName());
         return info.toString();
     }
 
@@ -532,75 +230,12 @@ public class ConfigUtils {
         final StringBuilder info = new StringBuilder(getDeviceInfo(false));
         if (isWorkRestricted()) {
             AppRestrictionService appRestrictionService = KoinJavaComponent.get(AppRestrictionService.class);
-            String mdmSource = appRestrictionService.getMdmSource();
+            String mdmSource = appRestrictionService.getMdmSource().getStringRepresentation();
             if (mdmSource != null) {
                 info.append("/").append(mdmSource);
             }
         }
         return info.toString();
-    }
-
-    @NonNull
-    public static String getPrivacyPolicyURL(@NonNull Context context, boolean isDarkTheme) {
-        return String.format(
-            context.getString(R.string.privacy_policy_url),
-            getLanguageUrlParamValue(),
-            getVersionUrlParamValue(),
-            getThemeUrlParamValue(isDarkTheme)
-        );
-    }
-
-    @NonNull
-    public static String getTermsOfServiceURL(@NonNull Context context, boolean isDarkTheme) {
-        return String.format(
-            context.getString(R.string.terms_of_service_url),
-            getLanguageUrlParamValue(),
-            getVersionUrlParamValue(),
-            getThemeUrlParamValue(isDarkTheme)
-        );
-    }
-
-    @NonNull
-    public static String getReferralTermsOfServiceURL(@NonNull Context context, boolean isDarkTheme) {
-        return String.format(
-            context.getString(R.string.referral_terms_of_service_url),
-            getLanguageUrlParamValue(),
-            getThemeUrlParamValue(isDarkTheme)
-        );
-    }
-
-    @NonNull
-    public static String getEulaURL(@NonNull Context context, boolean isDarkTheme) {
-        return String.format(
-            context.getString(R.string.eula_url),
-            getLanguageUrlParamValue(),
-            getVersionUrlParamValue(),
-            getThemeUrlParamValue(isDarkTheme)
-        );
-    }
-
-    @NonNull
-    private static String getLanguageUrlParamValue() {
-        final @NonNull String language = LocaleUtil.getAppLanguage();
-        return language.startsWith("de") || language.startsWith("gsw")
-            ? "de"
-            : "en";
-    }
-
-    @NonNull
-    static String getThemeUrlParamValue(boolean isDarkTheme) {
-        return isDarkTheme ? LICENSE_URL_THEME_VALUE_DARK : LICENSE_URL_THEME_VALUE_LIGHT;
-    }
-
-    @NonNull
-    public static String getWorkExplainURL(Context context) {
-        @NonNull String lang = LocaleUtil.getAppLanguage();
-        if (lang.length() >= 2) {
-            lang = lang.substring(0, 2);
-        } else {
-            lang = "en";
-        }
-        return String.format(context.getString(R.string.work_explain_url), lang);
     }
 
     public static void recreateActivity(Activity activity) {
@@ -611,106 +246,12 @@ public class ConfigUtils {
         activity.startActivity(intent);
     }
 
-    public static void scheduleAppRestart(@NonNull Context context) {
-        scheduleAppRestart(context, 0, null);
-    }
-
-    public static void scheduleAppRestart(@NonNull Context context, int delayMs) {
-        scheduleAppRestart(context, delayMs, null);
-    }
-
-    /**
-     * Android Q and newer does not allow restart in the background:
-     * <a href="https://developer.android.com/preview/privacy/background-activity-starts">Restrictions on starting activities from the background</a>
-     *
-     * @param eventTriggerTitle Will have no effect on Android versions below Q or if we do not own the POST_NOTIFICATIONS
-     *                          permission on newer Android versions.
-     */
-    public static void scheduleAppRestart(@NonNull Context context, int delayMs, @Nullable String eventTriggerTitle) {
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-            // on older android version we restart directly after delayMs
-            AlarmManager manager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-            manager.set(AlarmManager.RTC, System.currentTimeMillis() + delayMs, getRestartPendingIntent(context));
-        } else if (
-            eventTriggerTitle == null ||
-                ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
-            // use WorkManager to restart the app in the background
-            final WorkManager workManager = WorkManager.getInstance(context);
-            final OneTimeWorkRequest workRequest = RestartWorker.buildWorkRequest(delayMs);
-            workManager.enqueueUniqueWork(WORKER_RESTART_AFTER_RESTORE, ExistingWorkPolicy.REPLACE, workRequest);
-        } else {
-            // use a notification to trigger restart (app in background can no longer start activities in Android 12+)
-            showRestartNotification(context, eventTriggerTitle);
-        }
-    }
-
-    public static void showRestartNotification(@NonNull Context context) {
-        showRestartNotification(context, null);
-    }
-
-    public static void showRestartNotification(@NonNull Context context, @Nullable String contentTitle) {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
-            Notification notification = getRestartNotification(context, contentTitle);
-            NotificationManagerCompat notificationManagerCompat = NotificationManagerCompat.from(context);
-            notificationManagerCompat.notify(NotificationIDs.APP_RESTART_NOTIFICATION_ID, notification);
-        } else {
-            logger.warn("Cannot show restart notification because notification permission is not granted");
-        }
-    }
-
-    private static Notification getRestartNotification(@NonNull Context context, @Nullable String contentTitle) {
-        String title = contentTitle != null
-            ? contentTitle
-            : context.getString(R.string.notification_title_restart);
-        String text = context.getString(R.string.tap_to_start, context.getString(R.string.app_name));
-        return new NotificationCompat.Builder(context, NotificationChannels.NOTIFICATION_CHANNEL_ALERT)
-            .setSmallIcon(R.drawable.ic_notification_small)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setDefaults(Notification.DEFAULT_LIGHTS | Notification.DEFAULT_VIBRATE)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
-            .setContentIntent(getRestartPendingIntent(context))
-            .setAutoCancel(false)
-            .build();
-    }
-
-    private static PendingIntent getRestartPendingIntent(@NonNull Context context) {
-        Intent restartIntent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
-        Objects.requireNonNull(restartIntent).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        return PendingIntent.getActivity(
-            context,
-            0,
-            restartIntent,
-            PendingIntent.FLAG_CANCEL_CURRENT | PENDING_INTENT_FLAG_MUTABLE
-        );
-    }
-
-    public static boolean checkAvailableMemory(float required) {
-        // Get max available VM memory, exceeding this amount will throw an
-        // OutOfMemory exception
-        return (Runtime.getRuntime().maxMemory() > required);
-    }
-
-    public static boolean isWorkBuild() {
-        return BuildFlavor.getCurrent().isWork();
-    }
-
-    public static boolean isOnPremBuild() {
-        return BuildFlavor.getCurrent().isOnPrem();
-    }
-
     public static boolean isWhitelabelOnPremBuild(@NonNull Context context) {
-        return isOnPremBuild() && !context.getPackageName().equals("ch.threema.app.onprem");
+        return BuildFlavor.IS_ON_PREM && !context.getPackageName().equals("ch.threema.app.onprem");
     }
 
     public static boolean isDemoOPServer(@NonNull PreferenceService preferenceService) {
         return preferenceService.getOppfUrl() != null && preferenceService.getOppfUrl().toLowerCase().contains(".3ma.ch/");
-    }
-
-    public static boolean supportGroupDescription() {
-        return false;
     }
 
     /**
@@ -730,7 +271,7 @@ public class ConfigUtils {
         ServiceManager serviceManager = ServiceManager.get();
         if (serviceManager != null) {
             // OnPrem needs server info in addition to license
-            if (isOnPremBuild() && serviceManager.getPreferenceService().getOppfUrl() == null) {
+            if (BuildFlavor.IS_ON_PREM && serviceManager.getPreferenceService().getOppfUrl() == null) {
                 return false;
             }
 
@@ -741,25 +282,22 @@ public class ConfigUtils {
     }
 
     public static boolean isSerialLicensed() {
-        BuildFlavor.LicenseType currentLicenseType = BuildFlavor.getCurrent().getLicenseType();
-        return currentLicenseType.equals(BuildFlavor.LicenseType.GOOGLE_WORK)
-            || currentLicenseType.equals(BuildFlavor.LicenseType.HMS_WORK)
-            || currentLicenseType.equals(BuildFlavor.LicenseType.SERIAL)
-            || currentLicenseType.equals(BuildFlavor.LicenseType.ONPREM);
+        BuildFlavor.LicenseType currentLicenseType = BuildFlavor.getLicenseType();
+        return currentLicenseType.equals(BuildFlavor.LicenseType.WORK)
+            || currentLicenseType.equals(BuildFlavor.LicenseType.SERIAL);
     }
 
     public static boolean hasInvalidCredentials() {
-        return (ConfigUtils.isOnPremBuild() || ConfigUtils.isWorkBuild()) && ConfigUtils.isSerialLicensed() && !ConfigUtils.isSerialLicenseValid();
+        return BuildFlavor.IS_WORK && ConfigUtils.isSerialLicensed() && !ConfigUtils.isSerialLicenseValid();
     }
 
+    // call this before setContentView
     public static void applyScreenshotPolicy(
         @NonNull Activity activity,
-        @Nullable SynchronizedSettingsService synchronizedSettingsService,
-        @Nullable LockAppService lockAppService
+        @NonNull SynchronizedSettingsService synchronizedSettingsService,
+        @NonNull LockAppService lockAppService
     ) {
-        // call this before setContentView
-        if ((lockAppService != null && lockAppService.isLockingEnabled()) ||
-            (synchronizedSettingsService != null && synchronizedSettingsService.areScreenshotsDisabled()) ||
+        if (lockAppService.isLockingEnabled() || synchronizedSettingsService.areScreenshotsDisabled() ||
             activity instanceof ThreemaSafeConfigureActivity) {
             activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
         } else {
@@ -818,7 +356,7 @@ public class ConfigUtils {
     }
 
     @Deprecated
-    public static void getNavigationBarDimensions(final @NonNull WindowManager windowManager, @NonNull NavigationBarDimensions dimensions) {
+    private static void getNavigationBarDimensions(final @NonNull WindowManager windowManager, @NonNull NavigationBarDimensions dimensions) {
         dimensions.width = dimensions.height = 0;
 
         DisplayMetrics metrics = new DisplayMetrics();
@@ -835,31 +373,6 @@ public class ConfigUtils {
 
         if (realWidth > usableWidth)
             dimensions.width = realWidth - usableWidth;
-    }
-
-    public static boolean checkManifestPermission(Context context, String packageName, final String permission) {
-        if (TextUtils.isEmpty(permission)) {
-            return false;
-        }
-
-        PackageManager pm = context.getPackageManager();
-        try {
-            PackageInfo packageInfo = pm.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS);
-            if (packageInfo != null) {
-                String[] requestedPermissions = packageInfo.requestedPermissions;
-
-                if (requestedPermissions != null && requestedPermissions.length > 0) {
-                    for (String requestedPermission : requestedPermissions) {
-                        if (permission.equalsIgnoreCase(requestedPermission)) {
-                            return true;
-                        }
-                    }
-                }
-            }
-        } catch (PackageManager.NameNotFoundException e) {
-            logger.error("Exception", e);
-        }
-        return false;
     }
 
     public static class NavigationBarDimensions {
@@ -890,31 +403,6 @@ public class ConfigUtils {
         }
     }
 
-    public static void invertColors(ImageView imageView) {
-        imageView.setColorFilter(new ColorMatrixColorFilter(NEGATIVE_MATRIX));
-    }
-
-    public static boolean isPermissionGranted(@NonNull Context context, @NonNull String permission) {
-        return ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED;
-    }
-
-    /**
-     * Request all possibly required permissions of Contacts group
-     *
-     * @param activity    Activity context for onRequestPermissionsResult callback
-     * @param requestCode request code for onRequestPermissionsResult callback
-     * @return true if permissions are already granted, false otherwise
-     */
-    public static boolean requestContactPermissions(@NonNull Activity activity, Fragment fragment, int requestCode) {
-        String[] permissions = new String[]{Manifest.permission.READ_CONTACTS, Manifest.permission.WRITE_CONTACTS, Manifest.permission.GET_ACCOUNTS};
-
-        if (checkIfNeedsPermissionRequest(activity, permissions)) {
-            requestPermissions(activity, fragment, permissions, requestCode);
-            return false;
-        }
-        return true;
-    }
-
     /**
      * Determine whether you have been granted the permission for read access to videos and images.
      * Prior to Android 13 READ_EXTERNAL_STORAGE is checked.
@@ -935,10 +423,10 @@ public class ConfigUtils {
      */
     public static boolean isFullVideoImagePermissionGranted(@NonNull Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            return isPermissionGranted(context, Manifest.permission.READ_MEDIA_VIDEO)
-                && isPermissionGranted(context, Manifest.permission.READ_MEDIA_IMAGES);
+            return checkGrantedPermission(context, Manifest.permission.READ_MEDIA_VIDEO)
+                && checkGrantedPermission(context, Manifest.permission.READ_MEDIA_IMAGES);
         } else {
-            return isPermissionGranted(context, Manifest.permission.READ_EXTERNAL_STORAGE);
+            return checkGrantedPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE);
         }
     }
 
@@ -951,7 +439,7 @@ public class ConfigUtils {
      */
     public static boolean isPartialVideoImagePermissionGranted(@NonNull Context context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            return isPermissionGranted(context, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED);
+            return checkGrantedPermission(context, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED);
         } else {
             return false;
         }
@@ -965,6 +453,7 @@ public class ConfigUtils {
      * @param requestCode request code for onRequestPermissionsResult callback
      * @return true if permissions are already granted, false otherwise
      */
+    @Deprecated
     public static boolean requestReadStoragePermission(@NonNull Activity activity, Fragment fragment, int requestCode) {
         String[] permissions;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -990,6 +479,7 @@ public class ConfigUtils {
      * @param requestCode request code for onRequestPermissionsResult callback
      * @return true if permissions are already granted, false otherwise
      */
+    @Deprecated
     public static boolean requestStoragePermissions(@NonNull Activity activity, Fragment fragment, int requestCode) {
         String[] permissions;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -1008,26 +498,13 @@ public class ConfigUtils {
     }
 
     /**
-     * Checks storage write permission
-     *
-     * @return true if permission is granted, false otherwise
-     */
-    public static boolean hasWriteStoragePermission(@NonNull Context context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            // scoped storage
-            return true;
-        } else {
-            return ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED;
-        }
-    }
-
-    /**
      * Request storage write permission
      *
      * @param activity    Activity context for onRequestPermissionsResult callback
      * @param requestCode request code for onRequestPermissionsResult callback
      * @return true if permissions are already granted, false otherwise
      */
+    @Deprecated
     public static boolean requestWriteStoragePermissions(@NonNull Activity activity, Fragment fragment, int requestCode) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // scoped storage
@@ -1043,159 +520,7 @@ public class ConfigUtils {
         return true;
     }
 
-    /**
-     * Request all possibly required permissions of Location group
-     *
-     * @param activity    Activity context for onRequestPermissionsResult callback
-     * @param requestCode request code for onRequestPermissionsResult callback
-     * @return true if permissions are already granted, false otherwise
-     */
-    public static boolean requestLocationPermissions(@NonNull Activity activity, Fragment fragment, int requestCode) {
-        String[] permissions = new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION};
-
-        if (checkIfNeedsPermissionRequest(activity, permissions)) {
-            requestPermissions(activity, fragment, permissions, requestCode);
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Asynchronously request audio permissions.
-     *
-     * @param activity    Activity context for onRequestPermissionsResult callback
-     * @param requestCode request code for onRequestPermissionsResult callback
-     * @return true if permissions are already granted, false otherwise
-     */
-    public static boolean requestAudioPermissions(@NonNull Activity activity, Fragment fragment, int requestCode) {
-        final String[] permissions = new String[]{Manifest.permission.RECORD_AUDIO};
-        if (checkIfNeedsPermissionRequest(activity, permissions)) {
-            requestPermissions(activity, fragment, permissions, requestCode);
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Asynchronously request permission required for checking for connected bluetooth devices in Android S
-     *
-     * @param activity    Activity context for onRequestPermissionsResult callback
-     * @param requestCode request code for onRequestPermissionsResult callback
-     * @return true if permissions are already granted, false otherwise
-     */
-    @RequiresApi(api = Build.VERSION_CODES.S)
-    public static boolean requestBluetoothConnectPermissions(@NonNull AppCompatActivity activity, Fragment fragment, int requestCode, boolean showHelpDialog) {
-        final String[] permissions = new String[]{Manifest.permission.BLUETOOTH_CONNECT};
-        if (checkIfNeedsPermissionRequest(activity, permissions)) {
-            if (showHelpDialog) {
-                SimpleStringAlertDialog.newInstance(R.string.voip_bluetooth, R.string.permission_bluetooth_connect_required)
-                    .setOnDismissRunnable(() -> requestPermissions(activity, fragment, permissions, requestCode))
-                    .show(activity.getSupportFragmentManager(), "");
-            } else {
-                requestPermissions(activity, fragment, permissions, requestCode);
-            }
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Request permission required for checking for connected bluetooth devices in Android S.
-     *
-     * @param context            the context
-     * @param permissionLauncher the permission launcher that is launched if the permission is not
-     *                           granted yet
-     */
-    @RequiresApi(api = Build.VERSION_CODES.S)
-    public static void requestBluetoothConnectPermission(
-        @NonNull Context context,
-        @NonNull ActivityResultLauncher<String> permissionLauncher
-    ) {
-        final String permission = Manifest.permission.BLUETOOTH_CONNECT;
-        if (checkIfNeedsPermissionRequest(context, new String[]{permission})) {
-            permissionLauncher.launch(permission);
-        }
-    }
-
-    /**
-     * Request all possibly required permissions of Phone group
-     *
-     * @param activity    Activity context for onRequestPermissionsResult callback
-     * @param fragment    Fragment context for onRequestPermissionsResult callback
-     * @param requestCode request code for onRequestPermissionsResult callback
-     * @return true if permissions are already granted, false otherwise
-     */
-    public static boolean requestPhonePermissions(@NonNull Activity activity, Fragment fragment, int requestCode) {
-        String[] permissions;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            permissions = new String[]{Manifest.permission.READ_PHONE_STATE, Manifest.permission.CALL_PHONE, Manifest.permission.ANSWER_PHONE_CALLS};
-        } else {
-            permissions = new String[]{Manifest.permission.READ_PHONE_STATE, Manifest.permission.CALL_PHONE};
-        }
-        if (checkIfNeedsPermissionRequest(activity, permissions)) {
-            requestPermissions(activity, fragment, permissions, requestCode);
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Request read phone state permission.
-     *
-     * @param activity                  activity context
-     * @param requestPermissionLauncher the request permission launcher
-     */
-    public static void requestReadPhonePermission(@NonNull Activity activity, @Nullable ActivityResultLauncher<String> requestPermissionLauncher) {
-        String permission = Manifest.permission.READ_PHONE_STATE;
-        if (checkIfNeedsPermissionRequest(activity, new String[]{permission}) && requestPermissionLauncher != null) {
-            requestPermissionLauncher.launch(permission);
-        }
-    }
-
-    /**
-     * Request the POST_NOTIFICATION permission. For Android versions below 13, this is not needed.
-     *
-     * @param context                   the context is needed to check whether the permission is already granted
-     * @param requestPermissionLauncher the request permission launcher will be used to get the result
-     * @param preferenceService         the preference service is used to update the last notification permission request timestamp if needed
-     * @return {@code true} if the permission is already granted, {@code false} otherwise
-     */
-    public static boolean requestNotificationPermission(
-        @NonNull Context context,
-        @NonNull ActivityResultLauncher<String> requestPermissionLauncher,
-        @Nullable PreferenceService preferenceService
-    ) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            return true;
-        }
-        String permission = Manifest.permission.POST_NOTIFICATIONS;
-        if (checkIfNeedsPermissionRequest(context, new String[]{permission})) {
-            if (preferenceService != null) {
-                preferenceService.setLastNotificationPermissionRequestTimestamp(Instant.now());
-            }
-            requestPermissionLauncher.launch(permission);
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Asynchronously request camera permissions.
-     *
-     * @param activity    Activity context for onRequestPermissionsResult callback
-     * @param fragment    Fragment context for onRequestPermissionsResult callback
-     * @param requestCode request code for onRequestPermissionsResult callback
-     * @return true if permissions are already granted, false otherwise
-     */
-    public static boolean requestCameraPermissions(@NonNull Activity activity, Fragment fragment, int requestCode) {
-        String[] permissions = new String[]{Manifest.permission.CAMERA};
-        if (checkIfNeedsPermissionRequest(activity, permissions)) {
-            requestPermissions(activity, fragment, permissions, requestCode);
-            return false;
-        }
-        return true;
-    }
-
+    @Deprecated
     private static void requestPermissions(Activity activity, Fragment fragment, String[] permissions, int requestCode) {
         if (fragment != null) {
             fragment.requestPermissions(permissions, requestCode);
@@ -1206,7 +531,7 @@ public class ConfigUtils {
 
     private static boolean checkIfNeedsPermissionRequest(@NonNull Context context, @NonNull String[] permissions) {
         for (String permission : permissions) {
-            if (ContextCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {
+            if (!checkGrantedPermission(context, permission)) {
                 return true;
             }
         }
@@ -1254,15 +579,11 @@ public class ConfigUtils {
      * @param callback     the callback for the snackbar
      */
     private static void showPermissionRationale(
-        @Nullable Context context,
+        @NonNull Context context,
         @Nullable View parentLayout,
         @NonNull String message,
         @Nullable BaseTransientBottomBar.BaseCallback<Snackbar> callback
     ) {
-        if (context == null) {
-            return;
-        }
-
         if (parentLayout == null) {
             Toast.makeText(context, message, Toast.LENGTH_LONG).show();
         } else {
@@ -1336,20 +657,6 @@ public class ConfigUtils {
     }
 
     /**
-     * Check if a particular app with packageName is installed on the system
-     *
-     * @return true if app is installed, false otherwise or an error occured
-     */
-    public static boolean isAppInstalled(String packageName) {
-        try {
-            ThreemaApplication.getAppContext().getPackageManager().getPackageInfo(packageName, 0);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    /**
      * Configure menu to display dividers. Call this in onCreateOptionsMenu()
      */
     @SuppressLint("RestrictedApi")
@@ -1367,14 +674,6 @@ public class ConfigUtils {
     }
 
     /**
-     * Return whether or not to use Threema Push, based on the build flavor and the preferences.
-     */
-    public static boolean useThreemaPush(@NonNull SharedPreferences rawSharedPreferences, @NonNull Context context) {
-        return BuildFlavor.getCurrent().getForceThreemaPush()
-            || rawSharedPreferences.getBoolean(context.getString(R.string.preferences__threema_push_switch), false);
-    }
-
-    /**
      * Apply operations to content provider in small batches preventing TransactionTooLargeException
      * TODO(ANDR-4326): Move this to ThreemaRawContactWriter and fix wrong back references in case several batches exist.
      *
@@ -1388,10 +687,6 @@ public class ConfigUtils {
             List<ContentProviderOperation> contentProviderOperationsBatch = contentProviderOperations.subList(i, Math.min(contentProviderOperations.size(), i + CONTENT_PROVIDER_BATCH_SIZE));
             contentResolver.applyBatch(authority, new ArrayList<>(contentProviderOperationsBatch));
         }
-    }
-
-    public static boolean isGroupAckEnabled() {
-        return true;
     }
 
     /**
@@ -1479,16 +774,6 @@ public class ConfigUtils {
     }
 
     /**
-     * Check whether the app can post any notifications
-     *
-     * @param context A context
-     * @return true if the app if notifications are completely disabled for this app
-     */
-    public static boolean isNotificationsDisabled(@NonNull Context context) {
-        return !NotificationManagerCompat.from(context).areNotificationsEnabled();
-    }
-
-    /**
      * Check whether the provided mime type hints at an image format that can be displayed with Glide on this Android version
      *
      * @param mimeType Mime type to check
@@ -1496,33 +781,6 @@ public class ConfigUtils {
      */
     public static boolean isDisplayableAnimatedImageFormat(@Nullable String mimeType) {
         return (MimeUtil.isWebPFile(mimeType) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) || MimeUtil.isGifFile(mimeType);
-    }
-
-    /**
-     * Get position of a PopupWindow that has Gravity.LEFT|Gravity.BOTTOM set and is supposed to be located above the supplied anchor view
-     *
-     * @param activity   Activity that hosts the PopupWindow
-     * @param anchorView Anchor view
-     * @return int array of x/y coordinates to be supplied to showAtLocation() as well as the viewable height
-     */
-    @NonNull
-    public static int[] getPopupWindowPositionAboveAnchor(@NonNull Activity activity, @NonNull View anchorView) {
-        int[] windowLocation = {0, 0};
-        anchorView.getLocationInWindow(windowLocation);
-
-        WindowMetrics windowMetrics = WindowMetricsCalculator.getOrCreate().computeCurrentWindowMetrics(activity);
-        Rect bounds = windowMetrics.getBounds();
-
-        int x = windowLocation[0] + anchorView.getPaddingLeft();
-        int y = bounds.height() - windowLocation[1];
-
-        int viewableHeight = windowLocation[1] - (ConfigUtils.getStatusBarHeight(activity) + ConfigUtils.getActionBarSize(activity));
-
-        return new int[]{x, y, viewableHeight};
-    }
-
-    public static boolean isReferralProgramEnabled() {
-        return !isWorkBuild();
     }
 
     private static AppRestrictions getAppRestrictions() {

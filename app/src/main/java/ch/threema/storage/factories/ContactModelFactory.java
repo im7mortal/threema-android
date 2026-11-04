@@ -8,34 +8,28 @@ import org.slf4j.Logger;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.app.BuildConfig;
-import ch.threema.data.IdentityProvider;
-import ch.threema.base.crypto.NaCl;
 
+import static ch.threema.common.DatabaseHelpers.makePlaceholders;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import static ch.threema.common.JavaCompat.isNullOrEmpty;
-import static ch.threema.storage.DatabaseExtensionsKt.exists;
-import static ch.threema.storage.DatabaseExtensionsKt.existsByBlob;
+import static ch.threema.logging.ErrorReportingKt.logAndReportError;
 
 import ch.threema.data.datatypes.AvailabilityStatus;
 import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverride;
 import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverridePolicy;
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.data.datatypes.ConversationVisibility;
-import ch.threema.data.datatypes.PredefinedContact;
 import ch.threema.domain.models.AcquaintanceLevel;
 import ch.threema.domain.models.IdentityState;
 import ch.threema.domain.models.IdentityType;
 import ch.threema.domain.models.VerificationLevel;
-import ch.threema.domain.protocol.csp.ProtocolDefines;
 import ch.threema.storage.CursorHelper;
 import ch.threema.storage.DatabaseCreationProvider;
 import ch.threema.storage.DatabaseProvider;
-import ch.threema.storage.DatabaseUtil;
 import ch.threema.storage.DbAvailabilityStatus;
 import ch.threema.storage.QueryBuilder;
 import ch.threema.storage.models.ContactModel;
@@ -54,15 +48,10 @@ public class ContactModelFactory extends ModelFactory {
     private static final String COLUMN_AVAILABILITY_STATUS_CATEGORY = DbAvailabilityStatus.TABLE + "." + DbAvailabilityStatus.COLUMN_CATEGORY;
     private static final String COLUMN_AVAILABILITY_STATUS_DESCRIPTION = DbAvailabilityStatus.TABLE + "." + DbAvailabilityStatus.COLUMN_DESCRIPTION;
 
-    @NonNull
-    private final IdentityProvider identityProvider;
-
     public ContactModelFactory(
-        @NonNull DatabaseProvider databaseProvider,
-        @NonNull IdentityProvider identityProvider
+        @NonNull DatabaseProvider databaseProvider
     ) {
         super(databaseProvider, ContactModel.TABLE);
-        this.identityProvider = identityProvider;
     }
 
     /**
@@ -108,7 +97,7 @@ public class ContactModelFactory extends ModelFactory {
         if (identities.isEmpty()) {
             return new ArrayList<>();
         }
-        final @NonNull String placeholders = DatabaseUtil.makePlaceholders(identities.size());
+        final @NonNull String placeholders = makePlaceholders(identities.size());
         final String query =
             "SELECT " + ContactModel.TABLE + ".*, " + COLUMN_AVAILABILITY_STATUS_CATEGORY + ", " + COLUMN_AVAILABILITY_STATUS_DESCRIPTION +
                 " FROM " + ContactModel.TABLE + " LEFT JOIN " + DbAvailabilityStatus.TABLE +
@@ -224,12 +213,24 @@ public class ContactModelFactory extends ModelFactory {
             int conversationVisibilityValue = cHelper.getInt(ContactModel.COLUMN_CONVERSATION_VISIBILITY);
             ConversationVisibility conversationVisibility = ConversationVisibility.deserialize(conversationVisibilityValue);
             if (conversationVisibility == null) {
-                logger.error(
+                logAndReportError(
+                    logger,
                     "Conversation visibility value of contact is out of range: {}. Falling back to {}.",
                     conversationVisibilityValue,
                     ConversationVisibility.NORMAL
                 );
                 conversationVisibility = ConversationVisibility.NORMAL;
+            }
+            int conversationCategoryValue = cHelper.getInt(ContactModel.COLUMN_CONVERSATION_CATEGORY);
+            ConversationCategory conversationCategory = ConversationCategory.deserialize(conversationCategoryValue);
+            if (conversationCategory == null) {
+                logAndReportError(
+                    logger,
+                    "Conversation category value of contact is out of range: {}. Falling back to {}.",
+                    conversationCategoryValue,
+                    ConversationCategory.DEFAULT
+                );
+                conversationCategory = ConversationCategory.DEFAULT;
             }
 
             contactModel
@@ -259,6 +260,7 @@ public class ContactModelFactory extends ModelFactory {
                 .setLastUpdate(cHelper.getInstant(ContactModel.COLUMN_LAST_UPDATE_AT))
                 .setIsRestored(cHelper.getInt(ContactModel.COLUMN_IS_RESTORED) == 1)
                 .setConversationVisibility(conversationVisibility)
+                .setConversationCategory(conversationCategory)
                 .setReadReceipts(cHelper.getInt(ContactModel.COLUMN_READ_RECEIPTS))
                 .setTypingIndicators(cHelper.getInt(ContactModel.COLUMN_TYPING_INDICATORS))
                 .setForwardSecurityState(cHelper.getInt(ContactModel.COLUMN_FORWARD_SECURITY_STATE))
@@ -315,141 +317,6 @@ public class ContactModelFactory extends ModelFactory {
         });
 
         return contactModels[0];
-    }
-
-    /**
-     * Use the new contact model instead. The usage of this is dangerous as it does not reflect the
-     * contact model.
-     *
-     * <b>Caution:</b> This legacy implementation does <b>not</b> handle availability statuses. Meaning that when updating a contact model, any
-     * availability status will stay as is. When creating a contact, any defined availability status in the given model will be ignored.
-     * {@code SqliteDatabaseBackend} supports both use cases.
-     */
-    @Deprecated
-    public void create(@NonNull ContactModel contactModel) {
-        if (isNullOrEmpty(contactModel.getIdentity())) {
-            logger.error("try to create or update a contact model without identity");
-            return;
-        }
-        if (contactModel.getIdentity().length() != ProtocolDefines.IDENTITY_LEN) {
-            logger.error("Cannot add a contact with an invalid identity: {}", contactModel.getIdentity());
-            return;
-        }
-        if (contactModel.getPublicKey().length != NaCl.PUBLIC_KEY_BYTES) {
-            logger.error("Cannot add a contact with a public key of length {}", contactModel.getPublicKey());
-            return;
-        }
-        if (doesContactWithIdentityExist(contactModel.getIdentity())) {
-            logger.error("Contact already exists");
-            return;
-        }
-        if (doesContactWithPublicKeyExist(contactModel.getPublicKey())) {
-            logger.error("Cannot add a contact with duplicate public key {}", contactModel.getPublicKey());
-            return;
-        }
-        if (contactModel.getIdentity().equals(identityProvider.getIdentityString())) {
-            logger.error("Cannot add user as contact");
-            return;
-        }
-        PredefinedContact predefinedContact = PredefinedContact.getPredefinedContact(contactModel.getIdentity());
-        if (predefinedContact != null) {
-            if (!Arrays.equals(predefinedContact.getPublicKey(), contactModel.getPublicKey())) {
-                logger.error("Cannot add predefined contact with different public key");
-                return;
-            }
-            if (contactModel.verificationLevel != VerificationLevel.FULLY_VERIFIED) {
-                logger.error("Cannot add predefined contact with verification level {}", contactModel.verificationLevel);
-                return;
-            }
-        }
-
-        ContentValues contentValues = new ContentValues();
-
-        contentValues.put(ContactModel.COLUMN_IDENTITY, contactModel.getIdentity());
-        contentValues.put(ContactModel.COLUMN_PUBLIC_KEY, contactModel.getPublicKey());
-        contentValues.put(ContactModel.COLUMN_FIRST_NAME, contactModel.getFirstName());
-        contentValues.put(ContactModel.COLUMN_LAST_NAME, contactModel.getLastName());
-        contentValues.put(ContactModel.COLUMN_PUBLIC_NICK_NAME, contactModel.getPublicNickName());
-        contentValues.put(ContactModel.COLUMN_VERIFICATION_LEVEL, contactModel.verificationLevel.ordinal());
-
-        if (contactModel.getState() == null) {
-            contactModel.setState(IdentityState.ACTIVE);
-        }
-        contentValues.put(ContactModel.COLUMN_STATE, contactModel.getState().toString());
-        contentValues.put(ContactModel.COLUMN_ANDROID_CONTACT_LOOKUP_KEY, contactModel.getAndroidContactLookupKey());
-        contentValues.put(ContactModel.COLUMN_FEATURE_MASK, contactModel.getFeatureMask());
-        contentValues.put(ContactModel.COLUMN_ID_COLOR_INDEX, contactModel.getIdColor().getColorIndex());
-        contentValues.put(ContactModel.COLUMN_LOCAL_AVATAR_EXPIRES, contactModel.getLocalAvatarExpires() != null ?
-            contactModel.getLocalAvatarExpires().toEpochMilli()
-            : null);
-        contentValues.put(ContactModel.COLUMN_IS_WORK, contactModel.isWorkVerified());
-        int identityTypeValue;
-        final @Nullable IdentityType identityType = contactModel.getIdentityType();
-        if (identityType == null) {
-            logger.warn("Identity type is null. Using 'normal' as fallback.");
-            identityTypeValue = 0;
-        } else {
-            switch (identityType) {
-                case REGULAR:
-                    identityTypeValue = 0;
-                    break;
-                case WORK:
-                    identityTypeValue = 1;
-                    break;
-                default:
-                    throw new IllegalStateException("Illegal enum variant for identity type");
-            }
-        }
-        contentValues.put(ContactModel.COLUMN_TYPE, identityTypeValue);
-        contentValues.put(ContactModel.COLUMN_PROFILE_PIC_BLOB_ID, contactModel.getProfilePicBlobID());
-        contentValues.put(ContactModel.COLUMN_CREATED_AT, contactModel.getDateCreated() != null ? contactModel.getDateCreated().toEpochMilli() : null);
-        contentValues.put(ContactModel.COLUMN_LAST_UPDATE_AT, contactModel.getLastUpdate() != null ? contactModel.getLastUpdate().toEpochMilli() : null);
-        int acquaintanceLevelValue;
-        switch (contactModel.getAcquaintanceLevel()) {
-            case DIRECT:
-                acquaintanceLevelValue = 0;
-                break;
-            case GROUP_OR_DELETED:
-                acquaintanceLevelValue = 1;
-                break;
-            default:
-                throw new IllegalStateException("Illegal enum variant for acquaintance level");
-        }
-        contentValues.put(ContactModel.COLUMN_ACQUAINTANCE_LEVEL, acquaintanceLevelValue);
-        contentValues.put(ContactModel.COLUMN_IS_RESTORED, contactModel.isRestored());
-        contentValues.put(ContactModel.COLUMN_CONVERSATION_VISIBILITY, contactModel.getConversationVisibility().getSerializedValue());
-        contentValues.put(ContactModel.COLUMN_READ_RECEIPTS, contactModel.getReadReceipts());
-        contentValues.put(ContactModel.COLUMN_TYPING_INDICATORS, contactModel.getTypingIndicators());
-        contentValues.put(ContactModel.COLUMN_FORWARD_SECURITY_STATE, contactModel.getForwardSecurityState());
-        contentValues.put(ContactModel.COLUMN_JOB_TITLE, contactModel.getJobTitle());
-        contentValues.put(ContactModel.COLUMN_DEPARTMENT, contactModel.getDepartment());
-        ContactNotificationTriggerPolicyOverride notificationTriggerPolicyOverride = contactModel.getNotificationTriggerPolicyOverride();
-        Integer notificationTriggerPolicyOverridePolicy = notificationTriggerPolicyOverride != null
-            ? notificationTriggerPolicyOverride.getPolicy().getSerializedValue()
-            : null;
-        contentValues.put(ContactModel.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_POLICY, notificationTriggerPolicyOverridePolicy);
-        Long expiresAt = notificationTriggerPolicyOverride != null
-            ? (notificationTriggerPolicyOverride.getExpiresAt() != null
-               ? notificationTriggerPolicyOverride.getExpiresAt().toEpochMilli()
-               : null
-        )
-            : null;
-        contentValues.put(ContactModel.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_EXPIRES_AT, expiresAt);
-        // Note: Sync state not implemented in "old model" anymore
-
-        getWritableDatabase().insertOrThrow(
-            this.getTableName(),
-            null,
-            contentValues
-        );
-    }
-
-    private boolean doesContactWithIdentityExist(@NonNull String identity) {
-        return exists(getReadableDatabase(), getTableName(), ContactModel.COLUMN_IDENTITY + "= ?", new String[]{ identity });
-    }
-
-    private boolean doesContactWithPublicKeyExist(@NonNull byte[] publicKey) {
-        return existsByBlob(getReadableDatabase(), getTableName(), ContactModel.COLUMN_PUBLIC_KEY + "= ?", publicKey);
     }
 
     /**
@@ -528,6 +395,7 @@ public class ContactModelFactory extends ModelFactory {
                     "`" + ContactModel.COLUMN_ACQUAINTANCE_LEVEL + "` TINYINT DEFAULT 0 NOT NULL," +
                     "`" + ContactModel.COLUMN_IS_RESTORED + "` TINYINT DEFAULT 0," +
                     "`" + ContactModel.COLUMN_CONVERSATION_VISIBILITY + "` INTEGER DEFAULT 0 NOT NULL," +
+                    "`" + ContactModel.COLUMN_CONVERSATION_CATEGORY + "` INTEGER DEFAULT 0 NOT NULL," +
                     "`" + ContactModel.COLUMN_READ_RECEIPTS + "` TINYINT DEFAULT 0," +
                     "`" + ContactModel.COLUMN_TYPING_INDICATORS + "` TINYINT DEFAULT 0," +
                     "`" + ContactModel.COLUMN_FORWARD_SECURITY_STATE + "` TINYINT DEFAULT 0," +

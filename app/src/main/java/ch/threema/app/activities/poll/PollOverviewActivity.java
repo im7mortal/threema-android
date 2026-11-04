@@ -30,6 +30,7 @@ import androidx.lifecycle.Lifecycle;
 import ch.threema.android.FlowJavaCompat;
 import ch.threema.app.AppConstants;
 import ch.threema.app.R;
+import ch.threema.app.activities.BackPressHandler;
 import ch.threema.app.activities.ThreemaToolbarActivity;
 import ch.threema.app.adapters.poll.PollOverviewListAdapter;
 import ch.threema.app.di.DependencyContainer;
@@ -56,7 +57,10 @@ import ch.threema.storage.models.poll.PollModel;
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 
-public class PollOverviewActivity extends ThreemaToolbarActivity implements ListView.OnItemClickListener, GenericAlertDialog.DialogClickListener, SelectorDialog.SelectorDialogClickListener {
+public class PollOverviewActivity extends ThreemaToolbarActivity implements ListView.OnItemClickListener,
+    GenericAlertDialog.DialogClickListener,
+    SelectorDialog.SelectorDialogClickListener,
+    BackPressHandler {
     private static final Logger logger = getThreemaLogger("PollOverviewActivity");
 
     private static final String DIALOG_TAG_POLL_DELETE = "bd";
@@ -272,12 +276,7 @@ public class PollOverviewActivity extends ThreemaToolbarActivity implements List
     }
 
     @Override
-    protected boolean enableOnBackPressedCallback() {
-        return true;
-    }
-
-    @Override
-    protected void handleOnBackPressed() {
+    public void handleOnBackPressed() {
         setResult(RESULT_OK);
         finish();
     }

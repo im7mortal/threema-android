@@ -50,7 +50,6 @@ import ch.threema.app.adapters.decorators.VideoChatAdapterDecorator;
 import ch.threema.app.adapters.decorators.VoipStatusDataChatAdapterDecorator;
 import ch.threema.app.cache.ThumbnailCache;
 import ch.threema.app.emojireactions.EmojiReactionGroup;
-import ch.threema.app.emojis.EmojiMarkupUtil;
 import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.services.ContactService;
@@ -62,7 +61,6 @@ import ch.threema.app.services.poll.PollService;
 import ch.threema.app.services.license.LicenseService;
 import ch.threema.app.ui.SingleToast;
 import ch.threema.app.ui.listitemholder.ComposeMessageHolder;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.LinkifyUtil;
 import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.NameUtil;
@@ -70,23 +68,25 @@ import ch.threema.app.utils.QuoteUtil;
 import ch.threema.data.models.EmojiReactionData;
 import ch.threema.data.repositories.EmojiReactionsRepository;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.domain.types.Mention;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ContactModel;
-import ch.threema.storage.models.DateSeparatorMessageModel;
-import ch.threema.storage.models.FirstUnreadMessageModel;
 import ch.threema.storage.models.MessageType;
+import ch.threema.storage.models.VirtualMessageUtil;
 
-import static ch.threema.app.utils.MessageUtilKt.findIndexByMessageId;
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 import static ch.threema.domain.protocol.csp.messages.file.FileData.RENDERING_DEFAULT;
+import static ch.threema.storage.models.ModelExtensionsKt.findIndexByMessageId;
+import static ch.threema.storage.models.ModelExtensionsKt.isQuote;
 
-public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> implements EmojiReactionGroup.OnEmojiReactionGroupClickListener {
+public class ComposeMessageAdapter extends ArrayAdapter<MessageModel> implements EmojiReactionGroup.OnEmojiReactionGroupClickListener {
 
     private static final Logger logger = getThreemaLogger("ComposeMessageAdapter");
     public static final int MIN_CONSTRAINT_LENGTH = 2;
 
-    private final List<AbstractMessageModel> values;
+    private final List<MessageModel> values;
     private final ChatAdapterDecorator.Helper decoratorHelper;
     @NonNull
     private final VoipStatusDataChatAdapterDecorator.VoipStatusDataChatListener voipStatusDataChatListener;
@@ -102,16 +102,14 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
     private final AudioChatAdapterDecorator.UserInteractionListener userInteractionListener;
     @NonNull
     private final FileChatAdapterDecorator.DownloadAlertDialogListener downloadAlertDialogListener;
-    private final MessageService messageService;
     private final UserService userService;
-    private final FileService fileService;
+    private final QuoteUtil quoteUtil;
     private final SparseIntArray resultMap = new SparseIntArray();
     private int resultMapIndex;
     @NonNull
     private ConversationListFilter convListFilter = new ConversationListFilter();
     public ListView listView;
     private long groupId;
-    private final EmojiMarkupUtil emojiMarkupUtil = EmojiMarkupUtil.getInstance();
     @Nullable
     private CharSequence currentConstraint = null;
     private final int bubblePaddingLeftRight;
@@ -187,34 +185,35 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
     private Map<String, Integer> identityColors = null;
 
     public interface OnClickListener {
-        void click(View view, int position, AbstractMessageModel messageModel);
+        void click(View view, int position, MessageModel messageModel);
 
-        void longClick(View view, int position, AbstractMessageModel messageModel);
+        void longClick(View view, int position, MessageModel messageModel);
 
-        boolean touch(View view, MotionEvent motionEvent, AbstractMessageModel messageModel);
+        boolean touch(View view, MotionEvent motionEvent, MessageModel messageModel);
 
-        void avatarClick(View view, int position, AbstractMessageModel messageModel);
+        void avatarClick(View view, int position, MessageModel messageModel);
 
         void onSearchResultsUpdate(int searchResultsIndex, int searchResultsSize, int queryLength);
 
         void onSearchInProgress(boolean inProgress);
 
-        void onEmojiReactionClick(@Nullable String emojiSequence, @Nullable AbstractMessageModel messageModel);
+        void onEmojiReactionClick(@Nullable String emojiSequence, @Nullable MessageModel messageModel);
 
-        void onEmojiReactionLongClick(@Nullable String emojiSequence, @Nullable AbstractMessageModel messageModel);
+        void onEmojiReactionLongClick(@Nullable String emojiSequence, @Nullable MessageModel messageModel);
 
-        void onSelectButtonClick(@Nullable AbstractMessageModel messageModel);
+        void onSelectButtonClick(@Nullable MessageModel messageModel);
 
-        void onMoreReactionsButtonClick(@Nullable AbstractMessageModel messageModel);
+        void onMoreReactionsButtonClick(@Nullable MessageModel messageModel);
     }
 
     public ComposeMessageAdapter(
         Context context,
-        List<AbstractMessageModel> values,
+        List<MessageModel> values,
         UserService userService,
         ContactService contactService,
         FileService fileService,
         MessageService messageService,
+        QuoteUtil quoteUtil,
         PollService pollService,
         PreferenceService preferenceService,
         DownloadService downloadService,
@@ -222,7 +221,7 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
         EmojiReactionsRepository emojiReactionsRepository,
         MessageReceiver<?> messageReceiver,
         ListView listView,
-        ThumbnailCache<?> thumbnailCache,
+        ThumbnailCache thumbnailCache,
         int thumbnailWidth,
         @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
         @NonNull LinkifyUtil.LinkifyListener linkifyListener,
@@ -238,14 +237,13 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
         this.values = values;
         this.listView = listView;
         this.layoutInflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-        int regularColor = ConfigUtils.getColorFromAttribute(context, R.attr.colorOnSurface);
+        int regularColor = getColorFromAttribute(context, R.attr.colorOnSurface);
         int maxBubbleTextLength = context.getResources().getInteger(R.integer.max_bubble_text_length);
         int maxQuoteTextLength = context.getResources().getInteger(R.integer.max_quote_text_length);
         this.resultMapIndex = 0;
         this.unreadMessagesCount = unreadMessagesCount;
-        this.messageService = messageService;
+        this.quoteUtil = quoteUtil;
         this.userService = userService;
-        this.fileService = fileService;
         this.voipStatusDataChatListener = voipStatusDataChatListener;
         this.chatAdapterDecoratorListener = chatAdapterDecoratorListener;
         this.linkifyListener = linkifyListener;
@@ -261,6 +259,7 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
             contactService,
             fileService,
             pollService,
+            quoteUtil,
             thumbnailCache,
             preferenceService,
             downloadService,
@@ -356,7 +355,7 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
     @Override
     public @ItemLayoutType int getItemViewType(int position) {
         if (position < values.size()) {
-            final AbstractMessageModel m = this.getItem(position);
+            final MessageModel m = this.getItem(position);
             return this.getItemType(m);
         }
         return TYPE_STATUS;
@@ -364,7 +363,7 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
 
     @Nullable
     @Override
-    public AbstractMessageModel getItem(int position) {
+    public MessageModel getItem(int position) {
         if (position < values.size()) {
             if (position >= 0) {
                 return super.getItem(position);
@@ -373,56 +372,50 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
         return null;
     }
 
-    private @ItemLayoutType int getItemType(AbstractMessageModel m) {
+    private @ItemLayoutType int getItemType(MessageModel m) {
         if (m != null) {
-            if (m.isStatusMessage()) {
-                // Special handling for data status messages
-                if (m instanceof FirstUnreadMessageModel) {
-                    return TYPE_FIRST_UNREAD;
-                } else if (m instanceof DateSeparatorMessageModel) {
-                    return TYPE_DATE_SEPARATOR;
-                } else if (m.getType() == MessageType.GROUP_CALL_STATUS) {
+            if (VirtualMessageUtil.isFirstUnreadMessage(m)) {
+                return TYPE_FIRST_UNREAD;
+            } else if (VirtualMessageUtil.isDateSeparator(m)) {
+                return TYPE_DATE_SEPARATOR;
+            }
+
+            boolean o = m.isOutbox();
+            if (shouldShowDeletedPlaceholder(m)) {
+                return o ? TYPE_DELETED_SEND : TYPE_DELETED_RECV;
+            }
+            switch (m.getType()) {
+                case VOIP_STATUS:
+                    return o ? TYPE_STATUS_DATA_SEND : TYPE_STATUS_DATA_RECV;
+                case GROUP_CALL_STATUS:
                     return TYPE_GROUP_CALL_STATUS;
-                } else if (m.getType() == MessageType.FORWARD_SECURITY_STATUS) {
+                case FORWARD_SECURITY_STATUS:
                     return TYPE_FORWARD_SECURITY_STATUS;
-                } else {
+                case STATUS:
+                case GROUP_STATUS:
                     return TYPE_STATUS;
-                }
-            } else {
-                boolean o = m.isOutbox();
-                if (shouldShowDeletedPlaceholder(m)) {
-                    return o ? TYPE_DELETED_SEND : TYPE_DELETED_RECV;
-                }
-                switch (m.getType()) {
-                    case LOCATION:
-                        return o ? TYPE_LOCATION_SEND : TYPE_LOCATION_RECV;
-                    case FILE:
-                        String mimeType = m.getFileData().getMimeType();
-                        int renderingType = m.getFileData().getRenderingType();
-                        if (MimeUtil.isAudioFile(mimeType) && renderingType == FileData.RENDERING_MEDIA) {
-                            return o ? TYPE_AUDIO_SEND : TYPE_AUDIO_RECV;
-                        } else if (renderingType == FileData.RENDERING_MEDIA || renderingType == FileData.RENDERING_STICKER) {
-                            if (MimeUtil.isSupportedImageFile(mimeType)) {
-                                return o ? TYPE_MEDIA_SEND : TYPE_MEDIA_RECV;
-                            } else if (MimeUtil.isVideoFile(mimeType)) {
-                                return o ? TYPE_FILE_VIDEO_SEND : TYPE_MEDIA_RECV;
-                            }
+                case LOCATION:
+                    return o ? TYPE_LOCATION_SEND : TYPE_LOCATION_RECV;
+                case FILE:
+                    String mimeType = m.getFileData().getMimeType();
+                    int renderingType = m.getFileData().getRenderingType();
+                    if (MimeUtil.isAudioFile(mimeType) && renderingType == FileData.RENDERING_MEDIA) {
+                        return o ? TYPE_AUDIO_SEND : TYPE_AUDIO_RECV;
+                    } else if (renderingType == FileData.RENDERING_MEDIA || renderingType == FileData.RENDERING_STICKER) {
+                        if (MimeUtil.isSupportedImageFile(mimeType)) {
+                            return o ? TYPE_MEDIA_SEND : TYPE_MEDIA_RECV;
+                        } else if (MimeUtil.isVideoFile(mimeType)) {
+                            return o ? TYPE_FILE_VIDEO_SEND : TYPE_MEDIA_RECV;
                         }
-                        return o ? TYPE_FILE_SEND : TYPE_FILE_RECV;
-                    case POLL:
-                        return o ? TYPE_POLL_SEND : TYPE_POLL_RECV;
-                    case VOIP_STATUS:
-                        return o ? TYPE_STATUS_DATA_SEND : TYPE_STATUS_DATA_RECV;
-                    case GROUP_CALL_STATUS:
-                        return TYPE_GROUP_CALL_STATUS;
-                    case FORWARD_SECURITY_STATUS:
-                        return TYPE_FORWARD_SECURITY_STATUS;
-                    default:
-                        if (QuoteUtil.getQuoteType(m) != QuoteUtil.QUOTE_TYPE_NONE) {
-                            return o ? TYPE_TEXT_QUOTE_SEND : TYPE_TEXT_QUOTE_RECV;
-                        }
-                        return o ? TYPE_SEND : TYPE_RECV;
-                }
+                    }
+                    return o ? TYPE_FILE_SEND : TYPE_FILE_RECV;
+                case POLL:
+                    return o ? TYPE_POLL_SEND : TYPE_POLL_RECV;
+                default:
+                    if (isQuote(m)) {
+                        return o ? TYPE_TEXT_QUOTE_SEND : TYPE_TEXT_QUOTE_RECV;
+                    }
+                    return o ? TYPE_SEND : TYPE_RECV;
             }
         }
         return TYPE_RECV;
@@ -493,12 +486,12 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
     public View getView(final int position, View convertView, ViewGroup parent) {
         View itemView = convertView;
         ComposeMessageHolder holder = itemView != null ? (ComposeMessageHolder) itemView.getTag() : null;
-        final AbstractMessageModel messageModel = values.get(position);
+        final MessageModel messageModel = values.get(position);
         MessageType messageType = messageModel.getType();
 
         @ItemLayoutType int itemType = this.getItemType(messageModel);
 
-        if (messageModel.isStatusMessage() && messageModel instanceof FirstUnreadMessageModel) {
+        if (VirtualMessageUtil.isFirstUnreadMessage(messageModel)) {
             firstUnreadPos = position;
         }
 
@@ -565,7 +558,7 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
 
         final ChatAdapterDecorator decorator;
 
-        if (itemType == TYPE_FIRST_UNREAD) {
+        if (itemType == TYPE_FIRST_UNREAD || VirtualMessageUtil.isFirstUnreadMessage(messageModel)) {
             // add number of unread messages
             decorator = new FirstUnreadChatAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, decoratorHelper, unreadMessagesCount);
         } else {
@@ -577,6 +570,8 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
 
             if (itemType == TYPE_DELETED_SEND || itemType == TYPE_DELETED_RECV) {
                 decorator = new DeletedChatAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, decoratorHelper);
+            } else if (VirtualMessageUtil.isDateSeparator(messageModel)) {
+                decorator = new DateSeparatorChatAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, decoratorHelper);
             } else {
                 decorator = initDecorator(messageModel, messageType);
             }
@@ -637,7 +632,7 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
         return itemView;
     }
 
-    private ChatAdapterDecorator initDecorator(@NonNull AbstractMessageModel messageModel, MessageType messageType) {
+    private ChatAdapterDecorator initDecorator(@NonNull MessageModel messageModel, @NonNull MessageType messageType) {
         switch (messageType) {
             case STATUS:
                 return new StatusChatAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, decoratorHelper);
@@ -668,17 +663,8 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
                 return new ForwardSecurityStatusChatAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, decoratorHelper);
             case GROUP_STATUS:
                 return new GroupStatusAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, decoratorHelper);
-            // Fallback to text chat adapter
             default:
-                if (messageModel.isStatusMessage()) {
-                    if (messageModel instanceof DateSeparatorMessageModel) {
-                        return new DateSeparatorChatAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, decoratorHelper);
-                    } else {
-                        return new StatusChatAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, decoratorHelper);
-                    }
-                } else {
-                    return new TextChatAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, decoratorHelper);
-                }
+                return new TextChatAdapterDecorator(messageModel, chatAdapterDecoratorListener, linkifyListener, decoratorHelper);
         }
     }
 
@@ -691,14 +677,14 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
      * @param itemType The Type the item is representing
      * @return true if it's the first item in a group, false if it's a consecutive iitem
      */
-    private boolean adjustMarginsForMessageGrouping(ComposeMessageHolder holder, View itemView, @ItemLayoutType int itemType, @NonNull AbstractMessageModel currentItem) {
+    private boolean adjustMarginsForMessageGrouping(ComposeMessageHolder holder, View itemView, @ItemLayoutType int itemType, @NonNull MessageModel currentItem) {
         boolean isFirstItemInGroup = true, hasPreviousItem = false, hasNextItem = false;
 
         if (itemView != null) {
             int paddingBottom = bubblePaddingBottom;
             if (isUserMessage(itemType)) {
                 if (values.size() > holder.position + 1) {
-                    AbstractMessageModel nextItem = values.get(holder.position + 1);
+                    MessageModel nextItem = values.get(holder.position + 1);
 
                     if (isUserMessage(getItemType(nextItem))) {
                         if (isConsecutiveItem(currentItem, nextItem)) {
@@ -709,7 +695,7 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
                 }
 
                 if (holder.position > 0) {
-                    AbstractMessageModel previousItem = values.get(holder.position - 1);
+                    MessageModel previousItem = values.get(holder.position - 1);
 
                     if (isUserMessage(getItemType(previousItem))) {
                         if (isConsecutiveItem(currentItem, previousItem)) {
@@ -755,11 +741,11 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
     /**
      * Detect if the provided two messageModels are from the same sender
      *
-     * @param firstModel  AbstractMessageModel of first item
-     * @param secondModel AbstractMessageModel of second item
+     * @param firstModel  MessageModel of first item
+     * @param secondModel MessageModel of second item
      * @return true if sender is equal and items may possibly be grouped
      */
-    private boolean isConsecutiveItem(@Nullable AbstractMessageModel firstModel, @Nullable AbstractMessageModel secondModel) {
+    private boolean isConsecutiveItem(@Nullable MessageModel firstModel, @Nullable MessageModel secondModel) {
         if (firstModel != null && secondModel != null) {
             if (firstModel.isOutbox() == secondModel.isOutbox()) {
                 if (groupId > 0) {
@@ -791,16 +777,16 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
             itemType != TYPE_FORWARD_SECURITY_STATUS);
     }
 
-    private boolean shouldShowDeletedPlaceholder(@NonNull AbstractMessageModel messageModel) {
+    private boolean shouldShowDeletedPlaceholder(@NonNull MessageModel messageModel) {
         return messageModel.isDeleted() && messageModel.getBody() == null && messageModel.getCaption() == null;
     }
 
-    private void applyDeletedMessageBorder(@NonNull ComposeMessageHolder holder, @NonNull AbstractMessageModel messageModel) {
+    private void applyDeletedMessageBorder(@NonNull ComposeMessageHolder holder, @NonNull MessageModel messageModel) {
         if (!messageModel.isDeleted() || shouldShowDeletedPlaceholder(messageModel)) {
             holder.messageBlockView.setStrokeWidth(0);
             return;
         }
-        final int borderColor = ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorError);
+        final int borderColor = getColorFromAttribute(getContext(), R.attr.colorError);
         final int borderWidth = Math.round(2f * getContext().getResources().getDisplayMetrics().density);
         holder.messageBlockView.setStrokeColor(borderColor);
         holder.messageBlockView.setStrokeWidth(borderWidth);
@@ -846,7 +832,7 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
                     }
 
                     for (position = values.size() - 1; position >= 0; position--) {
-                        AbstractMessageModel messageModel = values.get(position);
+                        MessageModel messageModel = values.get(position);
 
                         if (apiMessageIdToSearchFor != null) {
                             // search for message ids
@@ -855,19 +841,12 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
                                 break;
                             }
                         } else {
-                            if (((messageModel.getType() == MessageType.TEXT && !messageModel.isStatusMessage()) ||
+                            if ((messageModel.getType() == MessageType.TEXT ||
                                 messageModel.getType() == MessageType.FILE ||
                                 messageModel.getType() == MessageType.LOCATION)) {
                                 String body = messageModel.getCaption();
-                                if (TextUtils.isEmpty(body)) {
-                                    body = QuoteUtil.getMessageBody(
-                                        messageModel.getType(),
-                                        messageModel.getBody(),
-                                        messageModel.getCaption(),
-                                        messageModel.isOutbox(),
-                                        false,
-                                        decoratorHelper.getPreferenceService().getContactNameFormat()
-                                    );
+                                if (TextUtils.isEmpty(body) && messageModel.getType() == MessageType.TEXT) {
+                                    body = messageModel.getBody();
                                 }
                                 if (body != null) {
                                     if (body.equals(filterString)) {
@@ -889,38 +868,30 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
                     }
                 } else {
                     // filtering of matching messages by content
-                    for (AbstractMessageModel messageModel : values) {
+                    for (MessageModel messageModel : values) {
                         if (shouldShowDeletedPlaceholder(messageModel)) {
                             position++;
                             continue;
                         }
-                        if ((messageModel.getType() == MessageType.TEXT && !messageModel.isStatusMessage())
+                        if (messageModel.getType() == MessageType.TEXT
                             || messageModel.getType() == MessageType.LOCATION
                             || messageModel.getType() == MessageType.POLL) {
                             String body = messageModel.getBody();
 
                             if (messageModel.getType() == MessageType.TEXT) {
                                 // enable searching in quoted text
-                                int quoteType = QuoteUtil.getQuoteType(messageModel);
-                                if (quoteType != QuoteUtil.QUOTE_TYPE_NONE) {
-                                    QuoteUtil.QuoteContent quoteContent = QuoteUtil.getQuoteContent(
+                                if (isQuote(messageModel)) {
+                                    QuoteUtil.QuoteContent quoteContent = quoteUtil.getQuoteContent(
                                         messageModel,
                                         decoratorHelper.getMessageReceiver(),
-                                        false,
-                                        decoratorHelper.getThumbnailCache(),
-                                        getContext(),
-                                        messageService,
-                                        userService,
-                                        fileService,
-                                        decoratorHelper.getPreferenceService().getContactNameFormat()
+                                        decoratorHelper.getThumbnailCache()
                                     );
                                     if (quoteContent != null) {
                                         body = quoteContent.quotedText + " " + quoteContent.bodyText;
                                     }
                                 }
-                                // strip away mentions
                                 if (body != null) {
-                                    body = emojiMarkupUtil.stripMentions(body);
+                                    body = Mention.stripMentions(body);
                                 }
                             }
 
@@ -1123,8 +1094,8 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
                 return;
             }
 
-            AbstractMessageModel m = this.getItem(this.firstUnreadPos);
-            if (m instanceof FirstUnreadMessageModel) {
+            MessageModel m = this.getItem(this.firstUnreadPos);
+            if (VirtualMessageUtil.isFirstUnreadMessage(m)) {
                 this.firstUnreadPos = -1;
                 this.remove(m);
             }
@@ -1136,7 +1107,7 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
     }
 
     @Override
-    public void remove(final AbstractMessageModel object) {
+    public void remove(final MessageModel object) {
         int c = this.getCount();
         super.remove(object);
 
@@ -1162,10 +1133,10 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
      * @param messageModel of original message
      * @return Position of the next message in the adapter that matches the specified criteria or AbsListView.INVALID_POSITION if none is found
      */
-    public int getNextVoiceMessage(@NonNull AbstractMessageModel messageModel) {
+    public int getNextVoiceMessage(@NonNull MessageModel messageModel) {
         Integer index = findIndexByMessageId(values, messageModel.getId());
         if (index != null && index < values.size() - 1) {
-            AbstractMessageModel nextMessage = values.get(index + 1);
+            MessageModel nextMessage = values.get(index + 1);
             if (
                 nextMessage != null &&
                     nextMessage.getId() != messageModel.getId() &&
@@ -1187,12 +1158,12 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
     }
 
     /**
-     * Refresh only items in this adapter that contain the specified AbstractMessageModels
+     * Refresh only items in this adapter that contain the specified MessageModels
      *
-     * @param targetMessageModels List of affected AbstractMessageModels
+     * @param targetMessageModels List of affected MessageModels
      */
     @UiThread
-    public void notifyItemsChanged(final List<AbstractMessageModel> targetMessageModels) {
+    public void notifyItemsChanged(final List<MessageModel> targetMessageModels) {
         synchronized (listUpdateLock) {
             if (listView != null) {
                 int n = 0;
@@ -1204,9 +1175,9 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
                 // range to the current count.
                 final int lastValidPosition = Math.min(listView.getLastVisiblePosition(), listView.getCount() - 1);
                 for (int i = firstVisiblePosition; i <= lastValidPosition; i++) {
-                    AbstractMessageModel messageModel = (AbstractMessageModel) listView.getItemAtPosition(i);
+                    MessageModel messageModel = (MessageModel) listView.getItemAtPosition(i);
                     if (messageModel != null) {
-                        for (AbstractMessageModel targetMessageModel : targetMessageModels) {
+                        for (MessageModel targetMessageModel : targetMessageModels) {
                             if (messageModel.getUid() != null && messageModel.getUid().equals(targetMessageModel.getUid())) {
                                 View view = listView.getChildAt(i - firstVisiblePosition);
                                 getView(i, view, listView);
@@ -1224,22 +1195,22 @@ public class ComposeMessageAdapter extends ArrayAdapter<AbstractMessageModel> im
     }
 
     @Override
-    public void onEmojiReactionClick(@Nullable AbstractMessageModel messageModel, @Nullable String emojiSequence) {
+    public void onEmojiReactionClick(@Nullable MessageModel messageModel, @Nullable String emojiSequence) {
         onClickListener.onEmojiReactionClick(emojiSequence, messageModel);
     }
 
     @Override
-    public void onEmojiReactionLongClick(@Nullable AbstractMessageModel messageModel, @Nullable String emojiSequence) {
+    public void onEmojiReactionLongClick(@Nullable MessageModel messageModel, @Nullable String emojiSequence) {
         onClickListener.onEmojiReactionLongClick(emojiSequence, messageModel);
     }
 
     @Override
-    public void onSelectButtonClick(@Nullable AbstractMessageModel messageModel) {
+    public void onSelectButtonClick(@Nullable MessageModel messageModel) {
         onClickListener.onSelectButtonClick(messageModel);
     }
 
     @Override
-    public void onMoreReactionsButtonClick(@Nullable AbstractMessageModel messageModel) {
+    public void onMoreReactionsButtonClick(@Nullable MessageModel messageModel) {
         onClickListener.onMoreReactionsButtonClick(messageModel);
     }
 }

@@ -16,4 +16,7 @@ interface Version2MasterKeyFileManager {
 
     @Throws(IOException::class)
     fun writeKeyFile(masterKeyStorageData: MasterKeyStorageData.Version2)
+
+    @Throws(IOException::class)
+    fun deleteFile()
 }

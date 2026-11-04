@@ -12,7 +12,6 @@ import ch.threema.app.protocolsteps.PredefinedContactPublicKeyMismatch
 import ch.threema.app.protocolsteps.SpecialContact
 import ch.threema.app.protocolsteps.UserContact
 import ch.threema.app.protocolsteps.ValidContactsLookupSteps
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.GroupService
 import ch.threema.app.tasks.ReflectGroupSyncUpdateImmediateTask
 import ch.threema.app.tasks.ReflectionResult
@@ -23,6 +22,9 @@ import ch.threema.base.crypto.NonceFactory
 import ch.threema.base.crypto.NonceScope
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.IdentityProvider
+import ch.threema.data.datatypes.ConversationCategory
+import ch.threema.data.datatypes.ConversationSpamReportingState
+import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.datatypes.localGroupId
 import ch.threema.data.models.ContactModelData
@@ -75,7 +77,6 @@ class IncomingGroupSetupTask(
     private val groupCallManager: GroupCallManager by inject()
     private val nonceFactory: NonceFactory by inject()
     private val multiDeviceManager: MultiDeviceManager by inject()
-    private val conversationCategoryService: ConversationCategoryService by inject()
 
     // Repositories
     private val contactModelRepository: ContactModelRepository by inject()
@@ -86,7 +87,7 @@ class IncomingGroupSetupTask(
 
     // Properties
     private val myIdentity by lazy {
-        identityProvider.getIdentityString()!!
+        identityProvider.requireIdentityString()
     }
 
     private val groupIdentity by lazy {
@@ -242,12 +243,14 @@ class IncomingGroupSetupTask(
                 createdAt = now,
                 synchronizedAt = null,
                 lastUpdate = now,
-                conversationVisibility = ch.threema.data.datatypes.ConversationVisibility.NORMAL,
+                conversationVisibility = ConversationVisibility.NORMAL,
+                conversationCategory = ConversationCategory.DEFAULT,
                 groupDescription = null,
                 groupDescriptionChangedAt = null,
                 otherMembers = Collections.unmodifiableSet(validMembers),
                 userState = UserState.MEMBER,
                 notificationTriggerPolicyOverride = null,
+                spamReportingState = ConversationSpamReportingState.DEFAULT,
             )
             newGroupModelData.reflectAsNewGroupIfMdEnabled(handle)
             NewGroup(newContacts, newGroupModelData)
@@ -372,9 +375,7 @@ class IncomingGroupSetupTask(
             ?: return
         newContacts.map { contactModelData ->
             val encryptedEnvelopeResult = getEncryptedContactSyncCreate(
-                contact = contactModelData.toFullSyncContact(
-                    conversationCategoryService = conversationCategoryService,
-                ),
+                contact = contactModelData.toFullSyncContact(),
                 multiDeviceProperties = multiDeviceProperties,
             )
             handle.reflect(encryptedEnvelopeResult) to encryptedEnvelopeResult.nonce

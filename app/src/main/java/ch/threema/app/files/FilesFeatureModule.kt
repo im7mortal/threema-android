@@ -1,15 +1,15 @@
 package ch.threema.app.files
 
-import org.koin.core.module.dsl.factoryOf
-import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
+import org.koin.plugin.module.dsl.single
 
 val filesFeatureModule = module {
-    singleOf(::AppDirectoryProvider)
-    factoryOf(::AppLogoFileHandleProvider)
-    factoryOf(::MessageFileHandleProvider)
-    factoryOf(::GroupProfilePictureFileHandleProvider)
-    factoryOf(::ProfilePictureFileHandleProvider)
-    factoryOf(::WallpaperFileHandleProvider)
-    factoryOf(TempFilesCleanupWorker::Scheduler)
+    single<AppDirectoryProvider>()
+    factory<AppLogoFileHandleProvider>()
+    factory<MessageFileHandleProvider>()
+    factory<GroupProfilePictureFileHandleProvider>()
+    factory<ProfilePictureFileHandleProvider>()
+    factory<WallpaperFileHandleProvider>()
+    factory<TempFilesCleanupWorker.Scheduler>()
 }

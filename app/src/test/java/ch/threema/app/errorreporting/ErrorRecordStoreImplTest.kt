@@ -1,11 +1,14 @@
 package ch.threema.app.errorreporting
 
+import android.webkit.MimeTypeMap
 import ch.threema.common.UUIDGenerator
 import ch.threema.testhelpers.TestTimeProvider
 import ch.threema.testhelpers.createTempDirectory
 import ch.threema.testhelpers.loadResource
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkStatic
+import io.mockk.unmockkStatic
 import java.io.File
 import java.lang.RuntimeException
 import java.time.Instant
@@ -24,11 +27,16 @@ class ErrorRecordStoreImplTest {
     @BeforeTest
     fun setUp() {
         recordsDirectory = createTempDirectory()
+        mockkStatic(MimeTypeMap::getSingleton)
+        every { MimeTypeMap.getSingleton() } returns mockk {
+            every { getMimeTypeFromExtension("txt") } returns "text/plain"
+        }
     }
 
     @AfterTest
     fun tearDown() {
         recordsDirectory.deleteRecursively()
+        unmockkStatic(MimeTypeMap::getSingleton)
     }
 
     @Test
@@ -65,6 +73,25 @@ class ErrorRecordStoreImplTest {
         assertTrue(recordFile.exists())
         assertEquals(
             loadResource("error-reporting/non-fatal-error-record-v2.json").trim(),
+            recordFile.readText().trim(),
+        )
+    }
+
+    @Test
+    fun `store non-fatal error with attachments`() {
+        val errorRecordStore = ErrorRecordStoreImpl(
+            recordsDirectory = recordsDirectory,
+            timeProvider = TestTimeProvider(1_762_270_272_000L),
+            uuidGenerator = uuidGenerator,
+        )
+        val file = File("/some/file.txt")
+
+        errorRecordStore.storeHandledError("here be attachments", attachments = listOf(file))
+
+        val recordFile = recordsDirectory.listFiles()?.first()!!
+        assertTrue(recordFile.exists())
+        assertEquals(
+            loadResource("error-reporting/non-fatal-error-record-with-attachment-v2.json").trim(),
             recordFile.readText().trim(),
         )
     }

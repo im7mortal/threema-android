@@ -1,5 +1,6 @@
 package ch.threema.localcrypto
 
+import android.content.Context
 import ch.threema.common.toCryptographicByteArray
 import ch.threema.localcrypto.MasterKeyTestData.MASTER_KEY
 import ch.threema.localcrypto.MasterKeyTestData.Version1.PROTECTED_KEY
@@ -8,7 +9,10 @@ import ch.threema.localcrypto.MasterKeyTestData.Version1.VERIFICATION
 import ch.threema.localcrypto.models.MasterKeyData
 import ch.threema.localcrypto.models.MasterKeyStorageData
 import ch.threema.localcrypto.models.Version1MasterKeyStorageData
+import ch.threema.testhelpers.createTempDirectory
 import ch.threema.testhelpers.loadResourceAsBytes
+import io.mockk.every
+import io.mockk.mockk
 import java.io.File
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -19,6 +23,10 @@ import kotlin.test.assertTrue
 
 class Version1MasterKeyFileManagerTest {
 
+    private val cacheDirectory = createTempDirectory()
+    private val appContextMock: Context = mockk {
+        every { cacheDir } returns cacheDirectory
+    }
     private lateinit var file: File
 
     @BeforeTest
@@ -33,15 +41,15 @@ class Version1MasterKeyFileManagerTest {
 
     @Test
     fun `file exists`() {
-        assertTrue(Version1MasterKeyFileManager(file).keyFileExists())
+        assertTrue(Version1MasterKeyFileManager(appContextMock, file).keyFileExists())
         file.delete()
-        assertFalse(Version1MasterKeyFileManager(file).keyFileExists())
+        assertFalse(Version1MasterKeyFileManager(appContextMock, file).keyFileExists())
     }
 
     @Test
     fun `read unprotected file `() {
         file.writeBytes(loadResourceAsBytes("masterkey/v1/unprotected.dat"))
-        val masterKeyFileManager = Version1MasterKeyFileManager(file)
+        val masterKeyFileManager = Version1MasterKeyFileManager(appContextMock, file)
 
         val masterKeyFileData = masterKeyFileManager.readKeyFile()
 
@@ -59,7 +67,7 @@ class Version1MasterKeyFileManagerTest {
     @Test
     fun `read file with Scrypt protected passphrase`() {
         file.writeBytes(loadResourceAsBytes("masterkey/v1/passphrase-protected.dat"))
-        val masterKeyFileManager = Version1MasterKeyFileManager(file)
+        val masterKeyFileManager = Version1MasterKeyFileManager(appContextMock, file)
 
         val masterKeyFileData = masterKeyFileManager.readKeyFile()
 

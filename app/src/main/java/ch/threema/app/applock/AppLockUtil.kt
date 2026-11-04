@@ -3,17 +3,16 @@ package ch.threema.app.applock
 import android.Manifest
 import android.app.KeyguardManager
 import android.content.Context
-import android.content.pm.PackageManager
 import android.os.Build
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_WEAK
 import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
 import androidx.biometric.BiometricPrompt
 import androidx.biometric.BiometricPrompt.PromptInfo
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import androidx.fragment.app.FragmentActivity
+import ch.threema.android.checkGrantedPermission
 import ch.threema.app.R
 import ch.threema.base.utils.getThreemaLogger
 import kotlin.coroutines.resume
@@ -30,7 +29,7 @@ class AppLockUtil(private val appContext: Context) {
         appContext.getSystemService<KeyguardManager>()?.isDeviceSecure == true
 
     fun getBiometricsAuthenticatorState(): BiometricsState {
-        if (ActivityCompat.checkSelfPermission(appContext, Manifest.permission.USE_BIOMETRIC) != PackageManager.PERMISSION_GRANTED) {
+        if (!appContext.checkGrantedPermission(Manifest.permission.USE_BIOMETRIC)) {
             logger.info("Biometrics permission not granted")
             return BiometricsState.NO_PERMISSION
         }

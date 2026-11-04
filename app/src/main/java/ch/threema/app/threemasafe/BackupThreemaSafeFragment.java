@@ -24,7 +24,6 @@ import org.slf4j.Logger;
 
 import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.app.R;
-import ch.threema.app.ThreemaApplication;
 import ch.threema.app.dialogs.GenericAlertDialog;
 import ch.threema.app.dialogs.GenericProgressDialog;
 import ch.threema.app.dialogs.SimpleStringAlertDialog;
@@ -41,9 +40,9 @@ import ch.threema.app.utils.DialogUtil;
 import ch.threema.app.utils.LocaleUtil;
 import ch.threema.app.utils.RuntimeUtil;
 import ch.threema.base.ThreemaException;
-import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
-import static ch.threema.app.threemasafe.ThreemaSafeConfigureActivity.EXTRA_CHANGE_PASSWORD;
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
+import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 public class BackupThreemaSafeFragment extends Fragment implements GenericAlertDialog.DialogClickListener {
     private static final Logger logger = getThreemaLogger("BackupThreemaSafeFragment");
@@ -147,8 +146,7 @@ public class BackupThreemaSafeFragment extends Fragment implements GenericAlertD
             changePasswordButton.setOnClickListener(v -> {
                 if (preferenceService.getThreemaSafeEnabled()) {
                     threemaSafeService.unschedulePeriodicUpload();
-                    Intent intent = new Intent(getActivity(), ThreemaSafeConfigureActivity.class);
-                    intent.putExtra(EXTRA_CHANGE_PASSWORD, true);
+                    Intent intent = ThreemaSafeConfigureActivity.createChangePasswordIntent(getActivity());
                     startActivityForResult(intent, REQUEST_CODE_SAFE_CHANGE_PASSWORD);
                 }
             });
@@ -231,7 +229,7 @@ public class BackupThreemaSafeFragment extends Fragment implements GenericAlertD
                     backupResult.setTextColor(getResources().getColor(R.color.material_red));
                 } else {
                     backupResult.setText("-");
-                    backupResult.setTextColor(ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorOnBackground));
+                    backupResult.setTextColor(getColorFromAttribute(getContext(), R.attr.colorOnBackground));
                 }
                 changePasswordButton.setVisibility(View.INVISIBLE);
             }
@@ -275,7 +273,7 @@ public class BackupThreemaSafeFragment extends Fragment implements GenericAlertD
             @Override
             protected void onPostExecute(String string) {
                 String message;
-                DialogUtil.dismissDialog(getFragmentManager(), DIALOG_TAG_DELETING, true);
+                DialogUtil.dismissDialog(getFragmentManager(), DIALOG_TAG_DELETING);
                 threemaSafeService.setEnabled(false);
                 if (string != null) {
                     message = String.format(getString(R.string.safe_delete_error), string);

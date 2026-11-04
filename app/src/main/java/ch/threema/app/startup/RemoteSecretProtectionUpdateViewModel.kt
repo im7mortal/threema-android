@@ -1,32 +1,15 @@
 package ch.threema.app.startup
 
 import ch.threema.app.framework.BaseViewModel
-import ch.threema.app.services.UserService
-import ch.threema.app.services.license.LicenseService
 import ch.threema.app.startup.models.RemoteSecretUpdateStatus
 import ch.threema.app.startup.models.RemoteSecretUpdateType
-import ch.threema.base.utils.getThreemaLogger
-import ch.threema.common.DispatcherProvider
-import ch.threema.common.toCryptographicByteArray
-import ch.threema.domain.models.UserCredentials
-import ch.threema.domain.protocol.ServerAddressProvider
-import ch.threema.domain.types.toIdentityOrNull
 import ch.threema.localcrypto.MasterKeyManager
-import ch.threema.localcrypto.exceptions.InvalidCredentialsException
-import ch.threema.localcrypto.exceptions.PassphraseRequiredException
-import ch.threema.localcrypto.models.RemoteSecretClientParameters
 import ch.threema.localcrypto.models.RemoteSecretProtectionInstruction
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.withContext
-
-private val logger = getThreemaLogger("RemoteSecretProtectionUpdateViewModel")
 
 class RemoteSecretProtectionUpdateViewModel(
     private val masterKeyManager: MasterKeyManager,
-    private val serverAddressProvider: ServerAddressProvider,
-    private val userService: UserService,
-    private val licenseService: LicenseService<*>,
-    private val dispatcherProvider: DispatcherProvider,
+    private val remoteSecretProtectionUpdater: RemoteSecretProtectionUpdater,
 ) : BaseViewModel<RemoteSecretProtectionUpdateViewState, RemoteSecretProtectionUpdateViewModelEvent>() {
     private var isRunning = false
 
@@ -66,44 +49,28 @@ class RemoteSecretProtectionUpdateViewModel(
                 copy(status = RemoteSecretUpdateStatus.IN_PROGRESS)
             }
 
-            withContext(dispatcherProvider.worker) {
-                masterKeyManager.updateRemoteSecretProtectionStateIfNeeded(
-                    getRemoteSecretClientParameters(),
+            when (remoteSecretProtectionUpdater.runRemoteSecretProtectionUpdate()) {
+                RemoteSecretProtectionUpdater.RemoteSecretProtectionUpdateResult.Success -> updateViewState {
+                    copy(status = RemoteSecretUpdateStatus.SUCCEEDED)
+                }
+
+                RemoteSecretProtectionUpdater.RemoteSecretProtectionUpdateResult.InvalidCredentialsError -> emitEvent(
+                    RemoteSecretProtectionUpdateViewModelEvent.PromptForCredentials,
                 )
-                masterKeyManager.persistKeyDataIfNeeded()
-            }
-            updateViewState {
-                copy(status = RemoteSecretUpdateStatus.SUCCEEDED)
-            }
-        } catch (_: PassphraseRequiredException) {
-            masterKeyManager.lockWithPassphrase()
-        } catch (e: InvalidCredentialsException) {
-            logger.warn("Invalid credentials", e)
-            emitEvent(RemoteSecretProtectionUpdateViewModelEvent.PromptForCredentials)
-        } catch (e: Exception) {
-            logger.error("Failed to activate/deactivate remote secret", e)
-            updateViewState {
-                copy(status = RemoteSecretUpdateStatus.FAILED)
+
+                RemoteSecretProtectionUpdater.RemoteSecretProtectionUpdateResult.PassphraseRequiredError -> masterKeyManager.lockWithPassphrase()
+
+                RemoteSecretProtectionUpdater.RemoteSecretProtectionUpdateResult.NetworkError,
+                RemoteSecretProtectionUpdater.RemoteSecretProtectionUpdateResult.ServiceInstantiationError,
+                RemoteSecretProtectionUpdater.RemoteSecretProtectionUpdateResult.KeyStorageError,
+                -> updateViewState {
+                    copy(status = RemoteSecretUpdateStatus.FAILED)
+                }
             }
         } finally {
             isRunning = false
         }
     }
-
-    private fun getRemoteSecretClientParameters(): RemoteSecretClientParameters =
-        RemoteSecretClientParameters(
-            workServerBaseUrl = serverAddressProvider
-                .getWorkServerUrlLegacy()
-                ?: error("No work server URL found"),
-            userIdentity = userService.identity
-                ?.toIdentityOrNull()
-                ?: error("No user identity found"),
-            clientKey = userService.privateKey
-                ?.toCryptographicByteArray()
-                ?: error("No client key found"),
-            credentials = licenseService.loadCredentials() as? UserCredentials
-                ?: error("No user credentials found"),
-        )
 
     fun onDismissDialog() = runAction {
         updateViewState {

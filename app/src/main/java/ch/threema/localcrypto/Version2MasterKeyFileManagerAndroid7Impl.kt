@@ -1,7 +1,9 @@
 package ch.threema.localcrypto
 
+import android.content.Context
 import androidx.core.util.AtomicFile
 import ch.threema.android.writeAtomically
+import ch.threema.app.files.deleteSecurely
 import ch.threema.localcrypto.models.MasterKeyStorageData
 import java.io.DataInputStream
 import java.io.File
@@ -11,6 +13,7 @@ import java.io.File
  * with the Android KeyStore and instead keep using the unencrypted legacy key file as-is.
  */
 class Version2MasterKeyFileManagerAndroid7Impl(
+    private val appContext: Context,
     private val legacyKeyFile: File,
     private val encoder: Version2MasterKeyStorageEncoder,
     private val decoder: Version2MasterKeyStorageDecoder,
@@ -28,5 +31,9 @@ class Version2MasterKeyFileManagerAndroid7Impl(
         legacyKeyFile.writeAtomically { outputStream ->
             encoder.encodeMasterKeyStorageData(masterKeyStorageData).writeTo(outputStream)
         }
+    }
+
+    override fun deleteFile() {
+        legacyKeyFile.deleteSecurely(appContext)
     }
 }

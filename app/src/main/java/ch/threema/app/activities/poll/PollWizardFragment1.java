@@ -302,7 +302,11 @@ public class PollWizardFragment1 extends PollWizardFragment implements PollWizar
         if (createChoiceEditText.getText() != null) {
             String text = createChoiceEditText.getText().toString();
             if (!isNullOrEmpty(text)) {
-                createChoice(text.trim(), PollChoiceModel.Type.Text);
+                PollChoiceModel choiceModel = new PollChoiceModel();
+                choiceModel.setName(text.trim());
+                synchronized (this.pollChoiceModelList) {
+                    this.pollChoiceModelList.add(choiceModel);
+                }
                 int insertPosition = this.pollChoiceModelList.size() - 1;
                 listAdapter.notifyItemInserted(insertPosition);
                 choiceRecyclerView.smoothScrollToPosition(insertPosition);
@@ -324,16 +328,6 @@ public class PollWizardFragment1 extends PollWizardFragment implements PollWizar
 
     public void saveUnsavedData() {
         createChoice();
-    }
-
-    private void createChoice(String name, PollChoiceModel.Type type) {
-        PollChoiceModel choiceModel = new PollChoiceModel();
-        choiceModel.setName(name);
-        choiceModel.setType(type);
-
-        synchronized (this.pollChoiceModelList) {
-            this.pollChoiceModelList.add(choiceModel);
-        }
     }
 
     @Override

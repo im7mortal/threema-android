@@ -1,9 +1,11 @@
 package ch.threema.app.backuprestore
 
+import ch.threema.app.backuprestore.csv.BackupServiceHelper
 import ch.threema.app.backuprestore.csv.RestoreServiceHelper
-import org.koin.core.module.dsl.factoryOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
 
 val backupRestoreFeatureModule = module {
-    factoryOf(::RestoreServiceHelper)
+    factory<RestoreServiceHelper>()
+    factory<BackupServiceHelper>()
 }

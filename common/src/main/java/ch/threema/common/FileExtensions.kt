@@ -92,7 +92,7 @@ fun File.deleteOrThrow() {
 @Throws(IOException::class)
 fun File.renameOrThrow(dest: File) {
     if (!renameTo(dest)) {
-        throw IOException("Failed to rename file '$name' to '${dest.name}'")
+        throw IOException("Failed to rename file '$absolutePath' to '${dest.absolutePath}'")
     }
 }
 
@@ -135,6 +135,15 @@ fun File.copyTo(destination: FileHandle) {
 fun InputStream.copyTo(destination: FileHandle) {
     use { input ->
         destination.write().use { output ->
+            input.copyTo(output)
+        }
+    }
+}
+
+@Throws(IOException::class)
+fun InputStream.copyTo(destination: File) {
+    use { input ->
+        destination.outputStream().use { output ->
             input.copyTo(output)
         }
     }

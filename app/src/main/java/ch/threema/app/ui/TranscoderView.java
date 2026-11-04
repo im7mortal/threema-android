@@ -13,13 +13,13 @@ import com.google.android.material.progressindicator.LinearProgressIndicator;
 import ch.threema.app.R;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.MessageService;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 
 public class TranscoderView extends FrameLayout {
     public static final int PROGRESS_MAX = 100;
 
     private LinearProgressIndicator transcodeProgress;
-    private AbstractMessageModel messageModel;
+    private MessageModel messageModel;
     private MessageService messageService;
 
     public TranscoderView(Context context) {
@@ -97,7 +97,7 @@ public class TranscoderView extends FrameLayout {
         }
     }
 
-    public void setMessageModel(AbstractMessageModel messageModel) {
+    public void setMessageModel(MessageModel messageModel) {
         this.messageModel = messageModel;
     }
 }

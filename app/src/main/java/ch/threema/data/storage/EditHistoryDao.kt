@@ -1,30 +1,50 @@
 package ch.threema.data.storage
 
 import android.database.sqlite.SQLiteException
-import ch.threema.data.repositories.EditHistoryEntryCreateException
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.data.datatypes.EditHistoryType
+import ch.threema.domain.types.MessageUid
 
 interface EditHistoryDao {
+
     /**
      * Insert a new edit history entry
      *
-     * @param entry The entry to add for the edit history
-     * @param messageModel The message referenced by the edit history entry
+     * @param dbEditHistoryEntry The entry to add for the edit history
+     * @param editHistoryType The edit history type that is used to select the table where the entry should be inserted
      *
-     * @throws SQLiteException if insertion fails due to a conflict
-     * @throws EditHistoryEntryCreateException if inserting the [DbEditHistoryEntry] in the database failed
+     * @return The inserted [DbEditHistoryEntry]
      *
-     * @return the row ID of the newly inserted row, or -1 if an error occurred
+     * @throws SQLiteException in case of any database failure
      */
-    fun create(entry: DbEditHistoryEntry, messageModel: AbstractMessageModel): Long
+    fun create(dbEditHistoryEntry: DbEditHistoryEntry, editHistoryType: EditHistoryType): DbEditHistoryEntry
+
+    /**
+     * Insert multiple new edit history entries.
+     * The entries must be sorted in chronologically ascending order, i.e. the oldest first.
+     * Note that sorting must *not* be done based on [DbEditHistoryEntry.createdAt], as this information may come from another user
+     * and might have been tampered with.
+     *
+     * @return The inserted [DbEditHistoryEntry] items
+     *
+     * @throws SQLiteException in case of any database failure
+     */
+    fun createAll(
+        editHistoryEntriesContactMessages: List<DbEditHistoryEntry>,
+        editHistoryEntriesGroupMessages: List<DbEditHistoryEntry>,
+    ): List<DbEditHistoryEntry>
 
     /**
      * Delete all edit history entries referencing the specified message id
      */
-    fun deleteAllByMessageUid(messageUid: String)
+    fun deleteAllByMessageUid(messageUid: MessageUid)
 
     /**
      * Find all edit history entries referencing the specified message uid
      */
-    fun findAllByMessageUid(messageUid: String): List<DbEditHistoryEntry>
+    fun findAllByMessageUid(messageUid: MessageUid): List<DbEditHistoryEntry>
+
+    /**
+     * Find all edit history entries referencing the specified message uids.
+     */
+    fun findAllByMessageUids(messageUids: Iterable<MessageUid>): Map<MessageUid, List<DbEditHistoryEntry>>
 }

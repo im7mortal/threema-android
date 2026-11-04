@@ -5,6 +5,7 @@ import android.os.Build
 import androidx.annotation.CallSuper
 import androidx.test.rule.GrantPermissionRule
 import ch.threema.KoinTestRule
+import ch.threema.app.TestNonceStore
 import ch.threema.app.di.SessionScopeContainer
 import ch.threema.app.di.SessionScopeContainerHolder
 import ch.threema.app.di.modules.sessionScopedModule
@@ -20,12 +21,13 @@ import ch.threema.app.testutils.TestHelpers.TestContact
 import ch.threema.app.testutils.TestHelpers.TestGroup
 import ch.threema.app.testutils.clearDatabaseAndCaches
 import ch.threema.app.utils.ForwardSecurityStatusSender
-import ch.threema.base.crypto.HashedNonce
-import ch.threema.base.crypto.Nonce
 import ch.threema.base.crypto.NonceFactory
 import ch.threema.base.crypto.NonceScope
-import ch.threema.base.crypto.NonceStore
 import ch.threema.data.datatypes.GroupIdentity
+import ch.threema.data.models.ContactModelDataFactory
+import ch.threema.data.models.GroupModelDataFactory
+import ch.threema.data.storage.SqliteDatabaseBackend
+import ch.threema.data.toContactModelData
 import ch.threema.domain.fs.DHSession
 import ch.threema.domain.helpers.DecryptTaskCodec
 import ch.threema.domain.helpers.InMemoryContactStore
@@ -58,9 +60,9 @@ import ch.threema.domain.taskmanager.Task
 import ch.threema.domain.taskmanager.TaskCodec
 import ch.threema.domain.taskmanager.TaskManager
 import ch.threema.domain.taskmanager.toCspMessage
-import ch.threema.storage.DatabaseService
+import ch.threema.domain.types.Identity
 import ch.threema.storage.factories.TaskArchiveFactory
-import ch.threema.storage.models.group.GroupMemberModel
+import ch.threema.test.TestIdentityProvider
 import io.mockk.every
 import io.mockk.mockk
 import java.io.ByteArrayInputStream
@@ -92,6 +94,7 @@ open class MessageProcessorProvider : KoinComponent {
     protected val contactA = TestContact("12345678")
     protected val contactB = TestContact("ABCDEFGH")
     protected val contactC = TestContact("TESTTEST")
+    protected val contactD = TestContact("87654321")
 
     protected val myGroup = TestGroup(
         GroupId(0),
@@ -110,9 +113,21 @@ open class MessageProcessorProvider : KoinComponent {
             myContact.identity,
         )
     protected val groupA =
-        TestGroup(GroupId(2), contactA, listOf(myContact), "GroupA", myContact.identity)
+        TestGroup(
+            GroupId(2),
+            contactA,
+            listOf(myContact),
+            "GroupA",
+            myContact.identity,
+        )
     protected val groupB =
-        TestGroup(GroupId(3), contactB, listOf(myContact), "GroupB", myContact.identity)
+        TestGroup(
+            GroupId(3),
+            contactB,
+            listOf(myContact),
+            "GroupB",
+            myContact.identity,
+        )
     protected val groupAB =
         TestGroup(
             GroupId(4),
@@ -146,7 +161,13 @@ open class MessageProcessorProvider : KoinComponent {
             myContact.identity,
         )
     protected val myLeftGroup =
-        TestGroup(GroupId(8), myContact, listOf(contactA), "MyLeftGroup", myContact.identity)
+        TestGroup(
+            GroupId(8),
+            myContact,
+            listOf(contactA),
+            "MyLeftGroup",
+            myContact.identity,
+        )
     protected val newAGroup =
         TestGroup(
             GroupId(9),
@@ -169,6 +190,7 @@ open class MessageProcessorProvider : KoinComponent {
         addContact(contactA.contact)
         addContact(contactB.contact)
         addContact(contactC.contact)
+        addContact(contactD.contact)
     }
 
     private val identityMap = listOf(
@@ -176,6 +198,7 @@ open class MessageProcessorProvider : KoinComponent {
         contactA.identity to contactA.identityStore,
         contactB.identity to contactB.identityStore,
         contactC.identity to contactC.identityStore,
+        contactD.identity to contactD.identityStore,
     ).toMap()
 
     private val forwardSecurityStatusListener by lazy {
@@ -184,7 +207,9 @@ open class MessageProcessorProvider : KoinComponent {
             serviceManager.messageService,
             APIConnector(
                 /* serverAddressProvider = */
-                null,
+                mockk(),
+                /* challengeResponseHelper */
+                mockk(),
                 /* isWork = */
                 false,
                 /* okHttpClient = */
@@ -230,6 +255,13 @@ open class MessageProcessorProvider : KoinComponent {
                 InMemoryDHSessionStore(),
                 contactStore,
                 contactC.identityStore,
+                NonceFactory(InMemoryNonceStore()),
+                forwardSecurityStatusListener,
+            ),
+            contactD.identity to ForwardSecurityMessageProcessor(
+                InMemoryDHSessionStore(),
+                contactStore,
+                contactD.identityStore,
                 NonceFactory(InMemoryNonceStore()),
                 forwardSecurityStatusListener,
             ),
@@ -279,7 +311,7 @@ open class MessageProcessorProvider : KoinComponent {
         globalTaskCodec.outboundAbstractMessages
     }
 
-    protected val initialContacts = listOf(myContact, contactA, contactB, contactC)
+    protected val initialContacts = listOf(myContact, contactA, contactB, contactC, contactD)
 
     protected val initialGroups =
         listOf(myGroup, myGroupWithProfilePicture, groupA, groupB, groupAB, groupALeft, myLeftGroup)
@@ -436,31 +468,44 @@ open class MessageProcessorProvider : KoinComponent {
         val databaseService = serviceManager.databaseService
         val contactStore = serviceManager.contactStore
         val fileService = serviceManager.fileService
-
-        initialContacts.forEach {
-            addContactToDatabase(
-                it,
-                databaseService,
-                contactStore,
-                AcquaintanceLevel.GROUP_OR_DELETED,
-            )
-        }
-
-        initialGroups.forEach { addGroupToDatabase(it, databaseService, fileService) }
-    }
-
-    private fun addContactToDatabase(
-        testContact: TestContact,
-        databaseService: DatabaseService,
-        contactStore: ContactStore,
-        acquaintanceLevel: AcquaintanceLevel = AcquaintanceLevel.DIRECT,
-    ) {
-        databaseService.contactModelFactory.create(
-            testContact.contactModel.setAcquaintanceLevel(acquaintanceLevel)
-                .setFeatureMask(ThreemaFeature.FORWARD_SECURITY),
+        val sqliteDatabaseBackend = SqliteDatabaseBackend(
+            databaseProvider = mockk {
+                every { readableDatabase } returns databaseService.contactModelFactory.readableDatabase
+                every { writableDatabase } returns databaseService.contactModelFactory.writableDatabase
+            },
+            identityProvider = TestIdentityProvider(Identity(myContact.identity)),
         )
 
-        contactStore.addCachedContact(testContact.toBasicContact())
+        initialContacts
+            .filter { it != myContact }
+            .forEach { testContact ->
+                addGroupContactToDatabase(
+                    testContact,
+                    sqliteDatabaseBackend,
+                    contactStore,
+                )
+            }
+
+        initialGroups.forEach { addGroupToDatabase(it, sqliteDatabaseBackend, fileService) }
+    }
+
+    private fun addGroupContactToDatabase(
+        testContact: TestContact,
+        sqliteDatabaseBackend: SqliteDatabaseBackend,
+        contactStore: ContactStore,
+    ) {
+        val contactModelData = testContact
+            .toBasicContact()
+            .toContactModelData()
+            .copy(
+                acquaintanceLevel = AcquaintanceLevel.GROUP_OR_DELETED,
+                featureMask = ThreemaFeature.FORWARD_SECURITY.toULong(),
+            )
+        sqliteDatabaseBackend.createContact(
+            ContactModelDataFactory.toDbType(contactModelData),
+        )
+
+        contactStore.addCachedContact(contactModelData.toBasicContact())
 
         // We trigger the event bus to invalidate the cache of the new contact model.
         globalEventBuses.contacts.emit(ContactEvent.ContactUpdated.javaCreate(testContact.identity))
@@ -468,25 +513,17 @@ open class MessageProcessorProvider : KoinComponent {
 
     private fun addGroupToDatabase(
         testGroup: TestGroup,
-        databaseService: DatabaseService,
+        sqliteDatabaseBackend: SqliteDatabaseBackend,
         fileService: FileService,
     ) {
-        val groupModel = testGroup.groupModel
-        databaseService.groupModelFactory.createOrUpdate(groupModel)
-        testGroup.setLocalGroupId(groupModel.id)
-        testGroup.members
-            .filter { member -> member.identity != myContact.identity }
-            .filter { member -> member.identity != groupModel.groupIdentity.creatorIdentity }
-            .map { member ->
-                GroupMemberModel()
-                    .setGroupId(groupModel.id)
-                    .setIdentity(member.identity)
-            }
-            .forEach(databaseService.groupMemberModelFactory::createOrUpdate)
+        val groupModelData = testGroup.getGroupModelData()
+        sqliteDatabaseBackend.createGroup(GroupModelDataFactory.toDbType(groupModelData))
+        val groupDatabaseId = sqliteDatabaseBackend.getGroupDatabaseId(groupModelData.groupIdentity)!!
+        testGroup.setLocalGroupId(groupDatabaseId.toInt())
         if (testGroup.profilePicture != null) {
             fileService.writeGroupProfilePicture(
-                groupModel.groupIdentity,
-                groupModel.id.toLong(),
+                groupModelData.groupIdentity,
+                groupDatabaseId,
                 ByteArrayInputStream(testGroup.profilePicture),
             )
         }
@@ -546,21 +583,7 @@ open class MessageProcessorProvider : KoinComponent {
         forwardSecurityMessageProcessor: ForwardSecurityMessageProcessor,
     ): MessageBox {
         val nonceFactory = NonceFactory(
-            object : NonceStore {
-                override fun exists(scope: NonceScope, nonce: Nonce) = false
-                override fun store(scope: NonceScope, nonce: Nonce) = true
-                override fun getAllHashedNonces(scope: NonceScope) = listOf<HashedNonce>()
-                override fun getCount(scope: NonceScope) = 0L
-                override fun addHashedNoncesChunk(
-                    scope: NonceScope,
-                    chunkSize: Int,
-                    offset: Int,
-                    hashedNonces: MutableList<HashedNonce>,
-                ) {
-                }
-
-                override fun insertHashedNonces(scope: NonceScope, nonces: List<HashedNonce>) = true
-            },
+            TestNonceStore(),
         )
 
         val encapsulated = forwardSecurityMessageProcessor.runFsEncapsulationSteps(

@@ -78,12 +78,27 @@ class DatabaseNonceStore(
         }
     }
 
-    override fun exists(scope: NonceScope, nonce: Nonce): Boolean {
+    override fun exists(scope: NonceScope, nonce: Nonce) = exists(
+        scope = scope,
+        nonceBytes = nonce.bytes,
+        hashedNonceBytes = nonce.hashIfIdentityAvailable(),
+    )
+
+    override fun exists(scope: NonceScope, hashedNonce: HashedNonce) = exists(
+        scope = scope,
+        // TODO(ANDR-4689): Use the hashed nonce bytes twice as we cannot "unhash" the nonce.
+        //  This must be fixed after a database migration that migrates unhashed legacy nonces
+        //  to their hashed counterparts.
+        nonceBytes = hashedNonce.bytes,
+        hashedNonceBytes = hashedNonce.bytes,
+    )
+
+    private fun exists(scope: NonceScope, nonceBytes: ByteArray, hashedNonceBytes: ByteArray): Boolean {
         val tableName = scope.getTableName()
         return readableDatabase.rawQuery(
             "SELECT COUNT(*) FROM `$tableName` WHERE nonce=? OR nonce=?;",
-            nonce.bytes,
-            nonce.hashIfIdentityAvailable(),
+            hashedNonceBytes,
+            nonceBytes,
         ).use {
             if (it.moveToFirst()) {
                 it.getInt(0) > 0
@@ -269,6 +284,13 @@ class DatabaseNonceStore(
             NonceScope.CSP -> TABLE_NAME_CSP
             NonceScope.D2D -> TABLE_NAME_D2D
         }
+
+    override fun deleteAll() {
+        writableDatabase.runTransaction {
+            runDelete(TABLE_NAME_CSP, whereClause = null)
+            runDelete(TABLE_NAME_D2D, whereClause = null)
+        }
+    }
 
     companion object {
         private const val DATABASE_NAME_V4 = "threema-nonce-blob4.db"

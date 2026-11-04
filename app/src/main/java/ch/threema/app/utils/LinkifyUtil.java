@@ -37,16 +37,15 @@ import androidx.annotation.StringRes;
 import androidx.core.text.util.LinkifyCompat;
 import androidx.core.view.GestureDetectorCompat;
 import ch.threema.android.ToastDuration;
-import ch.threema.app.AppConstants;
 import ch.threema.app.BuildConfig;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.contactdetails.ContactDetailActivity;
-import ch.threema.app.services.ContactService;
 import ch.threema.app.ui.BottomSheetItem;
 import ch.threema.app.ui.MentionClickableSpan;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.domain.types.Mention;
+import ch.threema.storage.models.MessageModel;
 
 import static android.content.Context.CLIPBOARD_SERVICE;
 import static ch.threema.android.ToastKt.showToast;
@@ -61,11 +60,11 @@ public class LinkifyUtil {
     private Uri uri;
 
     public interface UnhandledClickHandler {
-        void onUnhandledClick(@NonNull AbstractMessageModel messageModel);
+        void onUnhandledClick(@NonNull MessageModel messageModel);
     }
 
     public interface BottomSheetGridDialogListener {
-        void showBottomSheetGridDialog(ArrayList<BottomSheetItem> items);
+        void showBottomSheetGridDialog(List<BottomSheetItem> items);
     }
 
     public interface LinkifyListener extends LinkConfirmationListener, BottomSheetGridDialogListener {
@@ -211,7 +210,7 @@ public class LinkifyUtil {
      */
     @SuppressLint("ClickableViewAccessibility")
     public void linkify(@NonNull TextView bodyTextView,
-                        @Nullable AbstractMessageModel messageModel,
+                        @Nullable MessageModel messageModel,
                         boolean includePhoneNumbers,
                         @Nullable UnhandledClickHandler unhandledClickHandler,
                         @NonNull LinkifyListener linkifyListener
@@ -294,10 +293,11 @@ public class LinkifyUtil {
                         } else if (link[0] instanceof MentionClickableSpan) {
                             MentionClickableSpan clickableSpan = (MentionClickableSpan) link[0];
 
-                            if (!clickableSpan.getText().equals(ContactService.ALL_USERS_PLACEHOLDER_ID)) {
-                                Intent intent = new Intent(context, ContactDetailActivity.class);
-                                intent.putExtra(AppConstants.INTENT_DATA_CONTACT, clickableSpan.getText());
-                                intent.setFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
+                            Mention mention = clickableSpan.mention;
+                            if (mention instanceof Mention.Identity) {
+                                String identity = ((Mention.Identity) mention).getIdentityString();
+                                Intent intent = ContactDetailActivity.createIntent(context, identity)
+                                    .setFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION);
                                 context.startActivity(intent);
                             }
                         }

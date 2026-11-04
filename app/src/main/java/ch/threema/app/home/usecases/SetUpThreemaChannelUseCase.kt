@@ -1,9 +1,9 @@
 package ch.threema.app.home.usecases
 
 import android.content.Context
+import ch.threema.app.BuildFlavor
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.MessageService
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.datatypes.PredefinedContact.Companion.THREEMA_CHANNEL_IDENTITY
 import kotlin.time.Duration.Companion.milliseconds
@@ -34,7 +34,7 @@ class SetUpThreemaChannelUseCase(
             messageService.sendText(START_NEWS_COMMAND, receiver)
             delay(1500.milliseconds)
             messageService.sendText(
-                if (ConfigUtils.isWorkBuild()) WORK_COMMAND else START_ANDROID_COMMAND,
+                if (BuildFlavor.IS_WORK) WORK_COMMAND else START_ANDROID_COMMAND,
                 receiver,
             )
             delay(1500.milliseconds)

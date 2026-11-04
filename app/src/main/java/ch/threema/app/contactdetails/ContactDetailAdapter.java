@@ -46,9 +46,9 @@ import ch.threema.app.services.GroupService;
 import ch.threema.app.ui.SectionHeaderView;
 import ch.threema.app.ui.VerificationLevelImageView;
 import ch.threema.app.utils.AndroidContactUtil;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.ViewUtil;
 
+import static ch.threema.android.PermissionExtensionsKt.checkGrantedPermission;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.data.datatypes.AvailabilityStatus;
@@ -89,7 +89,7 @@ public class ContactDetailAdapter extends RecyclerView.Adapter<RecyclerView.View
     private final BlockedIdentitiesService blockedIdentitiesService;
     private final @NonNull ch.threema.data.models.ContactModel contactModel;
     private final @NonNull ContactModelData contactModelData;
-    private final @EmojiStyle int emojiStyle;
+    private final EmojiStyle emojiStyle;
     private final List<GroupModelOld> values;
     private OnClickListener onClickListener;
     private final @NonNull RequestManager requestManager;
@@ -233,7 +233,7 @@ public class ContactDetailAdapter extends RecyclerView.Adapter<RecyclerView.View
         List<GroupModelOld> values,
         @NonNull ch.threema.data.models.ContactModel contactModel,
         @NonNull ContactModelData contactModelData,
-        @EmojiStyle int emojiStyle,
+        EmojiStyle emojiStyle,
         @NonNull RequestManager requestManager
     ) {
         this.context = context;
@@ -345,7 +345,7 @@ public class ContactDetailAdapter extends RecyclerView.Adapter<RecyclerView.View
 
             if (synchronizedSettingsService.isSyncContacts()
                 && (contactModelData.isLinkedToAndroidContact() || isSyncExcluded)
-                && ConfigUtils.isPermissionGranted(ThreemaApplication.getAppContext(), Manifest.permission.READ_CONTACTS)
+                && checkGrantedPermission(ThreemaApplication.getAppContext(), Manifest.permission.READ_CONTACTS)
             ) {
                 headerHolder.synchronizeContainer.setVisibility(View.VISIBLE);
 

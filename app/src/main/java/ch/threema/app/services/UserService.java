@@ -14,6 +14,7 @@ import ch.threema.app.profilepicture.CheckedProfilePicture;
 import ch.threema.app.profilepicture.ProfilePicture;
 import ch.threema.base.SessionScoped;
 import ch.threema.domain.models.LicenseCredentials;
+import ch.threema.domain.models.Nickname;
 import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.storage.models.ContactModel;
 
@@ -99,29 +100,18 @@ public interface UserService {
      *
      * @param phoneNumber the normalized phone number that has been linked on another device. If
      *                    null, the currently linked phone number will be removed.
-     * @param triggerSource the trigger source. Note that only from sync is allowed.
-     *
-     * @throws IllegalArgumentException if the trigger source is not from sync
      */
-    void persistPhoneIdentityLinkFromSync(
-        @Nullable String phoneNumber,
-        @NonNull TriggerSource triggerSource
-    );
+    void persistPhoneIdentityLink(@Nullable String phoneNumber);
 
     /**
      * Persist the provided email address as identity link from sync. The change is not reflected.
      *
      * @param email the email address that has been linked on another device. If null, the currently
      *              linked email address will be removed
-     * @param triggerSource the trigger source. Note that only from sync is allowed.
-     *
-     * @throws IllegalArgumentException if the trigger source is not from sync
      */
-    void persistEmailIdentityLinkFromSync(
-        @Nullable String email,
-        @NonNull TriggerSource triggerSource
-    );
+    void persistEmailIdentityLink(@Nullable String email);
 
+    @NonNull
     String getPublicNickname();
 
     /**
@@ -131,6 +121,11 @@ public interface UserService {
      */
     @Nullable
     String setPublicNickname(@Nullable String publicNickname, @NonNull TriggerSource triggerSource);
+
+    /**
+     * Persist the own public nickname.
+     */
+    void persistPublicNickname(@Nullable Nickname publicNickname);
 
     /**
      * Gets the display name of the user. This is always "Me" (localized).
@@ -163,6 +158,8 @@ public interface UserService {
         @NonNull ContactService.ProfilePictureUploadData uploadData,
         @NonNull TriggerSource triggerSource
     ) throws IOException;
+
+    void persistUserProfilePicture(@Nullable byte[] profilePictureBytes) throws IOException;
 
     /**
      * Remove the user profile picture. Note that this will trigger a user profile sync if multi

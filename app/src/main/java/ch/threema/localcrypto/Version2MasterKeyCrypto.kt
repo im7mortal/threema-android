@@ -1,8 +1,9 @@
 package ch.threema.localcrypto
 
-import ch.threema.common.emptyByteArray
+import ch.threema.common.emptyDirectByteBuffer
 import ch.threema.common.generateRandomBytes
 import ch.threema.common.toCryptographicByteArray
+import ch.threema.common.toDirectByteBuffer
 import ch.threema.libthreema.Argon2idParameters
 import ch.threema.libthreema.CryptoException as LibthreemaCryptoException
 import ch.threema.libthreema.argon2id
@@ -38,8 +39,8 @@ class Version2MasterKeyCrypto(
 
             val nonce = generateNonce()
             val secretKey = argon2id(
-                password = String(passphrase).toByteArray(),
-                salt = salt,
+                password = passphrase.toDirectByteBuffer(),
+                salt = salt.toDirectByteBuffer(),
                 parameters = Argon2idParameters(
                     memoryCost = memoryBytes.toUInt(),
                     timeCost = iterations.toUInt(),
@@ -48,10 +49,10 @@ class Version2MasterKeyCrypto(
                 ),
             )
             val data = xchacha20Poly1305Encrypt(
-                key = secretKey,
-                nonce = nonce,
+                key = secretKey.toDirectByteBuffer(),
+                nonce = nonce.toDirectByteBuffer(),
                 data = encoder.encodeInnerData(innerData).toByteArray(),
-                associatedData = emptyByteArray(),
+                associatedData = emptyDirectByteBuffer(),
             )
 
             return Version2MasterKeyStorageOuterData.PassphraseProtected(
@@ -75,8 +76,8 @@ class Version2MasterKeyCrypto(
     ): Version2MasterKeyStorageInnerData {
         try {
             val secretKey = argon2id(
-                password = String(passphrase).toByteArray(),
-                salt = outerData.salt.value,
+                password = passphrase.toDirectByteBuffer(),
+                salt = outerData.salt.value.toDirectByteBuffer(),
                 parameters = Argon2idParameters(
                     memoryCost = outerData.memoryBytes.toUInt(),
                     timeCost = outerData.iterations.toUInt(),
@@ -85,10 +86,10 @@ class Version2MasterKeyCrypto(
                 ),
             )
             val innerData = xchacha20Poly1305Decrypt(
-                key = secretKey,
-                nonce = outerData.nonce.value,
+                key = secretKey.toDirectByteBuffer(),
+                nonce = outerData.nonce.value.toDirectByteBuffer(),
                 data = outerData.encryptedData.value,
-                associatedData = emptyByteArray(),
+                associatedData = emptyDirectByteBuffer(),
             )
 
             return decoder.decodeIntermediateKeyStorage(DataInputStream(innerData.inputStream()))
@@ -110,10 +111,10 @@ class Version2MasterKeyCrypto(
                 parameters = parameters,
                 encryptedData = combineEncryptedDataAndNonce(
                     data = xchacha20Poly1305Encrypt(
-                        key = secretKey,
-                        nonce = nonce,
+                        key = secretKey.toDirectByteBuffer(),
+                        nonce = nonce.toDirectByteBuffer(),
                         data = encoder.encodeInnerData(innerData).toByteArray(),
-                        associatedData = emptyByteArray(),
+                        associatedData = emptyDirectByteBuffer(),
                     ),
                     nonce = nonce,
                 )
@@ -134,10 +135,10 @@ class Version2MasterKeyCrypto(
             val secretKey = deriveSecretKey(remoteSecret)
 
             val innerKeyStorageData = xchacha20Poly1305Decrypt(
-                key = secretKey,
-                nonce = nonce,
+                key = secretKey.toDirectByteBuffer(),
+                nonce = nonce.toDirectByteBuffer(),
                 data = encryptedData,
-                associatedData = emptyByteArray(),
+                associatedData = emptyDirectByteBuffer(),
             )
 
             val innerData = decoder.decodeIntermediateKeyStorage(DataInputStream(innerKeyStorageData.inputStream()))
@@ -156,8 +157,8 @@ class Version2MasterKeyCrypto(
     private fun deriveSecretKey(remoteSecret: RemoteSecret) =
         blake2bMac256(
             key = remoteSecret.value,
-            personal = "3ma-rs".toByteArray(),
-            salt = "rssk-a".toByteArray(),
-            data = emptyByteArray(),
+            personal = "3ma-rs".toDirectByteBuffer(),
+            salt = "rssk-a".toDirectByteBuffer(),
+            data = emptyDirectByteBuffer(),
         )
 }

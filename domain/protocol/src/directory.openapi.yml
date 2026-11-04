@@ -513,9 +513,15 @@
             If the provided _SFU Base URL_'s hostname does not end with one of
             the provided hostname suffixes, joining or peeking that call is
             disallowed.
+
+            IMPORTANT: We intentionally only check if the _SFU Base URL_'s
+            hostname **ends** with one of the provided hostname suffixes to
+            allow for wildcard usage, e.g. `sfu.threema.ch` where any subdomain
+            ending with `sfu.threema.ch` would be valid. But this has the caveat
+            of being a footgun for root domains like `threema.ch` which would
+            then accept `evil-threema.ch`. Therefore, root domains must not be
+            included here!
           type: array
-          items:
-            type: string
         sfuToken:
           description: |-
             An opaque token used to authenticate against a SFU.
@@ -530,9 +536,9 @@
             must be discarded.
       example:
         success: true
-        sfuBaseUrl: https://sfu.threema.ch
+        sfuBaseUrl: https://ch-1-sfu.threema.ch
         allowedSfuHostnameSuffixes:
-          - threema.ch
+          - sfu.threema.ch
         sfuToken: givemeaccessplz
         expiration: 600
 
@@ -1097,7 +1103,7 @@ paths:
       summary: Work Properties (Legacy)
       description: |-
         Update Work properties associated to the currently used Threema ID. Only
-        used by the _Work_ flavour of Threema.
+        used by the _Work_, _Blue_ or _OnPrem_ flavour of Threema.
 
         The first call without the challenge response properties initiates the
         challenge request. The second call must repeat the exact same properties
@@ -1139,7 +1145,7 @@ paths:
       summary: Work Sync
       description: |-
         Full sync of all data associated to the Work subscription. Only used by
-        the _Work_ flavour of Threema.
+        the _Work_, _Blue_ or _OnPrem_ flavour of Threema.
 
         TODO(SE-368): When sending/receiving steps.
       servers: *work-servers
@@ -1232,7 +1238,7 @@ paths:
       summary: Work Properties
       description: |-
         Update Work properties associated to the currently used Threema ID. Only
-        used by the _Work_ flavour of Threema.
+        used by the _Work_, _Blue_ or _OnPrem_ flavour of Threema.
 
         The first call without the challenge response properties initiates the
         challenge request. The second call must repeat the exact same properties

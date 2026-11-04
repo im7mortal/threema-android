@@ -2,7 +2,6 @@ package ch.threema.app.services
 
 import ch.threema.base.SessionScoped
 import ch.threema.data.datatypes.ConversationId
-import ch.threema.domain.taskmanager.TriggerSource
 import ch.threema.storage.models.ConversationTag
 import ch.threema.storage.models.ConversationTagModel
 
@@ -14,21 +13,21 @@ interface ConversationTagService {
      *
      * @return True if the tag was removed and false if it never existed before.
      */
-    fun removeTag(conversationId: ConversationId, tag: ConversationTag, triggerSource: TriggerSource): Boolean
+    fun removeTag(conversationId: ConversationId, tag: ConversationTag): Boolean
 
     /**
      * Tag the conversation with the given [ConversationTag].
      *
      * @return True if the tag was newly created and false if the tag was already present.
      */
-    fun addTag(conversationId: ConversationId, tag: ConversationTag, triggerSource: TriggerSource): Boolean
+    fun addTag(conversationId: ConversationId, tag: ConversationTag): Boolean
 
     /**
      * Toggle the [ConversationTag] for the conversation
      *
      * @return `true` if the conversation is tagged after the toggle operation, `false` otherwise.
      */
-    fun toggle(conversationId: ConversationId, tag: ConversationTag, triggerSource: TriggerSource): Boolean
+    fun toggle(conversationId: ConversationId, tag: ConversationTag): Boolean
 
     /**
      * Return true, if conversation is tagged with [ConversationTag]
@@ -38,7 +37,7 @@ interface ConversationTagService {
     /**
      * Remove all tags linked with the given conversation id
      */
-    fun removeAll(conversationId: ConversationId, triggerSource: TriggerSource)
+    fun removeAll(conversationId: ConversationId)
 
     /**
      * Get all tags regardless of type

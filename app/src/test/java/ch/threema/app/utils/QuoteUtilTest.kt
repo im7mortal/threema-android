@@ -1,6 +1,5 @@
 package ch.threema.app.utils
 
-import android.content.Context
 import ch.threema.app.R
 import ch.threema.app.conversation.MessageViewElementFactory
 import ch.threema.app.messagereceiver.MessageReceiver
@@ -9,12 +8,12 @@ import ch.threema.app.services.MessageService
 import ch.threema.app.services.UserService
 import ch.threema.app.test.koinTestModuleRule
 import ch.threema.app.ui.models.MessageViewElement
-import ch.threema.app.utils.QuoteUtil.QuoteContent
 import ch.threema.data.datatypes.ContactNameFormat
-import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.domain.models.MessageId
+import ch.threema.storage.models.ContactMessageModel
 import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageType
+import ch.threema.test.TestContext
 import io.mockk.every
 import io.mockk.mockk
 import kotlin.test.Test
@@ -25,6 +24,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import org.junit.Rule
+import testdata.TestData
 
 class QuoteUtilTest {
 
@@ -47,131 +47,73 @@ class QuoteUtilTest {
         }
     }
 
-    // Quotes V1
-
     @Test
-    fun testParseQuoteV1Invalid() {
-        assertNull(QuoteUtil.parseQuoteV1(""))
-        assertNull(QuoteUtil.parseQuoteV1("asdf"))
-        assertNull(QuoteUtil.parseQuoteV1("> asdf"))
-        assertNull(QuoteUtil.parseQuoteV1("> ABCDEFG: Quote\n\nBody"))
-        assertNull(QuoteUtil.parseQuoteV1("> ABCDEFGHI: Quote\n\nBody"))
-    }
-
-    private fun testQuoteV1(
-        content: QuoteContent?,
-        expectedIdentity: IdentityString,
-        expectedQuotedText: String,
-        expectedBodyText: String,
-    ) {
-        assertNotNull(content)
-        assertTrue(content.isQuoteV1)
-        assertFalse(content.isQuoteV2)
-        assertEquals(expectedIdentity, content.identity)
-        assertEquals(expectedQuotedText, content.quotedText)
-        assertEquals(expectedBodyText, content.bodyText)
-        assertNull(content.icon)
-        assertNull(content.thumbnail)
-        assertNull(content.quotedMessageId)
-        assertNull(content.quotedMessageModel)
-        assertNull(content.messageReceiver)
-    }
-
-    @Test
-    fun testParseQuoteV1() {
-        val content = QuoteUtil.parseQuoteV1("> ABCDEFGH: hello\n> goodbye\n\nyes indeed!")
-        testQuoteV1(content, "ABCDEFGH", "hello\ngoodbye", "yes indeed!")
-    }
-
-    @Test
-    fun testParseQuoteV1NoEmptyLine() {
-        val content = QuoteUtil.parseQuoteV1("> ABCDEFGH: hello\ngoodbye\n\nyes indeed!")
-        testQuoteV1(content, "ABCDEFGH", "hello", "goodbye\n\nyes indeed!")
-    }
-
-    @Test
-    fun testParseQuoteV1GatewayId() {
-        val content = QuoteUtil.parseQuoteV1("> *THREEMA: hello\n> goodbye\n\nyes indeed!")
-        testQuoteV1(content, "*THREEMA", "hello\ngoodbye", "yes indeed!")
-    }
-
-    // Quotes V2
-
-    private val mockContactReceiver = mockk<MessageReceiver<*>> {
-        every { type } returns MessageReceiver.Type_CONTACT
-    }
-
-    @Test
-    fun testExtractQuoteV2TextNoIncludeMessageModel() {
+    fun `extract quote text`() {
         // Test data
         val quoterIdentity = "AABBCCDD"
         val quotedIdentity = "AABBCCDD"
-        val quotedMessageId = "0011223344556677"
-        val quoteMessageId = "8899889988998899"
+        val quotedMessageId = TestData.MessageIds.MESSAGE_ID_1
+        val quoteMessageId = TestData.MessageIds.MESSAGE_ID_2
         val quotedBody = "Shall we eat lunch?"
         val quoteComment = "That's a great idea!"
 
         // Create quoted model
-        val quotedModel: AbstractMessageModel = MessageModel(false)
-        quotedModel.apiMessageId = quotedMessageId
+        val quotedModel: MessageModel = ContactMessageModel()
+        quotedModel.messageId = quotedMessageId
         quotedModel.identity = quotedIdentity
         quotedModel.body = quotedBody
         quotedModel.type = MessageType.TEXT
 
         // Create quoter model
-        val quoterModel: AbstractMessageModel = MessageModel(false)
-        quoterModel.apiMessageId = quoteMessageId
+        val quoterModel: MessageModel = ContactMessageModel()
+        quoterModel.messageId = quoteMessageId
         quoterModel.identity = quoterIdentity
         quoterModel.quotedMessageId = quotedMessageId
         quoterModel.body = quoteComment
         quoterModel.type = MessageType.TEXT
 
         // Verify
-        val content = extractQuoteV2(quoterModel, quotedModel, false, mockContactReceiver)
+        val content = extractQuote(quoterModel, quotedModel)
         assertNotNull(content)
-        assertTrue(content.isQuoteV2)
-        assertFalse(content.isQuoteV1)
         assertEquals(quotedBody, content.quotedText)
         assertEquals(quoteComment, content.bodyText)
         assertEquals(quotedIdentity, content.identity)
         assertEquals(quotedMessageId, content.quotedMessageId)
-        assertEquals(mockContactReceiver, content.messageReceiver)
+        assertEquals(contactReceiverMock, content.messageReceiver)
         assertNull(content.quotedMessageModel)
         assertNull(content.thumbnail)
         assertNull(content.icon)
     }
 
     @Test
-    fun testExtractQuoteV2TextNoIncludeMessageModelNoReceiverMatch() {
+    fun `extract quote text, no receiver match`() {
         // Test data
         val quoterIdentity = "AABBCCDD"
         val quotedIdentity = "CCDDEEFF"
-        val quotedMessageId = "0011223344556677"
-        val quoteMessageId = "8899889988998899"
+        val quotedMessageId = TestData.MessageIds.MESSAGE_ID_1
+        val quoteMessageId = TestData.MessageIds.MESSAGE_ID_2
         val quotedBody = "Shall we eat lunch?"
         val quoteComment = "That's a great idea!"
 
         // Create quoted model
-        val quotedModel: AbstractMessageModel = MessageModel(false)
-        quotedModel.apiMessageId = quotedMessageId
+        val quotedModel: MessageModel = ContactMessageModel()
+        quotedModel.messageId = quotedMessageId
         quotedModel.identity = quotedIdentity
         quotedModel.body = quotedBody
         quotedModel.type = MessageType.TEXT
 
         // Create quoter model
-        val quoterModel: AbstractMessageModel = MessageModel(false)
-        quoterModel.apiMessageId = quoteMessageId
+        val quoterModel: MessageModel = ContactMessageModel()
+        quoterModel.messageId = quoteMessageId
         quoterModel.identity = quoterIdentity
         quoterModel.quotedMessageId = quotedMessageId
         quoterModel.body = quoteComment
         quoterModel.type = MessageType.TEXT
 
         // Verify
-        val content = extractQuoteV2(quoterModel, quotedModel, false, mockContactReceiver)
+        val content = extractQuote(quoterModel, quotedModel)
         assertNotNull(content)
-        assertTrue(content.isQuoteV2)
-        assertFalse(content.isQuoteV1)
-        assertEquals("NoReceiverMatch", content.quotedText)
+        assertEquals(TestContext.getString(R.string.quote_not_found), content.quotedText)
         assertEquals(quoteComment, content.bodyText)
         assertEquals(quotedMessageId, content.quotedMessageId)
         assertNotEquals(quotedIdentity, content.identity)
@@ -182,54 +124,52 @@ class QuoteUtilTest {
     }
 
     @Test
-    fun testExtractQuoteV2VideoIncludeMessageModel() {
+    fun `extract quote text for video message, include message model`() {
         // Test data
         val quoterIdentity = "AABBCCDD"
         val quotedIdentity = "AABBCCDD"
-        val quotedMessageId = "0011223344556677"
-        val quoteMessageId = "8899889988998899"
+        val quotedMessageId = TestData.MessageIds.MESSAGE_ID_1
+        val quoteMessageId = TestData.MessageIds.MESSAGE_ID_2
         val quoteComment = "That's a great idea!"
 
         // Create quoted model
-        val quotedModel: AbstractMessageModel = MessageModel(false)
-        quotedModel.apiMessageId = quotedMessageId
+        val quotedModel: MessageModel = ContactMessageModel()
+        quotedModel.messageId = quotedMessageId
         quotedModel.identity = quotedIdentity
         quotedModel.type = MessageType.FILE
         quotedModel.body = """["","","video/mpeg",512000,"le-video.mp4",1,true,null,null,{}]""" // video file, no caption
 
         // Create quoter model
-        val quoterModel: AbstractMessageModel = MessageModel(false)
-        quoterModel.apiMessageId = quoteMessageId
+        val quoterModel: MessageModel = ContactMessageModel()
+        quoterModel.messageId = quoteMessageId
         quoterModel.identity = quoterIdentity
         quoterModel.quotedMessageId = quotedMessageId
         quoterModel.body = quoteComment
         quoterModel.type = MessageType.TEXT
 
         // Verify
-        val content = extractQuoteV2(quoterModel, quotedModel, true, mockContactReceiver)
+        val content = extractQuote(quoterModel, quotedModel, includeMessageModel = true)
         assertNotNull(content)
-        assertTrue(content.isQuoteV2)
-        assertFalse(content.isQuoteV1)
         assertEquals("Video", content.quotedText)
         assertEquals(quoteComment, content.bodyText)
         assertEquals(quotedIdentity, content.identity)
         assertEquals(quotedMessageId, content.quotedMessageId)
         assertEquals(quotedModel, content.quotedMessageModel)
-        assertEquals(mockContactReceiver, content.messageReceiver)
+        assertEquals(contactReceiverMock, content.messageReceiver)
         assertNull(content.thumbnail)
         assertEquals(R.drawable.ic_movie_filled, content.icon)
     }
 
     @Test
-    fun testExtractQuoteV2Deleted() {
+    fun `extract quote for deleted message`() {
         // Test data
         val quoterIdentity = "AABBCCDD"
-        val quotedMessageId = "0000000000000000"
+        val quotedMessageId = TestData.MessageIds.MESSAGE_ID_1
         val quoteMessageId = "8899889988998899"
         val quoteComment = "That's a great idea!"
 
         // Create quoter model with an invalid message id
-        val quoterModel: AbstractMessageModel = MessageModel(false)
+        val quoterModel: MessageModel = ContactMessageModel()
         quoterModel.apiMessageId = quoteMessageId
         quoterModel.identity = quoterIdentity
         quoterModel.quotedMessageId = quotedMessageId
@@ -237,11 +177,9 @@ class QuoteUtilTest {
         quoterModel.type = MessageType.TEXT
 
         // Verify
-        val content = extractQuoteV2(quoterModel, null, true, mockContactReceiver)
+        val content = extractQuote(quoterModel, quotedModel = null, includeMessageModel = true)
         assertNotNull(content)
-        assertTrue(content.isQuoteV2)
-        assertFalse(content.isQuoteV1)
-        assertEquals("Deleted", content.quotedText)
+        assertEquals(TestContext.getString(R.string.quoted_message_deleted), content.quotedText)
         assertEquals(quoteComment, content.bodyText)
         assertNull(content.identity)
         assertEquals(quotedMessageId, content.quotedMessageId)
@@ -252,84 +190,90 @@ class QuoteUtilTest {
     }
 
     @Test
-    fun testExtractQuoteV2Recursive() {
-        // Test data
-        val quoterIdentity = "AABBCCDD"
-        val quoteMessageId = "8899889988998899"
-        val quoteComment = "That's a great idea!"
+    fun `get body and quoted message id from message`() {
+        val (text, quotedMessageId) = QuoteUtil.getBodyAndQuotedMessageId(
+            "> quote #abcdef0123456789\n\nI am quoting",
+        )
+        assertEquals("I am quoting", text)
+        assertEquals(MessageId.fromString("abcdef0123456789"), quotedMessageId)
+    }
 
-        // Create model where the quote references itself
-        val quoterModel: AbstractMessageModel = MessageModel(false)
-        quoterModel.apiMessageId = quoteMessageId
-        quoterModel.identity = quoterIdentity
-        quoterModel.quotedMessageId = quoteMessageId
-        quoterModel.body = quoteComment
-        quoterModel.type = MessageType.TEXT
+    @Test
+    fun `get body and quoted message id from message that has no quote`() {
+        val (text, quotedMessageId) = QuoteUtil.getBodyAndQuotedMessageId("> no quote here")
+        assertEquals("> no quote here", text)
+        assertNull(quotedMessageId)
+    }
 
-        // Verify
-        val content = extractQuoteV2(quoterModel, null, false, mockContactReceiver)
-        assertNotNull(content)
-        assertTrue(content.isQuoteV2)
-        assertFalse(content.isQuoteV1)
-        assertEquals(quoteComment, content.quotedText)
-        assertEquals(quoteComment, content.bodyText)
-        assertEquals(quoterIdentity, content.identity)
-        assertEquals(quoteMessageId, content.quotedMessageId)
-        assertNull(content.quotedMessageModel)
-        assertEquals(mockContactReceiver, content.messageReceiver)
-        assertNull(content.thumbnail)
-        assertNull(content.icon)
+    @Test
+    fun `check body if it is a quote`() {
+        assertFalse(QuoteUtil.isQuote(null as String?))
+        assertFalse(QuoteUtil.isQuote("> Not a quote"))
+        assertFalse(QuoteUtil.isQuote("> quote #123\n\nFake quote"))
+        assertTrue(QuoteUtil.isQuote("> quote #abcdef0123456789\n\nReal quote"))
+    }
+
+    @Test
+    fun `create quoted message body`() {
+        val body = QuoteUtil.createQuotedMessageBody(
+            text = "I am quoting",
+            messageId = TestData.MessageIds.MESSAGE_ID_1,
+        )
+        assertEquals(
+            "> quote #${TestData.MessageIds.MESSAGE_ID_1}\n\nI am quoting",
+            body,
+        )
     }
 
     companion object {
+        private val contextMock = TestContext.create()
+
+        private val contactReceiverMock = mockk<MessageReceiver<*>> {
+            every { type } returns MessageReceiver.Type_CONTACT
+        }
+
         /**
-         * Helper function for v2 quotes.
-         *
          * @param quoterModel The model that contains the quote.
          * @param quotedModel The quoted model.
          */
-        private fun extractQuoteV2(
-            quoterModel: AbstractMessageModel,
-            quotedModel: AbstractMessageModel?,
-            includeMessageModel: Boolean,
-            receiver: MessageReceiver<*>,
-        ): QuoteContent {
+        private fun extractQuote(
+            quoterModel: MessageModel,
+            quotedModel: MessageModel?,
+            includeMessageModel: Boolean = false,
+        ): QuoteUtil.QuoteContent {
             // Mocks
-            val mockContext = mockk<Context>()
             val mockMessageService = mockk<MessageService>()
             val mockUserService = mockk<UserService>()
             val mockFileService = mockk<FileService>()
 
             // Ensure that message service returns the correct models
             every {
-                mockMessageService.getMessageModelByApiMessageIdAndReceiver(any(), receiver)
+                mockMessageService.getMessageModelByApiMessageIdAndReceiver(any(), contactReceiverMock)
             } returns null
             every {
-                mockMessageService.getMessageModelByApiMessageIdAndReceiver(quoterModel.apiMessageId, receiver)
+                mockMessageService.getMessageModelByApiMessageIdAndReceiver(quoterModel.apiMessageId, contactReceiverMock)
             } returns quoterModel
             if (quotedModel != null) {
                 every {
-                    mockMessageService.getMessageModelByApiMessageIdAndReceiver(quotedModel.apiMessageId, receiver)
+                    mockMessageService.getMessageModelByApiMessageIdAndReceiver(quotedModel.apiMessageId, contactReceiverMock)
                 } returns quotedModel
             }
 
-            // Ensure that certain strings used by the quote can be returned
-            every { mockContext.getString(R.string.video_placeholder) } returns "Video"
-            every { mockContext.getString(R.string.quoted_message_deleted) } returns "Deleted"
-            every { mockContext.getString(R.string.quote_not_found) } returns "NoReceiverMatch"
-
             // Return quote contents
-            return QuoteUtil.extractQuoteV2(
-                quoterModel,
-                receiver,
-                includeMessageModel,
-                null,
-                mockContext,
-                mockMessageService,
-                mockUserService,
-                mockFileService,
-                ContactNameFormat.DEFAULT,
+            val quoteUtil = QuoteUtil(
+                context = contextMock,
+                userService = mockUserService,
+                fileService = mockFileService,
+                messageService = mockMessageService,
+                preferenceService = mockk {
+                    every { getContactNameFormat() } returns ContactNameFormat.DEFAULT
+                },
             )
+            return quoteUtil.getQuoteContent(
+                messageModel = quoterModel,
+                messageReceiver = contactReceiverMock,
+                includeMessageModel = includeMessageModel,
+            )!!
         }
     }
 }

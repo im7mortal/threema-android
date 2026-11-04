@@ -21,7 +21,7 @@ class GroupSyncRequestMessage : AbstractGroupMessage() {
 
     override fun allowUserProfileDistribution(): Boolean = false
 
-    override fun exemptFromBlocking(): Boolean = true
+    override fun exemptFromBlocking(): ExemptFromBlocking = ExemptFromBlocking.YES
 
     override fun createImplicitlyDirectContact(): Boolean = false
 

@@ -1,8 +1,9 @@
 package ch.threema.app.ui;
 
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
+
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PointF;
 import android.graphics.Typeface;
@@ -17,9 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import androidx.core.content.ContextCompat;
 import ch.threema.app.R;
-import ch.threema.app.utils.ConfigUtils;
 
 public class NewWizardFingerPrintView extends SquareImageView implements View.OnTouchListener {
     public interface OnSwipeResult {
@@ -64,12 +63,12 @@ public class NewWizardFingerPrintView extends SquareImageView implements View.On
         this.setFocusable(true);
         this.setFocusableInTouchMode(true);
         this.setOnTouchListener(this);
-        this.backgroundCharPaint.setColor(ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorOnSurface));
+        this.backgroundCharPaint.setColor(getColorFromAttribute(getContext(), R.attr.colorOnSurface));
         this.backgroundCharPaint.setAntiAlias(true);
         this.backgroundCharPaint.setTextAlign(Paint.Align.CENTER);
         this.backgroundCharPaint.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
 
-        this.backgroundCharPaintFixed.setColor(ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorPrimary));
+        this.backgroundCharPaintFixed.setColor(getColorFromAttribute(getContext(), R.attr.colorPrimary));
         this.backgroundCharPaintFixed.setAntiAlias(true);
         this.backgroundCharPaintFixed.setTextAlign(Paint.Align.CENTER);
         this.backgroundCharPaintFixed.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));

@@ -6,6 +6,7 @@ import ch.threema.android.showToast
 import ch.threema.storage.factories.AppTaskPersistenceFactory
 import ch.threema.storage.factories.ContactEditHistoryEntryModelFactory
 import ch.threema.storage.factories.ContactEmojiReactionModelFactory
+import ch.threema.storage.factories.ContactMessageModelFactory
 import ch.threema.storage.factories.ContactModelFactory
 import ch.threema.storage.factories.ConversationTagFactory
 import ch.threema.storage.factories.DistributionListMemberModelFactory
@@ -20,7 +21,6 @@ import ch.threema.storage.factories.GroupModelFactory
 import ch.threema.storage.factories.GroupPollModelFactory
 import ch.threema.storage.factories.IdentityPollModelFactory
 import ch.threema.storage.factories.IncomingGroupSyncRequestLogModelFactory
-import ch.threema.storage.factories.MessageModelFactory
 import ch.threema.storage.factories.OutgoingGroupSyncRequestLogModelFactory
 import ch.threema.storage.factories.PollChoiceModelFactory
 import ch.threema.storage.factories.PollModelFactory
@@ -30,14 +30,13 @@ import ch.threema.storage.factories.ServerMessageModelFactory
 import ch.threema.storage.factories.TaskArchiveFactory
 import ch.threema.storage.factories.WebClientSessionModelFactory
 import kotlin.system.exitProcess
-import org.koin.core.module.Module
-import org.koin.core.module.dsl.factoryOf
-import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.bind
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
+import org.koin.plugin.module.dsl.single
 
 val storageModule = module {
-    factoryOf(::DatabaseDowngradeHelperImpl) bind DatabaseDowngradeHelper::class
+    factory<DatabaseDowngradeHelperImpl>() bind DatabaseDowngradeHelper::class
     single {
         DatabaseProviderImpl(
             databaseOpenHelperFactory = { masterKey ->
@@ -55,37 +54,32 @@ val storageModule = module {
         )
     } bind DatabaseProvider::class
 
-    singleOf(::AppTaskPersistenceFactory)
-    singleOf(::ContactEditHistoryEntryModelFactory)
-    singleOf(::ConversationTagFactory)
-    singleOf(::GroupEditHistoryEntryModelFactory)
-    singleOf(::ContactEmojiReactionModelFactory)
-    singleOf(::GroupEmojiReactionModelFactory)
-    singleOf(::ServerMessageModelFactory)
-    singleOf(::TaskArchiveFactory)
-    singleOf(::WebClientSessionModelFactory)
+    single<AppTaskPersistenceFactory>()
+    single<ContactEditHistoryEntryModelFactory>()
+    single<ConversationTagFactory> { ConversationTagFactory(get()) }
+    single<GroupEditHistoryEntryModelFactory>()
+    single<ContactEmojiReactionModelFactory>()
+    single<GroupEmojiReactionModelFactory>()
+    single<ServerMessageModelFactory>()
+    single<TaskArchiveFactory>()
+    single<WebClientSessionModelFactory> { WebClientSessionModelFactory(get()) }
 
-    singleOf(::DatabaseService)
-    modelFactory<ContactModelFactory> { contactModelFactory }
-    modelFactory<MessageModelFactory> { messageModelFactory }
-    modelFactory<GroupModelFactory> { groupModelFactory }
-    modelFactory<GroupMemberModelFactory> { groupMemberModelFactory }
-    modelFactory<GroupMessageModelFactory> { groupMessageModelFactory }
-    modelFactory<DistributionListModelFactory> { distributionListModelFactory }
-    modelFactory<DistributionListMemberModelFactory> { distributionListMemberModelFactory }
-    modelFactory<DistributionListMessageModelFactory> { distributionListMessageModelFactory }
-    modelFactory<OutgoingGroupSyncRequestLogModelFactory> { outgoingGroupSyncRequestLogModelFactory }
-    modelFactory<IncomingGroupSyncRequestLogModelFactory> { incomingGroupSyncRequestLogModelFactory }
-    modelFactory<PollModelFactory> { pollModelFactory }
-    modelFactory<PollChoiceModelFactory> { pollChoiceModelFactory }
-    modelFactory<PollVoteModelFactory> { pollVoteModelFactory }
-    modelFactory<IdentityPollModelFactory> { identityPollModelFactory }
-    modelFactory<GroupPollModelFactory> { groupPollModelFactory }
-    modelFactory<GroupCallModelFactory> { groupCallModelFactory }
-    modelFactory<RejectedGroupMessageFactory> { rejectedGroupMessageFactory }
-}
-
-@Deprecated("Model factories are singletons and should be managed directly by Koin, not by DatabaseService")
-private inline fun <reified T : Any> Module.modelFactory(crossinline getModelFactory: DatabaseService.() -> T) {
-    factory<T> { get<DatabaseService>().getModelFactory() }
+    single<DatabaseService>()
+    factory<ContactModelFactory> { get<DatabaseService>().contactModelFactory }
+    factory<ContactMessageModelFactory> { get<DatabaseService>().contactMessageModelFactory }
+    factory<GroupModelFactory> { get<DatabaseService>().groupModelFactory }
+    factory<GroupMemberModelFactory> { get<DatabaseService>().groupMemberModelFactory }
+    factory<GroupMessageModelFactory> { get<DatabaseService>().groupMessageModelFactory }
+    factory<DistributionListModelFactory> { get<DatabaseService>().distributionListModelFactory }
+    factory<DistributionListMemberModelFactory> { get<DatabaseService>().distributionListMemberModelFactory }
+    factory<DistributionListMessageModelFactory> { get<DatabaseService>().distributionListMessageModelFactory }
+    factory<OutgoingGroupSyncRequestLogModelFactory> { get<DatabaseService>().outgoingGroupSyncRequestLogModelFactory }
+    factory<IncomingGroupSyncRequestLogModelFactory> { get<DatabaseService>().incomingGroupSyncRequestLogModelFactory }
+    factory<PollModelFactory> { get<DatabaseService>().pollModelFactory }
+    factory<PollChoiceModelFactory> { get<DatabaseService>().pollChoiceModelFactory }
+    factory<PollVoteModelFactory> { get<DatabaseService>().pollVoteModelFactory }
+    factory<IdentityPollModelFactory> { get<DatabaseService>().identityPollModelFactory }
+    factory<GroupPollModelFactory> { get<DatabaseService>().groupPollModelFactory }
+    factory<GroupCallModelFactory> { get<DatabaseService>().groupCallModelFactory }
+    factory<RejectedGroupMessageFactory> { get<DatabaseService>().rejectedGroupMessageFactory }
 }

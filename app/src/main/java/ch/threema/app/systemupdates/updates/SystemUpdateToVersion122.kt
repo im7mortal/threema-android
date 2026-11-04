@@ -44,6 +44,4 @@ class SystemUpdateToVersion122 : SystemUpdate, KoinComponent {
     }
 
     override val version = 122
-
-    override fun getDescription() = "rename debug log files"
 }

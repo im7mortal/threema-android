@@ -3,6 +3,9 @@ package ch.threema.domain.protocol.csp.coders;
 import androidx.annotation.NonNull;
 import ch.threema.base.ThreemaException;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.ByteBufferExtensionsKt.emptyDirectByteBuffer;
+import static ch.threema.common.ByteBufferExtensionsKt.toDirectByteBuffer;
+
 import ch.threema.domain.stores.IdentityStore;
 import ch.threema.libthreema.CryptoException;
 import ch.threema.libthreema.LibthreemaKt;
@@ -55,9 +58,9 @@ public class MetadataCoder {
             }
             return LibthreemaKt.blake2bMac256(
                 sharedSecret,
-                "3ma-csp".getBytes(StandardCharsets.UTF_8),
-                "mm".getBytes(StandardCharsets.UTF_8),
-                new byte[0]
+                toDirectByteBuffer("3ma-csp"),
+                toDirectByteBuffer("mm"),
+                emptyDirectByteBuffer()
             );
         } catch (CryptoException cryptoException) {
             logger.error("Failed to compute blake2b hash", cryptoException);

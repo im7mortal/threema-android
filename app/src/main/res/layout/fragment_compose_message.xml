@@ -62,8 +62,8 @@
                 app:layout_constraintTop_toBottomOf="@id/ongoing_call_notice"
                 tools:visibility="visible" />
 
-            <ch.threema.app.ui.ReportSpamView
-                android:id="@+id/report_spam_layout"
+            <ch.threema.app.ui.ReportSpamContactView
+                android:id="@+id/report_spam_contact_layout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:animateLayoutChanges="true"
@@ -72,8 +72,18 @@
                 android:visibility="gone"
                 app:layout_constraintLeft_toLeftOf="parent"
                 app:layout_constraintRight_toRightOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/open_polls_layout"
-                tools:visibility="visible" />
+                app:layout_constraintTop_toBottomOf="@id/open_polls_layout" />
+
+            <androidx.compose.ui.platform.ComposeView
+                android:id="@+id/report_spam_group_compose_view"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="@dimen/notice_views_vertical_margin"
+                android:paddingBottom="@dimen/notice_views_vertical_margin"
+                android:visibility="gone"
+                app:layout_constraintLeft_toLeftOf="parent"
+                app:layout_constraintRight_toRightOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/report_spam_contact_layout" />
 
             <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
                 android:id="@+id/ptr_layout"
@@ -83,7 +93,7 @@
                 app:layout_constraintBottom_toTopOf="@id/bottom_container"
                 app:layout_constraintLeft_toLeftOf="parent"
                 app:layout_constraintRight_toRightOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/report_spam_layout">
+                app:layout_constraintTop_toBottomOf="@id/report_spam_group_compose_view">
 
                 <FrameLayout
                     android:id="@+id/history_parent"

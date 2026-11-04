@@ -63,12 +63,13 @@ class SettingsRateFragment : ThreemaPreferenceFragment(), RateDialogClickListene
         }
     }
 
+    @Suppress("SimplifyBooleanWithConstants")
     private fun shouldRedirectToGooglePlay() =
-        when (BuildFlavor.current.licenseType) {
+        when (BuildFlavor.licenseType) {
             BuildFlavor.LicenseType.GOOGLE,
             BuildFlavor.LicenseType.NONE,
             -> true
-            BuildFlavor.LicenseType.GOOGLE_WORK -> isInstalledFromPlayStore(requireContext())
+            BuildFlavor.LicenseType.WORK -> !BuildFlavor.IS_ON_PREM && isInstalledFromPlayStore(requireContext())
             else -> false
         }
 

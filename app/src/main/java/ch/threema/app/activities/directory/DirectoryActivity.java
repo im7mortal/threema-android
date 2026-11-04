@@ -19,8 +19,6 @@ import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.progressindicator.LinearProgressIndicator;
 import com.google.android.material.search.SearchBar;
 
-import org.json.JSONException;
-import org.json.JSONObject;
 import org.koin.android.compat.ViewModelCompat;
 import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
@@ -46,11 +44,13 @@ import androidx.recyclerview.widget.DefaultItemAnimator;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import ch.threema.android.FlowJavaCompat;
 import ch.threema.app.R;
+import ch.threema.app.activities.BackPressHandler;
 import ch.threema.app.activities.ComposeMessageActivity;
 import ch.threema.app.activities.ThreemaToolbarActivity;
 import ch.threema.app.adapters.DirectoryAdapter;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.dialogs.MultiChoiceSelectorDialog;
+import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.ui.DirectoryDataSource;
 import ch.threema.app.ui.DirectoryDataSourceFactory;
 import ch.threema.app.ui.DirectoryHeaderItemDecoration;
@@ -61,6 +61,7 @@ import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.executor.BackgroundExecutor;
 
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.data.datatypes.ContactConversationId;
@@ -74,7 +75,10 @@ import static ch.threema.app.ui.DirectoryDataSource.MIN_SEARCH_STRING_LENGTH;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 import static ch.threema.common.LazyKt.lazy;
 
-public class DirectoryActivity extends ThreemaToolbarActivity implements ThreemaSearchView.OnQueryTextListener, MultiChoiceSelectorDialog.SelectorDialogClickListener {
+public class DirectoryActivity extends ThreemaToolbarActivity implements ThreemaSearchView.OnQueryTextListener,
+    MultiChoiceSelectorDialog.SelectorDialogClickListener,
+    BackPressHandler
+{
     private static final Logger logger = getThreemaLogger("DirectoryActivity");
 
     private static final String EXTRA_QUERY_TEXT = "queryText";
@@ -142,6 +146,7 @@ public class DirectoryActivity extends ThreemaToolbarActivity implements Threema
         logScreenVisibility(this, logger);
         if (!isSessionScopeReady()) {
             finish();
+            return;
         }
         viewModel = ViewModelCompat.getViewModel(this, DirectoryViewModel.class);
         FlowJavaCompat.collect(this, Lifecycle.State.STARTED, viewModel.events, this::onViewModelEvent);
@@ -236,7 +241,7 @@ public class DirectoryActivity extends ThreemaToolbarActivity implements Threema
             updateToolbarTitle(workOrganization.getName());
         }
 
-        sortByFirstName = dependencies.getPreferenceService().isContactListSortingFirstName();
+        sortByFirstName = dependencies.getPreferenceService().getContactSortOrder() == PreferenceService.ContactSortOrder.FIRST_NAME;
 
         chipGroup = findViewById(R.id.chip_group);
         chipGroup.getLayoutTransition().enableTransitionType(LayoutTransition.CHANGE_DISAPPEARING | LayoutTransition.CHANGE_APPEARING);
@@ -246,7 +251,7 @@ public class DirectoryActivity extends ThreemaToolbarActivity implements Threema
         progressIndicator.setVisibility(View.GONE);
 
         categorySpanColor = getResources().getColor(R.color.mention_background);
-        categorySpanTextColor = ConfigUtils.getColorFromAttribute(this, R.attr.colorOnBackground);
+        categorySpanTextColor = getColorFromAttribute(this, R.attr.colorOnBackground);
 
         recyclerView = this.findViewById(R.id.recycler);
         recyclerView.setHasFixedSize(true);
@@ -616,12 +621,7 @@ public class DirectoryActivity extends ThreemaToolbarActivity implements Threema
     }
 
     @Override
-    protected boolean enableOnBackPressedCallback() {
-        return true;
-    }
-
-    @Override
-    protected void handleOnBackPressed() {
+    public void handleOnBackPressed() {
         // Intercepting back navigation is needed as this activity overrides the finish() method
         this.finish();
     }

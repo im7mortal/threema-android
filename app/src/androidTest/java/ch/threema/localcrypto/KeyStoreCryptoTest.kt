@@ -2,6 +2,8 @@ package ch.threema.localcrypto
 
 import ch.threema.app.DangerousTest
 import ch.threema.localcrypto.protobuf.KeyWrapper
+import io.mockk.mockk
+import io.mockk.verify
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -68,6 +70,20 @@ class KeyStoreCryptoTest {
 
         assertFailsWith<IllegalStateException> {
             keyStoreCrypto.decryptWithExistingSecretKey(encryptedData)
+        }
+    }
+
+    @Test
+    fun deleteAllSecretKeys() {
+        val keyStoreSecretKeyManagerMock = mockk<KeyStoreSecretKeyManager>(relaxed = true)
+        val keyStoreCrypto = KeyStoreCrypto(
+            keyStoreSecretKeyManager = keyStoreSecretKeyManagerMock,
+        )
+
+        keyStoreCrypto.deleteAllSecretKeys()
+
+        verify {
+            keyStoreSecretKeyManagerMock.deleteAllSecretKeys()
         }
     }
 }

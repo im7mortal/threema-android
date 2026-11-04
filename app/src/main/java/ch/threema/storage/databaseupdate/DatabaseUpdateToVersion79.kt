@@ -29,7 +29,5 @@ internal class DatabaseUpdateToVersion79(
         sqLiteDatabase.execSQL("DROP TABLE `$tmpTableName`")
     }
 
-    override fun getDescription() = "GroupCalls"
-
     override val version = 79
 }

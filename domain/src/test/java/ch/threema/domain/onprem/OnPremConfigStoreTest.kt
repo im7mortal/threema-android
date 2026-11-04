@@ -53,31 +53,6 @@ class OnPremConfigStoreTest {
         verify { onPremConfigParserMock.parse(any(), createdAt = Instant.ofEpochMilli(1_760_356_256_000L)) }
     }
 
-    // TODO(ANDR-4431): Remove this test case
-    @Test
-    fun `load from existing legacy store file when verifying fails`() {
-        val storeFile = File(baseDirectory, "onprem_config")
-        storeFile.writeText("{}\n1760356256000")
-        val onPremConfigMock = mockk<OnPremConfig>()
-        val onPremConfigParserMock = mockk<OnPremConfigParser> {
-            every { parse(match { it.toString() == "{}" }, createdAt = any()) } returns onPremConfigMock
-        }
-        val onPremConfigVerifierMock = mockk<OnPremConfigVerifier> {
-            every { verify("{}") } answers { throw ThreemaException("Failed to verify") }
-        }
-        val onPremConfigStore = OnPremConfigStore(
-            onPremConfigParser = onPremConfigParserMock,
-            onPremConfigVerifier = onPremConfigVerifierMock,
-            timeProvider = mockk(),
-            baseDirectory = baseDirectory,
-        )
-
-        val onPremConfig = onPremConfigStore.get()
-
-        assertEquals(onPremConfigMock, onPremConfig)
-        verify { onPremConfigParserMock.parse(any(), createdAt = Instant.ofEpochMilli(1_760_356_256_000L)) }
-    }
-
     @Test
     fun `load from non-existing store file`() {
         val onPremConfigStore = OnPremConfigStore(

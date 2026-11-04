@@ -24,6 +24,7 @@ import ch.threema.app.utils.IntentDataUtil;
 
 import static ch.threema.android.ToastKt.showToast;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.group.GroupModelOld;
 
@@ -101,7 +102,9 @@ public class GroupAddActivity extends MemberChooseActivity implements GenericAle
         initList();
 
         if (!appendMembers && savedInstanceState == null) {
-            ShowOnceDialog.newInstance(R.string.title_addgroup, R.string.note_group_howto, 0).show(getSupportFragmentManager(), DIALOG_TAG_NOTE_GROUP_HOWTO);
+            ShowOnceDialog
+                .newInstance(R.string.title_addgroup, R.string.note_group_howto, 0)
+                .show(getSupportFragmentManager(), DIALOG_TAG_NOTE_GROUP_HOWTO);
         }
     }
 

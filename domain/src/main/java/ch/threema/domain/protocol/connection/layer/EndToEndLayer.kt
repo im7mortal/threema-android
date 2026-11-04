@@ -20,6 +20,7 @@ import ch.threema.domain.protocol.connection.util.ServerConnectionController
 import ch.threema.domain.taskmanager.IncomingMessageProcessor
 import ch.threema.domain.taskmanager.InternalTaskManager
 import kotlin.coroutines.CoroutineContext
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -101,7 +102,7 @@ internal class EndToEndLayer(
         logger.debug("Handle inbound message of type `{}`", message.type)
         // TODO(ANDR-3580): Should we acquire this way earlier, i.e. when receiving bytes on the TCP
         //  layer / a datagram on the WS layer and shove it through the whole pipeline?
-        val lock = connectionLockProvider.acquire(60_000, ConnectionLockProvider.ConnectionLogTag.INBOUND_MESSAGE)
+        val lock = connectionLockProvider.acquire(1.minutes, ConnectionLockProvider.ConnectionLogTag.INBOUND_MESSAGE)
         val result = inboundMessageChannel.trySend(
             Pair(
                 message.toInboundMessage(),

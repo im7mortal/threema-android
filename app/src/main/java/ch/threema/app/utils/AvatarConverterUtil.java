@@ -8,7 +8,6 @@ import android.graphics.BitmapFactory;
 import android.graphics.BitmapRegionDecoder;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.LightingColorFilter;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
@@ -24,7 +23,6 @@ import java.io.InputStream;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.annotation.RequiresPermission;
 import androidx.core.graphics.drawable.RoundedBitmapDrawable;
 import androidx.core.graphics.drawable.RoundedBitmapDrawableFactory;
@@ -35,27 +33,13 @@ import ch.threema.domain.protocol.csp.ProtocolDefines;
 public class AvatarConverterUtil {
     private static final Logger logger = getThreemaLogger("AvatarConverterUtil");
 
-    private static int avatarSize = -1, iconSize = -1, iconOffset = -1;
+    private static int avatarSize = -1;
 
     public static int getAvatarSize(Resources r) {
         if (avatarSize == -1) {
             avatarSize = r.getDimensionPixelSize(R.dimen.avatar_size_small);
         }
         return avatarSize;
-    }
-
-    private static int getContentIconSize(Resources r) {
-        if (iconSize == -1) {
-            iconSize = r.getDimensionPixelSize(R.dimen.conversation_controller_icon_size);
-        }
-        return iconSize;
-    }
-
-    private static int getContentIconOffset(Resources r) {
-        if (iconOffset == -1) {
-            iconOffset = (getAvatarSize(r) - getContentIconSize(r)) / 2;
-        }
-        return iconOffset;
     }
 
     @RequiresPermission(Manifest.permission.READ_CONTACTS)
@@ -105,12 +89,9 @@ public class AvatarConverterUtil {
         }
     }
 
-    public static Bitmap convert(Resources r, Bitmap sourceBitmap) {
-        return convertToRound(r, sourceBitmap, Color.WHITE, null, getAvatarSize(r));
-    }
-
-    public static Bitmap convert(Resources r, Bitmap sourceBitmap, int bgcolor, int fgcolor) {
-        return convertToRound(r, sourceBitmap, bgcolor, fgcolor, getAvatarSize(r));
+    @NonNull
+    public static Bitmap convert(@NonNull Resources r, @NonNull Bitmap sourceBitmap) {
+        return convertToRound(sourceBitmap, getAvatarSize(r));
     }
 
     public static Drawable convertToRound(Resources r, Bitmap sourceBitmap) {
@@ -120,12 +101,8 @@ public class AvatarConverterUtil {
         return bitmapDrawable;
     }
 
-    @Nullable
-    public static Bitmap convertToRound(Resources r, @Nullable Bitmap sourceBitmap, @ColorInt final int bgcolor, @Nullable final Integer fgcolor, int size) {
-        if (sourceBitmap == null) {
-            return null;
-        }
-
+    @NonNull
+    private static Bitmap convertToRound(@NonNull Bitmap sourceBitmap, int size) {
         Bitmap output = Bitmap.createBitmap(
             size,
             size,
@@ -136,12 +113,13 @@ public class AvatarConverterUtil {
         bgPaint.setAntiAlias(true);
         bgPaint.setFilterBitmap(true);
         canvas.drawARGB(0, 0, 0, 0);
-        bgPaint.setColor(bgcolor);
+        bgPaint.setColor(Color.WHITE);
         canvas.drawCircle(
             (float) output.getWidth() / 2,
             (float) output.getHeight() / 2,
             (float) output.getWidth() / 2,
-            bgPaint);
+            bgPaint
+        );
         bgPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.SRC_IN));
 
         int sourceLeft = 0, sourceTop = 0, sourceRight = sourceBitmap.getWidth(), sourceBottom = sourceBitmap.getHeight();
@@ -158,28 +136,12 @@ public class AvatarConverterUtil {
             }
         }
 
-        if (fgcolor == null) {
-            canvas.drawBitmap(
-                sourceBitmap,
-                new Rect(sourceLeft, sourceTop, sourceRight, sourceBottom),
-                new Rect(0, 0, size, size),
-                bgPaint);
-        } else {
-
-            final Paint fgPaint = new Paint();
-            fgPaint.setAntiAlias(true);
-            fgPaint.setColorFilter(new LightingColorFilter(0xFFFFFFFF, fgcolor));
-            fgPaint.setFilterBitmap(true);
-
-            Rect destRect = new Rect(0, 0, getContentIconSize(r), getContentIconSize(r));
-            destRect.offset(getContentIconOffset(r), getContentIconOffset(r));
-
-            canvas.drawBitmap(
-                sourceBitmap,
-                new Rect(0, 0, sourceBitmap.getWidth(), sourceBitmap.getHeight()),
-                destRect,
-                fgPaint);
-        }
+        canvas.drawBitmap(
+            sourceBitmap,
+            new Rect(sourceLeft, sourceTop, sourceRight, sourceBottom),
+            new Rect(0, 0, size, size),
+            bgPaint
+        );
         return output;
     }
 
@@ -217,7 +179,7 @@ public class AvatarConverterUtil {
         paint.setColor(color);
         canvas.drawRect(0f, 0f, newBitmap.getWidth(), newBitmap.getHeight(), paint);
         canvas.drawBitmap(defaultBitmap, borderWidth / 2f, borderWidth / 2f, null);
-        BitmapUtil.recycle(defaultBitmap);
+        defaultBitmap.recycle();
         return newBitmap;
     }
 

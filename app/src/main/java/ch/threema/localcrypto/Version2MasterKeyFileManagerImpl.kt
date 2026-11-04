@@ -98,4 +98,14 @@ class Version2MasterKeyFileManagerImpl(
             keyStoreCrypto.deleteSecretKey(previousKeyAlias)
         }
     }
+
+    @Throws(IOException::class)
+    override fun deleteFile() {
+        keyFile.deleteSecurely(appContext)
+        unencryptedKeyFile.deleteSecurely(appContext)
+
+        // The secret keys must only be deleted AFTER the master key file(s) have been deleted,
+        // as having a master key file but no secret key to unlock it is an invalid state the app cannot recover from.
+        keyStoreCrypto.deleteAllSecretKeys()
+    }
 }

@@ -25,6 +25,7 @@ import androidx.appcompat.app.ActionBar;
 import androidx.lifecycle.Lifecycle;
 import ch.threema.android.FlowJavaCompat;
 import ch.threema.app.R;
+import ch.threema.app.activities.BackPressHandler;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.eventbus.GlobalEventFlows;
 import ch.threema.app.eventbus.events.PollEvent;
@@ -49,7 +50,7 @@ import ch.threema.storage.models.poll.PollVoteModel;
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 
-public class PollMatrixActivity extends PollDetailActivity {
+public class PollMatrixActivity extends PollDetailActivity implements BackPressHandler {
     private static final Logger logger = getThreemaLogger("PollMatrixActivity");
 
     @NonNull
@@ -312,12 +313,12 @@ public class PollMatrixActivity extends PollDetailActivity {
         PollVoteModel vote = matrixData.getVote(p, c);
         ViewUtil.show(
             (View) choiceVoteView.findViewById(R.id.voting_value_1),
-            p.hasVoted() && vote != null && vote.getChoice() == 1);
+            p.hasVoted() && vote != null && vote.getSelected());
 
 
         ViewUtil.show(
             (View) choiceVoteView.findViewById(R.id.voting_value_0),
-            p.hasVoted() && (vote == null || vote.getChoice() != 1));
+            p.hasVoted() && (vote == null || !vote.getSelected()));
 
         ViewUtil.show(
             (View) choiceVoteView.findViewById(R.id.voting_value_none),
@@ -335,12 +336,7 @@ public class PollMatrixActivity extends PollDetailActivity {
     }
 
     @Override
-    protected boolean enableOnBackPressedCallback() {
-        return true;
-    }
-
-    @Override
-    protected void handleOnBackPressed() {
+    public void handleOnBackPressed() {
         setResult(RESULT_OK);
         finish();
     }

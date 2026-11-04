@@ -156,7 +156,6 @@ når den første meldingen mottas.</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="backup_sum">Eksporter din ${app_name_short} ID</string>
     <string name="backup_and_delete">Sikkerhetskopier og slett</string>
-    <string name="delete_id_title">Slett ID</string>
     <string name="delete_id_message">Du vil ikke ha muligheten til å sende eller motta meldinger med denne IDen igjen, med mindre du har tatt en sikkerhetskopi eller eksportert og lagret en kopi av IDen.\n\nOm du ikke har planer om å bruke denne IDen igjen, er det anbefalt å opprette et tilbakekallingspassord og tilbakekalle IDen på myid.threema.ch/revoke før du sletter den.</string>
     <string name="delete_id_message2">Siste advarsel: Vil du virkelig slette din ID på denne enheten?</string>
     <string name="backup_password_summary">Eksporten av din ID blir kryptert med et passord. Bruk en kombinasjon av bokstaver, tall og symboler. Ikke glem hva du skriver her!</string>
@@ -399,12 +398,6 @@ når den første meldingen mottas.</string>
     <string name="media_gallery_pictures">Bilder</string>
     <string name="media_gallery_videos">Videoer</string>
     <string name="group_membership_title">Medlem av disse gruppene</string>
-    <string name="group_description">Beskrivelse av gruppen</string>
-    <string name="change_group_description">Endre beskrivelse av gruppen</string>
-    <string name="add_group_description">Legg til beskrivelse av gruppen</string>
-    <string name="read_more">les mer</string>
-    <string name="read_less">les mindre</string>
-    <string name="changed_group_desc_date">Sist endret: </string>
     <string name="num_items_sected">%s valgt</string>
     <string name="really_delete_media">Vil du virkelig slette %d media-meldinger?</string>
     <string name="check_updates">Sjekk for oppdateringer</string>
@@ -895,6 +888,7 @@ http://www.7-zip.org eller https://itunes.apple.com/us/app/the-unarchiver/id4254
     <string name="safe_no_backup_found">Ingen sikkerhetskopi er funnet på serveren. Sjekk ID og passord.</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="safe_select_id">Flere ${app_name_short} IDer er funnet. Vennligst velg ID du vil bruke:</string>
+    <!-- Button label on "Threema Safe" feature, to allow the user to trigger the backup process -->
     <string name="safe_backup_now">Sikkerhetskopier</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="safe_enable_explain_short">Aktiver ${app_name_short} Safe for å opprette automatiske, sikre og anonyme sikkerhetskopier av alle dine viktigste data.</string>
@@ -1446,6 +1440,8 @@ Om du bytter til en ny enhet, vennligst avinstaller eller deaktiver %s på den g
     <string name="problemsolver_title_app_battery_usgae_optimized">Batteribruk satt til \"Optimalisert\"</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="problemsolver_explain_app_battery_usgae_optimized">Appen har ikke tillatelse til å opprettholde en permanent tilkobling til serverne, noe som er nødvendig for at ${app_name_short} Push skal fungere. Du vil ikke få varsel om nye meldinger så lenge appen er i bakgrunnen. For å løse dette, trykk på \"Batteribruk\" og velg \"Ubegrenset\".</string>
+    <!-- Title of warning message that informs the user that the version of Android they are using will soon no longer be supported. -->
+    <!-- Details of warning message that informs the user that the version of Android they are using will soon no longer be supported. ${app_name} is a placeholder that should be kept as-is and not translated. -->
     <string name="problemsolver_to_settings">Til innstillinger</string>
     <!-- Label on button to dismiss/hide a warning -->
     <string name="prefs_advanced_options">Avanserte innstillinger</string>
@@ -1500,6 +1496,54 @@ Om du bytter til en ny enhet, vennligst avinstaller eller deaktiver %s på den g
     <!-- Error message shown fullscreen when deactivating the DualLock (a.k.a. "Remote Secret") feature failed. ${remote_secret} is a placeholder for a feature name, e.g. "DualLock". It must be left as-is and not translated. -->
     <!-- A hint text that will be played by the android screen reader in accessibility mode. It explains the effect of a click action. -->
     <!-- Clicking will open a new modal view that displays the full length of a contact's availability status description. -->
+    <!--
+    Text that is displayed in an emoji reaction system notification for a 1 to 1 conversation.
+    Placeholder %1$s will be replaced with the emojis.
+    Placeholder %2$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <!--
+    Text that is displayed in an emoji reaction system notification for a 1 to 1 conversation with many emojis.
+    Placeholder %1$s will be replaced with the emojis until a defined count.
+    Placeholder %2$d will be replaced with the remaining emoji count that is not displayed in %1$s.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation and a single reactor person.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the emojis.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation and a single reactor person with many emojis.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the emojis until a defined count.
+    Placeholder %3$d will be replaced with the remaining emoji count that is not displayed in %2$s.
+    Placeholder %4$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation with 2 reacting persons.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the name of the other reacting person.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation with more than 2 reacting persons.
+    Placeholder %1$s will be replaced with the name of the most recent reacting person.
+    Placeholder %2$d will be replaced with the remaining person count that also reacted.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <!-- Placeholder %1$s will be replaced with the message body of the text message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the caption text of the image message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the caption text of the video message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the duration of the audio message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the caption text of the audio message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the duration of the voice message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the caption or filename of the file message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the poll's name of the poll message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the POI name of the location message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the contact name of the contact message that was reacted on. -->
+    <!-- Placeholder 1 holds the display name of a group conversation -->
+    <!-- This is shown in a loading indicator dialog while a spam group is being reported -->
     <plurals name="contacts_counter_label">
         <item quantity="one">%d kontakt</item>
         <item quantity="other">%d kontakter</item>

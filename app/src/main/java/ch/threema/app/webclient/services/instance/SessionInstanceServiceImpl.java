@@ -190,13 +190,11 @@ public class SessionInstanceServiceImpl implements SessionInstanceService {
         );
         final ConversationUpdateHandler conversationUpdateHandler = new ConversationUpdateHandler(
             handler,
-            updateDispatcher,
-            services.conversationCategoryService
+            updateDispatcher
         );
         final MessageUpdateHandler messageUpdateHandler = new MessageUpdateHandler(
             handler,
             updateDispatcher,
-            services.conversationCategoryService,
             services.file
         );
         final TypingUpdateHandler typingUpdateHandler = new TypingUpdateHandler(
@@ -342,7 +340,6 @@ public class SessionInstanceServiceImpl implements SessionInstanceService {
         requestDispatcher.addReceiver(new MessageRequestHandler(
             responseDispatcher,
             services.message,
-            services.conversationCategoryService,
             new MessageRequestHandler.Listener() {
                 @Override
                 @WorkerThread
@@ -360,7 +357,7 @@ public class SessionInstanceServiceImpl implements SessionInstanceService {
             handler,
             responseDispatcher,
             services.message,
-            services.file
+            services.messageFileDecryptionHelper
         ));
         requestDispatcher.addReceiver(new AvatarRequestHandler(responseDispatcher));
         requestDispatcher.addReceiver(new ThumbnailRequestHandler(

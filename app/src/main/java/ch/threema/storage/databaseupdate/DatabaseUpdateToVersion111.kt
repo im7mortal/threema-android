@@ -6,6 +6,9 @@ import net.zetetic.database.sqlcipher.SQLiteDatabase
 
 private val logger = getThreemaLogger("DatabaseUpdateToVersion111")
 
+/**
+ * remove polls from deleted contacts
+ */
 class DatabaseUpdateToVersion111(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -42,6 +45,4 @@ class DatabaseUpdateToVersion111(
     }
 
     override val version = 111
-
-    override fun getDescription() = "remove polls from deleted contacts"
 }

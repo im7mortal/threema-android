@@ -40,6 +40,7 @@ import ch.threema.test.TestData.PUBLIC_KEY
 import ch.threema.test.TestDatabaseProvider
 import ch.threema.test.TestIdentityProvider
 import ch.threema.testhelpers.TestDispatcherProvider
+import ch.threema.testhelpers.TestTimeProvider
 import io.mockk.Runs
 import io.mockk.every
 import io.mockk.just
@@ -78,6 +79,7 @@ class AddOrUpdateContactBackgroundTaskTest {
             globalEventBuses = mockk(relaxed = true),
             globalEventFlows = mockk(relaxed = true),
             dispatcherProvider = TestDispatcherProvider(),
+            timeProvider = TestTimeProvider(),
         ).contacts
     }
 

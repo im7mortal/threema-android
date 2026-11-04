@@ -45,7 +45,6 @@
     <dimen name="list_divider_height">1dp</dimen>
 
     <!-- conversation item (message bubbles) -->
-    <dimen name="conversation_controller_icon_size">32dp</dimen>
     <dimen name="conversation_controller_progress_stroke_width">3dp</dimen>
     <dimen name="conversation_controller_progress_size">34dp</dimen>
 
@@ -390,5 +389,7 @@
     <!-- Dialog -->
     <dimen name="text_size_material_alert_dialog_title">18sp</dimen>
     <dimen name="text_size_material_alert_dialog_body">14sp</dimen>
+
+    <dimen name="empty_view_min_height_for_image">420dp</dimen>
 
 </resources>

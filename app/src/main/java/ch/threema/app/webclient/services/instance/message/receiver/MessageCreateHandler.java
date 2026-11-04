@@ -24,7 +24,7 @@ import ch.threema.app.webclient.exceptions.ConversionException;
 import ch.threema.app.webclient.services.instance.MessageDispatcher;
 import ch.threema.app.webclient.services.instance.MessageReceiver;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ContactModel;
 
 @WorkerThread
@@ -102,7 +102,7 @@ abstract public class MessageCreateHandler extends MessageReceiver {
             }
 
             // Send message
-            final AbstractMessageModel m = this.handle(
+            final MessageModel m = this.handle(
                 MessageUtil.getAllReceivers(receiverModel.getReceiver()),
                 message
             );
@@ -159,7 +159,7 @@ abstract public class MessageCreateHandler extends MessageReceiver {
         }
     }
 
-    abstract protected @Nullable AbstractMessageModel handle(
+    abstract protected @Nullable MessageModel handle(
         List<ch.threema.app.messagereceiver.MessageReceiver> receivers,
         Map<String, Value> message
     ) throws Exception;

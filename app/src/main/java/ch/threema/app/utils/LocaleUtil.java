@@ -5,54 +5,38 @@ import android.text.format.DateUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatDelegate;
-import androidx.core.os.ConfigurationCompat;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.text.Normalizer;
 import java.time.Instant;
 import java.util.Locale;
 
-import androidx.core.os.LocaleListCompat;
-
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
-public class LocaleUtil {
-    public static final String UTF8_ENCODING = "UTF-8";
+import org.koin.java.KoinJavaComponent;
 
+public class LocaleUtil {
     private LocaleUtil() {
         // Forbidden being instantiated.
     }
 
+    @Deprecated
     @NonNull
     public static String getLanguage() {
-        try {
-            return URLEncoder.encode(Locale.getDefault().getLanguage(), UTF8_ENCODING);
-        } catch (UnsupportedEncodingException ignored) {
-            // ignore exception
-        }
-        return "en";
+        LocaleProvider localeProvider = KoinJavaComponent.get(LocaleProvider.class);
+        return localeProvider.getLanguage();
     }
 
+    @Deprecated
     @NonNull
     public static String getAppLanguage() {
-        LocaleListCompat locales = AppCompatDelegate.getApplicationLocales();
-        if (!locales.isEmpty()) {
-            Locale appLocale = locales.get(0);
-
-            if (appLocale != null && !isNullOrEmpty(appLocale.getLanguage())) {
-                return appLocale.getLanguage();
-            }
-        }
-        return LocaleUtil.getLanguage();
+        LocaleProvider localeProvider = KoinJavaComponent.get(LocaleProvider.class);
+        return localeProvider.getAppLanguage();
     }
 
-    /**
-     * Return the current locale.
-     */
-    public static Locale getCurrentLocale(@NonNull Context context) {
-        return ConfigurationCompat.getLocales(context.getResources().getConfiguration()).get(0);
+    @Deprecated
+    public static Locale getCurrentLocale() {
+        LocaleProvider localeProvider = KoinJavaComponent.get(LocaleProvider.class);
+        return localeProvider.getCurrentLocale();
     }
 
     @NonNull

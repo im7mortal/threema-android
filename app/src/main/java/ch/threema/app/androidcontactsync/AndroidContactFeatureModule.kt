@@ -13,23 +13,23 @@ import ch.threema.app.androidcontactsync.usecases.GetRawContactNameUseCase
 import ch.threema.app.androidcontactsync.usecases.SynchronizeAndroidContactsUseCase
 import ch.threema.app.androidcontactsync.usecases.UpdateContactNameUseCase
 import ch.threema.app.androidcontactsync.write.ThreemaRawContactWriter
-import org.koin.core.module.dsl.factoryOf
-import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
+import org.koin.plugin.module.dsl.single
 
 val androidContactFeatureModule = module {
-    singleOf(::AndroidContactChangeMonitor)
-    factoryOf(::AndroidContactMatcher)
-    singleOf(::AndroidContactReader)
-    singleOf(::GetAndroidContactNameUseCase)
-    singleOf(::GetRawContactNameUseCase)
-    factoryOf(::IdentityLookupClient)
-    singleOf(::LookupInfoReader)
-    factoryOf(::RawContactCursorProvider)
-    singleOf(::RawContactReader)
-    factoryOf(::SynchronizeAndroidContactsUseCase)
-    factoryOf(::ThreemaRawContactManager)
-    factoryOf(::ThreemaRawContactReader)
-    factoryOf(::ThreemaRawContactWriter)
-    singleOf(::UpdateContactNameUseCase)
+    single<AndroidContactChangeMonitor>()
+    factory<AndroidContactMatcher>()
+    single<AndroidContactReader>()
+    single<GetAndroidContactNameUseCase>()
+    single<GetRawContactNameUseCase>()
+    factory<IdentityLookupClient>()
+    single<LookupInfoReader>()
+    single<RawContactCursorProvider>()
+    single<RawContactReader>()
+    factory<SynchronizeAndroidContactsUseCase>()
+    factory<ThreemaRawContactManager>()
+    factory<ThreemaRawContactReader>()
+    factory<ThreemaRawContactWriter>()
+    single<UpdateContactNameUseCase>()
 }

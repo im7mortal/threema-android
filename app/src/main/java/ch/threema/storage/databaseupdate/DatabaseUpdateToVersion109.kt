@@ -5,6 +5,9 @@ import net.zetetic.database.sqlcipher.SQLiteDatabase
 
 private val logger = getThreemaLogger("DatabaseUpdateToVersion109")
 
+/**
+ * remove deleted groups and drop the 'deleted' flag
+ */
 internal class DatabaseUpdateToVersion109(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -20,8 +23,6 @@ internal class DatabaseUpdateToVersion109(
             sqLiteDatabase.execSQL("ALTER TABLE `m_group` DROP COLUMN `deleted`")
         }
     }
-
-    override fun getDescription() = "remove deleted groups and drop the 'deleted' flag"
 
     override val version = 109
 }

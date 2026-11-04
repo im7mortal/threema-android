@@ -17,12 +17,17 @@ import org.slf4j.Logger;
 
 import java.time.Instant;
 
+import androidx.activity.result.ActivityResultLauncher;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.fragment.app.DialogFragment;
+
+import ch.threema.android.permissions.CameraPermissionContract;
+import ch.threema.android.permissions.ContactPermissionsContract;
 import ch.threema.app.AppConstants;
 import ch.threema.app.BuildConfig;
+import ch.threema.app.BuildFlavor;
 import ch.threema.app.R;
 import ch.threema.app.asynctasks.AddContactRestrictionPolicy;
 import ch.threema.app.asynctasks.AlreadyVerified;
@@ -53,6 +58,7 @@ import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.common.Base64;
 import ch.threema.domain.models.AcquaintanceLevel;
+import kotlin.Unit;
 
 import static ch.threema.app.startup.AppStartupUtilKt.finishAndRestartLaterIfNotReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
@@ -63,20 +69,34 @@ public class AddContactActivity extends ThreemaActivity implements GenericAlertD
     private static final String DIALOG_TAG_ADD_ERROR = "ae";
     private static final String DIALOG_TAG_ADD_BY_ID = "abi";
 
-    private static final int REQUEST_CODE_QR_SCANNER = 26657;
-
     public static final String EXTRA_ADD_BY_ID = "add_by_id";
     public static final String EXTRA_ADD_BY_QR = "add_by_qr";
     public static final String EXTRA_QR_RESULT = "qr_result";
 
     private static final Logger logger = getThreemaLogger("AddContactActivity");
 
-    private static final int PERMISSION_REQUEST_CAMERA = 1;
-
     @NonNull
     private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
 
     private final BackgroundExecutor backgroundExecutor = new BackgroundExecutor();
+
+    private final ActivityResultLauncher<String> scanQrCodeLauncher = registerForActivityResult(new QRScannerActivity.Contract(), scannedContent -> {
+        if (scannedContent != null) {
+            handleScannedQrCode(scannedContent);
+        }
+    });
+    private final ActivityResultLauncher<Unit> cameraPermissionLauncher = registerForActivityResult(new CameraPermissionContract(), isGranted -> {
+        if (isGranted) {
+            scanQrCodeLauncher.launch(getString(R.string.qr_scanner_id_hint));
+        } else if (!shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
+            // TODO(ANDR-5211): Use rationale as intended
+            ConfigUtils.showPermissionRationale(
+                this,
+                getWindow().getDecorView().findViewById(android.R.id.content),
+                R.string.permission_camera_qr_required
+            );
+        }
+    });
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -131,7 +151,7 @@ public class AddContactActivity extends ThreemaActivity implements GenericAlertD
             }
 
             if (intent.getBooleanExtra(EXTRA_ADD_BY_QR, false)) {
-                scanQR();
+                cameraPermissionLauncher.launch(Unit.INSTANCE);
             }
 
             if (intent.getBooleanExtra(EXTRA_ADD_BY_ID, false)) {
@@ -233,7 +253,7 @@ public class AddContactActivity extends ThreemaActivity implements GenericAlertD
                         return;
                     }
 
-                    DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_ADD_PROGRESS, true);
+                    DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_ADD_PROGRESS);
 
                     if (result instanceof ContactCreated) {
                         showContactAndFinish(identity, R.string.creating_contact_successful);
@@ -252,7 +272,7 @@ public class AddContactActivity extends ThreemaActivity implements GenericAlertD
                         finish();
                     } else if (result instanceof Failed) {
                         GenericAlertDialog.newInstance(
-                            ConfigUtils.isOnPremBuild() ? R.string.invalid_onprem_id_title : R.string.title_adduser,
+                            BuildFlavor.IS_ON_PREM ? R.string.invalid_onprem_id_title : R.string.title_adduser,
                             ((Failed) result).message,
                             R.string.close,
                             0
@@ -276,13 +296,6 @@ public class AddContactActivity extends ThreemaActivity implements GenericAlertD
         finish();
     }
 
-    private void scanQR() {
-        if (ConfigUtils.requestCameraPermissions(this, null, PERMISSION_REQUEST_CAMERA)) {
-            var intent = QRScannerActivity.createIntent(this, getString(R.string.qr_scanner_id_hint));
-            startActivityForResult(intent, REQUEST_CODE_QR_SCANNER);
-        }
-    }
-
     private void requestID() {
         DialogFragment dialogFragment = NewContactDialog.newInstance(
             R.string.menu_add_contact,
@@ -292,64 +305,54 @@ public class AddContactActivity extends ThreemaActivity implements GenericAlertD
         dialogFragment.show(getSupportFragmentManager(), DIALOG_TAG_ADD_BY_ID);
     }
 
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent intent) {
-        super.onActivityResult(requestCode, resultCode, intent);
+    private void handleScannedQrCode(@NonNull String payload) {
+        // first: try to parse as content result (contact scan)
+        ContactUrlUtil contactUrlUtil = KoinJavaComponent.get(ContactUrlUtil.class);
+        ContactUrlResult contactQRCode = contactUrlUtil.parse(payload);
 
-        if (requestCode == REQUEST_CODE_QR_SCANNER && resultCode == RESULT_OK) {
-            String payload = QRScannerActivity.extractResult(intent);
-
-            if (payload != null) {
-                // first: try to parse as content result (contact scan)
-                ContactUrlUtil contactUrlUtil = KoinJavaComponent.get(ContactUrlUtil.class);
-                ContactUrlResult contactQRCode = contactUrlUtil.parse(payload);
-
-                if (contactQRCode != null) {
-                    // ok, try to add contact
-                    if (contactQRCode.isExpired(Instant.now())) {
-                        GenericAlertDialog.newInstance(R.string.title_adduser, getString(R.string.expired_barcode), R.string.ok, 0).show(getSupportFragmentManager(), "ex");
-                    } else {
-                        addContactByQRResult(contactQRCode);
-                    }
-
-                    // return, qr code valid and exit method
-                    DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_ADD_BY_ID, true);
-                    return;
-                }
-
-                // second: try uri scheme
-                String scannedIdentity = null;
-                Uri uri = Uri.parse(payload);
-                if (uri != null) {
-                    String scheme = uri.getScheme();
-                    if (BuildConfig.uriScheme.equals(scheme) && "add".equals(uri.getAuthority())) {
-                        scannedIdentity = uri.getQueryParameter("id");
-                    } else if ("https".equals(scheme) && BuildConfig.contactActionUrl.equals(uri.getHost())) {
-                        scannedIdentity = uri.getLastPathSegment();
-                    }
-
-                    if (scannedIdentity != null && scannedIdentity.length() == IDENTITY_LEN) {
-                        addContactByIdentity(scannedIdentity);
-                        return;
-                    }
-                }
-
-                // third: try to parse as web client qr
-                try {
-                    byte[] base64Payload = Base64.decode(payload);
-                    final WebSessionQRCodeParser webClientQRCodeParser = new WebSessionQRCodeParserImpl();
-                    webClientQRCodeParser.parse(base64Payload); // throws if QR is not valid
-                    // it was a valid web client qr code, exit method
-                    startWebClientByQRResult(base64Payload);
-                    return;
-                } catch (IllegalArgumentException | WebSessionQRCodeParser.InvalidQrCodeException x) {
-                    // not a valid base64 or web client payload
-                    // ignore and continue
-                }
+        if (contactQRCode != null) {
+            // ok, try to add contact
+            if (contactQRCode.isExpired(Instant.now())) {
+                GenericAlertDialog.newInstance(R.string.title_adduser, getString(R.string.expired_barcode), R.string.ok, 0).show(getSupportFragmentManager(), "ex");
+            } else {
+                addContactByQRResult(contactQRCode);
             }
-            Toast.makeText(this, R.string.invalid_threema_qr_code, Toast.LENGTH_SHORT).show();
+
+            // return, qr code valid and exit method
+            DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_ADD_BY_ID);
+            return;
         }
 
+        // second: try uri scheme
+        String scannedIdentity = null;
+        Uri uri = Uri.parse(payload);
+        if (uri != null) {
+            String scheme = uri.getScheme();
+            if (BuildConfig.uriScheme.equals(scheme) && "add".equals(uri.getAuthority())) {
+                scannedIdentity = uri.getQueryParameter("id");
+            } else if ("https".equals(scheme) && BuildConfig.contactActionUrl.equals(uri.getHost())) {
+                scannedIdentity = uri.getLastPathSegment();
+            }
+
+            if (scannedIdentity != null && scannedIdentity.length() == IDENTITY_LEN) {
+                addContactByIdentity(scannedIdentity);
+                return;
+            }
+        }
+
+        // third: try to parse as web client qr
+        try {
+            byte[] base64Payload = Base64.decode(payload);
+            final WebSessionQRCodeParser webClientQRCodeParser = new WebSessionQRCodeParserImpl();
+            webClientQRCodeParser.parse(base64Payload); // throws if QR is not valid
+            // it was a valid web client qr code, exit method
+            startWebClientByQRResult(base64Payload);
+            return;
+        } catch (IllegalArgumentException | WebSessionQRCodeParser.InvalidQrCodeException x) {
+            // not a valid base64 or web client payload
+            // ignore and continue
+        }
+        Toast.makeText(this, R.string.invalid_threema_qr_code, Toast.LENGTH_SHORT).show();
         finish();
     }
 
@@ -361,30 +364,6 @@ public class AddContactActivity extends ThreemaActivity implements GenericAlertD
     @Override
     public void onNo(@Nullable String tag, @Nullable Object data) {
         finish();
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        switch (requestCode) {
-            case PERMISSION_REQUEST_CAMERA:
-                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    scanQR();
-                } else if (!shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
-                    ConfigUtils.showPermissionRationale(this, getWindow().getDecorView().findViewById(android.R.id.content), R.string.permission_camera_qr_required, new BaseTransientBottomBar.BaseCallback<Snackbar>() {
-                        @Override
-                        public void onDismissed(Snackbar transientBottomBar, int event) {
-                            super.onDismissed(transientBottomBar, event);
-                            finish();
-                        }
-                    });
-                } else {
-                    finish();
-                }
-                break;
-            default:
-                break;
-        }
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 
     @Override
@@ -402,6 +381,6 @@ public class AddContactActivity extends ThreemaActivity implements GenericAlertD
     @Override
     public void onScanButtonClick(String tag) {
         logger.info("Scan button clicked");
-        scanQR();
+        cameraPermissionLauncher.launch(Unit.INSTANCE);
     }
 }

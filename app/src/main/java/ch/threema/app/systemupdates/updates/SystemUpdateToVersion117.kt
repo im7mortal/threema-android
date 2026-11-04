@@ -5,6 +5,9 @@ import java.security.KeyStore
 
 private val logger = getThreemaLogger("SystemUpdateToVersion117")
 
+/**
+ * delete obsolete pinlock key from keystore
+ */
 class SystemUpdateToVersion117 : SystemUpdate {
 
     override fun run() {
@@ -18,8 +21,6 @@ class SystemUpdateToVersion117 : SystemUpdate {
     }
 
     override val version = 117
-
-    override fun getDescription() = "delete obsolete pinlock key from keystore"
 
     companion object {
         private const val ANDROID_KEY_STORE = "AndroidKeyStore"

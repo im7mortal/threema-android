@@ -4,7 +4,6 @@ import android.Manifest
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -22,11 +21,13 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.Fragment
 import ch.threema.android.ToastDuration
+import ch.threema.android.checkGrantedPermission
 import ch.threema.android.isFileUri
 import ch.threema.android.registerPermissionResultContract
 import ch.threema.android.registerSimpleActivityResultContract
 import ch.threema.android.showToast
 import ch.threema.app.AppConstants
+import ch.threema.app.GlobalAppState
 import ch.threema.app.R
 import ch.threema.app.activities.DisableBatteryOptimizationsActivity
 import ch.threema.app.backuprestore.BackupRestoreDataConfig
@@ -48,6 +49,7 @@ import ch.threema.app.utils.LocaleUtil
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.minus
 import ch.threema.common.takeUnlessEmpty
+import ch.threema.logging.logAndReportError
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import java.time.Instant
 import kotlin.time.Duration.Companion.minutes
@@ -59,6 +61,7 @@ class BackupDataFragment : Fragment(), DialogClickListener, PasswordEntryDialogC
 
     private val fileService: FileService by inject()
     private val preferenceService: PreferenceService by inject()
+    private val globalAppState: GlobalAppState by inject()
 
     private var backupUri: Uri? = null
     private var launchedFromFAB = false
@@ -68,27 +71,26 @@ class BackupDataFragment : Fragment(), DialogClickListener, PasswordEntryDialogC
 
     private val pickBackupDirectoryLauncher = registerSimpleActivityResultContract { result ->
         logger.info("Document picker returned, {}", result.resultCode)
-        preferenceService.setDataBackupPickerLaunched(null)
+        preferenceService.setLegacyDataBackupPickerLaunched(null)
         if (result.resultCode == Activity.RESULT_OK) {
             handlePickedDirectoryResult(result.data?.data)
         }
     }
-    private val disableBatteryOptimizationsLauncher = registerSimpleActivityResultContract {
+    private val disableBatteryOptimizationsLauncher = registerForActivityResult(DisableBatteryOptimizationsActivity.Contract()) {
         showEnergySavingDialog()
     }
     private val requestStorageWritePermissionLauncher = registerPermissionResultContract { isGranted ->
         if (isGranted) {
             checkBatteryOptimizations()
-        } else {
-            if (!shouldShowRequestPermissionRationale(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                ConfigUtils.showPermissionRationale(requireContext(), fragmentView, R.string.permission_storage_required)
-            }
+        } else if (!shouldShowRequestPermissionRationale(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+            // TODO(ANDR-5211): Use rationale as intended
+            ConfigUtils.showPermissionRationale(requireContext(), fragmentView, R.string.permission_storage_required)
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        backupUri = fileService.getBackupUri()
+        backupUri = fileService.getLegacyBackupUri()
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -131,7 +133,7 @@ class BackupDataFragment : Fragment(), DialogClickListener, PasswordEntryDialogC
         }
 
         val fragmentView = fragmentView!!
-        val backupTimestamp = preferenceService.getLastDataBackupTimestamp()
+        val backupTimestamp = preferenceService.getLastLegacyDataBackupTimestamp()
         if (backupTimestamp != null) {
             fragmentView.findViewById<View>(R.id.last_backup_layout).isVisible = true
             fragmentView.findViewById<View>(R.id.intro_layout).isVisible = false
@@ -162,7 +164,7 @@ class BackupDataFragment : Fragment(), DialogClickListener, PasswordEntryDialogC
     }
 
     private fun hasDocumentPickerPotentiallyFailedRecently(): Boolean {
-        val lastLaunchTime = preferenceService.getDataBackupPickerLaunched()
+        val lastLaunchTime = preferenceService.getLegacyDataBackupPickerLaunched()
             ?: return false
         return Instant.now() - lastLaunchTime < 10.minutes
     }
@@ -211,7 +213,7 @@ class BackupDataFragment : Fragment(), DialogClickListener, PasswordEntryDialogC
                 intent.putExtra("android.content.extra.SHOW_FILESIZE", true)
             }
             pickBackupDirectoryLauncher.launch(intent)
-            preferenceService.setDataBackupPickerLaunched(Instant.now())
+            preferenceService.setLegacyDataBackupPickerLaunched(Instant.now())
         } catch (e: Exception) {
             // TODO(ANDR-4447): This toast message should be localized
             showToast("Your device is missing an activity for Intent.ACTION_OPEN_DOCUMENT_TREE. Contact the manufacturer of the device.")
@@ -241,12 +243,12 @@ class BackupDataFragment : Fragment(), DialogClickListener, PasswordEntryDialogC
 
     private fun setBackupUri(backupUri: Uri) {
         this.backupUri = backupUri
-        preferenceService.setDataBackupUri(backupUri)
+        preferenceService.setLegacyDataBackupUri(backupUri)
         pathTextView?.text = getDirectoryName(backupUri)
     }
 
     private fun initiateBackup() {
-        if (BackupService.isRunning()) {
+        if (globalAppState.specialMode != null) {
             showToast(R.string.backup_in_progress)
             return
         }
@@ -259,10 +261,7 @@ class BackupDataFragment : Fragment(), DialogClickListener, PasswordEntryDialogC
     }
 
     private fun checkBatteryOptimizations() {
-        if (
-            Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
-            ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
-        ) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && !checkGrantedPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
             requestStorageWritePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
         } else {
             showDisableBatteryOptimizations()
@@ -271,8 +270,7 @@ class BackupDataFragment : Fragment(), DialogClickListener, PasswordEntryDialogC
 
     private fun showDisableBatteryOptimizations() {
         logger.info("Launching battery optimization settings")
-        val intent = DisableBatteryOptimizationsActivity.createIntent(requireContext(), getString(R.string.backup_data))
-        disableBatteryOptimizationsLauncher.launch(intent)
+        disableBatteryOptimizationsLauncher.launch(getString(R.string.backup_data))
     }
 
     private fun launchDataBackup(password: String, includeMedia: Boolean) {
@@ -326,12 +324,22 @@ class BackupDataFragment : Fragment(), DialogClickListener, PasswordEntryDialogC
     }
 
     override fun onYes(tag: String?, text: String, isChecked: Boolean, data: Any?) {
+        if (!isAdded) {
+            logger.logAndReportError("Can't handle dialog callback with tag {} in detached fragment", tag)
+            // PasswordEntryDialog calls callbacks on old detached fragment instances
+            return
+        }
         if (tag == DIALOG_TAG_PASSWORD) {
             launchDataBackup(password = text, includeMedia = isChecked)
         }
     }
 
     override fun onYes(tag: String?, data: Any?) {
+        if (!isAdded) {
+            logger.logAndReportError("Can't handle dialog callback with tag {} in detached fragment", tag)
+            // GenericAlertDialog calls callbacks on old detached fragment instances
+            return
+        }
         when (tag) {
             DIALOG_TAG_ENERGY_SAVING_REMINDER -> doBackup()
             DIALOG_TAG_PATH_INTRO,
@@ -341,6 +349,11 @@ class BackupDataFragment : Fragment(), DialogClickListener, PasswordEntryDialogC
     }
 
     override fun onNo(tag: String?, data: Any?) {
+        if (!isAdded) {
+            logger.logAndReportError("Can't handle dialog callback with tag {} in detached fragment", tag)
+            // GenericAlertDialog calls callbacks on old detached fragment instances
+            return
+        }
         when (tag) {
             DIALOG_TAG_DISABLE_ENERGY_SAVING -> doBackup()
             DIALOG_TAG_FALLBACK_PATH -> useFallbackPath()
@@ -349,7 +362,7 @@ class BackupDataFragment : Fragment(), DialogClickListener, PasswordEntryDialogC
 
     private fun useFallbackPath() {
         logger.info("Using Documents dir as fallback")
-        preferenceService.setDataBackupPickerLaunched(null)
+        preferenceService.setLegacyDataBackupPickerLaunched(null)
         val documentsDirectory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
         documentsDirectory.mkdirs()
         setBackupUri(documentsDirectory.toUri())

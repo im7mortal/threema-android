@@ -13,7 +13,9 @@ import kotlin.Lazy;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
-/* clean up image labeler */
+/**
+ * delete media labels database
+ */
 public class SystemUpdateToVersion64 implements SystemUpdate {
     private static final Logger logger = getThreemaLogger("SystemUpdateToVersion64");
 
@@ -55,11 +57,6 @@ public class SystemUpdateToVersion64 implements SystemUpdate {
         String NOTIFICATION_CHANNEL_IMAGE_LABELING = "il";
         NotificationManagerCompat notificationManagerCompat = NotificationManagerCompat.from(appContext);
         notificationManagerCompat.deleteNotificationChannel(NOTIFICATION_CHANNEL_IMAGE_LABELING);
-    }
-
-    @Override
-    public String getDescription() {
-        return "delete media labels database";
     }
 
     @Override

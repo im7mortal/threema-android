@@ -8,6 +8,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -15,14 +16,15 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withAnnotation
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
+import ch.threema.app.R
 import ch.threema.app.compose.common.text.conversation.ConversationTextAnalyzer.Result.SearchResult
 import ch.threema.app.emojis.MarkupParser
 import ch.threema.app.emojis.MarkupParser.MarkupParserException
-import ch.threema.app.preference.service.PreferenceService.Companion.EMOJI_STYLE_DEFAULT
 import ch.threema.app.preference.service.PreferenceService.EmojiStyle
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.indexOfOrNull
 import ch.threema.common.takeUnlessBlank
+import ch.threema.domain.types.Mention
 
 private val logger = getThreemaLogger("AnnotatedConversationString")
 
@@ -38,7 +40,7 @@ fun buildAnnotatedConversationString(
     analyzeRawInputResult: ConversationTextAnalyzer.Result,
     mentionFeature: MentionFeature,
     context: Context,
-    @EmojiStyle emojiStyle: Int,
+    emojiStyle: EmojiStyle,
     markupEnabled: Boolean,
     highlightFeature: HighlightFeature,
 ): AnnotatedString {
@@ -250,7 +252,7 @@ private fun getStyleFromSpanItem(spanItem: MarkupParser.SpanItem): SpanStyle =
  *  Because we need to draw a background with rounded corners this can not be achieved here with a Compose [SpanStyle]. To achieve it we later
  *  use the [Modifier.drawBehind] of the [Text] composable.
  *
- *  Mentions of `@All` and `@Me` will be style with the inverted mention colors.
+ *  Mentions of `@All` and `@Me` will be styled with the inverted mention colors.
  */
 private fun AnnotatedString.Builder.appendMention(
     mentionItem: SearchResult.Mention,
@@ -258,23 +260,27 @@ private fun AnnotatedString.Builder.appendMention(
     mentionFeatureOn: MentionFeature.On,
 ) {
     val mentionBuilder = mentionBuilderLambda@{
-        val identityNameResolved: String = mentionFeatureOn.identityDisplayNames[mentionItem.identity]?.get(context)
-            ?: mentionItem.identity.value
+        val identityNameResolved: String = mentionFeatureOn.displayNames[mentionItem.mention]?.get(context)
+            ?: when (val mention = mentionItem.mention) {
+                Mention.AllUsers -> context.getString(R.string.all)
+                is Mention.Identity -> mention.identityString
+            }
+        val includesMe = mentionItem.mention.includes(mentionFeatureOn.ownIdentity)
 
         withAnnotation(
             tag = SPAN_TAG_BACKGROUND_MENTION,
-            annotation = when {
-                mentionItem.mentionsAll -> SPAN_ANNOTATION_BACKGROUND_MENTION_INVERTED
-                mentionItem.identity == mentionFeatureOn.ownIdentity -> SPAN_ANNOTATION_BACKGROUND_MENTION_INVERTED
-                else -> SPAN_ANNOTATION_BACKGROUND_MENTION
+            annotation = if (includesMe) {
+                SPAN_ANNOTATION_BACKGROUND_MENTION_INVERTED
+            } else {
+                SPAN_ANNOTATION_BACKGROUND_MENTION
             },
         ) {
             withStyle(
                 style = SpanStyle(
-                    color = when {
-                        mentionItem.mentionsAll -> MentionFeature.On.colorsInverted(context).textColorAtSign
-                        mentionItem.identity == mentionFeatureOn.ownIdentity -> MentionFeature.On.colorsInverted(context).textColorAtSign
-                        else -> MentionFeature.On.colors(context).textColorAtSign
+                    color = if (includesMe) {
+                        MentionFeature.On.colorsInverted(context).textColorAtSign
+                    } else {
+                        MentionFeature.On.colors(context).textColorAtSign
                     },
                 ),
             ) {
@@ -282,10 +288,10 @@ private fun AnnotatedString.Builder.appendMention(
             }
             withStyle(
                 style = SpanStyle(
-                    color = when {
-                        mentionItem.mentionsAll -> MentionFeature.On.colorsInverted(context).textColor
-                        mentionItem.identity == mentionFeatureOn.ownIdentity -> MentionFeature.On.colorsInverted(context).textColor
-                        else -> MentionFeature.On.colors(context).textColor
+                    color = if (includesMe) {
+                        MentionFeature.On.colorsInverted(context).textColor
+                    } else {
+                        MentionFeature.On.colors(context).textColor
                     },
                 ),
             ) {
@@ -299,10 +305,15 @@ private fun AnnotatedString.Builder.appendMention(
     if (mentionFeatureOn.onClickMention != null) {
         withLink(
             link = LinkAnnotation.Clickable(
-                tag = mentionItem.identity.value,
+                tag = mentionItem.mention.toString(),
                 linkInteractionListener = {
-                    mentionFeatureOn.onClickMention(mentionItem.identity)
+                    mentionFeatureOn.onClickMention(mentionItem.mention)
                 },
+                styles = TextLinkStyles(
+                    style = SpanStyle(
+                        textDecoration = TextDecoration.None,
+                    ),
+                ),
             ),
         ) {
             mentionBuilder()
@@ -313,7 +324,7 @@ private fun AnnotatedString.Builder.appendMention(
 }
 
 private fun AnnotatedString.Builder.appendEmoji(
-    @EmojiStyle emojiStyle: Int,
+    emojiStyle: EmojiStyle,
     emojiItem: SearchResult.Emoji,
     rawInput: CharSequence,
 ) {
@@ -321,16 +332,20 @@ private fun AnnotatedString.Builder.appendEmoji(
         startIndex = emojiItem.startIndex,
         endIndex = emojiItem.startIndex + emojiItem.length,
     )
-    if (emojiStyle == EMOJI_STYLE_DEFAULT) {
-        // Append the emoji character sequence marked with an inline-content id for later bitmap substitution,
-        // To support highlighting/searching with emojis, we have to set the alternateText to the actual emoji character sequence even though it is
-        // never used to display the emoji
-        appendInlineContent(
-            id = emojiItem.startIndex.toString(),
-            alternateText = emojiSequence,
-        )
-    } else {
-        // Just append emoji character sequence because android will handle it
-        append(emojiSequence)
+    when (emojiStyle) {
+        EmojiStyle.DEFAULT -> {
+            // Append the emoji character sequence marked with an inline-content id for later bitmap substitution,
+            // To support highlighting/searching with emojis, we have to set the alternateText to the actual emoji character sequence even though it is
+            // never used to display the emoji
+            appendInlineContent(
+                id = emojiItem.startIndex.toString(),
+                alternateText = emojiSequence,
+            )
+        }
+
+        EmojiStyle.ANDROID -> {
+            // Just append emoji character sequence because android will handle it
+            append(emojiSequence)
+        }
     }
 }

@@ -56,18 +56,14 @@ object GlobalBroadcastReceivers : KoinComponent {
                     val powerManager = context.getSystemService<PowerManager>() ?: return
                     if (powerManager.isDeviceIdleMode) {
                         logger.info("*** Device going to deep sleep")
-
-                        globalAppState.isDeviceIdle = true
-
                         coroutineScope.launch {
                             try {
-                                // Pause connection
                                 lifetimeService?.pause()
                             } catch (e: Exception) {
                                 logger.error("Exception while pausing connection", e)
                             }
 
-                            if (BackupService.isRunning()) {
+                            if (globalAppState.specialMode == GlobalAppState.SpecialMode.BACKUP_CREATE) {
                                 context.stopService(Intent(context, BackupService::class.java))
                             }
                         }
@@ -80,7 +76,6 @@ object GlobalBroadcastReceivers : KoinComponent {
                                 logger.error("Exception while unpausing connection", e)
                             }
                         }
-                        globalAppState.isDeviceIdle = false
                     }
                 }
             },

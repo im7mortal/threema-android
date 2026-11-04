@@ -43,8 +43,8 @@ class OnPremServerAddressProvider(
         fetch().chat.publicKey
 
     @Throws(ThreemaException::class)
-    override fun getDirectoryServerUrl(): String =
-        fetch().directory.url
+    override fun getDirectoryServerUrl(path: String): String =
+        fetch().directory.url + path
 
     @Throws(ThreemaException::class)
     override fun getWorkServerUrlLegacy(): String =

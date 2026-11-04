@@ -373,6 +373,13 @@ class GroupCallManagerImpl(
         }
     }
 
+    override fun removeGroupCallParticipant(identity: IdentityString, groupModel: GroupModel) {
+        removeGroupCallParticipants(
+            identities = setOf(identity),
+            groupModel = groupModel,
+        )
+    }
+
     override fun watchRunningCalls(): Flow<Map<CallId, GroupCallDescription>> = callbackFlow {
         /**
          * @return A read-only copy of the current local runningCalls map
@@ -1005,7 +1012,7 @@ class GroupCallManagerImpl(
                 synchronized(callRefreshTimers) {
                     callRefreshTimers[groupId] =
                         CoroutineScope(GroupCallThreadUtil.dispatcher).launch {
-                            delay(ProtocolDefines.GC_GROUP_CALL_REFRESH_STEPS_TIMEOUT_SECONDS * 1_000)
+                            delay(ProtocolDefines.GC_GROUP_CALL_REFRESH_STEPS_TIMEOUT)
                             runGroupCallRefreshSteps(groupId)
                         }
                 }
@@ -1109,7 +1116,7 @@ class GroupCallManagerImpl(
             // Note: we cannot use peek.call.getRunningSince() because we need an actual timestamp
             // not relative to the system uptime.
             val runningSince = max(System.currentTimeMillis() - peek.call.startedAt.toLong(), 0L)
-            runningSince >= ProtocolDefines.GC_PEEK_FAILED_ABANDON_MIN_CALL_AGE_MILLIS
+            runningSince >= ProtocolDefines.GC_PEEK_FAILED_ABANDON_MIN_CALL_AGE.inWholeMilliseconds
         } else {
             false
         }

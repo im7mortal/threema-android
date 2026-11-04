@@ -8,7 +8,6 @@ import ch.threema.libthreema.CryptoException
 import ch.threema.testhelpers.nonSecureRandomArray
 import ch.threema.testhelpers.willThrow
 import ch.threema.testhelpers.willThrowExactly
-import io.mockk.EqMatcher
 import io.mockk.every
 import io.mockk.mockkConstructor
 import io.mockk.unmockkConstructor
@@ -868,10 +867,7 @@ class NaClTest {
         // Mock that the encrypt call of the first chunk of bytes fails internally
         mockkConstructor(ChunkedXSalsa20Poly1305Encryptor::class)
         every {
-            constructedWith<ChunkedXSalsa20Poly1305Encryptor>(
-                EqMatcher(symmetricKey),
-                EqMatcher(nonce),
-            ).encrypt(any())
+            anyConstructed<ChunkedXSalsa20Poly1305Encryptor>().encrypt(any())
         } throws mockedException
 
         // act
@@ -903,10 +899,7 @@ class NaClTest {
         // Mock that the decrypt call of the first chunk of bytes fails internally
         mockkConstructor(ChunkedXSalsa20Poly1305Decryptor::class)
         every {
-            constructedWith<ChunkedXSalsa20Poly1305Decryptor>(
-                EqMatcher(symmetricKey),
-                EqMatcher(nonce),
-            ).decrypt(any())
+            anyConstructed<ChunkedXSalsa20Poly1305Decryptor>().decrypt(any())
         } throws mockedException
 
         // act
@@ -943,10 +936,7 @@ class NaClTest {
         // Mock that the call to verify the tag fails internally
         mockkConstructor(ChunkedXSalsa20Poly1305Decryptor::class)
         every {
-            constructedWith<ChunkedXSalsa20Poly1305Decryptor>(
-                EqMatcher(symmetricKey),
-                EqMatcher(nonce),
-            ).finalizeVerify(any())
+            anyConstructed<ChunkedXSalsa20Poly1305Decryptor>().finalizeVerify(any())
         } throws mockedException
 
         // act
@@ -973,7 +963,7 @@ class NaClTest {
     @Test
     fun `symmetricDecryptDataInPlace throws exception if tag verification throws InvalidParameter`() {
         // arrange
-        val mockedException = CryptoException.InvalidParameter("Tag verification failed")
+        val mockedException = CryptoException.ConversionException("Tag verification failed")
         val dataOriginal = ByteArray(BOX_OVERHEAD_BYTES) + byteArrayOf(
             -99, 40, -125, 100, 38, -40, 19, 5, -47, 49, -12, -120, 32, 111, -115, 43,
             47, -82, 126, -15, 63, -99, 0, 88, -44, 12, 73, -128, 5, -67, 104, 29,
@@ -983,10 +973,7 @@ class NaClTest {
         // Mock that the call to verify the tag fails internally
         mockkConstructor(ChunkedXSalsa20Poly1305Decryptor::class)
         every {
-            constructedWith<ChunkedXSalsa20Poly1305Decryptor>(
-                EqMatcher(symmetricKey),
-                EqMatcher(nonce),
-            ).finalizeVerify(any())
+            anyConstructed<ChunkedXSalsa20Poly1305Decryptor>().finalizeVerify(any())
         } throws mockedException
 
         // act

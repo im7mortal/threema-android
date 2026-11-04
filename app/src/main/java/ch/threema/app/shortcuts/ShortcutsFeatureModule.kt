@@ -1,8 +1,8 @@
 package ch.threema.app.shortcuts
 
-import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.single
 
 val shortcutsFeatureModule = module {
-    singleOf(::ShortcutsUpdaterMonitor)
+    single<ShortcutsUpdaterMonitor>()
 }

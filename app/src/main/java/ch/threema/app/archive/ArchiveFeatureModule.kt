@@ -1,11 +1,11 @@
 package ch.threema.app.archive
 
 import ch.threema.app.usecases.conversations.WatchArchivedConversationsUseCase
-import org.koin.core.module.dsl.factoryOf
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
+import org.koin.plugin.module.dsl.viewModel
 
 val archiveFeatureModule = module {
-    viewModelOf(::ArchiveViewModel)
-    factoryOf(::WatchArchivedConversationsUseCase)
+    viewModel<ArchiveViewModel>()
+    factory<WatchArchivedConversationsUseCase>()
 }

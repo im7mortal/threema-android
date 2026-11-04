@@ -8,6 +8,7 @@ import ch.threema.app.protocolsteps.IdentityBlockedSteps
 import ch.threema.app.services.BlockedIdentitiesService
 import ch.threema.app.services.GroupService
 import ch.threema.app.testutils.TestHelpers.TestContact
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.models.ContactModel
 import ch.threema.data.models.ContactModelData
@@ -172,7 +173,7 @@ class IdentityBlockedStepsTest {
         val groupModelMock: GroupModelOld = mockk()
         val leftGroupModelMock: GroupModelOld = mockk()
 
-        every { getGroupsByIdentity(any()) } answers {
+        every { getGroupsContainingIdentity(any()) } answers {
             when (firstArg<String>()) {
                 inGroup.identity -> listOf(groupModelMock)
                 inLeftGroup.identity -> listOf(leftGroupModelMock)
@@ -204,6 +205,7 @@ class IdentityBlockedStepsTest {
             readReceiptPolicy = mockk(),
             typingIndicatorPolicy = mockk(),
             conversationVisibility = ConversationVisibility.NORMAL,
+            conversationCategory = ConversationCategory.DEFAULT,
             androidContactLookupInfo = null,
             localAvatarExpires = null,
             isRestored = false,

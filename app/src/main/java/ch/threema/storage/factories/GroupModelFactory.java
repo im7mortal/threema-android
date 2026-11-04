@@ -2,7 +2,6 @@ package ch.threema.storage.factories;
 
 import android.content.ContentValues;
 import android.database.Cursor;
-import android.database.SQLException;
 
 import org.slf4j.Logger;
 
@@ -14,8 +13,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.app.services.GroupService;
 
+import static ch.threema.common.DatabaseHelpers.convertToSelectionArgs;
+import static ch.threema.common.DatabaseHelpers.makePlaceholders;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.logging.ErrorReportingKt.logAndReportError;
 
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.data.datatypes.ConversationVisibility;
 import ch.threema.data.datatypes.GroupIdentity;
 import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverride;
@@ -25,7 +28,6 @@ import ch.threema.domain.models.UserState;
 import ch.threema.storage.CursorHelper;
 import ch.threema.storage.DatabaseCreationProvider;
 import ch.threema.storage.DatabaseProvider;
-import ch.threema.storage.DatabaseUtil;
 import ch.threema.storage.QueryBuilder;
 import ch.threema.storage.models.group.GroupModelOld;
 
@@ -55,8 +57,8 @@ public class GroupModelFactory extends ModelFactory {
         if (ids.isEmpty()) {
             return new ArrayList<>();
         }
-        final @NonNull String placeholders = DatabaseUtil.makePlaceholders(ids.size());
-        final @NonNull String[] selectionArgs = DatabaseUtil.convertArguments(ids);
+        final @NonNull String placeholders = makePlaceholders(ids.size());
+        final @NonNull String[] selectionArgs = convertToSelectionArgs(ids);
         final @NonNull String selection = GroupModelOld.COLUMN_ID + " IN (" + placeholders + ")";
         return convertList(
             getReadableDatabase().query(getTableName(), null, selection, selectionArgs, null, null, null)
@@ -131,6 +133,20 @@ public class GroupModelFactory extends ModelFactory {
                     conversationVisibility = ConversationVisibility.NORMAL;
                 }
 
+                Integer conversationCategoryValue = cursorHelper.getInt(GroupModelOld.COLUMN_CONVERSATION_CATEGORY);
+                if (conversationCategoryValue == null) {
+                    throw new IllegalStateException("Conversation category value is null");
+                }
+                ConversationCategory conversationCategory = ConversationCategory.deserialize(conversationCategoryValue);
+                if (conversationCategory == null) {
+                    logAndReportError(
+                        logger,
+                        "Could not read conversation category with value {}",
+                        conversationVisibilityValue
+                    );
+                    conversationCategory = ConversationCategory.DEFAULT;
+                }
+
                 groupModel
                     .setId(cursorHelper.getInt(GroupModelOld.COLUMN_ID))
                     .setApiGroupId(new GroupId(cursorHelper.getString(GroupModelOld.COLUMN_API_GROUP_ID)))
@@ -140,6 +156,7 @@ public class GroupModelFactory extends ModelFactory {
                     .setCreatedAt(cursorHelper.getInstant(GroupModelOld.COLUMN_CREATED_AT))
                     .setLastUpdate(cursorHelper.getInstant(GroupModelOld.COLUMN_LAST_UPDATE))
                     .setConversationVisibility(conversationVisibility)
+                    .setConversationCategory(conversationCategory)
                     .setGroupDesc(cursorHelper.getString(GroupModelOld.COLUMN_GROUP_DESC))
                     .setGroupDescTimestamp(cursorHelper.getInstant(GroupModelOld.COLUMN_GROUP_DESC_CHANGED_TIMESTAMP))
                     .setColorIndex(cursorHelper.getInt(GroupModelOld.COLUMN_COLOR_INDEX))
@@ -152,92 +169,6 @@ public class GroupModelFactory extends ModelFactory {
         return groupModel;
     }
 
-    public boolean createOrUpdate(@NonNull GroupModelOld groupModel) {
-        boolean insert = true;
-        if (groupModel.getId() > 0) {
-            Cursor cursor = getReadableDatabase().query(
-                this.getTableName(),
-                null,
-                GroupModelOld.COLUMN_ID + "=?",
-                new String[]{
-                    String.valueOf(groupModel.getId())
-                },
-                null,
-                null,
-                null
-            );
-
-            if (cursor != null) {
-                try (cursor) {
-                    insert = !cursor.moveToNext();
-                }
-            }
-        }
-
-        if (insert) {
-            return create(groupModel);
-        } else {
-            return update(groupModel);
-        }
-    }
-
-    @NonNull
-    private ContentValues buildContentValues(@NonNull GroupModelOld groupModel) {
-        ContentValues contentValues = new ContentValues();
-        contentValues.put(GroupModelOld.COLUMN_API_GROUP_ID, groupModel.getApiGroupId().toString());
-        contentValues.put(GroupModelOld.COLUMN_CREATOR_IDENTITY, groupModel.getCreatorIdentity());
-        contentValues.put(GroupModelOld.COLUMN_NAME, groupModel.getName());
-        contentValues.put(GroupModelOld.COLUMN_CREATED_AT, groupModel.getCreatedAt() != null ? groupModel.getCreatedAt().toEpochMilli() : null);
-        contentValues.put(GroupModelOld.COLUMN_LAST_UPDATE, groupModel.getLastUpdate() != null ? groupModel.getLastUpdate().toEpochMilli() : null);
-        contentValues.put(GroupModelOld.COLUMN_SYNCHRONIZED_AT, groupModel.getSynchronizedAt() != null ? groupModel.getSynchronizedAt().toEpochMilli() : null);
-        contentValues.put(GroupModelOld.COLUMN_CONVERSATION_VISIBILITY, groupModel.getConversationVisibility().getSerializedValue());
-        contentValues.put(GroupModelOld.COLUMN_GROUP_DESC, groupModel.getGroupDesc());
-        contentValues.put(GroupModelOld.COLUMN_GROUP_DESC_CHANGED_TIMESTAMP, groupModel.getGroupDescTimestamp() != null ? groupModel.getGroupDescTimestamp().toEpochMilli() : null);
-        contentValues.put(GroupModelOld.COLUMN_COLOR_INDEX, groupModel.getIdColor().getColorIndex());
-        // In case the user state is not set, we fall back to 'member'.
-        contentValues.put(GroupModelOld.COLUMN_USER_STATE, groupModel.getUserState() != null ? groupModel.getUserState().getValue() : UserState.MEMBER.getValue());
-        GroupNotificationTriggerPolicyOverride notificationTriggerPolicyOverride = groupModel.getNotificationTriggerPolicyOverride();
-        Integer notificationTriggerPolicyOverridePolicy = notificationTriggerPolicyOverride != null
-            ? notificationTriggerPolicyOverride.getPolicy().getSerializedValue()
-            : null;
-        Instant expiresAt = notificationTriggerPolicyOverride != null ? notificationTriggerPolicyOverride.getExpiresAt() : null;
-        Long expiresAtLong = expiresAt != null ? expiresAt.toEpochMilli() : null;
-        contentValues.put(GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_POLICY, notificationTriggerPolicyOverridePolicy);
-        contentValues.put(GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_EXPIRES_AT, expiresAtLong);
-
-        return contentValues;
-    }
-
-    public boolean create(@NonNull GroupModelOld groupModel) {
-        logger.debug("create group {}", groupModel.getApiGroupId());
-        ContentValues contentValues = buildContentValues(groupModel);
-        try {
-            long newId = getWritableDatabase().insertOrThrow(this.getTableName(), null, contentValues);
-            if (newId > 0) {
-                logger.debug("create group success with id {}", newId);
-                groupModel.setId((int) newId);
-                return true;
-            }
-        } catch (SQLException e) {
-            logger.debug("unable to create group: {}", e.getMessage());
-        }
-        return false;
-    }
-
-    public boolean update(@NonNull GroupModelOld groupModel) {
-        final @NonNull ContentValues contentValues = buildContentValues(groupModel);
-        int rowAffected = getWritableDatabase().update(
-            getTableName(),
-            contentValues,
-            GroupModelOld.COLUMN_ID + "=?",
-            new String[]{
-                String.valueOf(groupModel.getId())
-            }
-        );
-        logger.debug("done, affected rows: {}", rowAffected);
-        return true;
-    }
-
     public void setLastUpdate(@NonNull GroupIdentity groupIdentity, @Nullable Instant lastUpdate) {
         final @Nullable Long lastUpdateTime = lastUpdate != null ? lastUpdate.toEpochMilli() : null;
         ContentValues contentValues = new ContentValues();
@@ -248,7 +179,7 @@ public class GroupModelFactory extends ModelFactory {
             contentValues,
             GroupModelOld.COLUMN_API_GROUP_ID + " = ? AND " + GroupModelOld.COLUMN_CREATOR_IDENTITY + " = ?",
             new String[]{
-                groupIdentity.getGroupIdHexString(),
+                groupIdentity.getApiGroupIdHexString(),
                 groupIdentity.getCreatorIdentity()
             }
         );
@@ -325,12 +256,14 @@ public class GroupModelFactory extends ModelFactory {
                     "`" + GroupModelOld.COLUMN_LAST_UPDATE + "` INTEGER, " +
                     "`" + GroupModelOld.COLUMN_SYNCHRONIZED_AT + "` BIGINT , " +
                     "`" + GroupModelOld.COLUMN_CONVERSATION_VISIBILITY + "` INTEGER DEFAULT 0 NOT NULL, " +
+                    "`" + GroupModelOld.COLUMN_CONVERSATION_CATEGORY + "` INTEGER DEFAULT 0 NOT NULL," +
                     "`" + GroupModelOld.COLUMN_GROUP_DESC + "` VARCHAR DEFAULT NULL, " +
                     "`" + GroupModelOld.COLUMN_GROUP_DESC_CHANGED_TIMESTAMP + "` BIGINT DEFAULT NULL, " +
                     "`" + GroupModelOld.COLUMN_COLOR_INDEX + "` INTEGER DEFAULT 0 NOT NULL, " +
                     "`" + GroupModelOld.COLUMN_USER_STATE + "` INTEGER DEFAULT 0 NOT NULL, " +
                     "`" + GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_POLICY + "` INTEGER DEFAULT NULL, " +
-                    "`" + GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_EXPIRES_AT + "` BIGINT DEFAULT NULL " +
+                    "`" + GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_EXPIRES_AT + "` BIGINT DEFAULT NULL, " +
+                    "`" + GroupModelOld.COLUMN_SPAM_REPORTING_STATE + "` INTEGER DEFAULT 0 NOT NULL " +
                     ");",
                 "CREATE UNIQUE INDEX `apiGroupIdAndCreator` ON `" + GroupModelOld.TABLE + "` ( " +
                     "`" + GroupModelOld.COLUMN_API_GROUP_ID + "`, `" + GroupModelOld.COLUMN_CREATOR_IDENTITY + "` " +

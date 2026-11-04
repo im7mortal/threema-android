@@ -4,7 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.annotation.CallSuper
 import ch.threema.app.activities.wizard.WizardIntroActivity
-import ch.threema.app.di.DIJavaCompat.isSessionScopeReady
+import ch.threema.app.di.isSessionScopeReady
 import ch.threema.app.preference.service.SynchronizedSettingsService
 import ch.threema.app.services.LockAppService
 import ch.threema.app.services.NotificationPreferenceService

@@ -151,7 +151,6 @@ per aquesta ID. Això significa que algú ha manipulat el codi escanejat, i que 
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="backup_sum">Exportar la vostra ID de ${app_name_short}</string>
     <string name="backup_and_delete">Còpia de seguretat i eliminació</string>
-    <string name="delete_id_title">Eliminar ID</string>
     <string name="delete_id_message">A menys que hàgiu creat una còpia de seguretat o exportat i desat una còpia d\'aquesta ID, mai més podreu tornar a enviar o rebre missatges amb aquesta ID.\n\nSi no voleu tornar a utilitzar aquesta ID, es recomana definir una contrasenya de revocació i revocar la ID a myid.threema.ch/revoke abans d\'esborrar-la.</string>
     <string name="delete_id_message2">Darrera advertència: segur que voleu eliminar la vostra ID en aquest dispositiu?</string>
     <string name="backup_password_summary">La vostra exportació d\'ID serà xifrada amb una contrasenya. Utilitzeu una combinació de lletres, números i símbols. No l\'oblideu!</string>
@@ -884,6 +883,7 @@ donar només el vostre nom o un pseudònim. Si no definiu un sobrenom utilitzare
     <string name="safe_no_backup_found">No s\'ha trobat cap còpia al servidor. Comproveu la ID i contrasenya.</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="safe_select_id">S\'ha trobat múltiples IDs de ${app_name_short}. Seleccioneu la ID que voleu usar:</string>
+    <!-- Button label on "Threema Safe" feature, to allow the user to trigger the backup process -->
     <string name="safe_backup_now">Copiar ara</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="safe_enable_explain_short">Activeu ${app_name_short} Safe per crear còpies segures automàtiques i anònimes de les vostres dades importants.</string>
@@ -1265,6 +1265,8 @@ Si esteu canviant a un dispositiu nou, desinstal·leu o desactiveu %s al disposi
     <!-- ${app_name} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
+    <!-- Title of warning message that informs the user that the version of Android they are using will soon no longer be supported. -->
+    <!-- Details of warning message that informs the user that the version of Android they are using will soon no longer be supported. ${app_name} is a placeholder that should be kept as-is and not translated. -->
     <!-- Label on button to dismiss/hide a warning -->
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
@@ -1312,6 +1314,54 @@ Si esteu canviant a un dispositiu nou, desinstal·leu o desactiveu %s al disposi
     <!-- Error message shown fullscreen when deactivating the DualLock (a.k.a. "Remote Secret") feature failed. ${remote_secret} is a placeholder for a feature name, e.g. "DualLock". It must be left as-is and not translated. -->
     <!-- A hint text that will be played by the android screen reader in accessibility mode. It explains the effect of a click action. -->
     <!-- Clicking will open a new modal view that displays the full length of a contact's availability status description. -->
+    <!--
+    Text that is displayed in an emoji reaction system notification for a 1 to 1 conversation.
+    Placeholder %1$s will be replaced with the emojis.
+    Placeholder %2$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <!--
+    Text that is displayed in an emoji reaction system notification for a 1 to 1 conversation with many emojis.
+    Placeholder %1$s will be replaced with the emojis until a defined count.
+    Placeholder %2$d will be replaced with the remaining emoji count that is not displayed in %1$s.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation and a single reactor person.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the emojis.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation and a single reactor person with many emojis.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the emojis until a defined count.
+    Placeholder %3$d will be replaced with the remaining emoji count that is not displayed in %2$s.
+    Placeholder %4$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation with 2 reacting persons.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the name of the other reacting person.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation with more than 2 reacting persons.
+    Placeholder %1$s will be replaced with the name of the most recent reacting person.
+    Placeholder %2$d will be replaced with the remaining person count that also reacted.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <!-- Placeholder %1$s will be replaced with the message body of the text message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the caption text of the image message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the caption text of the video message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the duration of the audio message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the caption text of the audio message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the duration of the voice message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the caption or filename of the file message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the poll's name of the poll message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the POI name of the location message that was reacted on. -->
+    <!-- Placeholder %1$s will be replaced with the contact name of the contact message that was reacted on. -->
+    <!-- Placeholder 1 holds the display name of a group conversation -->
+    <!-- This is shown in a loading indicator dialog while a spam group is being reported -->
     <plurals name="contacts_counter_label">
         <item quantity="one">%d contacte</item>
         <item quantity="other">%d contactes</item>

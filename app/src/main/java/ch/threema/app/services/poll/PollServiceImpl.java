@@ -51,7 +51,7 @@ import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.storage.DatabaseService;
 import ch.threema.storage.factories.GroupPollModelFactory;
 import ch.threema.storage.factories.IdentityPollModelFactory;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.group.GroupModelOld;
 import ch.threema.storage.models.poll.PollChoiceModel;
@@ -201,23 +201,35 @@ public class PollServiceImpl implements PollService {
         try {
             this.checkAccess();
 
-
-            final PollModel pollModel = new PollModel();
-            pollModel.setApiPollId(toHexString(newPollId.getPollId()));
-            pollModel.setCreatorIdentity(this.userService.getIdentity());
-            pollModel.setCreatedAt(Instant.now());
-            pollModel.setModifiedAt(Instant.now());
-            pollModel.setName(description);
-            pollModel.setState(state);
-            pollModel.setAssessment(assessment);
-            pollModel.setType(type);
-            pollModel.setChoiceType(choiceType);
-            pollModel.setDisplayType(PollModel.DisplayType.LIST_MODE); // default display type for polls created on mobile client.
-            pollModel.setLastViewedAt(Instant.now());
-
-            this.databaseService.getPollModelFactory().create(
-                pollModel
+            var now = Instant.now();
+            final PollModel pollModel = new PollModel(
+                /* id */
+                0,
+                /* apiPollId*/
+                toHexString(newPollId.getPollId()),
+                /* creatorIdentity */
+                userService.getIdentity(),
+                /* name */
+                description,
+                /* state */
+                state,
+                /* assessment */
+                assessment,
+                /* type */
+                type,
+                /* choiceType */
+                choiceType,
+                /* displayType */
+                PollModel.DisplayType.LIST_MODE,
+                /* createdAt */
+                now,
+                /* modifiedAt */
+                now,
+                /* lastViewedAt */
+                now
             );
+
+            this.databaseService.getPollModelFactory().create(pollModel);
 
             this.cache(pollModel);
 
@@ -336,12 +348,33 @@ public class PollServiceImpl implements PollService {
             }
         } else {
             if (pollData.getState() != PollData.State.CLOSED) {
-                pollModel = new PollModel();
-                pollModel.setCreatorIdentity(createMessage.getPollCreatorIdentity());
-                pollModel.setApiPollId(createMessage.getPollId().toString());
-                pollModel.setCreatedAt(date);
-                pollModel.setLastViewedAt(null);
                 toState = PollModel.State.OPEN;
+                pollModel = new PollModel(
+                    /* id */
+                    0,
+                    /* apiPollId*/
+                    createMessage.getPollId().toString(),
+                    /* creatorIdentity */
+                    createMessage.getPollCreatorIdentity(),
+                    /* name */
+                    pollData.getDescription(),
+                    /* state */
+                    toState,
+                    /* assessment (value here doesn't matter, will be overwritten further down) */
+                    PollModel.Assessment.MULTIPLE_CHOICE,
+                    /* type (value here doesn't matter, will be overwritten further down) */
+                    PollModel.Type.RESULT_ON_CLOSE,
+                    /* choiceType */
+                    PollModel.ChoiceType.TEXT,
+                    /* displayType */
+                    PollModel.DisplayType.LIST_MODE,
+                    /* createdAt */
+                    date,
+                    /* modifiedAt */
+                    Instant.now(),
+                    /* lastViewedAt */
+                    null
+                );
             } else {
                 throw new BadMessageException("New poll with closed state requested. Discarding message.");
             }
@@ -440,11 +473,6 @@ public class PollServiceImpl implements PollService {
 
             pollChoiceModel.setName(apiChoice.getName());
             pollChoiceModel.setOrder(apiChoice.getOrder());
-            switch (pollData.getChoiceType()) {
-                case TEXT:
-                    pollChoiceModel.setType(PollChoiceModel.Type.Text);
-                    break;
-            }
             pollChoiceModel.setCreatedAt(date);
 
             this.databaseService.getPollChoiceModelFactory().createOrUpdate(
@@ -694,23 +722,23 @@ public class PollServiceImpl implements PollService {
 
     @Override
     public PollPublishResult publish(
-        MessageReceiver messageReceiver,
-        final PollModel pollModel,
-        AbstractMessageModel abstractMessageModel,
-        @NonNull MessageId messageId,
-        @NonNull TriggerSource triggerSource
+            MessageReceiver messageReceiver,
+            final PollModel pollModel,
+            MessageModel messageModel,
+            @NonNull MessageId messageId,
+            @NonNull TriggerSource triggerSource
     ) throws NotAllowedException, MessageTooLongException {
-        return this.publish(messageReceiver, pollModel, abstractMessageModel, null, messageId, triggerSource);
+        return this.publish(messageReceiver, pollModel, messageModel, null, messageId, triggerSource);
     }
 
     @Override
     public PollPublishResult publish(
-        MessageReceiver messageReceiver,
-        final PollModel pollModel,
-        AbstractMessageModel abstractMessageModel,
-        @Nullable Collection<String> receivingIdentities,
-        @NonNull MessageId messageId,
-        @NonNull TriggerSource triggerSource
+            MessageReceiver messageReceiver,
+            final PollModel pollModel,
+            MessageModel messageModel,
+            @Nullable Collection<String> receivingIdentities,
+            @NonNull MessageId messageId,
+            @NonNull TriggerSource triggerSource
     ) throws NotAllowedException, MessageTooLongException {
         PollPublishResult result = new PollPublishResult();
 
@@ -824,7 +852,7 @@ public class PollServiceImpl implements PollService {
             messageReceiver.createAndSendPollSetupMessage(
                 pollData,
                 pollModel,
-                abstractMessageModel,
+                    messageModel,
                 receivingIdentities,
                 triggerSource
             );
@@ -890,7 +918,7 @@ public class PollServiceImpl implements PollService {
         MessageService messageService = serviceManager.getMessageService();
 
         if (pollModel != null) {
-            List<AbstractMessageModel> messageModels = messageService.getMessageForPoll(pollModel);
+            List<MessageModel> messageModels = messageService.getMessageForPoll(pollModel);
 
             //remove all votes
             this.databaseService.getPollVoteModelFactory().deleteByPollId(
@@ -914,7 +942,7 @@ public class PollServiceImpl implements PollService {
 
             // delete associated messages
             if (messageModels != null) {
-                for (AbstractMessageModel m : messageModels) {
+                for (MessageModel m : messageModels) {
                     if (m != null) {
                         try {
                             logger.debug("Removing poll message {} of type {}", m.getApiMessageId() != null ? m.getApiMessageId() : m.getId(), m.getPollData().getType());
@@ -1127,7 +1155,7 @@ public class PollServiceImpl implements PollService {
         }
 
         // Load existing votes of user
-        List<PollVoteModel> existingVotes = this.getVotes(pollModel.getId(), fromIdentity);
+        List<PollVoteModel> existingVotes = new ArrayList<>(getVotes(pollModel.getId(), fromIdentity));
         final boolean firstVote = existingVotes.isEmpty();
 
         List<PollVoteModel> savingVotes = new ArrayList<>();
@@ -1312,11 +1340,9 @@ public class PollServiceImpl implements PollService {
             return true;
         }
 
-        IdentityPollModel m = new IdentityPollModel();
-        m.setPollId(pollModel.getId());
-        m.setIdentity(contactModel.getIdentity());
-        identityPollModelFactory.create(
-            m);
+
+        IdentityPollModel m = IdentityPollModel.javaCreate(contactModel.getIdentity(), pollModel.getId());
+        identityPollModelFactory.create(m);
 
         this.cache(m);
 
@@ -1338,11 +1364,8 @@ public class PollServiceImpl implements PollService {
             return true;
         }
 
-        GroupPollModel m = new GroupPollModel();
-        m.setPollId(pollModel.getId());
-        m.setGroupId(groupModel.getId());
-        groupPollModelFactory.create(
-            m);
+        GroupPollModel m = GroupPollModel.javaCreate(groupModel.getId(), pollModel.getId());
+        groupPollModelFactory.create(m);
 
         this.cache(m);
         return true;

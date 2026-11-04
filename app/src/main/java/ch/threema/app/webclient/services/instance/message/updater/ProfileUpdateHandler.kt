@@ -2,11 +2,11 @@ package ch.threema.app.webclient.services.instance.message.updater
 
 import androidx.annotation.AnyThread
 import androidx.annotation.WorkerThread
+import ch.threema.android.toPngByteArray
 import ch.threema.app.eventbus.GlobalEventFlows
 import ch.threema.app.eventbus.events.ProfileEvent
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.UserService
-import ch.threema.app.utils.BitmapUtil
 import ch.threema.app.utils.executor.HandlerExecutor
 import ch.threema.app.webclient.Protocol
 import ch.threema.app.webclient.converter.Profile
@@ -72,9 +72,7 @@ class ProfileUpdateHandler @AnyThread constructor(
     private fun sendProfile(nickname: String?, sendAvatar: Boolean) {
         val data = if (sendAvatar) {
             val avatar = contactService.getAvatar(userService.getIdentity(), true)
-                ?.let { bitmap ->
-                    BitmapUtil.bitmapToByteArray(bitmap, Protocol.FORMAT_AVATAR, Protocol.QUALITY_AVATAR_HIRES)
-                }
+                ?.toPngByteArray(quality = Protocol.QUALITY_AVATAR_HIRES)
             Profile.convert(nickname, avatar)
         } else {
             Profile.convert(nickname)

@@ -33,11 +33,6 @@ public class DatabaseUpdateToVersion68 implements DatabaseUpdate {
     }
 
     @Override
-    public String getDescription() {
-        return "correlationId";
-    }
-
-    @Override
     public int getVersion() {
         return 68;
     }

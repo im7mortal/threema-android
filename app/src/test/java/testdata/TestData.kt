@@ -17,6 +17,8 @@ import ch.threema.data.datatypes.AndroidContactLookupInfo
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverride
+import ch.threema.data.datatypes.ConversationCategory
+import ch.threema.data.datatypes.ConversationSpamReportingState
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.DistributionListConversationId
 import ch.threema.data.datatypes.GroupConversationId
@@ -35,6 +37,7 @@ import ch.threema.domain.models.ContactSyncState
 import ch.threema.domain.models.GroupId
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
+import ch.threema.domain.models.MessageId
 import ch.threema.domain.models.ReadReceiptPolicy
 import ch.threema.domain.models.TypingIndicatorPolicy
 import ch.threema.domain.models.UserState
@@ -74,7 +77,33 @@ object TestData {
         const val INVALID = "INVALID"
     }
 
-    val publicKeyAllZeros = ByteArray(32)
+    object GroupIdentities {
+
+        val GROUP_ME = GroupIdentity(
+            creatorIdentity = Identities.ME.value,
+            groupId = 0L,
+        )
+        val GROUP_1 = GroupIdentity(
+            creatorIdentity = Identities.OTHER_1.value,
+            groupId = 1L,
+        )
+        val GROUP_2 = GroupIdentity(
+            creatorIdentity = Identities.OTHER_2.value,
+            groupId = 2L,
+        )
+        val GROUP_3 = GroupIdentity(
+            creatorIdentity = Identities.OTHER_3.value,
+            groupId = 3L,
+        )
+    }
+
+    object MessageIds {
+        val MESSAGE_ID_1 = MessageId.fromString("0000111122223333")
+        val MESSAGE_ID_2 = MessageId.fromString("4444555566667777")
+    }
+
+    val testPublicKey = ByteArray(32) { it.toByte() }
+    val testPrivateKey = ByteArray(32) { it.toByte() }
 
     fun createContactConversationModel(contactConversationId: ContactConversationId) =
         createContactConversationModel(
@@ -114,7 +143,7 @@ object TestData {
 
     fun createAndMockContactMessageReceiver(
         identity: Identity,
-        publicKey: ByteArray = publicKeyAllZeros,
+        publicKey: ByteArray = testPublicKey,
         firstname: String = "Firstname",
         lastname: String = "Lastname",
         nickname: String? = null,
@@ -271,12 +300,14 @@ object TestData {
                 synchronizedAt = null,
                 lastUpdate = null,
                 conversationVisibility = conversationVisibility,
+                conversationCategory = ConversationCategory.DEFAULT,
                 precomputedIdColor = IdColor.ofGroup(groupIdentity),
                 groupDescription = null,
                 groupDescriptionChangedAt = null,
                 otherMembers = otherMembers.map { it.value }.toSet(),
                 userState = userState,
                 notificationTriggerPolicyOverride = null,
+                spamReportingState = ConversationSpamReportingState.DEFAULT,
             ),
             databaseBackend = databaseBackendMock,
             identityProvider = TestIdentityProvider(ownIdentity),
@@ -335,7 +366,7 @@ object TestData {
     fun createDistributionListConversationModel(
         distributionListId: Long,
         conversationVisibility: ConversationVisibility = ConversationVisibility.NORMAL,
-        identitiesWithPublicKey: List<Pair<Identity, ByteArray>> = listOf(Identities.OTHER_1 to publicKeyAllZeros),
+        identitiesWithPublicKey: List<Pair<Identity, ByteArray>> = listOf(Identities.OTHER_1 to testPublicKey),
         distributionListServiceMock: DistributionListService = mockk(relaxed = true),
         contactServiceMock: ContactService = mockk(relaxed = true),
         contactModelRepositoryMock: ContactModelRepository = mockk(relaxed = true),
@@ -441,7 +472,7 @@ object TestData {
 
     fun createContactModel(
         identity: Identity? = Identities.OTHER_1,
-        publicKey: ByteArray = publicKeyAllZeros,
+        publicKey: ByteArray = testPublicKey,
         firstname: String = "Firstname",
         lastname: String = "Lastname",
         nickname: String? = null,
@@ -451,12 +482,14 @@ object TestData {
         activityState: IdentityState = IdentityState.ACTIVE,
         syncState: ContactSyncState = ContactSyncState.INITIAL,
         conversationVisibility: ConversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory: ConversationCategory = ConversationCategory.DEFAULT,
         workLastFullSyncAt: Instant? = null,
         availabilityStatus: AvailabilityStatus = AvailabilityStatus.Busy(),
         databaseBackendMock: DatabaseBackend = mockk(relaxed = true),
         identityProvider: IdentityProvider = TestIdentityProvider(identity = null),
         multiDeviceManager: MultiDeviceManager = mockk(relaxed = true),
         taskManager: TaskManager = mockk(relaxed = true),
+        verificationLevel: VerificationLevel = VerificationLevel.FULLY_VERIFIED,
     ): ch.threema.data.models.ContactModel {
         return ch.threema.data.models.ContactModel(
             identity = identity?.value ?: "",
@@ -469,7 +502,7 @@ object TestData {
                 lastName = lastname,
                 nickname = nickname,
                 idColor = IdColor(0),
-                verificationLevel = VerificationLevel.FULLY_VERIFIED,
+                verificationLevel = verificationLevel,
                 workVerificationLevel = WorkVerificationLevel.NONE,
                 identityType = IdentityType.REGULAR,
                 acquaintanceLevel = AcquaintanceLevel.DIRECT,
@@ -479,6 +512,7 @@ object TestData {
                 readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
                 typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
                 conversationVisibility = conversationVisibility,
+                conversationCategory = conversationCategory,
                 androidContactLookupInfo = null,
                 localAvatarExpires = null,
                 isRestored = isRestored,
@@ -515,6 +549,7 @@ object TestData {
         readReceiptPolicy: ReadReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy: TypingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
         conversationVisibility: ConversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory: ConversationCategory = ConversationCategory.DEFAULT,
         androidContactLookupInfo: AndroidContactLookupInfo? = null,
         localAvatarExpires: Instant? = null,
         isRestored: Boolean = false,
@@ -542,6 +577,7 @@ object TestData {
         readReceiptPolicy = readReceiptPolicy,
         typingIndicatorPolicy = typingIndicatorPolicy,
         conversationVisibility = conversationVisibility,
+        conversationCategory = conversationCategory,
         androidContactLookupInfo = androidContactLookupInfo,
         localAvatarExpires = localAvatarExpires,
         isRestored = isRestored,
@@ -554,43 +590,74 @@ object TestData {
     )
 
     fun createGroupModel(
-        groupIdentity: GroupIdentity = GroupIdentity(
-            creatorIdentity = Identities.OTHER_1.value,
-            groupId = 1,
-        ),
-        name: String = "Group1",
-        createdAt: Instant = Instant.ofEpochMilli(42),
-        synchronizedAt: Instant = Instant.ofEpochMilli(42),
-        lastUpdate: Instant = Instant.ofEpochMilli(42),
+        groupIdentity: GroupIdentity = GroupIdentity(creatorIdentity = Identities.OTHER_1.value, groupId = 42),
+        name: String = "Group",
+        createdAt: Instant = utcDate(2026, 7, 21),
+        synchronizedAt: Instant? = null,
+        lastUpdate: Instant? = null,
         conversationVisibility: ConversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory: ConversationCategory = ConversationCategory.DEFAULT,
         groupDescription: String? = null,
         groupDescriptionChangedAt: Instant? = null,
         otherMembers: Set<String> = emptySet(),
         userState: UserState = UserState.MEMBER,
         notificationTriggerPolicyOverride: GroupNotificationTriggerPolicyOverride? = null,
+        spamReportingState: ConversationSpamReportingState = ConversationSpamReportingState.DEFAULT,
         databaseBackend: DatabaseBackend = mockk(relaxed = true),
         identityProvider: IdentityProvider = TestIdentityProvider(identity = null),
         multiDeviceManager: MultiDeviceManager = mockk(relaxed = true),
         taskManager: TaskManager = mockk(relaxed = true),
     ) = GroupModel(
         groupIdentity = groupIdentity,
-        data = GroupModelData(
+        data = createGroupModelData(
             groupIdentity = groupIdentity,
             name = name,
             createdAt = createdAt,
             synchronizedAt = synchronizedAt,
             lastUpdate = lastUpdate,
             conversationVisibility = conversationVisibility,
+            conversationCategory = conversationCategory,
             groupDescription = groupDescription,
             groupDescriptionChangedAt = groupDescriptionChangedAt,
             otherMembers = otherMembers,
             userState = userState,
             notificationTriggerPolicyOverride = notificationTriggerPolicyOverride,
+            spamReportingState = spamReportingState,
         ),
         databaseBackend = databaseBackend,
         multiDeviceManager = multiDeviceManager,
         taskManager = taskManager,
         identityProvider = identityProvider,
         globalEventBuses = mockk(relaxed = true),
+    )
+
+    fun createGroupModelData(
+        groupIdentity: GroupIdentity = GroupIdentity(creatorIdentity = Identities.OTHER_1.value, groupId = 42),
+        name: String = "Group",
+        createdAt: Instant = utcDate(2026, 7, 21),
+        synchronizedAt: Instant? = null,
+        lastUpdate: Instant? = null,
+        conversationVisibility: ConversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory: ConversationCategory = ConversationCategory.DEFAULT,
+        groupDescription: String? = null,
+        groupDescriptionChangedAt: Instant? = null,
+        otherMembers: Set<String> = emptySet(),
+        userState: UserState = UserState.MEMBER,
+        notificationTriggerPolicyOverride: GroupNotificationTriggerPolicyOverride? = null,
+        spamReportingState: ConversationSpamReportingState = ConversationSpamReportingState.DEFAULT,
+    ) = GroupModelData(
+        groupIdentity = groupIdentity,
+        name = name,
+        createdAt = createdAt,
+        synchronizedAt = synchronizedAt,
+        lastUpdate = lastUpdate,
+        conversationVisibility = conversationVisibility,
+        conversationCategory = conversationCategory,
+        groupDescription = groupDescription,
+        groupDescriptionChangedAt = groupDescriptionChangedAt,
+        otherMembers = otherMembers,
+        userState = userState,
+        notificationTriggerPolicyOverride = notificationTriggerPolicyOverride,
+        spamReportingState = spamReportingState,
     )
 }

@@ -14,6 +14,6 @@ interface LinkConfirmationListener {
     fun onLinkNeedsConfirmation(warning: String, uri: Uri)
 
     companion object {
-        const val DIALOG_TAG_CONFIRM_LINK: String = "cnfl"
+        const val DIALOG_TAG_CONFIRM_LINK = "cnfl"
     }
 }

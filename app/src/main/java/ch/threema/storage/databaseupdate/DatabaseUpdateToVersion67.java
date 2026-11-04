@@ -8,6 +8,9 @@ import androidx.annotation.NonNull;
 
 import static ch.threema.storage.databaseupdate.DatabaseUpdateExtensionsKt.fieldExists;
 
+/**
+ * add readReceipts and typingIndicators
+ */
 public class DatabaseUpdateToVersion67 implements DatabaseUpdate {
 
     @NonNull
@@ -25,11 +28,6 @@ public class DatabaseUpdateToVersion67 implements DatabaseUpdate {
         if (!fieldExists(this.sqLiteDatabase, "contacts", "typingIndicators")) {
             sqLiteDatabase.rawExecSQL("ALTER TABLE contacts ADD COLUMN typingIndicators TINYINT DEFAULT 0");
         }
-    }
-
-    @Override
-    public String getDescription() {
-        return "add readReceipts and typingIndicators";
     }
 
     @Override

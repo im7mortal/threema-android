@@ -79,11 +79,16 @@ fun AppBar(
     colors: TopAppBarColors = defaultColors,
     actions: @Composable RowScope.() -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior? = null,
+    showConnectionIndicator: Boolean = true,
 ) {
-    val serverConnectionState: ConnectionState by watchServerConnectionState()
     AppBarBase(
         modifier = modifier,
-        serverConnectionState = serverConnectionState,
+        serverConnectionState = if (showConnectionIndicator) {
+            val serverConnectionState: ConnectionState by watchServerConnectionState()
+            serverConnectionState
+        } else {
+            null
+        },
         appBar = {
             AppBarDefault(
                 title = title,
@@ -112,11 +117,16 @@ fun AppBar(
     colors: TopAppBarColors = defaultColors,
     actions: @Composable RowScope.() -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior? = null,
+    showConnectionIndicator: Boolean = true,
 ) {
-    val serverConnectionState: ConnectionState by watchServerConnectionState()
     AppBarBase(
         modifier = modifier,
-        serverConnectionState = serverConnectionState,
+        serverConnectionState = if (showConnectionIndicator) {
+            val serverConnectionState: ConnectionState by watchServerConnectionState()
+            serverConnectionState
+        } else {
+            null
+        },
         appBar = {
             AppBarCustom(
                 content = content,
@@ -260,14 +270,16 @@ private fun AppBarCustom(
 @Composable
 private fun AppBarBase(
     modifier: Modifier,
-    serverConnectionState: ConnectionState,
+    serverConnectionState: ConnectionState?,
     appBar: @Composable () -> Unit,
 ) {
     Box(
         modifier = modifier,
     ) {
         appBar()
-        ConnectionStateIndicator(serverConnectionState)
+        if (serverConnectionState != null) {
+            ConnectionStateIndicator(serverConnectionState)
+        }
     }
 }
 

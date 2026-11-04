@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * update message index
+ */
 class DatabaseUpdateToVersion90(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -33,8 +36,6 @@ class DatabaseUpdateToVersion90(
                 ")",
         )
     }
-
-    override fun getDescription() = "update message index"
 
     override val version = 90
 }

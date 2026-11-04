@@ -93,7 +93,7 @@
     <string name="prefs_title_sum_message_log_on_since">由 %1$s 开始记录系统活动 (%2$s)</string>
     <!-- Summary text shown under the "Log to file" switch in the settings. %1$s is a placeholder for the name of a file which is used to force-enable the logging., %2$s is a placeholder for the total file size of the logs (e.g. 2.1MB) -->
     <string name="prefs_title_sum_message_log_forced_on">系统活动正在记录中，删除文件“%1$s”以禁用日志记录功能。（%2$s）</string>
-    <string name="prefs_title_sum_message_log_off">事件将不会被记录</string>
+    <string name="prefs_title_sum_message_log_off">系统活动将不会被记录</string>
     <string name="prefs_reset_push">重置推送令牌</string>
     <string name="prefs_sum_reset_push">重新注册设备以通过FCM或HMS获取推送通知</string>
     <string name="prefs_notification_preview">显示消息预览</string>
@@ -171,10 +171,10 @@
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="backup_sum">导出您的 ${app_name_short} ID</string>
     <string name="backup_and_delete">备份和删除</string>
-    <string name="delete_id_title">删除ID</string>
+    <string name="delete_id_menu_title">移除ID和数据</string>
     <string name="delete_id_message">除非您已创建备份或导出并保存了此ID的副本，否则您将永远无法使用该ID再次发送或接收消息。\n\n如果您不想再使用此ID，建议在删除ID之前，在 myid.threema.ch/revoke 上设置撤销密码并撤销该ID。</string>
     <string name="delete_id_message2">最后警告：您确定要删除此设备上的ID吗？</string>
-    <string name="delete_id_sum">永久删除您的 ${app_name_short} ID和此设备上的所有数据</string>
+    <string name="delete_id_summary">移除您的 ${app_name_short} ID和此设备上的所有数据</string>
     <string name="delete_all_data_prompt">删除所有应用数据？</string>
     <string name="backup_password_summary">您的ID导出将使用密码进行加密。使用字母，数字和符号的组合。请牢牢记住这里输入的内容！</string>
     <string name="backup_password_again_summary">再次输入密码</string>
@@ -202,10 +202,10 @@
     <string name="masterkey_passphrase_hint">密码</string>
     <string name="master_key_locked_want_exit">主密钥仍处于锁定状态。您想再试一次吗？</string>
     <string name="click_here_to_change_passphrase">点击这里更改密码</string>
-    <string name="attach_camera">系统相机</string>
+    <string name="attach_camera">相机</string>
     <string name="menu_restore">从备份恢复</string>
-    <string name="restore_id_hint">输入或粘贴ID导出的文本字符串以恢复</string>
-    <string name="restore_id_string_label">ID 导出文本字符串</string>
+    <string name="restore_id_hint">请输入想要恢复的ID导出的文本字符串，或扫描由该ID导出文件的二维码。</string>
+    <string name="restore_id_string_label">ID导出文本字符串</string>
     <string name="location_placeholder">位置</string>
     <string name="video_placeholder">视频</string>
     <string name="audio_placeholder">音频</string>
@@ -451,12 +451,6 @@
     <string name="media_gallery_pictures">图片</string>
     <string name="media_gallery_videos">影片</string>
     <string name="group_membership_title">这些群组的成员</string>
-    <string name="group_description">群组描述</string>
-    <string name="change_group_description">更改群组描述</string>
-    <string name="add_group_description">添加群组描述</string>
-    <string name="read_more">阅读更多</string>
-    <string name="read_less">阅读更少</string>
-    <string name="changed_group_desc_date">最后修改：\u0020</string>
     <string name="num_items_sected">已选择 %s</string>
     <string name="really_delete_media">您确定要删除%d条媒体消息吗？</string>
     <string name="check_updates">检查更新</string>
@@ -819,6 +813,8 @@ ${app_name_short} 支持的所有表情符号。</string>
     <string name="text">文本</string>
     <string name="undo">撤消</string>
     <string name="android_backup_date">上次备份</string>
+    <string name="threema_safe_configuration_title">配置</string>
+    <string name="threema_safe_last_backup_date_and_time">时间</string>
     <string name="discard">丢弃</string>
     <string name="android_backup_restart_threema">请稍等片刻。此应用将在几秒钟后重新启动。</string>
     <string name="battery_optimizations_title">禁用电池优化</string>
@@ -999,6 +995,7 @@ ${app_name_short} 支持的所有表情符号。</string>
     <string name="safe_no_backup_found">在服务器上找不到备份。请检查 ID 和密码。</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="safe_select_id">找到多个 ${app_name_short} ID。请选择要使用的 ID：</string>
+    <!-- Button label on "Threema Safe" feature, to allow the user to trigger the backup process -->
     <string name="safe_backup_now">立即备份</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="safe_enable_explain_short">启用 ${app_name_short} Safe 可以自动为所有重要数据创建安全和匿名的备份。</string>
@@ -1318,6 +1315,7 @@ ${app_name_short} 支持的所有表情符号。</string>
     <string name="prefs_header_receipts">消息回执和输入状态</string>
     <string name="prefs_title_reset_receipts">清除个别设置</string>
     <string name="prefs_sum_reset_receipts">将特定联系人的已读回执和输入状态设置重置为默认值</string>
+    <string name="confirm_sum_reset_receipts">将特定联系人的已读回执和输入状态设置重置为默认值?</string>
     <string name="reset_successful">成功重置为默认值</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="qr_scanner_id_hint">您可以扫描联系人的二维码以验证其身份。如要显示二维码，请让您的联系人点击 ${app_name_short} 主屏幕左上角的头像。</string>
@@ -1581,6 +1579,10 @@ ${app_name_short} 支持的所有表情符号。</string>
     <string name="problemsolver_title_app_battery_usgae_optimized">应用程序电池使用量设置为 “优化”。</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="problemsolver_explain_app_battery_usgae_optimized">此应用被禁止与服务器永久保持连接，以至 ${app_name_short} Push 无法正常运行。当此应用在后台运行时，您将不会收到新消息的通知。如要解决问题，请先点击 “应用程序电池使用量” ，然后选择 “无限制”。</string>
+    <!-- Title of warning message that informs the user that the version of Android they are using will soon no longer be supported. -->
+    <string name="problemsolver_title_android_version_deprecated">此 Android 版本很快将不再受支持</string>
+    <!-- Details of warning message that informs the user that the version of Android they are using will soon no longer be supported. ${app_name} is a placeholder that should be kept as-is and not translated. -->
+    <string name="problemsolver_explain_android_version_deprecated">您使用的 Android 设备已不能获取软件更新。出于安全考虑，${app_name} 即将不再支持此 Android 版本。</string>
     <string name="problemsolver_to_settings">前往设置</string>
     <!-- Label on button to dismiss/hide a warning -->
     <string name="problemsolver_dismiss">忽略</string>
@@ -1801,6 +1803,90 @@ ${app_name_short} 支持的所有表情符号。</string>
     <!-- A hint text that will be played by the android screen reader in accessibility mode. It explains the effect of a click action. -->
     <!-- Clicking will open a new modal view that displays the full length of a contact's availability status description. -->
     <string name="accessibility_view_full_availability_status">点击来查看完整的在线状态</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a 1 to 1 conversation.
+    Placeholder %1$s will be replaced with the emojis.
+    Placeholder %2$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_contact">对%2$s作出了%1$s的心情表态</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a 1 to 1 conversation with many emojis.
+    Placeholder %1$s will be replaced with the emojis until a defined count.
+    Placeholder %2$d will be replaced with the remaining emoji count that is not displayed in %1$s.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_contact_more">对%3$s作出了%1$s+%2$d的心情表态</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation and a single reactor person.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the emojis.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_group_one_person">%1$s对%3$s作出了%2$s的心情表态</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation and a single reactor person with many emojis.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the emojis until a defined count.
+    Placeholder %3$d will be replaced with the remaining emoji count that is not displayed in %2$s.
+    Placeholder %4$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_group_one_person_more">%1$s对%4$s作出了%2$s+%3$d的心情表态</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation with 2 reacting persons.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the name of the other reacting person.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_group_two_persons">%1$s和%2$s对%3$s作出了心情表态</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation with more than 2 reacting persons.
+    Placeholder %1$s will be replaced with the name of the most recent reacting person.
+    Placeholder %2$d will be replaced with the remaining person count that also reacted.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_group_more_persons">%1$s和另外%2$d人对%3$s作出了心情表态</string>
+    <!-- Placeholder %1$s will be replaced with the message body of the text message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_text">“%1$s”</string>
+    <string name="emoji_reaction_notification_preview_image">图片</string>
+    <!-- Placeholder %1$s will be replaced with the caption text of the image message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_image_caption">“%1$s”</string>
+    <string name="emoji_reaction_notification_preview_video">视频</string>
+    <!-- Placeholder %1$s will be replaced with the caption text of the video message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_video_caption">“%1$s”</string>
+    <!-- Placeholder %1$s will be replaced with the duration of the audio message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_audio">音频 (%1$s)</string>
+    <!-- Placeholder %1$s will be replaced with the caption text of the audio message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_audio_caption">音频 “%1$s”</string>
+    <!-- Placeholder %1$s will be replaced with the duration of the voice message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_voice_message">语音消息 (%1$s)</string>
+    <!-- Placeholder %1$s will be replaced with the caption or filename of the file message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_file">文件 “%1$s”</string>
+    <string name="emoji_reaction_notification_preview_poll">投票</string>
+    <!-- Placeholder %1$s will be replaced with the poll's name of the poll message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_poll_named">投票 “%1$s”</string>
+    <string name="emoji_reaction_notification_preview_location">位置</string>
+    <!-- Placeholder %1$s will be replaced with the POI name of the location message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_location_named">位置 “%1$s”</string>
+    <string name="emoji_reaction_notification_preview_contact">联系人</string>
+    <!-- Placeholder %1$s will be replaced with the contact name of the contact message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_contact_named">联系人 “%1$s”</string>
+    <string name="prefs_title_emoji_reaction_notifications">心情表态通知</string>
+    <string name="prefs_title_emoji_reaction_contact_notifications">在会话内</string>
+    <string name="prefs_description_emoji_reaction_contact_notifications">在一对一会话中，接收针对您消息的心情表态通知</string>
+    <string name="prefs_title_emoji_reaction_group_notifications">在群组会话内</string>
+    <string name="prefs_description_emoji_reaction_group_notifications">在群组会话中，接收针对您消息的心情表态通知</string>
+    <string name="group_spam_banner_message">此群组来自一个未知用户</string>
+    <string name="group_spam_banner_button_not_spam">非垃圾消息</string>
+    <string name="group_spam_banner_button_report_spam">举报垃圾消息</string>
+    <!-- Placeholder 1 holds the display name of a group conversation -->
+    <string name="group_spam_report_dialog_title_named">举报%1$s</string>
+    <string name="group_spam_report_dialog_title">举报群组</string>
+    <string name="group_spam_report_dialog_message">此群组的 ID、成员人数，以及群组创建者的 ID 和昵称，将连同您的 ID 一并上报给 Threema。消息内容或个人信息都不会被分享，而群组中的任何成员都不会收到上报通知。</string>
+    <string name="group_spam_report_dialog_also_block_and_delete">同时屏蔽创建者并删除会话</string>
+    <string name="group_spam_report_dialog_cancel">取消</string>
+    <string name="group_spam_report_dialog_report">举报</string>
+    <!-- This is shown in a loading indicator dialog while a spam group is being reported -->
+    <string name="reporting_group_in_progress">正在举报群组</string>
     <plurals name="contacts_counter_label">
         <item quantity="other">%d个联系人</item>
     </plurals>
@@ -1818,6 +1904,9 @@ ${app_name_short} 支持的所有表情符号。</string>
     </plurals>
     <plurals name="new_messages">
         <item quantity="other">%d条新消息</item>
+    </plurals>
+    <plurals name="new_emoji_reactions">
+        <item quantity="other">%d个新心情表态</item>
     </plurals>
     <plurals name="unread_messages">
         <item quantity="other">%d条未读消息</item>

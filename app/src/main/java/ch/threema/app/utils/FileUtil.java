@@ -39,13 +39,19 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+
+import ch.threema.android.DeviceInfo;
 import ch.threema.app.AppConstants;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.filepicker.FilePickerActivity;
 import ch.threema.app.ui.MediaItem;
+
+import static ch.threema.android.UriExtensionsKt.isContentUri;
+import static ch.threema.android.UriExtensionsKt.isFileUri;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.storage.models.AbstractMessageModel;
+
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.data.media.FileDataModel;
 
 import static ch.threema.app.AppConstants.MAX_BLOB_SIZE;
@@ -71,7 +77,7 @@ public class FileUtil {
             context = activity;
         }
 
-        final boolean useOpenDocument = (isMediaProviderSupported(context) && initialPath == null) || ConfigUtils.hasScopedStorage();
+        final boolean useOpenDocument = (isMediaProviderSupported(context) && initialPath == null) || DeviceInfo.supportsScopedStorage();
 
         if (useOpenDocument) {
             intent = getOpenDocumentIntent(mimeTypes);
@@ -85,7 +91,7 @@ public class FileUtil {
             startAction(activity, fragment, ID, intent);
         } catch (ActivityNotFoundException e) {
             if (useOpenDocument) {
-                if (!ConfigUtils.hasScopedStorage()) {
+                if (!DeviceInfo.supportsScopedStorage()) {
                     // fallback to ACTION_GET_CONTENT on broken devices
                     intent = getGetContentIntent(context, mimeTypes, initialPath);
                     addExtras(intent, multi, sizeLimit);
@@ -106,7 +112,7 @@ public class FileUtil {
     public static void selectFile(@NonNull Context context, @NonNull ActivityResultLauncher<Intent> launcher, @NonNull String[] mimeTypes, boolean multi, int sizeLimit, String initialPath) {
         Intent intent;
 
-        final boolean useOpenDocument = (isMediaProviderSupported(context) && initialPath == null) || ConfigUtils.hasScopedStorage();
+        final boolean useOpenDocument = (isMediaProviderSupported(context) && initialPath == null) || DeviceInfo.supportsScopedStorage();
 
         if (useOpenDocument) {
             intent = getOpenDocumentIntent(mimeTypes);
@@ -120,7 +126,7 @@ public class FileUtil {
             launcher.launch(intent);
         } catch (ActivityNotFoundException e) {
             if (useOpenDocument) {
-                if (!ConfigUtils.hasScopedStorage()) {
+                if (!DeviceInfo.supportsScopedStorage()) {
                     // fallback to ACTION_GET_CONTENT on broken devices
                     intent = getGetContentIntent(context, mimeTypes, initialPath);
                     addExtras(intent, multi, sizeLimit);
@@ -188,7 +194,7 @@ public class FileUtil {
         }
     }
 
-    public static void forwardMessages(Context context, Class<?> targetActivity, List<AbstractMessageModel> messageModels) {
+    public static void forwardMessages(Context context, Class<?> targetActivity, List<MessageModel> messageModels) {
         Intent intent = new Intent(context, targetActivity);
 
         intent.setAction(AppConstants.INTENT_ACTION_FORWARD);
@@ -211,7 +217,7 @@ public class FileUtil {
                 if (clipItem != null) {
                     Uri uri = clipItem.getUri();
                     if (uri != null) {
-                        if (ContentResolver.SCHEME_CONTENT.equalsIgnoreCase(uri.getScheme())) {
+                        if (isContentUri(uri)) {
                             try {
                                 contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
                             } catch (Exception e) {
@@ -224,7 +230,7 @@ public class FileUtil {
             }
         } else {
             if (returnData != null) {
-                if (ContentResolver.SCHEME_CONTENT.equalsIgnoreCase(returnData.getScheme())) {
+                if (isContentUri(returnData)) {
                     try {
                         contentResolver.takePersistableUriPermission(returnData, Intent.FLAG_GRANT_READ_URI_PERMISSION);
                     } catch (Exception e) {
@@ -251,7 +257,7 @@ public class FileUtil {
             for (Uri uri : uris) {
                 try {
                     if (uri != null) {
-                        if (ContentResolver.SCHEME_FILE.equals(uri.getScheme())) {
+                        if (isFileUri(uri)) {
                             // Files from /data may not be sent if coming from a Picker
                             final File f = new File(uri.getPath());
                             final String filePath = f.getCanonicalPath();
@@ -404,7 +410,7 @@ public class FileUtil {
                 return getDataColumn(context, contentUri, selection, selectionArgs);
             }
             // MediaStore (and general)
-        } else if (ContentResolver.SCHEME_CONTENT.equalsIgnoreCase(uri.getScheme())) {
+        } else if (isContentUri(uri)) {
             // Return the remote address
             if (isGooglePhotosUri(uri)) {
                 return uri.getLastPathSegment();
@@ -412,7 +418,7 @@ public class FileUtil {
             return getDataColumn(context, uri, null, null);
         }
         // File
-        else if (ContentResolver.SCHEME_FILE.equalsIgnoreCase(uri.getScheme())) {
+        else if (isFileUri(uri)) {
             return uri.getPath();
         }
         return null;
@@ -477,7 +483,7 @@ public class FileUtil {
         return fileDataModel != null && (MimeUtil.isAudioFile(fileDataModel.getMimeType()));
     }
 
-    public static String getFileMessageDatePrefix(Context context, AbstractMessageModel messageModel, String fileType) {
+    public static String getFileMessageDatePrefix(Context context, MessageModel messageModel, String fileType) {
         if (messageModel.getFileData().getFileSize() == 0) {
             return "";
         }
@@ -500,7 +506,7 @@ public class FileUtil {
         }
     }
 
-    public static @NonNull String getMediaFilenamePrefix(@NonNull AbstractMessageModel messageModel) {
+    public static @NonNull String getMediaFilenamePrefix(@NonNull MessageModel messageModel) {
         var time = messageModel.getCreatedAt() != null ? messageModel.getCreatedAt() : Instant.now();
         var timestamp = getFileNameTimestamp(time);
         return "threema-" + timestamp + "-" + messageModel.getApiMessageId();
@@ -584,7 +590,7 @@ public class FileUtil {
     public static String getFilenameFromUri(ContentResolver contentResolver, Uri uri) {
         String filename = null;
 
-        if (ContentResolver.SCHEME_FILE.equalsIgnoreCase(uri.getScheme())) {
+        if (isFileUri(uri)) {
             filename = uri.getLastPathSegment();
         } else {
             try (final Cursor cursor = contentResolver.query(uri, null, null, null, null)) {
@@ -615,6 +621,7 @@ public class FileUtil {
      * @return file uri, if a file path could be resolved
      */
     @NonNull
+    @Deprecated
     public static Uri getFileUri(@NonNull Uri uri) {
         String path = FileUtil.getRealPathFromURI(ThreemaApplication.getAppContext(), uri);
 
@@ -653,7 +660,7 @@ public class FileUtil {
             getContentIntent.putExtra(MediaStore.EXTRA_SIZE_LIMIT, MAX_BLOB_SIZE);
 
             if (includeVideo && (
-                ConfigUtils.isXiaomiDevice() ||
+                DeviceInfo.isXiaomiDevice() ||
                     Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)) {
                 getContentIntent.setType(MimeUtil.MIME_TYPE_IMAGE + "," + MimeUtil.MIME_TYPE_VIDEO);
                 String[] mimetypes = Stream.concat(Arrays.stream(MimeUtil.getSupportedImageMimeTypes()), Arrays.stream(new String[]{MimeUtil.MIME_TYPE_VIDEO})).toArray(
@@ -666,7 +673,7 @@ public class FileUtil {
             }
 
             if (includeVideo) {
-                if (ConfigUtils.isXiaomiDevice()) {
+                if (DeviceInfo.isXiaomiDevice()) {
                     startIntent = getContentIntent;
                 } else {
                     Intent pickIntent = new Intent(Intent.ACTION_PICK);
@@ -694,15 +701,16 @@ public class FileUtil {
      * @param uri A File Uri pointing to an image file
      * @return true if the file is an animated WebP file, false if it is not animated, in another format, corrupt or not readable
      */
-    private static boolean isAnimatedWebPFile(@NonNull Uri uri) {
-        try (InputStream inputStream = getFromUri(ThreemaApplication.getAppContext(), uri)) {
+    private static boolean isAnimatedWebPFile(@NonNull Context context, @NonNull Uri uri) {
+        try (InputStream inputStream = getFromUri(context, uri)) {
             byte[] buffer = new byte[34];
             return inputStream.read(buffer) == 34
                 && Arrays.equals(Arrays.copyOfRange(buffer, 0, 4), new byte[]{'R', 'I', 'F', 'F'})
                 && Arrays.equals(Arrays.copyOfRange(buffer, 8, 12), new byte[]{'W', 'E', 'B', 'P'})
                 && Arrays.equals(Arrays.copyOfRange(buffer, 12, 15), new byte[]{'V', 'P', '8'})
                 && Arrays.equals(Arrays.copyOfRange(buffer, 30, 34), new byte[]{'A', 'N', 'I', 'M'});
-        } catch (IOException ignore) {
+        } catch (Exception e) {
+            logger.error("Failed to determine if uri {} points to an animated webp file", uri, e);
             return false;
         }
     }
@@ -713,8 +721,8 @@ public class FileUtil {
      * @param uri A File Uri pointing to an image file
      * @return true if the file is an animated image
      */
-    public static boolean isAnimatedImageFile(@NonNull Uri uri, String mimeType) {
-        return isAnimatedWebPFile(uri) || MimeUtil.isGifFile(mimeType);
+    public static boolean isAnimatedImageFile(@NonNull Context context, @Nullable Uri uri, String mimeType) {
+        return MimeUtil.isGifFile(mimeType) || (uri != null && isAnimatedWebPFile(context, uri));
     }
 
     /**

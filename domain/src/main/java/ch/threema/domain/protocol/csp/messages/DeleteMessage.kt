@@ -17,7 +17,7 @@ class DeleteMessage(payloadData: DeleteMessageData) : AbstractProtobufMessage<De
 
     override fun allowUserProfileDistribution() = false
 
-    override fun exemptFromBlocking() = false
+    override fun exemptFromBlocking() = ExemptFromBlocking.NO
 
     override fun createImplicitlyDirectContact() = false
 

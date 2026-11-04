@@ -12,6 +12,7 @@ import ch.threema.domain.protocol.urls.MapPoiAroundUrl
 import ch.threema.domain.protocol.urls.MapPoiNamesUrl
 import ch.threema.domain.protocol.urls.MediatorUrl
 
+@Suppress("unused")
 class DefaultServerAddressProvider(
     preferenceService: PreferenceService,
 ) : ServerAddressProvider {
@@ -36,12 +37,12 @@ class DefaultServerAddressProvider(
     override fun getChatServerPublicKeyAlt(): ByteArray =
         BuildConfig.SERVER_PUBKEY_ALT ?: error("Chat server alt public key was unexpectedly missing from BuildConfig")
 
-    override fun getDirectoryServerUrl(): String =
+    override fun getDirectoryServerUrl(path: String): String =
         if (ipv6) {
             BuildConfig.DIRECTORY_SERVER_IPV6_URL
         } else {
             BuildConfig.DIRECTORY_SERVER_URL
-        }
+        } + path
 
     override fun getWorkServerUrlLegacy(): String? =
         if (ipv6) {

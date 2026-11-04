@@ -23,8 +23,6 @@ import java.util.concurrent.Future;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
-import androidx.appcompat.content.res.AppCompatResources;
-import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import ch.threema.app.R;
 import ch.threema.app.activities.MediaViewerActivity;
@@ -38,24 +36,19 @@ import ch.threema.app.utils.RuntimeUtil;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.MessageType;
 import kotlin.Lazy;
 
-import static ch.threema.storage.models.data.MessageContentsType.VOICE_MESSAGE;
+import static ch.threema.storage.models.data.MessageContentsType.GIF;
+import static ch.threema.storage.models.data.MessageContentsType.IMAGE;
+import static ch.threema.storage.models.data.MessageContentsType.VIDEO;
 import static org.koin.java.KoinJavaComponent.inject;
 
 abstract public class MediaViewFragment extends Fragment {
     private static final Logger logger = getThreemaLogger("MediaViewFragment");
 
-    // enums are evil
-    private final int ImageState_NONE = 0;
-    private final int ImageState_THUMBNAIL = 1;
-    private final int ImageState_DECRYPTED = 2;
-
     public interface OnMediaLoadListener {
-        void decrypting();
-
         void decrypted(boolean success);
 
         void loaded(File file);
@@ -63,7 +56,7 @@ abstract public class MediaViewFragment extends Fragment {
         void thumbnailLoaded(Drawable bitmap);
     }
 
-    private @Nullable AbstractMessageModel messageModel;
+    private @Nullable MessageModel messageModel;
 
     private Future threadFullDecrypt;
     private final ExecutorService threadPoolExecutor = Executors.newSingleThreadExecutor();
@@ -73,7 +66,7 @@ abstract public class MediaViewFragment extends Fragment {
     private File[] decryptedFileCache;
     private OnMediaLoadListener onMediaLoadListener;
     private File decryptedFile;
-    private int imageState = ImageState_NONE;
+    private boolean isDecrypted = false;
     private WeakReference<TextView> emptyTextViewReference;
     private WeakReference<ViewGroup> rootViewReference;
 
@@ -151,7 +144,7 @@ abstract public class MediaViewFragment extends Fragment {
     }
 
     @Nullable
-    protected AbstractMessageModel getMessageModel() {
+    protected MessageModel getMessageModel() {
         return this.messageModel;
     }
 
@@ -177,6 +170,10 @@ abstract public class MediaViewFragment extends Fragment {
 
     private void decryptThumbnail() {
         if (messageModel != null && fileService != null) {
+            if (!isThumbnailExpected(messageModel)) {
+                return;
+            }
+
             logger.debug("show thumbnail of {}", this.position);
             Drawable thumbnail = null;
             try {
@@ -188,24 +185,22 @@ abstract public class MediaViewFragment extends Fragment {
                 // no thumbnail file
             }
 
-            if (thumbnail == null && messageModel.getMessageContentsType() == VOICE_MESSAGE) {
-                thumbnail = AppCompatResources.getDrawable(requireContext(), R.drawable.ic_microphone_outline);
-                if (thumbnail != null) {
-                    thumbnail.setTint(ContextCompat.getColor(requireContext(), R.color.material_dark_grey));
-                }
-            }
-
             if (thumbnail != null) {
                 this.showThumbnail(thumbnail);
 
-                this.imageState = ImageState_THUMBNAIL;
+                isDecrypted = false;
                 if (this.onMediaLoadListener != null) {
                     this.onMediaLoadListener.thumbnailLoaded(thumbnail);
                 }
             } else {
-                this.showFileNotFoundContent();
+                showFileNotFoundContent();
             }
         }
+    }
+
+    private boolean isThumbnailExpected(@NonNull MessageModel message) {
+        var contentsType = message.getMessageContentsType();
+        return contentsType == IMAGE || contentsType == VIDEO || contentsType == GIF;
     }
 
     public void destroy() {
@@ -227,10 +222,7 @@ abstract public class MediaViewFragment extends Fragment {
     public void showDecrypted() {
         this.killDecryptThread();
 
-        logger.debug("showDecrypted {} imageState = {}", position, this.imageState);
-
-        //already decrypted
-        if (this.imageState == ImageState_DECRYPTED) {
+        if (isDecrypted) {
             this.fireLoadedFile();
             return;
         }
@@ -283,7 +275,7 @@ abstract public class MediaViewFragment extends Fragment {
             this.emptyTextViewReference.get().setText(R.string.media_file_not_found);
             this.emptyTextViewReference.get().setVisibility(View.VISIBLE);
         }
-        this.imageState = ImageState_NONE;
+        isDecrypted = false;
     }
 
     @UiThread
@@ -300,7 +292,7 @@ abstract public class MediaViewFragment extends Fragment {
         }
 
         this.handleDecryptedFile(file);
-        this.imageState = ImageState_DECRYPTED;
+        isDecrypted = true;
         this.fireLoadedFile();
     }
 

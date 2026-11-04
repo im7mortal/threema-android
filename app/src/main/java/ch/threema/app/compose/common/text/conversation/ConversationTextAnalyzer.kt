@@ -7,16 +7,11 @@ import ch.threema.app.R
 import ch.threema.app.compose.common.text.conversation.ConversationTextAnalyzer.Result.SearchResult
 import ch.threema.app.emojis.EmojiParser
 import ch.threema.app.emojis.SpriteCoordinates
-import ch.threema.app.services.ContactService
 import ch.threema.data.datatypes.ContactNameFormat
 import ch.threema.data.datatypes.MentionNameData
-import ch.threema.domain.types.Identity
-import ch.threema.domain.types.toIdentityOrNull
+import ch.threema.domain.types.Mention
 
 object ConversationTextAnalyzer {
-
-    private const val MENTION_SEARCH_REGEX = "@\\[([0-9A-Z*@]{8})]"
-
     /**
      * @param items A map of all found emojis and mentions. They key is the character index from the input string where the characters for
      * the [SearchResult] begin (inclusive).
@@ -51,16 +46,9 @@ object ConversationTextAnalyzer {
             @Immutable
             data class Mention(
                 override val startIndex: Int,
-                val identity: Identity,
+                val mention: ch.threema.domain.types.Mention,
             ) : SearchResult {
-
-                /**
-                 *  Any valid mention string (e.g. `@[01234567]` or `@[@@@@@@@@]`) will be exactly 11 characters long.
-                 */
-                override val length: Int = 11
-
-                val mentionsAll: Boolean
-                    get() = identity.value == ContactService.ALL_USERS_PLACEHOLDER_ID
+                override val length = ch.threema.domain.types.Mention.ENCODED_LENGTH
             }
         }
 
@@ -125,46 +113,46 @@ object ConversationTextAnalyzer {
         if (rawInput.isBlank()) {
             return emptyList()
         }
-        val mentionMatches: List<MatchResult> = Regex(MENTION_SEARCH_REGEX).findAll(rawInput).toList()
-        return mentionMatches.mapNotNull { regexMatchResult ->
-            val startIndex = regexMatchResult.range.first
-            val identity = regexMatchResult.groups[1]?.value?.toIdentityOrNull() ?: return@mapNotNull null
-            SearchResult.Mention(
-                startIndex = startIndex,
-                identity = identity,
-            )
-        }
+        return Mention.findMatches(rawInput)
+            .map { match ->
+                SearchResult.Mention(
+                    startIndex = match.startIndex,
+                    mention = match.mention,
+                )
+            }
+            .toList()
     }
 
     /**
      * Search for any mentions in the given [input] and determine the correct display name for it utilising [mentionNameData].
      *
      * **Special mentions:**
-     * - A mention of the special identity [ContactService.ALL_USERS_PLACEHOLDER_ID] will result in a display name value of "`All`"
-     * - A mention of the current users own identity **might** result in a display name value of "`Me`". See [MentionNameData.Me.getDisplayName]
+     * - A mention for "All users" will result in a display name value of "`All`"
+     * - A mention of the current user's own identity **might** result in a display name value of "`Me`". See [MentionNameData.Me.getDisplayName]
      */
     fun findResolvableMentionNames(
         input: String,
         mentionNameData: List<MentionNameData>,
         contactNameFormat: ContactNameFormat,
-    ): Map<Identity, ResolvableString> {
+    ): Map<Mention, ResolvableString> {
         if (input.isBlank()) {
             return emptyMap()
         }
-        val mentionedIdentities: Set<Identity> = Regex(pattern = MENTION_SEARCH_REGEX)
-            .findAll(input)
-            .mapNotNull { mentionMatchResult -> mentionMatchResult.groups[1]?.value?.toIdentityOrNull() }
+        val mentions: Set<Mention> = Mention.findMatches(input)
+            .map(Mention.Match::mention)
             .toSet()
-        return mentionedIdentities
-            .mapNotNull { mentionedIdentity ->
-                if (mentionedIdentity.value == ContactService.ALL_USERS_PLACEHOLDER_ID) {
-                    mentionedIdentity to ResourceIdString(resId = R.string.all)
-                } else {
-                    mentionNameData
-                        .firstOrNull { mentionNameData -> mentionNameData.identity == mentionedIdentity }
-                        ?.getDisplayName(contactNameFormat)
-                        ?.let { displayName -> mentionedIdentity to displayName }
+        return mentions
+            .mapNotNull { mention ->
+                val value = when (mention) {
+                    Mention.AllUsers -> ResourceIdString(resId = R.string.all)
+                    is Mention.Identity ->
+                        mentionNameData
+                            .firstOrNull { mentionNameData -> mentionNameData.identity == mention.identity }
+                            ?.getDisplayName(contactNameFormat)
                 }
-            }.toMap()
+                    ?: return@mapNotNull null
+                mention to value
+            }
+            .toMap()
     }
 }

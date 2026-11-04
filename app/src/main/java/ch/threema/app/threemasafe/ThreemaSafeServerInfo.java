@@ -22,9 +22,6 @@ public class ThreemaSafeServerInfo {
     private static final String SAFE_URL_PREFIX = "https://";
     private static final String BACKUP_DIRECTORY_NAME = "backups/";
 
-    // TODO(ANDR-2968): Remove the check for the legacy default server name
-    private static final String LEGACY_DEFAULT_SERVER_NAME = "safe-%h.threema.ch";
-
     @Nullable
     private String customServerName;
     @NonNull
@@ -51,7 +48,7 @@ public class ThreemaSafeServerInfo {
     public void setCustomServerName(@Nullable String customServerName) {
         if (!isNullOrEmpty(customServerName)) {
             this.customServerName = customServerName.trim().replace(SAFE_URL_PREFIX, "");
-            if (defaultServerName.equals(this.customServerName) || LEGACY_DEFAULT_SERVER_NAME.equals(this.customServerName)) {
+            if (defaultServerName.equals(this.customServerName)) {
                 this.customServerName = null;
                 logger.warn("Tried to set default server as custom server: {}", customServerName);
             }

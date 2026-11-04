@@ -1,5 +1,6 @@
 package ch.threema.app.usecases
 
+import ch.threema.app.BuildConfig
 import ch.threema.app.files.AppDirectoryProvider
 import ch.threema.app.utils.FileHandlingZipOutputStream
 import ch.threema.app.utils.FileHandlingZipOutputStream.Companion.initializeZipOutputStream
@@ -41,6 +42,9 @@ class ExportDebugLogUseCase(
                 .ifEmpty { debugLogFileManager.getFallbackLogFiles() }
             zipOutputStream.writeLogFile(logFiles)
             zipOutputStream.writeMetaDataFile()
+            if (BuildConfig.LOG_TOMBSTONES_FOR_NATIVE_CRASHES) {
+                zipOutputStream.writeTombstoneFiles()
+            }
         }
     }
 
@@ -61,6 +65,14 @@ class ExportDebugLogUseCase(
             return
         }
         addFile(META_DATA_FILE_NAME, metaData.byteInputStream())
+    }
+
+    private fun FileHandlingZipOutputStream.writeTombstoneFiles() {
+        appDirectoryProvider.tombstonesDirectory.listFiles()?.forEach { tombstoneFile ->
+            tombstoneFile.inputStream().use { inputStream ->
+                addFile(tombstoneFile.name, inputStream)
+            }
+        }
     }
 
     private fun FileHandlingZipOutputStream.addFile(fileName: String, contents: InputStream) {

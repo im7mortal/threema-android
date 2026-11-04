@@ -3,16 +3,15 @@ package ch.threema.app.processors.reflectedd2dsync
 import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.eventbus.events.GroupEvent
 import ch.threema.app.multidevice.MultiDeviceManager
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.FileService
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.UserService
-import ch.threema.app.utils.AppVersionProvider
 import ch.threema.app.utils.ExifInterface
 import ch.threema.base.crypto.SymmetricEncryptionService
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.data.datatypes.ConversationCategory
+import ch.threema.data.datatypes.ConversationSpamReportingState
 import ch.threema.data.datatypes.ConversationVisibility
-import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.datatypes.GroupState
 import ch.threema.data.models.GroupModel
@@ -25,14 +24,13 @@ import ch.threema.domain.protocol.ServerAddressProvider
 import ch.threema.domain.protocol.blob.BlobScope
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.taskmanager.ProtocolException
-import ch.threema.domain.taskmanager.TriggerSource
 import ch.threema.domain.types.Identity
 import ch.threema.domain.types.IdentityString
 import ch.threema.logging.logAndReportError
 import ch.threema.protobuf.common.Blob
 import ch.threema.protobuf.common.DeltaImage
 import ch.threema.protobuf.d2d.GroupSync
-import ch.threema.protobuf.d2d.sync.ConversationCategory
+import ch.threema.protobuf.d2d.sync.ConversationCategory as ProtocolsConversationCategory
 import ch.threema.protobuf.d2d.sync.ConversationVisibility as ProtocolsConversationVisibility
 import ch.threema.protobuf.d2d.sync.Group
 import ch.threema.protobuf.toDataType
@@ -47,11 +45,10 @@ class ReflectedGroupSyncTask(
     private val groupModelRepository: GroupModelRepository,
     private val groupService: GroupService,
     private val fileService: FileService,
-    private val okHttpClient: OkHttpClient,
+    private val blobDownloadOkHttpClient: OkHttpClient,
     private val serverAddressProvider: ServerAddressProvider,
     private val symmetricEncryptionService: SymmetricEncryptionService,
     private val multiDeviceManager: MultiDeviceManager,
-    private val conversationCategoryService: ConversationCategoryService,
     private val globalEventBuses: GlobalEventBuses,
     userService: UserService,
 ) {
@@ -116,7 +113,7 @@ class ReflectedGroupSyncTask(
             return
         }
 
-        groupService.removeGroupBelongings(groupModel, TriggerSource.SYNC)
+        groupService.removeGroupBelongings(groupModel)
         groupModelRepository.persistRemovedGroup(groupIdentity)
 
         logger.info("Deleted group")
@@ -247,16 +244,10 @@ class ReflectedGroupSyncTask(
     }
 
     private fun applyConversationCategory(group: Group, groupModel: GroupModel) {
-        if (!group.hasConversationCategory()) {
-            return
-        }
-        val groupConversationId = GroupConversationId(groupDatabaseId = groupModel.getDatabaseId())
-        when (group.conversationCategory) {
-            ConversationCategory.DEFAULT -> conversationCategoryService.persistRemovePrivateMark(groupConversationId)
-            ConversationCategory.PROTECTED -> conversationCategoryService.persistAddPrivateMark(groupConversationId)
-            ConversationCategory.UNRECOGNIZED -> unrecognizedValue("Group.conversationCategory")
-            null -> nullValue("Group.conversationCategory")
-        }
+        val conversationCategory = group.getConversationCategoryOrNull()
+            ?: return
+
+        groupModel.setConversationCategoryFromSync(conversationCategory)
     }
 
     private fun applyConversationVisibility(group: Group, groupModel: GroupModel) {
@@ -275,8 +266,7 @@ class ReflectedGroupSyncTask(
 
     private fun Blob.loadGroupProfilePictureAndMarkAsDone(groupModel: GroupModel) {
         val blobLoadingResult = loadAndMarkAsDone(
-            okHttpClient = okHttpClient,
-            version = AppVersionProvider.appVersion,
+            blobDownloadOkHttpClient = blobDownloadOkHttpClient,
             serverAddressProvider = serverAddressProvider,
             multiDevicePropertyProvider = multiDeviceManager.propertiesProvider,
             symmetricEncryptionService = symmetricEncryptionService,
@@ -331,11 +321,13 @@ class ReflectedGroupSyncTask(
             synchronizedAt = null,
             lastUpdate = Instant.now(),
             conversationVisibility = getConversationVisibilityOrNull() ?: ConversationVisibility.NORMAL,
+            conversationCategory = getConversationCategoryOrNull() ?: ConversationCategory.DEFAULT,
             groupDescription = null,
             groupDescriptionChangedAt = null,
             otherMembers = Collections.unmodifiableSet(getMembers() - groupIdentity.creatorIdentity - myIdentity),
             userState = userState.convert() ?: UserState.MEMBER,
             notificationTriggerPolicyOverride = groupNotificationTriggerPolicyOverride,
+            spamReportingState = ConversationSpamReportingState.DEFAULT,
         )
     }
 
@@ -350,6 +342,19 @@ class ReflectedGroupSyncTask(
             ProtocolsConversationVisibility.ARCHIVED -> ConversationVisibility.ARCHIVED
             ProtocolsConversationVisibility.UNRECOGNIZED -> unrecognizedValue("conversationVisibility")
             null -> nullValue("conversationVisibility")
+        }
+    }
+
+    private fun Group.getConversationCategoryOrNull(): ConversationCategory? {
+        if (!hasConversationCategory()) {
+            return null
+        }
+
+        return when (conversationCategory) {
+            ProtocolsConversationCategory.DEFAULT -> ConversationCategory.DEFAULT
+            ProtocolsConversationCategory.PROTECTED -> ConversationCategory.PROTECTED
+            ProtocolsConversationCategory.UNRECOGNIZED -> unrecognizedValue("conversationCategory")
+            null -> nullValue("conversationCategory")
         }
     }
 

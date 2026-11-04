@@ -17,7 +17,7 @@ import ch.threema.domain.types.Identity
 import ch.threema.domain.types.toIdentityOrNull
 import ch.threema.storage.DatabaseProvider
 import ch.threema.storage.exists
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.ContactMessageModel
 import ch.threema.storage.models.ContactModel as ContactModelOld
 import ch.threema.storage.models.DistributionListMemberModel
 import ch.threema.storage.models.MessageModel
@@ -153,7 +153,7 @@ class ContactsDiagnosticsViewModel(
     // that we can eventually remove it again entirely.
     private fun deleteIdentity(identity: Identity): Boolean =
         databaseProvider.writableDatabase.runTransaction {
-            if (exists(MessageModel.TABLE, "${AbstractMessageModel.COLUMN_IDENTITY} = ?", arrayOf(identity.value))) {
+            if (exists(ContactMessageModel.TABLE, "${MessageModel.COLUMN_IDENTITY} = ?", arrayOf(identity.value))) {
                 logger.info("Cannot delete contact {}, still has 1:1 messages", identity)
                 return false
             }

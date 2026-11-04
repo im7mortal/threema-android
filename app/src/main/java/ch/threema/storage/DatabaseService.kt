@@ -1,6 +1,6 @@
 package ch.threema.storage
 
-import ch.threema.data.IdentityProvider
+import ch.threema.storage.factories.ContactMessageModelFactory
 import ch.threema.storage.factories.ContactModelFactory
 import ch.threema.storage.factories.DistributionListMemberModelFactory
 import ch.threema.storage.factories.DistributionListMessageModelFactory
@@ -12,7 +12,6 @@ import ch.threema.storage.factories.GroupModelFactory
 import ch.threema.storage.factories.GroupPollModelFactory
 import ch.threema.storage.factories.IdentityPollModelFactory
 import ch.threema.storage.factories.IncomingGroupSyncRequestLogModelFactory
-import ch.threema.storage.factories.MessageModelFactory
 import ch.threema.storage.factories.OutgoingGroupSyncRequestLogModelFactory
 import ch.threema.storage.factories.PollChoiceModelFactory
 import ch.threema.storage.factories.PollModelFactory
@@ -22,13 +21,12 @@ import ch.threema.storage.factories.RejectedGroupMessageFactory
 @Deprecated("Use Koin to inject model factories directly")
 class DatabaseService(
     private val databaseProvider: DatabaseProvider,
-    private val identityProvider: IdentityProvider,
 ) {
     val contactModelFactory: ContactModelFactory by lazy {
-        ContactModelFactory(databaseProvider, identityProvider)
+        ContactModelFactory(databaseProvider)
     }
-    val messageModelFactory: MessageModelFactory by lazy {
-        MessageModelFactory(databaseProvider)
+    val contactMessageModelFactory: ContactMessageModelFactory by lazy {
+        ContactMessageModelFactory(databaseProvider)
     }
     val groupModelFactory: GroupModelFactory by lazy {
         GroupModelFactory(databaseProvider)

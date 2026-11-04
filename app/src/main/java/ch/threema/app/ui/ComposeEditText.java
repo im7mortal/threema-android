@@ -17,13 +17,13 @@ import androidx.annotation.Nullable;
 
 import com.google.android.material.textfield.TextInputLayout;
 
+import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
 import java.util.regex.Pattern;
 
 import ch.threema.app.R;
 import ch.threema.app.emojis.EmojiEditText;
-import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.services.ContactService;
 import ch.threema.app.services.GroupService;
 import ch.threema.app.preference.service.PreferenceService;
@@ -31,7 +31,10 @@ import ch.threema.app.services.UserService;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.isNullOrBlank;
 
+import ch.threema.data.IdentityProvider;
 import ch.threema.data.models.GroupModel;
+import ch.threema.data.repositories.ContactModelRepository;
+import ch.threema.domain.types.Mention;
 
 public class ComposeEditText extends EmojiEditText implements MentionSelectorPopup.MentionSelectorListener {
     private static final Logger logger = getThreemaLogger("ComposeEditText");
@@ -140,12 +143,12 @@ public class ComposeEditText extends EmojiEditText implements MentionSelectorPop
     private void init(Context context) {
         this.context = context;
 
-        PreferenceService preferenceService = ServiceManager.require().getPreferenceService();
+        PreferenceService preferenceService = KoinJavaComponent.get(PreferenceService.class);
 
         this.setImeOptions(getImeOptions() | (EditorInfo.IME_ACTION_SEND & ~EditorInfo.IME_FLAG_NO_FULLSCREEN));
         this.setRawInputType(preferenceService.isEnterToSend() ?
             InputType.TYPE_CLASS_TEXT | EditorInfo.TYPE_TEXT_FLAG_CAP_SENTENCES | EditorInfo.TYPE_TEXT_FLAG_AUTO_CORRECT |
-                (preferenceService.getEmojiStyle() == PreferenceService.EMOJI_STYLE_ANDROID ? EditorInfo.TYPE_TEXT_VARIATION_SHORT_MESSAGE : 0) :
+                (preferenceService.getEmojiStyle() == PreferenceService.EmojiStyle.ANDROID ? EditorInfo.TYPE_TEXT_VARIATION_SHORT_MESSAGE : 0) :
             InputType.TYPE_CLASS_TEXT | EditorInfo.TYPE_TEXT_FLAG_CAP_SENTENCES | EditorInfo.TYPE_TEXT_FLAG_AUTO_CORRECT | EditorInfo.TYPE_TEXT_FLAG_MULTI_LINE);
 
         setFilters(appendMentionFilter(this.getFilters()));
@@ -178,12 +181,12 @@ public class ComposeEditText extends EmojiEditText implements MentionSelectorPop
     /**
      * Add mention at the current cursor position
      */
-    public void addMention(String identity) {
+    private void addMention(@NonNull Mention mention) {
         final int start = getSelectionStart();
         final int end = getSelectionEnd();
 
         // fix reverse selections
-        getText().replace(Math.min(start, end), Math.max(start, end), "@[" + identity + "]");
+        getText().replace(Math.min(start, end), Math.max(start, end), mention.toString());
     }
 
     /**
@@ -193,6 +196,8 @@ public class ComposeEditText extends EmojiEditText implements MentionSelectorPop
         @NonNull Activity activity,
         @NonNull GroupService groupService,
         @NonNull ContactService contactService,
+        @NonNull ContactModelRepository contactModelRepository,
+        @NonNull IdentityProvider identityProvider,
         @NonNull UserService userService,
         @NonNull PreferenceService preferenceService,
         @NonNull GroupModel groupModel,
@@ -202,6 +207,8 @@ public class ComposeEditText extends EmojiEditText implements MentionSelectorPop
             activity,
             groupService,
             contactService,
+            contactModelRepository,
+            identityProvider,
             userService,
             preferenceService,
             groupModel
@@ -292,7 +299,9 @@ public class ComposeEditText extends EmojiEditText implements MentionSelectorPop
                 this,
                 mentionPopupData.groupService,
                 mentionPopupData.contactService,
+                mentionPopupData.contactModelRepository,
                 mentionPopupData.userService,
+                mentionPopupData.identityProvider,
                 mentionPopupData.preferenceService,
                 mentionPopupData.groupModel
             );
@@ -301,15 +310,15 @@ public class ComposeEditText extends EmojiEditText implements MentionSelectorPop
     }
 
     @Override
-    public void onContactSelected(String identity, int length, int insertPosition) {
+    public void onMentionOptionSelected(@NonNull Mention mention, int length, int insertPosition) {
         Editable editable = getText();
         if (editable == null) {
             return;
         }
 
-        if (insertPosition >= 0 && insertPosition <= editable.length()) {
+        if (insertPosition >= 0 && length >= 0 && insertPosition + length <= editable.length()) {
             editable.delete(insertPosition, insertPosition + length);
-            addMention(identity);
+            addMention(mention);
         }
     }
 
@@ -317,6 +326,8 @@ public class ComposeEditText extends EmojiEditText implements MentionSelectorPop
         final @NonNull Activity activity;
         final @NonNull GroupService groupService;
         final @NonNull ContactService contactService;
+        final @NonNull ContactModelRepository contactModelRepository;
+        final @NonNull IdentityProvider identityProvider;
         final @NonNull UserService userService;
         final @NonNull PreferenceService preferenceService;
         final @NonNull GroupModel groupModel;
@@ -325,6 +336,8 @@ public class ComposeEditText extends EmojiEditText implements MentionSelectorPop
             @NonNull Activity activity,
             @NonNull GroupService groupService,
             @NonNull ContactService contactService,
+            @NonNull ContactModelRepository contactModelRepository,
+            @NonNull IdentityProvider identityProvider,
             @NonNull UserService userService,
             @NonNull PreferenceService preferenceService,
             @NonNull GroupModel groupModel
@@ -332,6 +345,8 @@ public class ComposeEditText extends EmojiEditText implements MentionSelectorPop
             this.activity = activity;
             this.groupService = groupService;
             this.contactService = contactService;
+            this.contactModelRepository = contactModelRepository;
+            this.identityProvider = identityProvider;
             this.userService = userService;
             this.preferenceService = preferenceService;
             this.groupModel = groupModel;

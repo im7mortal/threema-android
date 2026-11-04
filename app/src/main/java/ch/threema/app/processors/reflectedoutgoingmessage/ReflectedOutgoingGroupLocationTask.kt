@@ -7,10 +7,10 @@ import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.protocol.csp.messages.location.GroupLocationMessage
 import ch.threema.protobuf.common.CspE2eMessageType
 import ch.threema.protobuf.d2d.OutgoingMessage
+import ch.threema.storage.models.GroupMessageModel
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.LocationDataModel
 import ch.threema.storage.models.data.MessageContentsType
-import ch.threema.storage.models.group.GroupMessageModel
 import java.time.Instant
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject

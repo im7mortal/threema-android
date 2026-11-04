@@ -12,11 +12,12 @@ import ch.threema.domain.protocol.csp.fs.ForwardSecurityDecryptionResult
 import ch.threema.domain.protocol.csp.messages.fs.ForwardSecurityDataReject
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.ContactMessageModel
+import ch.threema.storage.models.DistributionListMessageModel
+import ch.threema.storage.models.GroupMessageModel
 import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageState
 import ch.threema.storage.models.MessageType
-import ch.threema.storage.models.group.GroupMessageModel
 import java.time.Instant
 
 private val logger = getThreemaLogger("IncomingForwardSecurityRejectTask")
@@ -66,7 +67,7 @@ class IncomingForwardSecurityRejectTask(
 
     private fun handleContactMessageReject() {
         when (val messageModel = getContactMessageModel()) {
-            is MessageModel -> {
+            is ContactMessageModel -> {
                 handleReject(messageModel)
             }
 
@@ -132,8 +133,8 @@ class IncomingForwardSecurityRejectTask(
         handleReject(messageModel, group)
     }
 
-    private fun getContactMessageModel(): AbstractMessageModel? =
-        databaseService.messageModelFactory.getByApiMessageIdAndIdentityAndIsOutbox(
+    private fun getContactMessageModel(): MessageModel? =
+        databaseService.contactMessageModelFactory.getByApiMessageIdAndIdentityAndIsOutbox(
             data.rejectedApiMessageId,
             sender.identity,
             true,
@@ -149,20 +150,20 @@ class IncomingForwardSecurityRejectTask(
             is GroupMessageModel -> {
                 messageModel
             }
-
-            null -> {
-                logger.info("Rejected message model is not found. Handling reject as incoming group sync request.")
+            is ContactMessageModel,
+            is DistributionListMessageModel,
+            -> {
+                logger.warn("Rejected message model is not a group message model even though the group identity is set")
                 null
             }
-
-            else -> {
-                logger.warn("Rejected message model is not a group message model even though the group identity is set")
+            null -> {
+                logger.info("Rejected message model is not found. Handling reject as incoming group sync request.")
                 null
             }
         }
     }
 
-    private fun handleReject(messageModel: MessageModel) {
+    private fun handleReject(messageModel: ContactMessageModel) {
         val type = messageModel.type ?: return
         when (type) {
             MessageType.TEXT,
@@ -187,7 +188,7 @@ class IncomingForwardSecurityRejectTask(
 
             MessageType.STATUS,
             MessageType.VOIP_STATUS,
-            MessageType.DATE_SEPARATOR,
+            MessageType.VIRTUAL,
             MessageType.GROUP_CALL_STATUS,
             MessageType.FORWARD_SECURITY_STATUS,
             MessageType.GROUP_STATUS,
@@ -226,7 +227,7 @@ class IncomingForwardSecurityRejectTask(
 
             MessageType.STATUS,
             MessageType.VOIP_STATUS,
-            MessageType.DATE_SEPARATOR,
+            MessageType.VIRTUAL,
             MessageType.GROUP_CALL_STATUS,
             MessageType.FORWARD_SECURITY_STATUS,
             MessageType.GROUP_STATUS,

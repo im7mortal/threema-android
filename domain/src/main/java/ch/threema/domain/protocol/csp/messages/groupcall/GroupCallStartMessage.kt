@@ -3,6 +3,7 @@ package ch.threema.domain.protocol.csp.messages.groupcall
 import ch.threema.domain.models.GroupId
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.protocol.csp.messages.BadMessageException
+import ch.threema.domain.protocol.csp.messages.ExemptFromBlocking
 import ch.threema.domain.protocol.csp.messages.groupcall.GroupCallStartData.Companion.fromProtobuf
 import ch.threema.domain.protocol.csp.messages.groupcall.GroupCallStartMessage.Companion.fromByteArray
 import ch.threema.domain.protocol.csp.messages.groupcall.GroupCallStartMessage.Companion.fromReflected
@@ -25,7 +26,7 @@ class GroupCallStartMessage(payloadData: GroupCallStartData) :
 
     override fun allowUserProfileDistribution() = true
 
-    override fun exemptFromBlocking() = true
+    override fun exemptFromBlocking() = ExemptFromBlocking.YES
 
     override fun createImplicitlyDirectContact() = false
 

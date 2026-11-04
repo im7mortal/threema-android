@@ -1,36 +1,35 @@
 package ch.threema.app.services.notification
 
-import android.app.Notification
 import android.app.PendingIntent
 import android.app.PendingIntent.FLAG_IMMUTABLE
 import android.app.PendingIntent.FLAG_MUTABLE
-import android.app.PendingIntent.FLAG_NO_CREATE
 import android.app.PendingIntent.FLAG_ONE_SHOT
 import android.app.PendingIntent.FLAG_UPDATE_CURRENT
 import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
 import android.os.Build
-import android.provider.Settings
 import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.app.RemoteInput
-import androidx.core.app.TaskStackBuilder
 import androidx.core.content.ContextCompat
 import androidx.core.content.LocusIdCompat
 import androidx.core.graphics.drawable.IconCompat
+import ch.threema.android.DeviceInfo
 import ch.threema.android.buildNotification
 import ch.threema.android.buildNotificationAction
 import ch.threema.android.buildPerson
+import ch.threema.android.cancelPendingIntentForActivity
+import ch.threema.android.getPendingIntentForActivity
+import ch.threema.android.getPendingIntentForBroadcast
+import ch.threema.android.getPendingIntentForService
 import ch.threema.app.AppConstants
+import ch.threema.app.BuildConfig
 import ch.threema.app.R
 import ch.threema.app.activities.BackupAdminActivity
 import ch.threema.app.activities.ComposeMessageActivity
 import ch.threema.app.di.injectNullableNonBinding
 import ch.threema.app.home.HomeActivity
-import ch.threema.app.messagereceiver.ContactMessageReceiver
-import ch.threema.app.messagereceiver.GroupMessageReceiver
 import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.notifications.ForwardSecurityNotificationManager
 import ch.threema.app.notifications.NotificationChannels
@@ -44,12 +43,13 @@ import ch.threema.app.receivers.CancelResendMessagesBroadcastReceiver
 import ch.threema.app.receivers.ReSendMessagesBroadcastReceiver
 import ch.threema.app.servermessage.ServerMessageActivity
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.LockAppService
 import ch.threema.app.services.NotificationPreferenceService
 import ch.threema.app.services.RingtoneService
+import ch.threema.app.services.notification.ConversationNotificationStore.StoreAccessor
 import ch.threema.app.ui.muteAppliesAt
+import ch.threema.app.usecases.conversation.GetConversationCategoryUseCase
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.DoNotDisturbUtil
 import ch.threema.app.utils.NameUtil
@@ -64,6 +64,7 @@ import ch.threema.common.minus
 import ch.threema.common.truncate
 import ch.threema.data.IdentityProvider
 import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationId
 import ch.threema.data.datatypes.ConversationIdObfuscated
 import ch.threema.data.datatypes.DistributionListConversationId
@@ -73,12 +74,13 @@ import ch.threema.data.datatypes.LocalGroupId
 import ch.threema.data.datatypes.localGroupId
 import ch.threema.data.models.ContactModel
 import ch.threema.data.models.ContactModelData
+import ch.threema.data.repositories.ContactModelRepository
+import ch.threema.domain.types.Identity
 import ch.threema.domain.types.MessageUid
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.conversationId
 import ch.threema.storage.models.group.GroupModelOld
-import java.util.LinkedList
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.seconds
 import org.koin.core.component.KoinComponent
@@ -87,9 +89,9 @@ private val logger = getThreemaLogger("NotificationServiceImpl")
 
 @SessionScoped
 class NotificationServiceImpl(
-    private val appContext: Context,
+    appContext: Context,
+    private val getConversationCategoryUseCase: GetConversationCategoryUseCase,
     private val lockAppService: LockAppService,
-    private val conversationCategoryService: ConversationCategoryService,
     private val notificationPreferenceService: NotificationPreferenceService,
     private val ringtoneService: RingtoneService,
     private val preferenceService: PreferenceService,
@@ -98,39 +100,33 @@ class NotificationServiceImpl(
     private val doNotDisturbUtil: DoNotDisturbUtil,
     private val timeProvider: TimeProvider,
     private val widgetUpdater: WidgetUpdater,
-) : NotificationService, KoinComponent {
+) : BaseNotificationService(appContext), NotificationService, KoinComponent {
 
-    private val notificationManagerCompat: NotificationManagerCompat = NotificationManagerCompat.from(appContext)
-
-    private val conversationNotificationsCache = LinkedList<ConversationNotification>()
+    private val conversationNotificationStore = ConversationNotificationStore()
     private var visibleConversationId: ConversationId? = null
 
     private val fsNotificationManager by lazy {
         ForwardSecurityNotificationManager(
             appContext,
-            conversationCategoryService,
             preferenceService,
         )
     }
 
     private val contactService: ContactService? by injectNullableNonBinding()
+    private val contactModelRepository: ContactModelRepository? by injectNullableNonBinding()
     private val groupService: GroupService? by injectNullableNonBinding()
 
     init {
-        if (ConfigUtils.supportsNotificationChannels()) {
-            NotificationChannels.createOrMigrateNotificationChannels(appContext)
-        }
+        NotificationChannels.createOrMigrateNotificationChannels(appContext)
     }
 
     override fun recreateNotificationChannels() {
-        if (ConfigUtils.supportsNotificationChannels()) {
-            NotificationChannels.recreateNotificationChannels(appContext)
-        }
+        NotificationChannels.recreateNotificationChannels(appContext)
     }
 
     override fun setVisibleConversation(conversationId: ConversationId?) {
         if (conversationId != null && conversationId != visibleConversationId) {
-            cancel(conversationId)
+            cancelAllConversationNotifications(conversationId)
         }
         visibleConversationId = conversationId
     }
@@ -191,15 +187,11 @@ class NotificationServiceImpl(
                 buildNotificationAction(
                     icon = R.drawable.ic_phone_locked_outline,
                     title = appContext.getString(R.string.voip_gc_join_call),
-                    intent = getGroupCallJoinPendingIntent(
-                        groupConversationId = conversationId,
-                        // update the current pending intent (if it exists), it can be immutable, and it is sufficient if it is one shot.
-                        flags = FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE or FLAG_ONE_SHOT,
-                    )!!,
+                    intent = getGroupCallJoinPendingIntent(conversationId),
                 ),
             )
 
-            if (!ConfigUtils.supportsNotificationChannels()) {
+            if (!DeviceInfo.supportsNotificationChannels()) {
                 setSound(
                     notificationPreferenceService.getLegacyGroupCallRingtone(),
                     AudioManager.STREAM_RING,
@@ -213,7 +205,7 @@ class NotificationServiceImpl(
         notify(
             notificationId = NotificationIDs.INCOMING_GROUP_CALL_NOTIFICATION_ID,
             notification = privateNotification,
-            channelId = NotificationChannels.NOTIFICATION_CHANNEL_INCOMING_GROUP_CALLS,
+            defaultChannelId = NotificationChannels.NOTIFICATION_CHANNEL_INCOMING_GROUP_CALLS,
             tag = getNotificationTagForGroup(group.localGroupId),
         )
     }
@@ -228,31 +220,36 @@ class NotificationServiceImpl(
         return isMuted || doNotDisturbUtil.isDoNotDisturbActive()
     }
 
-    private fun getGroupCallJoinPendingIntent(
-        groupConversationId: GroupConversationId,
-        flags: Int,
-    ): PendingIntent? =
-        PendingIntent.getActivity(
-            /* context = */
-            appContext,
-            /* requestCode = */
-            NotificationRequestCodes.getRequestCodeForConversationNotification(
+    private fun getGroupCallJoinPendingIntent(groupConversationId: GroupConversationId): PendingIntent =
+        getPendingIntentForActivity(
+            context = appContext,
+            requestCode = NotificationRequestCodes.getRequestCodeForConversationNotification(
                 conversationId = groupConversationId,
                 action = ConversationNotificationAction.GROUP_CALL_JOIN,
             ),
-            /* intent = */
-            GroupCallActivity.createJoinCallIntent(
+            intent = GroupCallActivity.createJoinCallIntent(
                 context = appContext,
                 groupId = groupConversationId.groupDatabaseId.toInt(),
             ),
-            /* flags = */
-            flags,
+            // update the current pending intent (if it exists), it can be immutable, and it is sufficient if it is one shot.
+            flags = FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE or FLAG_ONE_SHOT,
         )
 
-    override fun showConversationNotification(
-        conversationNotification: ConversationNotification,
-        updateExisting: Boolean,
-    ) {
+    private fun cancelGroupCallJoinPendingIntent(groupConversationId: GroupConversationId) {
+        cancelPendingIntentForActivity(
+            context = appContext,
+            requestCode = NotificationRequestCodes.getRequestCodeForConversationNotification(
+                conversationId = groupConversationId,
+                action = ConversationNotificationAction.GROUP_CALL_JOIN,
+            ),
+            intent = GroupCallActivity.createJoinCallIntent(
+                context = appContext,
+                groupId = groupConversationId.groupDatabaseId.toInt(),
+            ),
+        )
+    }
+
+    override fun showConversationNotification(messageNotification: ConversationMessageNotification, updateExisting: Boolean) {
         if (ConfigUtils.hasInvalidCredentials()) {
             logger.debug("Credentials are not (or no longer) valid. Suppressing notification.")
             return
@@ -263,106 +260,67 @@ class NotificationServiceImpl(
             return
         }
 
-        synchronized(conversationNotificationsCache) {
-            val currentNotificationsGroup = conversationNotification.group
-            val conversationId = currentNotificationsGroup.conversationId
-            // Check if current visible conversation is the conversation of the notifications-group
-            if (conversationId == visibleConversationId) {
-                logger.info("No notification - conversation visible")
-                return
+        val currentConversationHandle = messageNotification.conversationHandle
+        val conversationId = currentConversationHandle.conversationId
+
+        if (conversationId == visibleConversationId) {
+            logger.info("No notification - conversation visible")
+            return
+        }
+
+        accessExclusively { storeAccessor ->
+            val messageNotificationForMessageExists = storeAccessor.messageNotificationForMessageExists(messageNotification.messageUid)
+
+            val conversationIdObfuscated: ConversationIdObfuscated? = if (!messageNotificationForMessageExists || updateExisting) {
+                conversationId.obfuscated
+            } else {
+                null
             }
 
-            val conversationIdObfuscated: ConversationIdObfuscated?
-
-            // If the conversationNotification does not already exist in local cache,
-            // and the receiver is not muted, we add it to the beginning of the cached list
-            val notificationAlreadyExistsInCache = conversationNotificationsCache.any { cachedConversationNotification ->
-                cachedConversationNotification.uid == conversationNotification.uid
-            }
-            if (!notificationAlreadyExistsInCache) {
-                conversationIdObfuscated = conversationId.obfuscated
+            if (!messageNotificationForMessageExists && !updateExisting) {
                 if (!doNotDisturbUtil.isMessageMuted(
-                        notificationTriggerPolicyOverride = currentNotificationsGroup.messageReceiver.getNotificationTriggerPolicyOverrideOrNull(),
-                        rawMessageText = conversationNotification.rawMessage,
+                        notificationTriggerPolicyOverride = currentConversationHandle.notificationTriggerPolicyOverride,
+                        rawMessageText = messageNotification.rawMessage,
                     )
                 ) {
-                    conversationNotificationsCache.addFirst(conversationNotification)
+                    storeAccessor.addMessageNotification(messageNotification)
                 }
-            } else if (updateExisting) {
-                conversationIdObfuscated = conversationId.obfuscated
-            } else {
-                conversationIdObfuscated = null
-            }
-
-            val uniqueNotificationGroups = mutableMapOf<String, ConversationNotificationGroup>()
-            var numberOfNotificationsForCurrentConversation = 0
-
-            val cacheIterator = conversationNotificationsCache.listIterator()
-            while (cacheIterator.hasNext()) {
-                val cachedConversationNotification = cacheIterator.next()
-
-                if (conversationNotification.uid == cachedConversationNotification.uid && updateExisting) {
-                    if (conversationNotification.isMessageDeleted) {
-                        cacheIterator.remove()
-                        continue
-                    }
-                    cacheIterator.set(conversationNotification)
-                }
-
-                val cachedConversationNotificationsGroup = cachedConversationNotification.group
-                uniqueNotificationGroups[cachedConversationNotificationsGroup.uid] = cachedConversationNotificationsGroup
-
-                if (cachedConversationNotificationsGroup == currentNotificationsGroup) {
-                    numberOfNotificationsForCurrentConversation++
+            } else if (messageNotificationForMessageExists && updateExisting) {
+                if (messageNotification.isMessageDeleted) {
+                    storeAccessor.removeMessageNotification(messageNotification.messageUid)
+                } else if (messageNotification.isMessageEdited) {
+                    storeAccessor.replaceMessageNotification(messageNotification)
                 }
             }
 
-            if (conversationNotificationsCache.isEmpty()) {
-                cancelAppLockedNewMessagesNotification()
+            if (!storeAccessor.messageNotificationsForConversationExist(conversationId)) {
+                cancelConversationMessageNotifications(conversationId)
+                return@accessExclusively
             }
 
-            val cacheDoesNotContainCurrentNotificationsGroup = conversationNotificationsCache.none { cachedConversationNotification ->
-                cachedConversationNotification.group.uid == currentNotificationsGroup.uid
-            }
-            if (cacheDoesNotContainCurrentNotificationsGroup) {
-                cancelConversationNotification(conversationNotification)
-                badgeUpdater.showIconBadge(conversationNotificationsCache.size)
-                return
-            }
-
-            if (updateExisting && lockAppService.isLocked) {
-                return
-            }
-
-            val latestFullName = currentNotificationsGroup.name
-            val isGroupChat = currentNotificationsGroup.messageReceiver is GroupMessageReceiver
-            val defaultChannelId = if (isGroupChat) {
-                NotificationChannels.NOTIFICATION_CHANNEL_GROUP_CHATS_DEFAULT
-            } else {
-                NotificationChannels.NOTIFICATION_CHANNEL_CHATS_DEFAULT
-            }
-            val channelId = conversationIdObfuscated?.value
-                ?.takeIf { NotificationChannels.doesPerConversationChannelExist(appContext, it) }
-                ?: defaultChannelId
-
+            val latestFullName = currentConversationHandle.name.get(appContext)
+            val channelId = determineChannelId(currentConversationHandle)
+            val defaultChannelId = determineDefaultChannelId(currentConversationHandle)
             if (
                 doNotDisturbUtil.isMessageMuted(
-                    notificationTriggerPolicyOverride = currentNotificationsGroup.messageReceiver.getNotificationTriggerPolicyOverrideOrNull(),
-                    rawMessageText = conversationNotification.rawMessage,
+                    notificationTriggerPolicyOverride = currentConversationHandle.notificationTriggerPolicyOverride,
+                    rawMessageText = messageNotification.rawMessage,
                 )
             ) {
-                return
+                return@accessExclusively
             }
 
-            val notificationSchema = createNotificationSchema(currentNotificationsGroup)
+            val notificationSchema = createNotificationSchema(conversationId)
 
             if (lockAppService.isLocked) {
-                showAppLockedNewMessageNotification(
-                    notificationSchema = notificationSchema,
-                    uid = conversationNotification.uid,
-                    channelId = defaultChannelId,
-                )
-                return
+                if (!updateExisting) {
+                    showAppLockedNewMessageNotification(
+                        notificationSchema = notificationSchema,
+                        messageUid = messageNotification.messageUid,
+                        channelId = defaultChannelId,
+                    )
+                }
+                return@accessExclusively
             }
 
             cancelAppLockedNewMessagesNotification()
@@ -370,11 +328,11 @@ class NotificationServiceImpl(
             var tickerText: CharSequence?
             var singleMessageText: CharSequence?
             val newMessagesText = getUnreadMessagesCountText(
-                unreadConversationsCount = uniqueNotificationGroups.size,
-                unreadMessagesCount = conversationNotificationsCache.size,
+                unreadConversationsCount = storeAccessor.getConversationsCount(),
+                unreadMessagesCount = storeAccessor.getTotalMessageNotificationCount(),
             )
 
-            val isPrivateChat = conversationIdObfuscated != null && conversationCategoryService.isMarkedAsPrivate(conversationId)
+            val isPrivateChat = getConversationCategoryUseCase.call(conversationId) == ConversationCategory.PROTECTED
 
             if (isPrivateChat) {
                 tickerText = newMessagesText
@@ -382,8 +340,8 @@ class NotificationServiceImpl(
             } else {
                 val tickerMessage: CharSequence?
                 if (notificationPreferenceService.isShowMessagePreview()) {
-                    tickerMessage = conversationNotification.message.truncate(MAX_TICKER_TEXT_LENGTH)
-                    singleMessageText = conversationNotification.message
+                    tickerMessage = messageNotification.message.truncate(MAX_TICKER_TEXT_LENGTH)
+                    singleMessageText = messageNotification.message
                 } else {
                     tickerMessage = newMessagesText
                     singleMessageText = newMessagesText
@@ -396,15 +354,16 @@ class NotificationServiceImpl(
             }
 
             val now = timeProvider.get()
-            val onlyAlertOnce = conversationNotification.isMessageEdited ||
-                conversationNotification.isMessageDeleted ||
-                (now - currentNotificationsGroup.lastNotificationDate) < NOTIFY_AGAIN_TIMEOUT
-            currentNotificationsGroup.lastNotificationDate = now
+            val onlyAlertOnce = messageNotification.isMessageEdited ||
+                messageNotification.isMessageDeleted ||
+                (now - currentConversationHandle.lastNotificationTime) < NOTIFY_AGAIN_TIMEOUT
+            currentConversationHandle.lastNotificationTime = now
 
+            val numberOfMessageNotificationsForCurrentConversation = storeAccessor.getMessageNotificationCountForConversation(conversationId)
             val summaryText = appContext.resources.getQuantityString(
                 R.plurals.new_messages,
-                numberOfNotificationsForCurrentConversation,
-                numberOfNotificationsForCurrentConversation,
+                numberOfMessageNotificationsForCurrentConversation,
+                numberOfMessageNotificationsForCurrentConversation,
             )
 
             if (!notificationPreferenceService.isShowMessagePreview() || isPrivateChat) {
@@ -424,8 +383,8 @@ class NotificationServiceImpl(
                 setContentText(singleMessageText)
                 setTicker(tickerText)
                 setSmallIcon(R.drawable.ic_notification_small)
-                setLargeIcon(currentNotificationsGroup.loadAvatar())
-                setGroup(currentNotificationsGroup.uid)
+                setLargeIcon(currentConversationHandle.loadAvatar())
+                setGroup(NotificationGroups.CONVERSATIONS)
                 setGroupSummary(false)
                 setOnlyAlertOnce(onlyAlertOnce)
                 setPriority(notificationPreferenceService.getLegacyNotificationPriority())
@@ -433,7 +392,7 @@ class NotificationServiceImpl(
                 setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
                 setPublicVersion(publicNotification)
 
-                if (!ConfigUtils.supportsNotificationChannels()) {
+                if (!DeviceInfo.supportsNotificationChannels()) {
                     if (notificationSchema.soundUri != null) {
                         setSound(notificationSchema.soundUri, AudioManager.STREAM_NOTIFICATION)
                     }
@@ -446,13 +405,15 @@ class NotificationServiceImpl(
                 }
 
                 // Add identity to notification for system DND priority override
-                addPerson(conversationNotification.senderPerson)
+                if (messageNotification.shouldApplySenderPerson) {
+                    addPerson(messageNotification.senderPerson)
+                }
 
                 if (notificationPreferenceService.isShowMessagePreview() && !isPrivateChat) {
                     setStyle(
                         getMessagingStyle(
-                            group = currentNotificationsGroup,
-                            notifications = getConversationNotificationsForGroup(currentNotificationsGroup),
+                            conversationHandle = currentConversationHandle,
+                            messageNotifications = storeAccessor.getMessageNotificationsForConversation(conversationId),
                         ),
                     )
                     if (conversationIdObfuscated != null) {
@@ -460,90 +421,122 @@ class NotificationServiceImpl(
                         setLocusId(LocusIdCompat(conversationIdObfuscated.value))
                     }
 
-                    val messageReceiver = currentNotificationsGroup.messageReceiver
-
-                    val replyPendingIntent = PendingIntent.getService(
-                        appContext,
-                        currentNotificationsGroup.getRequestCode(ConversationNotificationAction.REPLY),
-                        NotificationActionService.createReplyIntent(appContext, messageReceiver),
+                    val replyPendingIntent = getPendingIntentForService(
+                        context = appContext,
+                        requestCode = currentConversationHandle.getRequestCode(ConversationNotificationAction.REPLY),
+                        intent = NotificationActionService.createReplyIntent(
+                            appContext,
+                            conversationId,
+                        ),
                         // Note that this pending intent needs to be mutable because the reply text needs to be added to it.
-                        FLAG_UPDATE_CURRENT or FLAG_MUTABLE,
+                        flags = FLAG_UPDATE_CURRENT or FLAG_MUTABLE,
                     )
 
-                    val markReadPendingIntent = PendingIntent.getService(
-                        appContext,
-                        currentNotificationsGroup.getRequestCode(ConversationNotificationAction.MARK_AS_READ),
-                        NotificationActionService.createMarkAsReadIntent(appContext, messageReceiver),
-                        FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE or FLAG_ONE_SHOT,
+                    val markReadPendingIntent = getPendingIntentForService(
+                        context = appContext,
+                        requestCode = currentConversationHandle.getRequestCode(ConversationNotificationAction.MARK_AS_READ),
+                        intent = NotificationActionService.createMarkAsReadIntent(
+                            appContext,
+                            conversationId,
+                        ),
+                        flags = FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE or FLAG_ONE_SHOT,
                     )
 
-                    val ackPendingIntent = PendingIntent.getService(
-                        appContext,
-                        currentNotificationsGroup.getRequestCode(ConversationNotificationAction.ACK),
-                        NotificationActionService.createAckIntent(appContext, messageReceiver, conversationNotification.id),
-                        FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE or FLAG_ONE_SHOT,
+                    val ackPendingIntent = getPendingIntentForService(
+                        context = appContext,
+                        requestCode = currentConversationHandle.getRequestCode(ConversationNotificationAction.ACK),
+                        intent = NotificationActionService.createAckIntent(
+                            appContext,
+                            conversationId,
+                            messageNotification.messageId,
+                        ),
+                        flags = FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE or FLAG_ONE_SHOT,
                     )
 
-                    val decPendingIntent = PendingIntent.getService(
-                        appContext,
-                        currentNotificationsGroup.getRequestCode(ConversationNotificationAction.DEC),
-                        NotificationActionService.createDecIntent(appContext, messageReceiver, conversationNotification.id),
-                        FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE or FLAG_ONE_SHOT,
+                    val decPendingIntent = getPendingIntentForService(
+                        context = appContext,
+                        requestCode = currentConversationHandle.getRequestCode(ConversationNotificationAction.DEC),
+                        intent = NotificationActionService.createDecIntent(
+                            appContext,
+                            conversationId,
+                            messageNotification.messageId,
+                        ),
+                        flags = FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE or FLAG_ONE_SHOT,
                     )
 
                     addConversationNotificationActions(
                         replyPendingIntent = replyPendingIntent,
                         ackPendingIntent = ackPendingIntent,
                         markReadPendingIntent = markReadPendingIntent,
-                        conversationNotification = conversationNotification,
-                        unreadMessagesCount = numberOfNotificationsForCurrentConversation,
-                        newestGroup = currentNotificationsGroup,
+                        conversationMessageNotification = messageNotification,
+                        unreadMessagesCount = numberOfMessageNotificationsForCurrentConversation,
+                        newestConversationHandle = currentConversationHandle,
                     )
                     addWearableExtender(
-                        newestGroup = currentNotificationsGroup,
+                        newestConversationHandle = currentConversationHandle,
                         ackPendingIntent = ackPendingIntent,
                         decPendingIntent = decPendingIntent,
                         replyPendingIntent = replyPendingIntent,
                         markReadPendingIntent = markReadPendingIntent,
-                        numberOfUnreadMessagesForThisConversation = numberOfNotificationsForCurrentConversation,
+                        numberOfUnreadMessagesForThisConversation = numberOfMessageNotificationsForCurrentConversation,
                     )
                 }
 
                 setContentIntent(
                     createPendingIntentForConversation(
                         conversationId = conversationId,
-                        requestCode = currentNotificationsGroup.getRequestCode(ConversationNotificationAction.OPEN),
+                        requestCode = currentConversationHandle.getRequestCode(ConversationNotificationAction.OPEN),
+                    ),
+                )
+                setDeleteIntent(
+                    getPendingIntentForBroadcast(
+                        context = appContext,
+                        requestCode = NotificationRequestCodes.DISMISS_NOTIFICATION,
+                        intent = NotificationDismissedBroadcastReceiver.createIntent(appContext),
+                        flags = FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE,
                     ),
                 )
             }
 
-            if (!updateExisting || notificationExists(currentNotificationsGroup.notificationId)) {
+            if (!updateExisting || notificationExists(currentConversationHandle.notificationId)) {
+                logger.info("Showing notification, uid={}", messageNotification.messageUid)
                 notify(
-                    notificationId = currentNotificationsGroup.notificationId,
+                    notificationId = currentConversationHandle.notificationId,
                     notification = privateNotification,
                     schema = notificationSchema,
-                    channelId = defaultChannelId,
+                    defaultChannelId = defaultChannelId,
                 )
-
-                logger.info("Showing notification, uid={}", conversationNotification.uid)
-                badgeUpdater.showIconBadge(conversationNotificationsCache.size)
+                notifyConversationsSummary(defaultChannelId)
+                badgeUpdater.showIconBadge(storeAccessor.getTotalMessageNotificationCount())
             }
         }
     }
 
-    private fun createNotificationSchema(notificationGroup: ConversationNotificationGroup): NotificationSchema =
-        when (val messageReceiver = notificationGroup.messageReceiver) {
-            is GroupMessageReceiver -> {
+    private fun notifyConversationsSummary(channelId: String) {
+        notify(
+            NotificationIDs.CONVERSATIONS_SUMMARY_NOTIFICATION_ID,
+            buildNotification(appContext, channelId) {
+                setGroupSummary(true)
+                setGroup(NotificationGroups.CONVERSATIONS)
+                setSmallIcon(R.drawable.ic_notification_small)
+                setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN)
+            },
+        )
+    }
+
+    private fun createNotificationSchema(conversationId: ConversationId): NotificationSchema =
+        when (conversationId) {
+            is GroupConversationId -> {
                 NotificationSchema(
                     shouldVibrate = notificationPreferenceService.isLegacyGroupVibrate(),
-                    soundUri = ringtoneService.getGroupRingtone(messageReceiver.conversationId),
+                    soundUri = ringtoneService.getGroupRingtone(conversationId),
                     shouldUseLight = notificationPreferenceService.isLegacyGroupNotificationLightEnabled(),
                 )
             }
-            is ContactMessageReceiver -> {
+            is ContactConversationId -> {
                 NotificationSchema(
                     shouldVibrate = notificationPreferenceService.isLegacyNotificationVibrate(),
-                    soundUri = ringtoneService.getContactRingtone(messageReceiver.conversationId),
+                    soundUri = ringtoneService.getContactRingtone(conversationId),
                     shouldUseLight = notificationPreferenceService.isLegacyNotificationLightEnabled(),
                 )
             }
@@ -566,9 +559,21 @@ class NotificationServiceImpl(
             )
         }
 
+    private fun buildUserPerson(
+        userIdentity: Identity,
+        contactService: ContactService,
+    ): Person = buildPerson {
+        setName(appContext.getString(R.string.me_myself_and_i))
+        setKey(ContactConversationId(userIdentity.value).obfuscated.value)
+        contactService.getAvatar(userIdentity.value, false)
+            ?.let { avatar ->
+                setIcon(IconCompat.createWithBitmap(avatar))
+            }
+    }
+
     private fun getMessagingStyle(
-        group: ConversationNotificationGroup,
-        notifications: List<ConversationNotification>,
+        conversationHandle: NotificationConversationHandle,
+        messageNotifications: List<ConversationMessageNotification>,
     ): NotificationCompat.MessagingStyle? {
         val contactService = contactService
             ?: run {
@@ -576,35 +581,36 @@ class NotificationServiceImpl(
                 return null
             }
 
-        val myIdentity = identityProvider.getIdentityString()
+        val userIdentity = identityProvider.getIdentity()
             ?: return null
+        val userPerson = buildUserPerson(
+            userIdentity = userIdentity,
+            contactService = contactService,
+        )
 
-        val chatName = group.name
-        val isGroupChat = group.messageReceiver is GroupMessageReceiver
-        val me = buildPerson {
-            setName(appContext.getString(R.string.me_myself_and_i))
-            setKey(ContactConversationId(myIdentity).obfuscated.value)
-            contactService.getAvatar(myIdentity, false)
-                ?.let { avatar ->
-                    setIcon(IconCompat.createWithBitmap(avatar))
-                }
-        }
+        val conversationName = conversationHandle.name.get(appContext)
+        val isGroupConversation = conversationHandle.conversationId is GroupConversationId
 
-        val messagingStyle = NotificationCompat.MessagingStyle(me)
-            .setConversationTitle(if (isGroupChat) chatName else null)
-            .setGroupConversation(isGroupChat)
+        val messagingStyle = NotificationCompat.MessagingStyle(userPerson)
+            .setConversationTitle(if (isGroupConversation) conversationName else null)
+            .setGroupConversation(isGroupConversation)
 
-        notifications.take(NotificationCompat.MessagingStyle.MAXIMUM_RETAINED_MESSAGES)
+        messageNotifications.take(NotificationCompat.MessagingStyle.MAXIMUM_RETAINED_MESSAGES)
             .map { notification ->
                 val messageText = notification.message
-                val created = notification.createdAt?.toEpochMilli() ?: 0
-                val person = if (isGroupChat) {
-                    notification.senderPerson
-                } else {
-                    (notification.senderPerson?.toBuilder() ?: Person.Builder())
-                        .setName(chatName)
-                        .build()
-                }
+                val created = notification.createdAt.toEpochMilli()
+                val person =
+                    if (notification.shouldApplySenderPerson) {
+                        if (isGroupConversation) {
+                            notification.senderPerson
+                        } else {
+                            (notification.senderPerson?.toBuilder() ?: Person.Builder())
+                                .setName(conversationName)
+                                .build()
+                        }
+                    } else {
+                        null
+                    }
                 val message = NotificationCompat.MessagingStyle.Message(messageText, created, person)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && notification.thumbnailMimeType != null) {
                     notification.getOrCreateThumbnail()
@@ -621,22 +627,112 @@ class NotificationServiceImpl(
         return messagingStyle
     }
 
-    private fun getConversationNotificationsForGroup(group: ConversationNotificationGroup): List<ConversationNotification> =
-        conversationNotificationsCache.filter { notification ->
-            notification.group.uid == group.uid
-        }
+    /**
+     * This [NotificationCompat.MessagingStyle] bundles multiple reaction notifications for a single conversation.
+     *
+     * Note that the amount of [NotificationCompat.MessagingStyle.Message]s added to the style can be greater than the count of
+     * [reactionNotifications] because we have to expand a message that has a thumbnail into 2 separate messages. Otherwise, a notification that has
+     * both a text and a thumbnail uri will only render the thumbnail and not the text.
+     */
+    private fun getEmojiReactionStyle(
+        conversationHandle: NotificationConversationHandle,
+        reactionNotifications: List<ConversationReactionNotification>,
+    ): NotificationCompat.MessagingStyle? {
+        val contactService = contactService
+            ?: run {
+                logger.warn("Contact service is null")
+                return null
+            }
+
+        val contactModelRepository = contactModelRepository
+            ?: run {
+                logger.warn("Contact model repository is null")
+                return null
+            }
+
+        val userIdentity = identityProvider.getIdentity()
+            ?: return null
+        val userPerson = buildUserPerson(
+            userIdentity = userIdentity,
+            contactService = contactService,
+        )
+
+        val conversationName = conversationHandle.name.get(appContext)
+        val isGroupConversation = conversationHandle.conversationId is GroupConversationId
+
+        val messagingStyle = NotificationCompat.MessagingStyle(userPerson)
+            .setConversationTitle(if (isGroupConversation) conversationName else null)
+            // We explicitly don't want the group styling even if this messageReceiver is of type group
+            .setGroupConversation(false)
+
+        val contactNameFormat = preferenceService.getContactNameFormat()
+
+        reactionNotifications
+            .take(NotificationCompat.MessagingStyle.MAXIMUM_RETAINED_MESSAGES)
+            .flatMap { reactionNotification ->
+                val messageText = reactionNotification.resolveNotificationContentPrivate(
+                    context = appContext,
+                    contactModelRepository = contactModelRepository,
+                    contactNameFormat = contactNameFormat,
+                ) ?: return@flatMap emptyList()
+                val messageTimestamp = reactionNotification.createdAt.toEpochMilli()
+                val messagePerson =
+                    if (reactionNotification.shouldApplySenderPerson) {
+                        (reactionNotification.senderPerson?.toBuilder() ?: Person.Builder())
+                            .setName(conversationName)
+                            .build()
+                    } else {
+                        null
+                    }
+                val messages = mutableListOf<NotificationCompat.MessagingStyle.Message>()
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && reactionNotification.thumbnailMimeType != null) {
+                    reactionNotification
+                        .getOrCreateThumbnail()
+                        ?.let { thumbnailUri ->
+                            // Add 1 to have this thumbnail notification rendered below the actual message (caption) notification
+                            val timestamp = messageTimestamp + 1L
+                            messages.add(
+                                NotificationCompat.MessagingStyle.Message(
+                                    /* text = */
+                                    "",
+                                    /* timestamp = */
+                                    timestamp,
+                                    /* person = */
+                                    messagePerson,
+                                ).apply {
+                                    setData(reactionNotification.thumbnailMimeType, thumbnailUri)
+                                },
+                            )
+                        }
+                }
+                messages.add(
+                    NotificationCompat.MessagingStyle.Message(
+                        /* text = */
+                        messageText,
+                        /* timestamp = */
+                        messageTimestamp,
+                        /* person = */
+                        messagePerson,
+                    ),
+                )
+                messages
+            }
+            .reversed()
+            .forEach(messagingStyle::addMessage)
+        return messagingStyle
+    }
 
     private fun NotificationCompat.Builder.addConversationNotificationActions(
         replyPendingIntent: PendingIntent,
         ackPendingIntent: PendingIntent,
         markReadPendingIntent: PendingIntent,
-        conversationNotification: ConversationNotification,
+        conversationMessageNotification: ConversationMessageNotification,
         unreadMessagesCount: Int,
-        newestGroup: ConversationNotificationGroup,
+        newestConversationHandle: NotificationConversationHandle,
     ) {
         var showMarkAsReadAction = false
         if (notificationPreferenceService.isShowMessagePreview() &&
-            !conversationCategoryService.isMarkedAsPrivate(newestGroup.conversationId)
+            getConversationCategoryUseCase.call(newestConversationHandle.conversationId) == ConversationCategory.DEFAULT
         ) {
             val replyAction = buildNotificationAction(
                 icon = R.drawable.ic_reply_black_18dp,
@@ -656,48 +752,54 @@ class NotificationServiceImpl(
             }
             addAction(replyAction)
 
-            if (newestGroup.messageReceiver is GroupMessageReceiver) {
-                if (unreadMessagesCount == 1) {
-                    addAction(getThumbsUpAction(ackPendingIntent))
-                }
-                showMarkAsReadAction = true
-            } else if (newestGroup.messageReceiver is ContactMessageReceiver) {
-                if (MessageType.VOIP_STATUS == conversationNotification.messageType) {
-                    val identity = newestGroup.messageReceiver.contact.identity
-
-                    val callActivityIntent = Intent(appContext, CallActivity::class.java)
-                        .putExtra(
-                            VoipCallService.EXTRA_ACTIVITY_MODE,
-                            CallActivity.MODE_OUTGOING_CALL,
+            when (val conversationId = newestConversationHandle.conversationId) {
+                is ContactConversationId -> {
+                    if (conversationMessageNotification.messageType == MessageType.VOIP_STATUS) {
+                        val identity = conversationId.identity
+                        val callActivityIntent = Intent(appContext, CallActivity::class.java)
+                            .putExtra(
+                                VoipCallService.EXTRA_ACTIVITY_MODE,
+                                CallActivity.MODE_OUTGOING_CALL,
+                            )
+                            .putExtra(VoipCallService.EXTRA_CONTACT_IDENTITY, identity)
+                            .putExtra(VoipCallService.EXTRA_IS_INITIATOR, true)
+                            .putExtra(VoipCallService.EXTRA_CALL_ID, -1L)
+                        val callPendingIntent = getPendingIntentForActivity(
+                            context = appContext,
+                            requestCode = NotificationRequestCodes.getRequestCodeForConversationNotification(
+                                conversationId = ContactConversationId(identity),
+                                action = ConversationNotificationAction.CALL,
+                            ),
+                            intent = callActivityIntent,
+                            // A call pending intent can be immutable and one shot.
+                            flags = FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE or FLAG_ONE_SHOT,
                         )
-                        .putExtra(VoipCallService.EXTRA_CONTACT_IDENTITY, identity)
-                        .putExtra(VoipCallService.EXTRA_IS_INITIATOR, true)
-                        .putExtra(VoipCallService.EXTRA_CALL_ID, -1L)
-                    val callPendingIntent = PendingIntent.getActivity(
-                        appContext,
-                        NotificationRequestCodes.getRequestCodeForConversationNotification(
-                            conversationId = ContactConversationId(identity),
-                            action = ConversationNotificationAction.CALL,
-                        ),
-                        callActivityIntent,
-                        // A call pending intent can be immutable and one shot.
-                        FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE or FLAG_ONE_SHOT,
-                    )
-                    addAction(
-                        buildNotificationAction(
-                            R.drawable.ic_call_white_24dp,
-                            appContext.getString(R.string.voip_return_call),
-                            callPendingIntent,
-                        ) {
-                            setShowsUserInterface(true)
-                            setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_CALL)
-                        },
-                    )
-                } else {
+                        addAction(
+                            buildNotificationAction(
+                                R.drawable.ic_call_white_24dp,
+                                appContext.getString(R.string.voip_return_call),
+                                callPendingIntent,
+                            ) {
+                                setShowsUserInterface(true)
+                                setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_CALL)
+                            },
+                        )
+                    } else {
+                        if (unreadMessagesCount == 1) {
+                            addAction(getThumbsUpAction(ackPendingIntent))
+                        }
+                        showMarkAsReadAction = true
+                    }
+                }
+                is GroupConversationId -> {
                     if (unreadMessagesCount == 1) {
                         addAction(getThumbsUpAction(ackPendingIntent))
                     }
                     showMarkAsReadAction = true
+                }
+                is DistributionListConversationId -> {
+                    // no dedicated actions for distribution list messages
+                    showMarkAsReadAction = false
                 }
             }
         }
@@ -733,7 +835,7 @@ class NotificationServiceImpl(
         }
 
     private fun NotificationCompat.Builder.addWearableExtender(
-        newestGroup: ConversationNotificationGroup,
+        newestConversationHandle: NotificationConversationHandle,
         ackPendingIntent: PendingIntent?,
         decPendingIntent: PendingIntent?,
         replyPendingIntent: PendingIntent?,
@@ -747,7 +849,7 @@ class NotificationServiceImpl(
         ) {
             addRemoteInput(
                 RemoteInput.Builder(AppConstants.EXTRA_VOICE_REPLY)
-                    .setLabel(appContext.getString(R.string.wearable_reply_label, newestGroup.name))
+                    .setLabel(appContext.getString(R.string.wearable_reply_label, newestConversationHandle.name))
                     .setChoices(appContext.resources.getStringArray(R.array.wearable_reply_choices))
                     .build(),
             )
@@ -762,8 +864,10 @@ class NotificationServiceImpl(
         val wearableExtender = NotificationCompat.WearableExtender()
             .addAction(replyAction)
 
-        if (notificationPreferenceService.isShowMessagePreview() && !conversationCategoryService.isMarkedAsPrivate(newestGroup.conversationId)) {
-            if (numberOfUnreadMessagesForThisConversation == 1 && newestGroup.messageReceiver is ContactMessageReceiver) {
+        if (notificationPreferenceService.isShowMessagePreview() &&
+            getConversationCategoryUseCase.call(newestConversationHandle.conversationId) == ConversationCategory.DEFAULT
+        ) {
+            if (numberOfUnreadMessagesForThisConversation == 1 && newestConversationHandle.conversationId is ContactConversationId) {
                 wearableExtender.addAction(
                     buildNotificationAction(
                         icon = R.drawable.emoji_thumbs_up,
@@ -798,9 +902,10 @@ class NotificationServiceImpl(
         }
         extend(wearableExtender)
         extend(
-            NotificationCompat.CarExtender().setLargeIcon(newestGroup.loadAvatar()),
+            NotificationCompat.CarExtender().setLargeIcon(newestConversationHandle.loadAvatar()),
         )
     }
+
     private fun notificationExists(notificationId: Int): Boolean =
         try {
             notificationManagerCompat.activeNotifications.any { notification ->
@@ -811,47 +916,26 @@ class NotificationServiceImpl(
             false
         }
 
-    private fun cancelConversationNotification(conversationNotification: ConversationNotification) {
-        synchronized(conversationNotificationsCache) {
-            logger.info("Canceling notification {}", conversationNotification.uid)
-            cancel(conversationNotification.group.notificationId)
-            conversationNotification.group.conversations.remove(conversationNotification)
-        }
-    }
-
-    private fun cancelAllCachedConversationNotifications() {
-        synchronized(this.conversationNotificationsCache) {
-            if (!conversationNotificationsCache.isEmpty()) {
-                for (conversationNotification in conversationNotificationsCache) {
-                    cancelConversationNotification(conversationNotification)
+    private fun cancelConversationSummaryNotificationIfNeeded() {
+        accessExclusively {
+            try {
+                val activeNotifications = notificationManagerCompat.activeNotifications
+                val hasConversationNotifications = activeNotifications.any { notification ->
+                    notification.id != NotificationIDs.CONVERSATIONS_SUMMARY_NOTIFICATION_ID &&
+                        notification.notification?.group == NotificationGroups.CONVERSATIONS
                 }
-                conversationNotificationsCache.clear()
+                if (!hasConversationNotifications) {
+                    cancel(NotificationIDs.CONVERSATIONS_SUMMARY_NOTIFICATION_ID)
+                }
+            } catch (e: Exception) {
+                logger.error("Failed to cancel conversation summary notification", e)
             }
         }
-    }
-
-    /**
-     * cancel all conversation notifications of category Notification.CATEGORY_MESSAGE
-     * returns true if any have been canceled
-     */
-    private fun cancelAllMessageCategoryNotifications(): Boolean {
-        var cancelledIDs = false
-        try {
-            notificationManagerCompat.activeNotifications.forEach { notification ->
-                if (notification.notification != null && notification.notification.category == Notification.CATEGORY_MESSAGE) {
-                    cancel(notificationId = notification.id)
-                    cancelledIDs = true
-                }
-            }
-        } catch (e: Exception) {
-            logger.error("Could not cancel notifications of CATEGORY_MESSAGE ", e)
-        }
-        return cancelledIDs
     }
 
     private fun showAppLockedNewMessageNotification(
         notificationSchema: NotificationSchema? = null,
-        uid: String? = null,
+        messageUid: MessageUid? = null,
         channelId: String,
     ) {
         val notification = buildNotification(appContext, channelId) {
@@ -873,28 +957,17 @@ class NotificationServiceImpl(
         notify(
             notificationId = NotificationIDs.NEW_MESSAGE_PIN_LOCKED_NOTIFICATION_ID,
             notification = notification,
-            channelId = channelId,
+            defaultChannelId = channelId,
         )
 
         badgeUpdater.showIconBadge(0)
 
         logger.info(
             "Showing generic notification (app locked), uid = {}, channelId = {} ",
-            uid,
+            messageUid,
             channelId,
         )
     }
-
-    private fun createPendingIntentForHomeActivity(): PendingIntent =
-        createPendingIntentWithTaskStack(
-            intent = HomeActivity.createIntent(appContext)
-                .setFlags(
-                    Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
-                        Intent.FLAG_ACTIVITY_NEW_TASK,
-                ),
-            requestCode = NotificationRequestCodes.HOME_ACTIVITY,
-        )
 
     private fun createPendingIntentForConversation(conversationId: ConversationId, requestCode: Int): PendingIntent {
         val intent = ComposeMessageActivity.createIntent(appContext, conversationId)
@@ -905,31 +978,6 @@ class NotificationServiceImpl(
                     Intent.FLAG_ACTIVITY_NO_USER_ACTION,
             )
         return createPendingIntentWithTaskStack(intent, requestCode)
-    }
-
-    override fun showMasterKeyLockedNewMessageNotification() {
-        val notification = buildNotification(appContext, NotificationChannels.NOTIFICATION_CHANNEL_CHATS_DEFAULT) {
-            setSmallIcon(R.drawable.ic_notification_small)
-            setContentTitle(appContext.getString(R.string.new_messages_locked))
-            setContentText(appContext.getString(R.string.new_messages_locked_description))
-            setTicker(appContext.getString(R.string.new_messages_locked))
-            setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            setOnlyAlertOnce(false)
-            setContentIntent(createPendingIntentForHomeActivity())
-            setSound(notificationPreferenceService.getLegacyNotificationSound(), AudioManager.STREAM_NOTIFICATION)
-
-            if (notificationPreferenceService.isLegacyNotificationVibrate()) {
-                setVibrate(NotificationChannels.VIBRATE_PATTERN_REGULAR)
-            }
-        }
-
-        notify(
-            notificationId = NotificationIDs.NEW_MESSAGE_LOCKED_NOTIFICATION_ID,
-            notification = notification,
-            channelId = NotificationChannels.NOTIFICATION_CHANNEL_CHATS_DEFAULT,
-        )
-
-        logger.info("Showing generic notification (master key locked)")
     }
 
     override fun showServerMessageNotification() {
@@ -943,11 +991,11 @@ class NotificationServiceImpl(
             setContentTitle(appContext.getString(R.string.server_message_title))
             setContentText(appContext.getString(R.string.tap_here_for_more))
             setContentIntent(
-                PendingIntent.getActivity(
-                    appContext,
-                    NotificationRequestCodes.SERVER_MESSAGE,
-                    ServerMessageActivity.createIntent(appContext),
-                    FLAG_IMMUTABLE or FLAG_UPDATE_CURRENT,
+                getPendingIntentForActivity(
+                    context = appContext,
+                    requestCode = NotificationRequestCodes.SERVER_MESSAGE,
+                    intent = ServerMessageActivity.createIntent(appContext),
+                    flags = FLAG_IMMUTABLE or FLAG_UPDATE_CURRENT,
                 ),
             )
             setLocalOnly(true)
@@ -957,16 +1005,11 @@ class NotificationServiceImpl(
         notify(
             notificationId = NotificationIDs.SERVER_MESSAGE_NOTIFICATION_ID,
             notification = notification,
-            channelId = NotificationChannels.NOTIFICATION_CHANNEL_NOTICE,
+            defaultChannelId = NotificationChannels.NOTIFICATION_CHANNEL_NOTICE,
         )
     }
 
-    private fun createPendingIntentWithTaskStack(intent: Intent, requestCode: Int): PendingIntent =
-        TaskStackBuilder.create(appContext)
-            .addNextIntentWithParentStack(intent)
-            .getPendingIntent(requestCode, FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE or FLAG_ONE_SHOT)!!
-
-    override fun showUnsentMessageNotification(failedMessages: List<AbstractMessageModel>) {
+    override fun showUnsentMessageNotification(failedMessages: List<MessageModel>) {
         val numberOfFailedMessages = failedMessages.size
 
         if (numberOfFailedMessages == 0) {
@@ -974,11 +1017,11 @@ class NotificationServiceImpl(
             return
         }
 
-        val sendPendingIntent = PendingIntent.getBroadcast(
-            appContext,
-            NotificationRequestCodes.UNSENT_NOTIFICATIONS_SEND,
-            ReSendMessagesBroadcastReceiver.createIntent(appContext, failedMessages),
-            FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE or FLAG_ONE_SHOT,
+        val sendPendingIntent = getPendingIntentForBroadcast(
+            context = appContext,
+            requestCode = NotificationRequestCodes.UNSENT_NOTIFICATIONS_SEND,
+            intent = ReSendMessagesBroadcastReceiver.createIntent(appContext, failedMessages),
+            flags = FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE or FLAG_ONE_SHOT,
         )
 
         val tryAgainAction = buildNotificationAction(
@@ -1004,11 +1047,11 @@ class NotificationServiceImpl(
             setContentText(content)
             setStyle(NotificationCompat.BigTextStyle().bigText(content))
             setDeleteIntent(
-                PendingIntent.getBroadcast(
-                    appContext,
-                    NotificationRequestCodes.UNSENT_NOTIFICATIONS_CANCEL,
-                    cancelIntent,
-                    FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE or FLAG_ONE_SHOT,
+                getPendingIntentForBroadcast(
+                    context = appContext,
+                    requestCode = NotificationRequestCodes.UNSENT_NOTIFICATIONS_CANCEL,
+                    intent = cancelIntent,
+                    flags = FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE or FLAG_ONE_SHOT,
                 ),
             )
             addAction(
@@ -1021,7 +1064,7 @@ class NotificationServiceImpl(
         notify(
             notificationId = NotificationIDs.UNSENT_MESSAGE_NOTIFICATION_ID,
             notification = notification,
-            channelId = NotificationChannels.NOTIFICATION_CHANNEL_ALERT,
+            defaultChannelId = NotificationChannels.NOTIFICATION_CHANNEL_ALERT,
         )
     }
 
@@ -1043,18 +1086,18 @@ class NotificationServiceImpl(
             setStyle(NotificationCompat.BigTextStyle().bigText(content))
 
             setContentIntent(
-                PendingIntent.getActivity(
-                    appContext,
-                    NotificationRequestCodes.SAFE_BACKUP_FAILED,
-                    BackupAdminActivity.createIntent(appContext),
-                    FLAG_IMMUTABLE,
+                getPendingIntentForActivity(
+                    context = appContext,
+                    requestCode = NotificationRequestCodes.SAFE_BACKUP_FAILED,
+                    intent = BackupAdminActivity.createIntent(appContext),
+                    flags = FLAG_IMMUTABLE,
                 ),
             )
         }
         notify(
             notificationId = NotificationIDs.SAFE_FAILED_NOTIFICATION_ID,
             notification = notification,
-            channelId = NotificationChannels.NOTIFICATION_CHANNEL_ALERT,
+            defaultChannelId = NotificationChannels.NOTIFICATION_CHANNEL_ALERT,
         )
     }
 
@@ -1107,7 +1150,7 @@ class NotificationServiceImpl(
         notify(
             notificationId = NotificationIDs.NEW_SYNCED_CONTACTS_NOTIFICATION_ID,
             notification = notification,
-            channelId = NotificationChannels.NOTIFICATION_CHANNEL_NEW_SYNCED_CONTACTS,
+            defaultChannelId = NotificationChannels.NOTIFICATION_CHANNEL_NEW_SYNCED_CONTACTS,
         )
     }
 
@@ -1125,120 +1168,337 @@ class NotificationServiceImpl(
         notify(
             notificationId = NotificationIDs.WEB_RESUME_FAILED_NOTIFICATION_ID,
             notification = notification,
-            channelId = NotificationChannels.NOTIFICATION_CHANNEL_NOTICE,
+            defaultChannelId = NotificationChannels.NOTIFICATION_CHANNEL_NOTICE,
         )
     }
 
-    private fun notify(
-        notificationId: Int,
-        notification: Notification,
-        schema: NotificationSchema? = null,
-        channelId: String,
-        tag: String? = null,
-    ) {
-        try {
-            notificationManagerCompat.notify(tag, notificationId, notification)
-        } catch (e: SecurityException) {
-            // some phones revoke access to selected sound files for notifications after an OS upgrade
-            logger.error("Can't show notification. Falling back to default ringtone", e)
+    override fun showEmojiReactionNotification(reactionNotification: ConversationReactionNotification) {
+        if (!BuildConfig.EMOJI_REACTION_NOTIFICATIONS_ENABLED) {
+            return
+        }
 
-            if (channelId == NotificationChannels.NOTIFICATION_CHANNEL_CHATS_DEFAULT ||
-                channelId == NotificationChannels.NOTIFICATION_CHANNEL_GROUP_CHATS_DEFAULT ||
-                channelId == NotificationChannels.NOTIFICATION_CHANNEL_INCOMING_CALLS ||
-                channelId == NotificationChannels.NOTIFICATION_CHANNEL_INCOMING_GROUP_CALLS
-            ) {
-                val soundUri = schema?.soundUri
-                if (soundUri != null && soundUri != Settings.System.DEFAULT_NOTIFICATION_URI && soundUri != Settings.System.DEFAULT_RINGTONE_URI) {
-                    val newNotificationBuilder = NotificationCompat.Builder(appContext, notification)
+        if (ConfigUtils.hasInvalidCredentials()) {
+            logger.debug("Credentials are not (or no longer) valid. Suppressing reaction notification.")
+            return
+        }
 
-                    // post notification to a silent channel
-                    newNotificationBuilder.setChannelId(NotificationChannels.NOTIFICATION_CHANNEL_CHAT_UPDATE)
-                    try {
-                        notificationManagerCompat.notify(tag, notificationId, newNotificationBuilder.build())
-                    } catch (e2: Exception) {
-                        logger.error("Failed to show fallback notification", e2)
-                    }
-                }
+        if (notificationPreferenceService.getWizardRunning()) {
+            logger.debug("Wizard in progress. Reaction notification suppressed.")
+            return
+        }
+
+        if (!reactionNotification.anyEmojiReactionExists) {
+            logger.error("Cannot show/update an emoji reaction notification without any reaction")
+            return
+        }
+
+        if (lockAppService.isLocked) {
+            logger.debug("App is locked. Reaction notification suppressed.")
+            return
+        }
+
+        val conversationHandle = reactionNotification.conversationHandle
+        val conversationId = conversationHandle.conversationId
+        if (conversationId == visibleConversationId) {
+            logger.info("No reaction notification - conversation visible")
+            return
+        }
+
+        val conversationIsMutedNow = reactionNotification
+            .conversationHandle
+            .notificationTriggerPolicyOverride
+            ?.muteAppliesAt(timeProvider.get()) == true
+
+        if (conversationIsMutedNow || doNotDisturbUtil.isDoNotDisturbActive()) {
+            return
+        }
+
+        accessExclusively { accessor ->
+            val reactionNotificationExists = accessor.reactionNotificationForMessageExists(reactionNotification.messageUid)
+            if (reactionNotificationExists) {
+                accessor.replaceReactionNotification(reactionNotification)
+            } else {
+                accessor.addReactionNotification(reactionNotification)
             }
-        } catch (e: Exception) {
-            // catch FileUriExposedException - see https://commonsware.com/blog/2016/09/07/notifications-sounds-android-7p0-aggravation.html
-            logger.error("Failed to notify", e)
+
+            val now = timeProvider.get()
+            val onlyAlertOnce = (now - conversationHandle.lastNotificationTime) < NOTIFY_AGAIN_TIMEOUT
+            conversationHandle.lastNotificationTime = now
+
+            postEmojiReactionNotification(
+                conversationHandle = conversationHandle,
+                headerReaction = reactionNotification,
+                reactionNotifications = accessor.getReactionNotificationsForConversation(conversationId),
+                onlyAlertOnce = onlyAlertOnce,
+            )
+
+            badgeUpdater.showIconBadge(accessor.getTotalMessageNotificationCount())
         }
     }
 
-    override fun cancel(conversationId: ConversationId) {
-        if (conversationId is DistributionListConversationId) {
+    override fun cancelEmojiReactionNotification(conversationId: ConversationId, messageUid: MessageUid) {
+        if (!BuildConfig.EMOJI_REACTION_NOTIFICATIONS_ENABLED) {
             return
         }
-        cancel(notificationId = getNotificationIdForConversation(conversationId))
+        accessExclusively { accessor ->
+            accessor.removeReactionNotification(messageUid)
+            // It is important here that we cancel the notification even if the conversationNotificationStore does not know about it,
+            //  as the store gets reset every time the app is stopped but notifications might persist longer
+            cancel(
+                notificationId = getNotificationIdForConversation(
+                    conversationId = conversationId,
+                    offset = NotificationIDs.Offset.EMOJI_REACTION_NOTIFICATION,
+                ),
+            )
+            val remainingReactionNotifications = accessor.getReactionNotificationsForConversation(conversationId)
+            if (remainingReactionNotifications.isNotEmpty()) {
+                // More reaction notifications for this conversation exist, so update the group of notifications
+                val newestRemainingReactionNotification = remainingReactionNotifications.maxBy { conversationReactionNotification ->
+                    conversationReactionNotification.createdAt.toEpochMilli()
+                }
+                postEmojiReactionNotification(
+                    conversationHandle = newestRemainingReactionNotification.conversationHandle,
+                    headerReaction = newestRemainingReactionNotification,
+                    reactionNotifications = remainingReactionNotifications,
+                    onlyAlertOnce = true,
+                )
+            }
+            cancelConversationSummaryNotificationIfNeeded()
+            badgeUpdater.showIconBadge(accessor.getTotalMessageNotificationCount())
+        }
+    }
 
-        synchronized(conversationNotificationsCache) {
-            val iterator = conversationNotificationsCache.iterator()
-            while (iterator.hasNext()) {
-                val conversationNotification = iterator.next()
-                if (conversationNotification.group.conversationId == conversationId) {
-                    iterator.remove()
-                    cancelConversationNotification(conversationNotification)
+    /**
+     * Post *all* emoji reaction notifications for *one* conversation in a grouped way.
+     *
+     * @param headerReaction The most recent reaction notification for this conversation
+     * @param reactionNotifications All (including [headerReaction]) reactions for this conversation
+     * @param onlyAlertOnce See [NotificationCompat.Builder.setOnlyAlertOnce]
+     */
+    private fun postEmojiReactionNotification(
+        conversationHandle: NotificationConversationHandle,
+        headerReaction: ConversationReactionNotification,
+        reactionNotifications: List<ConversationReactionNotification>,
+        onlyAlertOnce: Boolean,
+    ) {
+        val conversationId = conversationHandle.conversationId
+        val conversationIdObfuscated = conversationId.obfuscated
+        val channelId = determineChannelId(conversationHandle)
+        val defaultChannelId = determineDefaultChannelId(conversationHandle)
+        val notificationSchema = createNotificationSchema(conversationId)
+        val isPrivateConversation = getConversationCategoryUseCase.call(conversationId) == ConversationCategory.PROTECTED
+        val showMessagePreviewsBySetting = notificationPreferenceService.isShowMessagePreview()
+
+        val publicNotification = buildNotification(appContext, channelId) {
+            setContentTitle(headerReaction.resolveNotificationTitlePublic(appContext))
+            setContentText(headerReaction.resolveNotificationContentPublic(appContext))
+            setSmallIcon(R.drawable.ic_notification_small)
+            setOnlyAlertOnce(onlyAlertOnce)
+            setGroup(NotificationGroups.CONVERSATIONS)
+            setGroupSummary(false)
+        }
+
+        val contentTitle = if (isPrivateConversation) {
+            headerReaction.resolveNotificationTitlePublic(appContext)
+        } else {
+            headerReaction.resolveNotificationTitlePrivate(appContext)
+        }
+
+        val contentText: String? = if (!isPrivateConversation && showMessagePreviewsBySetting) {
+            contactModelRepository?.let { repo ->
+                headerReaction.resolveNotificationContentPrivate(
+                    context = appContext,
+                    contactModelRepository = repo,
+                    contactNameFormat = preferenceService.getContactNameFormat(),
+                )
+            }
+        } else {
+            headerReaction.resolveNotificationContentPublic(appContext)
+        }
+
+        if (contentText == null) {
+            logger.error("Failed to resolve emoji reaction notification content text")
+            return
+        }
+
+        val tickerText = contentText.truncate(MAX_TICKER_TEXT_LENGTH)
+
+        val privateNotification = buildNotification(appContext, channelId) {
+            setContentTitle(contentTitle)
+            setContentText(contentText)
+            setTicker(tickerText)
+            setSmallIcon(R.drawable.ic_notification_small)
+            setLargeIcon(conversationHandle.loadAvatar())
+            setGroup(NotificationGroups.CONVERSATIONS)
+            setGroupSummary(false)
+            setOnlyAlertOnce(onlyAlertOnce)
+            setPriority(notificationPreferenceService.getLegacyNotificationPriority())
+            setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            setPublicVersion(publicNotification)
+
+            if (!DeviceInfo.supportsNotificationChannels()) {
+                if (notificationSchema.soundUri != null) {
+                    setSound(notificationSchema.soundUri, AudioManager.STREAM_NOTIFICATION)
+                }
+                if (notificationSchema.shouldVibrate) {
+                    setVibrate(NotificationChannels.VIBRATE_PATTERN_REGULAR)
+                }
+                if (notificationSchema.shouldUseLight) {
+                    setLights(ContextCompat.getColor(appContext, R.color.md_theme_light_primary), 2500, 2500)
                 }
             }
-            badgeUpdater.showIconBadge(conversationNotificationsCache.size)
+
+            if (headerReaction.shouldApplySenderPerson) {
+                addPerson(headerReaction.senderPerson)
+            }
+
+            if (showMessagePreviewsBySetting && !isPrivateConversation) {
+                setStyle(
+                    getEmojiReactionStyle(
+                        conversationHandle = conversationHandle,
+                        reactionNotifications = reactionNotifications,
+                    ),
+                )
+                setShortcutId(conversationIdObfuscated.value)
+                setLocusId(LocusIdCompat(conversationIdObfuscated.value))
+            }
+
+            setContentIntent(
+                createPendingIntentForConversation(
+                    conversationId = conversationId,
+                    requestCode = conversationHandle.getRequestCode(ConversationNotificationAction.OPEN),
+                ),
+            )
+            setDeleteIntent(
+                getPendingIntentForBroadcast(
+                    context = appContext,
+                    requestCode = NotificationRequestCodes.DISMISS_NOTIFICATION,
+                    intent = NotificationDismissedBroadcastReceiver.createIntent(appContext),
+                    flags = FLAG_UPDATE_CURRENT or FLAG_IMMUTABLE,
+                ),
+            )
+        }
+
+        notify(
+            notificationId = conversationHandle.notificationIdEmojiReaction,
+            notification = privateNotification,
+            schema = notificationSchema,
+            defaultChannelId = defaultChannelId,
+        )
+        notifyConversationsSummary(defaultChannelId)
+    }
+
+    override fun cancelAllConversationNotifications(conversationId: ConversationId) {
+        cancelAllConversationNotifications(setOf(conversationId))
+    }
+
+    override fun cancelAllConversationNotifications(conversationIds: Set<ConversationId>) {
+        val filteredConversationIds = conversationIds.filter { it !is DistributionListConversationId }
+        if (filteredConversationIds.isEmpty()) {
+            return
+        }
+        accessExclusively { storeAccessor ->
+            filteredConversationIds.forEach { conversationId ->
+                // It is important here that we cancel the notification even if the conversationNotificationStore does not know about it,
+                //  as the store gets reset every time the app is stopped but notifications might persist longer
+                cancel(
+                    notificationId = getNotificationIdForConversation(conversationId),
+                )
+                cancel(
+                    notificationId = getNotificationIdForConversation(
+                        conversationId = conversationId,
+                        offset = NotificationIDs.Offset.EMOJI_REACTION_NOTIFICATION,
+                    ),
+                )
+                storeAccessor.removeNotificationsForConversation(conversationId)
+            }
+            if (!storeAccessor.notificationsExist()) {
+                cancelAppLockedNewMessagesNotification()
+            }
+            cancelConversationSummaryNotificationIfNeeded()
+            badgeUpdater.showIconBadge(storeAccessor.getTotalMessageNotificationCount())
         }
 
         // TODO(ANDR-4706): This should not be called from here, but from a monitor instead
         widgetUpdater.updateWidgets()
     }
 
-    override fun cancelGroupCallNotification(groupId: LocalGroupId) {
-        val conversationId = GroupConversationId(groupId.id.toLong())
-        val joinIntent = getGroupCallJoinPendingIntent(
-            groupConversationId = conversationId,
-            flags = FLAG_NO_CREATE or FLAG_IMMUTABLE,
-        )
-        joinIntent?.cancel()
-        cancel(
-            notificationId = NotificationIDs.INCOMING_GROUP_CALL_NOTIFICATION_ID,
-            tag = getNotificationTagForGroup(groupId),
-        )
+    override fun cancelConversationMessageNotifications(conversationId: ConversationId) {
+        if (conversationId is DistributionListConversationId) {
+            return
+        }
+        accessExclusively { storeAccessor ->
+            // It is important here that we cancel the notification even if the conversationNotificationStore does not know about it,
+            //  as the store gets reset every time the app is stopped but notifications might persist longer
+            cancel(
+                notificationId = getNotificationIdForConversation(conversationId),
+            )
+            storeAccessor.removeMessageNotificationsForConversation(conversationId)
+            if (!storeAccessor.notificationsExist()) {
+                cancelAppLockedNewMessagesNotification()
+            }
+            cancelConversationSummaryNotificationIfNeeded()
+            badgeUpdater.showIconBadge(storeAccessor.getTotalMessageNotificationCount())
+        }
+        // TODO(ANDR-4706): This should not be called from here, but from a monitor instead
+        widgetUpdater.updateWidgets()
     }
 
     override fun cancelConversationNotificationsOnLockApp() {
-        synchronized(conversationNotificationsCache) {
-            if (!conversationNotificationsCache.isEmpty()) {
-                val containedAnyNotificationToAnUnmutedReceiver = conversationNotificationsCache
-                    .any { conversationNotification ->
-                        val messageReceiver = conversationNotification.group.messageReceiver
-                        !doNotDisturbUtil.isMessageMuted(
-                            notificationTriggerPolicyOverride = messageReceiver.getNotificationTriggerPolicyOverrideOrNull(),
+        accessExclusively { storeAccessor ->
+            val containedAnyNotificationToAnUnmutedReceiver = storeAccessor.getAllNotifications()
+                .any { conversationNotification ->
+                    val notificationTriggerPolicyOverride = conversationNotification.conversationHandle.notificationTriggerPolicyOverride
+                        ?: return@any true
+                    return@any when (conversationNotification) {
+                        is ConversationMessageNotification -> !doNotDisturbUtil.isMessageMuted(
+                            notificationTriggerPolicyOverride = notificationTriggerPolicyOverride,
                             rawMessageText = conversationNotification.rawMessage,
                         )
+                        is ConversationReactionNotification -> !notificationTriggerPolicyOverride.muteAppliesAt(timeProvider.get())
                     }
-                cancelCachedConversationNotifications()
-                /*
-                 * We do not want to show the app-locked-new-message notification if all the cached notifications
-                 * originated from NOW muted receivers
-                 */
-                if (containedAnyNotificationToAnUnmutedReceiver) {
-                    showDefaultAppLockedNewMessageNotification()
                 }
-            } else if (cancelAllMessageCategoryNotifications()) {
-                /*
-                 * In this case we can't really tell if all the canceled system notifications are from blocked
-                 * receivers or not. That all the system notifications that were canceled here belonging to NOW
-                 * muted receivers is an extreme edge case. So we display the app-locked-new-message notification.
-                 *
-                 * Note: One could determine the actual receiver of the canceled system notifications by its tag.
-                 * But still than we would be missing the raw-message required for `DoNotDisturbUtil.isMessageMuted` method.
-                 */
+            val anyCancelled = cancelAllMessageCategoryNotifications()
+
+            /*
+             * We do not want to show the app-locked-new-message notification if all the current conversation
+             * notifications originated from NOW muted receivers.
+             *
+             * In some cases we can't really tell if all the canceled system notifications are from blocked
+             * receivers or not. That all the system notifications that were canceled here belonging to NOW
+             * muted receivers is an extreme edge case. So we display the app-locked-new-message notification.
+             *
+             * Note: One could determine the actual receiver of the canceled system notifications by its tag.
+             * But still than we would be missing the raw-message required for `DoNotDisturbUtil.isMessageMuted` method.
+             */
+            if (containedAnyNotificationToAnUnmutedReceiver || anyCancelled) {
                 showDefaultAppLockedNewMessageNotification()
             }
+
+            storeAccessor.removeAllNotifications()
+            cancelConversationSummaryNotificationIfNeeded()
+            badgeUpdater.showIconBadge(storeAccessor.getTotalMessageNotificationCount())
         }
     }
 
-    private fun cancelCachedConversationNotifications() {
-        synchronized(this.conversationNotificationsCache) {
-            cancelAllCachedConversationNotifications()
-            badgeUpdater.showIconBadge(conversationNotificationsCache.size)
+    /**
+     * Cancel all conversation notifications of category [NotificationCompat.CATEGORY_MESSAGE]
+     * @returns true if any have been canceled
+     */
+    private fun cancelAllMessageCategoryNotifications(): Boolean {
+        var cancelledIDs = false
+        try {
+            notificationManagerCompat.activeNotifications.forEach { notification ->
+                if (notification.notification?.category == NotificationCompat.CATEGORY_MESSAGE) {
+                    cancel(notificationId = notification.id)
+                    cancelledIDs = true
+                }
+            }
+        } catch (e: Exception) {
+            logger.error("Could not cancel notifications of CATEGORY_MESSAGE", e)
         }
+        return cancelledIDs
     }
 
     private fun showDefaultAppLockedNewMessageNotification() {
@@ -1247,31 +1507,13 @@ class NotificationServiceImpl(
         )
     }
 
-    override fun cancelConversationNotification(vararg messageUids: MessageUid) {
-        synchronized(conversationNotificationsCache) {
-            logger.info("Cancel {} conversation notifications", messageUids.size)
-            for (messageUid in messageUids) {
-                val conversationNotification = conversationNotificationsCache.firstOrNull {
-                    it.uid == messageUid
-                }
-
-                if (conversationNotification != null) {
-                    logger.info("Cancel notification for messageUid={}", messageUid)
-                    cancelConversationNotification(conversationNotification)
-                } else {
-                    logger.info("Notification for messageUid={} not found", messageUid)
-                }
-            }
-
-            badgeUpdater.showIconBadge(conversationNotificationsCache.size)
-
-            if (conversationNotificationsCache.isEmpty()) {
-                cancelAppLockedNewMessagesNotification()
-            }
-        }
-
-        // TODO(ANDR-4706): This should not be called from here, but from a monitor instead
-        widgetUpdater.updateWidgets()
+    override fun cancelGroupCallNotification(groupId: LocalGroupId) {
+        val conversationId = GroupConversationId(groupId.id.toLong())
+        cancelGroupCallJoinPendingIntent(conversationId)
+        cancel(
+            notificationId = NotificationIDs.INCOMING_GROUP_CALL_NOTIFICATION_ID,
+            tag = getNotificationTagForGroup(groupId),
+        )
     }
 
     override fun cancelSafeBackupFailed() {
@@ -1296,18 +1538,43 @@ class NotificationServiceImpl(
 
     override fun cancelBackupCompletionNotification() {
         cancel(NotificationIDs.BACKUP_COMPLETION_NOTIFICATION_ID)
+        cancel(NotificationIDs.CROSS_PLATFORM_BACKUP_CREATE_COMPLETION_NOTIFICATION_ID)
     }
 
     override fun cancelAppLockedNewMessagesNotification() {
         cancel(NotificationIDs.NEW_MESSAGE_PIN_LOCKED_NOTIFICATION_ID)
     }
 
-    private fun cancel(notificationId: Int, tag: String? = null) {
-        try {
-            notificationManagerCompat.cancel(tag, notificationId)
-        } catch (e: Exception) {
-            logger.warn("Failed to cancel notification {}", notificationId, e)
+    override fun onConversationNotificationDismissed() {
+        cancelConversationSummaryNotificationIfNeeded()
+    }
+
+    private fun determineChannelId(conversationHandle: NotificationConversationHandle): String {
+        val conversationIdObfuscated = conversationHandle.conversationId.obfuscated
+        val doesPerConversationChannelExist = NotificationChannels.doesPerConversationChannelExist(
+            context = appContext,
+            uid = conversationIdObfuscated.value,
+        )
+        return if (doesPerConversationChannelExist) {
+            conversationIdObfuscated.value
+        } else {
+            determineDefaultChannelId(conversationHandle)
         }
+    }
+
+    private fun determineDefaultChannelId(conversationHandle: NotificationConversationHandle): String {
+        val isGroupConversation = conversationHandle.conversationId is GroupConversationId
+        return if (isGroupConversation) {
+            NotificationChannels.NOTIFICATION_CHANNEL_GROUP_CHATS_DEFAULT
+        } else {
+            NotificationChannels.NOTIFICATION_CHANNEL_CHATS_DEFAULT
+        }
+    }
+
+    private fun accessExclusively(block: (StoreAccessor) -> Unit) {
+        // To avoid race-conditions, updates to conversation notifications should be done only holding a lock.
+        // This also applies for operations that do not need to access the conversationNotificationStore.
+        conversationNotificationStore.accessExclusively(block)
     }
 
     companion object {

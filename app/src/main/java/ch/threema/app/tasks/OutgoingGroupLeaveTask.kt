@@ -30,8 +30,9 @@ import org.koin.core.component.inject
 private val logger = getThreemaLogger("OutgoingGroupLeaveTask")
 
 /**
- * This task is used to send out a [GroupLeaveMessage] to each member of the given group. Note that
- * this task should only be scheduled by the [LeaveGroupFlow] as it only handles csp
+ * This task is used to send out a [GroupLeaveMessage] to each member of the given group.
+ *
+ * Note that this task should only be scheduled by the [LeaveGroupFlow] or [ch.threema.app.groupflows.ReportGroupFlow] as it only handles csp
  * messages.
  */
 class OutgoingGroupLeaveTask(

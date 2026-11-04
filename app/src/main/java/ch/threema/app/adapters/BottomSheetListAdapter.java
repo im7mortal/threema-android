@@ -1,7 +1,8 @@
 package ch.threema.app.adapters;
 
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
+
 import android.content.Context;
-import android.content.res.TypedArray;
 import android.graphics.PorterDuff;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -17,7 +18,6 @@ import java.util.List;
 import ch.threema.app.R;
 import ch.threema.app.ui.BottomSheetItem;
 import ch.threema.app.ui.listitemholder.AbstractListItemHolder;
-import ch.threema.app.utils.ConfigUtils;
 
 public class BottomSheetListAdapter extends ArrayAdapter<BottomSheetItem> {
     private List<BottomSheetItem> items;
@@ -37,9 +37,7 @@ public class BottomSheetListAdapter extends ArrayAdapter<BottomSheetItem> {
         this.selectedItem = selectedItem;
         this.layoutInflater = LayoutInflater.from(context);
 
-        TypedArray typedArray = context.getTheme().obtainStyledAttributes(new int[]{R.attr.colorOnSurface});
-        this.regularColor = typedArray.getColor(0, 0);
-        typedArray.recycle();
+        this.regularColor = getColorFromAttribute(context, R.attr.colorOnSurface);
     }
 
     @NonNull
@@ -72,8 +70,8 @@ public class BottomSheetListAdapter extends ArrayAdapter<BottomSheetItem> {
         holder.textView.setText(item.getTitle());
 
         if (position == selectedItem) {
-            holder.textView.setTextColor(ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorPrimary));
-            holder.imageView.setColorFilter(ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorPrimary), PorterDuff.Mode.SRC_IN);
+            holder.textView.setTextColor(getColorFromAttribute(getContext(), R.attr.colorPrimary));
+            holder.imageView.setColorFilter(getColorFromAttribute(getContext(), R.attr.colorPrimary), PorterDuff.Mode.SRC_IN);
         } else {
             holder.textView.setTextColor(regularColor);
             holder.imageView.setColorFilter(regularColor);

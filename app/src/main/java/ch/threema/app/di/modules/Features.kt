@@ -11,6 +11,7 @@ import ch.threema.app.archive.archiveFeatureModule
 import ch.threema.app.availabilitystatus.availabilityStatusFeatureModule
 import ch.threema.app.backupcenter.backupCenterFeatureModule
 import ch.threema.app.backuprestore.backupRestoreFeatureModule
+import ch.threema.app.backuprestore.libthreema.backupFeatureModule
 import ch.threema.app.camera.cameraFeatureModule
 import ch.threema.app.compose.edithistory.editHistoryFeatureModule
 import ch.threema.app.contactdetails.contactDetailsFeatureModule
@@ -33,7 +34,6 @@ import ch.threema.app.mediagallery.mediaGalleryFeatureModule
 import ch.threema.app.messagedetails.messageDetailsFeatureModule
 import ch.threema.app.multidevice.multiDeviceFeatureModule
 import ch.threema.app.notifications.notificationModule
-import ch.threema.app.onprem.onPremFeatureModule
 import ch.threema.app.passphrase.passphraseFeatureModule
 import ch.threema.app.pinlock.pinLockFeatureModule
 import ch.threema.app.poll.pollFeatureModule
@@ -43,26 +43,27 @@ import ch.threema.app.profilepicture.profilePictureFeatureModule
 import ch.threema.app.qrcodes.qrCodesFeatureModule
 import ch.threema.app.reset.resetFeatureModule
 import ch.threema.app.restrictions.appRestrictionsFeatureModule
-import ch.threema.app.servermessage.ServerMessageViewModel
 import ch.threema.app.servermessage.serverMessageFeatureModule
+import ch.threema.app.services.servicesFeatureModule
 import ch.threema.app.shortcuts.shortcutsFeatureModule
 import ch.threema.app.startup.startupFeatureModule
 import ch.threema.app.storagemanagement.storageManagementFeatureModule
+import ch.threema.app.support.supportFeatureModule
 import ch.threema.app.threemasafe.threemaSafeFeatureModule
 import ch.threema.app.troubleshooting.troubleShootingFeatureModule
 import ch.threema.app.typingindicator.typingIndicatorFeatureModule
 import ch.threema.app.ui.AvatarEditViewModel
 import ch.threema.app.ui.GroupDetailViewModel
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.voicemessage.voiceMessageFeatureModule
 import ch.threema.app.voip.voipFeatureModule
 import ch.threema.app.webclient.webclientFeatureModule
+import ch.threema.app.webviews.webViewsFeatureModule
 import ch.threema.app.widget.widgetFeatureModule
-import ch.threema.app.work.workFeatureModule
 import ch.threema.app.workers.workersFeatureModule
 import ch.threema.localcrypto.localCryptoFeatureModule
-import org.koin.core.module.dsl.viewModelOf
+import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.viewModel
 
 /**
  * Provides feature specific components, such as view models and use cases.
@@ -77,6 +78,7 @@ val featuresModule = module {
         archiveFeatureModule,
         availabilityStatusFeatureModule,
         backupCenterFeatureModule,
+        backupFeatureModule,
         backupRestoreFeatureModule,
         conversationsFeatureModule,
         conversationFeatureModule,
@@ -111,31 +113,25 @@ val featuresModule = module {
         referralFeatureModule,
         resetFeatureModule,
         serverMessageFeatureModule,
+        servicesFeatureModule,
         shortcutsFeatureModule,
         starredFeatureModule,
         startupFeatureModule,
         storageManagementFeatureModule,
+        supportFeatureModule,
         threemaSafeFeatureModule,
         troubleShootingFeatureModule,
         typingIndicatorFeatureModule,
         voiceMessageFeatureModule,
         voipFeatureModule,
         webclientFeatureModule,
+        webViewsFeatureModule,
         widgetFeatureModule,
         workersFeatureModule,
     )
 
-    if (ConfigUtils.isWorkBuild()) {
-        includes(workFeatureModule)
-    }
-
-    if (ConfigUtils.isOnPremBuild()) {
-        includes(onPremFeatureModule)
-    }
-
     // Everything below this line is placed here temporarily, as there's no associated feature package yet. It should be moved into one eventually.
-    viewModelOf(::AvatarEditViewModel)
-    viewModelOf(::GroupDetailViewModel)
-    viewModelOf(::LoadingWithTimeoutDialogViewModel)
-    viewModelOf(::ServerMessageViewModel)
+    viewModel<AvatarEditViewModel> { AvatarEditViewModel(get()) }
+    viewModel<GroupDetailViewModel>()
+    viewModel<LoadingWithTimeoutDialogViewModel>()
 }

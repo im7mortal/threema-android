@@ -10,7 +10,9 @@ import org.slf4j.Logger;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
@@ -28,9 +30,9 @@ import ch.threema.app.utils.ShortcutUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.data.datatypes.ContactNameFormat;
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.data.datatypes.ConversationVisibility;
 import ch.threema.data.datatypes.DistributionListConversationId;
-import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.storage.DatabaseService;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.DistributionListMemberModel;
@@ -72,9 +74,37 @@ public class DistributionListServiceImpl implements DistributionListService {
         return this.databaseService.getDistributionListModelFactory().getById(id);
     }
 
+    @Override
+    public boolean existsById(long id) {
+        return this.databaseService.getDistributionListModelFactory().existsById(id);
+    }
+
+    @Override
+    public boolean existsAnyById(@NonNull Set<Long> ids) {
+        return this.databaseService.getDistributionListModelFactory().existsAnyById(ids);
+    }
+
     @NonNull
     public List<DistributionListModel> getByIds(@NonNull List<Long> ids) {
         return this.databaseService.getDistributionListModelFactory().getByIds(ids);
+    }
+
+    @Override
+    public boolean allExist(@NonNull Set<Long> ids) {
+        if (ids.isEmpty()) {
+            return true;
+        }
+        return this.databaseService.getDistributionListModelFactory().allExist(ids);
+    }
+
+    @NonNull
+    public List<DistributionListModel> getAllArchived() {
+        return this.databaseService.getDistributionListModelFactory().getAllArchived();
+    }
+
+    @NonNull
+    public Set<Long> getAllNonAdHocIds() {
+        return this.databaseService.getDistributionListModelFactory().getAllNonAdHocIds();
     }
 
     @Override
@@ -111,6 +141,25 @@ public class DistributionListServiceImpl implements DistributionListService {
         globalEventBuses.getDistributionLists().emit(new DistributionListEvent.NewDistributionList(distributionListModel));
 
         return distributionListModel;
+    }
+
+    @Override
+    public void persistDistributionListModel(
+        @NonNull DistributionListModel distributionListModel,
+        @NonNull Set<String> members
+    ) {
+        if (members.isEmpty()) {
+            throw new IllegalArgumentException("Cannot persist distribution list model without members");
+        }
+        if (getById(distributionListModel.getId()) != null) {
+            throw new IllegalArgumentException("Cannot persist distribution list model with existing id");
+        }
+        databaseService.getDistributionListModelFactory().persist(
+            distributionListModel
+        );
+        for (String memberIdentity : members) {
+            addMemberToDistributionList(distributionListModel, memberIdentity);
+        }
     }
 
     @Override
@@ -161,7 +210,7 @@ public class DistributionListServiceImpl implements DistributionListService {
     }
 
     @Override
-    public boolean addMemberToDistributionList(DistributionListModel distributionListModel, String identity) {
+    public void addMemberToDistributionList(DistributionListModel distributionListModel, String identity) {
         DistributionListMemberModel distributionListMemberModel = this.databaseService.getDistributionListMemberModelFactory().getByDistributionListIdAndIdentity(
             distributionListModel.getId(),
             identity
@@ -183,7 +232,6 @@ public class DistributionListServiceImpl implements DistributionListService {
                 distributionListMemberModel
             );
         }
-        return true;
     }
 
     @Override
@@ -214,7 +262,7 @@ public class DistributionListServiceImpl implements DistributionListService {
         conversationService.removeFromCache(distributionListModel);
 
         // Remove conversation tags
-        conversationTagService.removeAll(distributionListConversationId, TriggerSource.LOCAL);
+        conversationTagService.removeAll(distributionListConversationId);
 
         // Delete distribution list fully from database
         this.databaseService.getDistributionListModelFactory().delete(distributionListModel);
@@ -380,6 +428,18 @@ public class DistributionListServiceImpl implements DistributionListService {
         }
 
         distributionListModel.setConversationVisibility(conversationVisibility);
+        save(distributionListModel);
+
+        globalEventBuses.getDistributionLists().emit(new DistributionListEvent.DistributionListUpdated(distributionListModel));
+    }
+
+    @Override
+    public void setConversationCategory(@NonNull DistributionListModel distributionListModel, @NonNull ConversationCategory conversationCategory) {
+        if (distributionListModel.getConversationCategory() == conversationCategory) {
+            return;
+        }
+
+        distributionListModel.setConversationCategory(conversationCategory);
         save(distributionListModel);
 
         globalEventBuses.getDistributionLists().emit(new DistributionListEvent.DistributionListUpdated(distributionListModel));

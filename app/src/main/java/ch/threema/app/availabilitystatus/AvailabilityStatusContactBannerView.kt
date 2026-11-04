@@ -36,7 +36,6 @@ import ch.threema.app.compose.common.text.conversation.EmojiSettings
 import ch.threema.app.compose.common.text.conversation.MentionFeature
 import ch.threema.app.compose.theme.ThreemaTheme
 import ch.threema.app.compose.theme.dimens.GridUnit
-import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.preference.service.PreferenceService.EmojiStyle
 import ch.threema.data.datatypes.AvailabilityStatus
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,14 +51,14 @@ constructor(
     private val state = MutableStateFlow(
         AvailabilityStatusContactBannerState(
             availabilityStatusSet = null,
-            emojiStyle = PreferenceService.EMOJI_STYLE_ANDROID,
+            emojiStyle = EmojiStyle.ANDROID,
             onClickOnOverflowListener = null,
         ),
     )
 
     fun setState(
         availabilityStatusSet: AvailabilityStatus.Set?,
-        @EmojiStyle emojiStyle: Int,
+        emojiStyle: EmojiStyle,
         onClickOnOverflowListener: (() -> Unit)?,
     ) {
         state.value = AvailabilityStatusContactBannerState(
@@ -84,7 +83,7 @@ constructor(
 
 private data class AvailabilityStatusContactBannerState(
     val availabilityStatusSet: AvailabilityStatus.Set?,
-    @EmojiStyle val emojiStyle: Int,
+    val emojiStyle: EmojiStyle,
     val onClickOnOverflowListener: (() -> Unit)?,
 )
 

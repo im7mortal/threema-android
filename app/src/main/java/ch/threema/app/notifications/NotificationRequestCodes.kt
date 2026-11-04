@@ -21,6 +21,14 @@ object NotificationRequestCodes {
     const val UNSENT_NOTIFICATIONS_SEND = -10
     const val WEBCLIENT_SESSIONS = -11
     const val WEBCLIENT_STOP_SESSION = -12
+    const val APP_RESTART = -13
+    const val THREEMA_PUSH = -14
+    const val CROSS_PLATFORM_BACKUP_CREATE_IN_PROGRESS = -15
+    const val CROSS_PLATFORM_BACKUP_RESTORE_IN_PROGRESS = -16
+    const val CROSS_PLATFORM_BACKUP_CREATE_CANCEL = -17
+    const val CROSS_PLATFORM_BACKUP_RESTORE_CANCEL = -18
+    const val REMOTE_SECRET = -19
+    const val DISMISS_NOTIFICATION = -20
 
     enum class ConversationNotificationAction(val value: Int) {
         OPEN(0),

@@ -4,17 +4,24 @@ import ch.threema.app.eventbus.GlobalEventFlows
 import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.monitors.Monitor
 import ch.threema.app.services.LockAppService
+import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.runWithRetry
+import ch.threema.common.waitAtMost
 import ch.threema.localcrypto.MasterKeyProvider
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.transformLatest
+
+private val logger = getThreemaLogger("WidgetUpdaterMonitor")
 
 // TODO(ANDR-4706): This monitor should also take into account:
 //  - whether Remote Secrets is in use (as the widget is disabled if it is)
@@ -45,8 +52,8 @@ class WidgetUpdaterMonitor(
                 }
             }
             .debounce(1.seconds)
-            .collect {
-                widgetUpdater.updateWidgets()
+            .collectLatest {
+                updateWidgets()
             }
     }
 
@@ -71,6 +78,22 @@ class WidgetUpdaterMonitor(
                 messages.any(::isMessageRelevantForWidget)
             }
 
-    private fun isMessageRelevantForWidget(message: AbstractMessageModel) =
+    private fun isMessageRelevantForWidget(message: MessageModel) =
         !message.isOutbox && !message.isStatusMessage && !message.isRead
+
+    private suspend fun updateWidgets() {
+        waitAtMost(5.minutes) {
+            runWithRetry(
+                action = {
+                    widgetUpdater.updateWidgets()
+                },
+                onException = { e, attempt ->
+                    logger.error("Failed to update widgets (attempt {})", attempt, e)
+                },
+                getRetryDelay = { attempt ->
+                    (4L shl attempt).seconds
+                },
+            )
+        }
+    }
 }

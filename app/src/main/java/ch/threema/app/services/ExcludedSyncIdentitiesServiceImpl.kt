@@ -1,3 +1,5 @@
+@file:Suppress("LoggingSimilarMessage")
+
 package ch.threema.app.services
 
 import ch.threema.app.multidevice.MultiDeviceManager
@@ -24,7 +26,7 @@ class ExcludedSyncIdentitiesServiceImpl(
             return
         }
         logger.info("Excluding {} from address book sync", identity)
-        setExcludedIdentities(getExcludedIdentities() + identity, triggerSource)
+        replaceExcludedIdentities(getAllExcludedIdentities() + identity, triggerSource)
     }
 
     @Synchronized
@@ -34,11 +36,11 @@ class ExcludedSyncIdentitiesServiceImpl(
             return
         }
         logger.info("Removing identity {} from exclusion list for sync", identity)
-        setExcludedIdentities(getExcludedIdentities() - identity, triggerSource)
+        replaceExcludedIdentities(getAllExcludedIdentities() - identity, triggerSource)
     }
 
     @Synchronized
-    override fun setExcludedIdentities(identities: Set<IdentityString>, triggerSource: TriggerSource) {
+    override fun replaceExcludedIdentities(identities: Set<IdentityString>, triggerSource: TriggerSource) {
         logger.info("Setting updated sync exclusion list")
         preferenceService.setEncryptedList(UNIQUE_LIST_NAME, identities.toTypedArray())
         excludedSyncIdentitiesCache = WeakReference(identities)
@@ -48,7 +50,18 @@ class ExcludedSyncIdentitiesServiceImpl(
     }
 
     @Synchronized
-    override fun getExcludedIdentities(): Set<IdentityString> {
+    override fun replaceExcludedIdentitiesWithoutReflection(identities: Set<IdentityString>) {
+        logger.info("Adding excluded identities without reflection")
+        val existingExcludedIdentities = getAllExcludedIdentities()
+        val updatedExcludedIdentities = existingExcludedIdentities + identities
+        if (existingExcludedIdentities != updatedExcludedIdentities) {
+            preferenceService.setEncryptedList(UNIQUE_LIST_NAME, updatedExcludedIdentities.toTypedArray())
+            excludedSyncIdentitiesCache = WeakReference(updatedExcludedIdentities)
+        }
+    }
+
+    @Synchronized
+    override fun getAllExcludedIdentities(): Set<IdentityString> {
         return excludedSyncIdentitiesCache.get() ?: run {
             val excludedIdentities = preferenceService.getEncryptedList(UNIQUE_LIST_NAME).toMutableSet()
             excludedSyncIdentitiesCache = WeakReference(excludedIdentities)
@@ -58,7 +71,7 @@ class ExcludedSyncIdentitiesServiceImpl(
 
     @Synchronized
     override fun isExcluded(identity: IdentityString): Boolean {
-        return getExcludedIdentities().contains(identity)
+        return getAllExcludedIdentities().contains(identity)
     }
 
     companion object {

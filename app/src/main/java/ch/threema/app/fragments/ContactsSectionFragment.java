@@ -3,6 +3,8 @@ package ch.threema.app.fragments;
 import static android.view.MenuItem.SHOW_AS_ACTION_ALWAYS;
 import static android.view.MenuItem.SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW;
 import static android.view.MenuItem.SHOW_AS_ACTION_NEVER;
+import static ch.threema.android.MenuExtensionsKt.tintIcons;
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
 import static ch.threema.android.ToastKt.showToast;
 import static ch.threema.app.asynctasks.ContactSyncPolicy.EXCLUDE;
 import static ch.threema.app.asynctasks.ContactSyncPolicy.INCLUDE;
@@ -11,12 +13,10 @@ import static kotlinx.coroutines.flow.FlowKt.drop;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -34,6 +34,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
@@ -63,7 +64,9 @@ import java.util.stream.Collectors;
 import ch.threema.android.FlowJavaCompat;
 import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.android.ToastDuration;
+import ch.threema.android.permissions.ContactPermissionsContract;
 import ch.threema.app.AppConstants;
+import ch.threema.app.BuildFlavor;
 import ch.threema.app.R;
 import ch.threema.app.activities.AddContactActivity;
 import ch.threema.app.activities.ComposeMessageActivity;
@@ -74,8 +77,7 @@ import ch.threema.app.asynctasks.AndroidContactLinkPolicy;
 import ch.threema.app.asynctasks.ContactSyncPolicy;
 import ch.threema.app.asynctasks.DeleteContactServices;
 import ch.threema.app.asynctasks.DialogMarkContactAsDeletedBackgroundTask;
-import ch.threema.app.asynctasks.EmptyOrDeleteConversationsAsyncTask;
-import ch.threema.app.dialogs.BottomSheetAbstractDialog;
+import ch.threema.app.dialogs.BottomSheetDialog;
 import ch.threema.app.dialogs.BottomSheetGridDialog;
 import ch.threema.app.dialogs.GenericAlertDialog;
 import ch.threema.app.dialogs.SelectorDialog;
@@ -85,7 +87,6 @@ import ch.threema.app.emojis.EmojiTextView;
 import ch.threema.app.eventbus.GlobalEventBuses;
 import ch.threema.app.eventbus.GlobalEventFlows;
 import ch.threema.app.eventbus.events.ContactEvent;
-import ch.threema.app.eventbus.events.ConversationEvent;
 import ch.threema.app.home.HomeActivity;
 import ch.threema.app.listeners.ContactSettingsListener;
 import ch.threema.app.listeners.SynchronizeContactsListener;
@@ -108,7 +109,6 @@ import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.usecases.GetBottomSheetAppShareTargetsUseCase;
 import ch.threema.app.usecases.GetInviteFriendIntentUseCase;
 import ch.threema.app.usecases.ShareIdentityUseCase;
-import ch.threema.app.usecases.conversations.EmptyOrDeleteConversationsUseCase;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.EditTextUtil;
 import ch.threema.app.utils.IntentDataUtil;
@@ -128,23 +128,22 @@ import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.storage.factories.ContactModelFactory;
 import ch.threema.storage.models.ContactModel;
 import kotlin.Lazy;
+import kotlin.Unit;
 
 /**
  * This is one of the tabs in the home screen. It shows the contact list.
  */
 public class ContactsSectionFragment
-    extends MainFragment
+    extends ContactsSectionFragmentKotlin
     implements
     SwipeRefreshLayout.OnRefreshListener,
     ListView.OnItemClickListener,
     ContactListAdapter.AvatarListener,
     SelectorDialog.SelectorDialogClickListener,
-    BottomSheetAbstractDialog.BottomSheetDialogCallback,
     TextWithCheckboxDialog.TextWithCheckboxDialogClickListener,
     GenericAlertDialog.DialogClickListener {
     private static final Logger logger = getThreemaLogger("ContactsSectionFragment");
 
-    private static final int PERMISSION_REQUEST_REFRESH_CONTACTS = 1;
     private static final String DIALOG_TAG_SHARE_WITH = "wsw";
     private static final String DIALOG_TAG_RECENTLY_ADDED_SELECTOR = "ras";
     private static final String DIALOG_TAG_REALLY_DELETE_CONTACTS = "rdc";
@@ -234,6 +233,15 @@ public class ContactsSectionFragment
         public void onTabReselected(TabLayout.Tab tab) {
         }
     };
+
+    private final ActivityResultLauncher<Unit> contactPermissionLauncher = registerForActivityResult(new ContactPermissionsContract(), isGranted -> {
+        if (isGranted) {
+            onRefresh();
+        } else if (!shouldShowRequestPermissionRationale(Manifest.permission.READ_CONTACTS)) {
+            // TODO(ANDR-5211): Use rationale as intended
+            ConfigUtils.showPermissionRationale(getContext(), getView(), R.string.permission_contacts_sync_required);
+        }
+    });
 
     /**
      * Simple POJO to hold the number of contacts that were added in the last 24h / 30d.
@@ -390,7 +398,7 @@ public class ContactsSectionFragment
             // Count new contacts
             final FetchResults results = new FetchResults();
 
-            if (ConfigUtils.isWorkBuild()) {
+            if (BuildFlavor.IS_WORK) {
                 results.workCount = contactService.countIsWork();
                 if (selectedTab == TAB_WORK_ONLY) {
                     if (results.workCount > 0 || forceWork) {
@@ -403,7 +411,7 @@ public class ContactsSectionFragment
                 allContacts = contactService.getAllDisplayed(ContactService.ContactSelection.INCLUDE_INVALID);
             }
 
-            if (!ConfigUtils.isWorkBuild()) {
+            if (!BuildFlavor.IS_WORK) {
                 long now = System.currentTimeMillis();
                 long delta24h = 1000L * 3600 * 24;
                 long delta30d = delta24h * 30;
@@ -463,12 +471,6 @@ public class ContactsSectionFragment
         this.resumePauseHandler.runOnActive(RUN_ON_ACTIVE_REFRESH_PULL_TO_REFRESH, runIfActiveUpdatePullToRefresh);
 
         FlowJavaCompat.collect(this, Lifecycle.State.CREATED, globalEventFlows.getContacts(), this::handleContactEvent);
-    }
-
-    @Override
-    public void onAttach(@NonNull Activity activity) {
-        super.onAttach(activity);
-        logger.debug("onAttach");
     }
 
     @Override
@@ -565,7 +567,7 @@ public class ContactsSectionFragment
     };
 
     private int getDesiredWorkTab(boolean isOnFirstLaunch, Bundle savedInstanceState) {
-        if (ConfigUtils.isWorkBuild()) {
+        if (BuildFlavor.IS_WORK) {
             if (!isOnFirstLaunch) {
                 if (savedInstanceState != null) {
                     return savedInstanceState.getInt(BUNDLE_SELECTED_TAB, TAB_ALL_CONTACTS);
@@ -613,7 +615,7 @@ public class ContactsSectionFragment
                         listView.setAdapter(contactListAdapter);
                     }
 
-                    if (ConfigUtils.isWorkBuild()) {
+                    if (BuildFlavor.IS_WORK) {
                         if (savedInstanceState == null && desiredTabPosition[0] == TAB_WORK_ONLY && counts.workCount == 0) {
                             // fix selected tab as there is now work contact
                             desiredTabPosition[0] = TAB_ALL_CONTACTS;
@@ -676,7 +678,7 @@ public class ContactsSectionFragment
                     contactsCounter.setVisibility(View.GONE);
                 }
             }
-            if (ConfigUtils.isWorkBuild() && counts != null) {
+            if (BuildFlavor.IS_WORK && counts != null) {
                 if (counts.workCount > 0) {
                     showWorkTabs();
                 } else {
@@ -814,7 +816,7 @@ public class ContactsSectionFragment
                     mode.getMenuInflater().inflate(R.menu.action_contacts_section, menu);
                     actionMode = mode;
 
-                    ConfigUtils.tintMenuIcons(menu, ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorPrimary));
+                    tintIcons(menu, getColorFromAttribute(getContext(), R.attr.colorPrimary));
 
                     return true;
                 }
@@ -853,7 +855,7 @@ public class ContactsSectionFragment
             this.stickyInitialLayout = fragmentView.findViewById(R.id.initial_sticky_layout);
             this.stickyInitialLayout.setVisibility(View.GONE);
 
-            if (!ConfigUtils.isWorkBuild()) {
+            if (!BuildFlavor.IS_WORK) {
                 headerView = View.inflate(getActivity(), R.layout.header_contact_section, null);
                 listView.addHeaderView(headerView, null, false);
 
@@ -909,7 +911,7 @@ public class ContactsSectionFragment
     @Override
     public void onViewCreated(@NonNull View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        logger.debug("onViewCreated");
+        setUpDialogCallbacks();
 
         if (getActivity() != null && listView != null) {
             EmptyView emptyView = new EmptyView(getActivity());
@@ -1009,6 +1011,12 @@ public class ContactsSectionFragment
         LocalBroadcastManager.getInstance(getContext()).registerReceiver(contactsChangedReceiver, filter);
     }
 
+    private void setUpDialogCallbacks() {
+        getParentFragmentManager().setFragmentResultListener(DIALOG_TAG_SHARE_WITH, getViewLifecycleOwner(), (dialogTag, result) -> {
+            BottomSheetDialog.onItemClicked(result, (tag, data) -> sendInvite(tag));
+        });
+    }
+
     private void updateEmptyView() {
         if (listView == null) {
             return;
@@ -1035,11 +1043,6 @@ public class ContactsSectionFragment
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         switch (requestCode) {
-            case ThreemaActivity.ACTIVITY_ID_ADD_CONTACT:
-                if (actionMode != null) {
-                    actionMode.finish();
-                }
-                break;
             case ThreemaActivity.ACTIVITY_ID_CONTACT_DETAIL:
                 break;
             default:
@@ -1060,15 +1063,19 @@ public class ContactsSectionFragment
         ContactUpdateWorker.Scheduler contactUpdateWorkerScheduler = KoinJavaComponent.get(ContactUpdateWorker.Scheduler.class);
         contactUpdateWorkerScheduler.performOneTimeSync();
 
-        if (this.synchronizedSettingsService.isSyncContacts() && ConfigUtils.requestContactPermissions(getActivity(), this, PERMISSION_REQUEST_REFRESH_CONTACTS)) {
-            if (this.synchronizeContactsService != null) {
-                // we force a contact sync even if the grace time has not yet been reached
-                preferenceService.setTimeOfLastContactSync(null);
-                synchronizeContactsService.instantiateSynchronizationAndRun();
+        if (this.synchronizedSettingsService.isSyncContacts()) {
+            if (ContactPermissionsContract.arePermissionsGranted(requireContext())) {
+                if (this.synchronizeContactsService != null) {
+                    // we force a contact sync even if the grace time has not yet been reached
+                    preferenceService.setTimeOfLastContactSync(null);
+                    synchronizeContactsService.instantiateSynchronizationAndRun();
+                }
+            } else {
+                contactPermissionLauncher.launch(Unit.INSTANCE);
             }
         }
 
-        if (ConfigUtils.isWorkBuild()) {
+        if (BuildFlavor.IS_WORK) {
             try {
                 WorkSyncWorker.Scheduler workSyncWorkerScheduler = KoinJavaComponent.get(WorkSyncWorker.Scheduler.class);
                 workSyncWorkerScheduler.performOneTimeWorkSync(
@@ -1109,7 +1116,7 @@ public class ContactsSectionFragment
         if (!isNullOrEmpty(searchQuery)) {
             outState.putString(BUNDLE_SEARCH_QUERY, searchQuery);
         }
-        if (ConfigUtils.isWorkBuild() && workTabLayout != null) {
+        if (BuildFlavor.IS_WORK && workTabLayout != null) {
             outState.putInt(BUNDLE_SELECTED_TAB, workTabLayout.getSelectedTabPosition());
         }
         super.onSaveInstanceState(outState);
@@ -1190,7 +1197,7 @@ public class ContactsSectionFragment
         items.add(new SelectorDialogItem(getString(R.string.show_contact), R.drawable.ic_person_outline));
         tags.add(SELECTOR_TAG_SHOW_CONTACT);
 
-        if (!ConfigUtils.isOnPremBuild()) {
+        if (!BuildFlavor.IS_ON_PREM) {
             if (
                 !contactModel.isLinkedToAndroidContact() &&
                     isNullOrEmpty(contactModel.getFirstName()) &&
@@ -1219,17 +1226,6 @@ public class ContactsSectionFragment
         selectorDialog.setData(contactModel);
         selectorDialog.setTargetFragment(this, 0);
         selectorDialog.show(getParentFragmentManager(), DIALOG_TAG_RECENTLY_ADDED_SELECTOR);
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        if (requestCode == PERMISSION_REQUEST_REFRESH_CONTACTS) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                this.onRefresh();
-            } else if (!shouldShowRequestPermissionRationale(Manifest.permission.READ_CONTACTS)) {
-                ConfigUtils.showPermissionRationale(getContext(), getView(), R.string.permission_contacts_sync_required);
-            }
-        }
     }
 
     private void setupListeners() {
@@ -1295,14 +1291,18 @@ public class ContactsSectionFragment
                 message,
                 R.string.exclude_contact,
                 R.string.ok,
-                R.string.cancel);
+                R.string.cancel,
+                false,
+                null
+            );
         } else {
             logger.info("Showing delete contact dialog");
             dialog = GenericAlertDialog.newInstance(
                 deleteContactTitle,
                 message,
                 R.string.ok,
-                R.string.cancel);
+                R.string.cancel
+            );
         }
         dialog.setTargetFragment(this, 0);
         dialog.setData(contacts);
@@ -1333,7 +1333,6 @@ public class ContactsSectionFragment
             contactService,
             serviceManager.getConversationService(),
             serviceManager.getRingtoneService(),
-            serviceManager.getConversationCategoryService(),
             serviceManager.getProfilePicRecipientsService(),
             serviceManager.getWallpaperService(),
             serviceManager.getFileService(),
@@ -1361,22 +1360,14 @@ public class ContactsSectionFragment
         };
     }
 
-    @Override
-    public void onSelected(String tag, String data) {
-        if (!isNullOrEmpty(tag)) {
-            sendInvite(tag);
-        }
-    }
-
     public void shareInvite() {
         GetBottomSheetAppShareTargetsUseCase useCase = KoinJavaComponent.get(GetBottomSheetAppShareTargetsUseCase.class);
         var bottomSheetItems = useCase.call();
         if (bottomSheetItems.isEmpty()) {
             return;
         }
-        BottomSheetGridDialog dialog = BottomSheetGridDialog.newInstance(R.string.invite_via, new ArrayList<>(bottomSheetItems));
-        dialog.setTargetFragment(this, 0);
-        dialog.show(getParentFragmentManager(), DIALOG_TAG_SHARE_WITH);
+        BottomSheetGridDialog.newInstance(R.string.invite_via, bottomSheetItems, DIALOG_TAG_SHARE_WITH)
+            .show(getParentFragmentManager(), DIALOG_TAG_SHARE_WITH);
     }
 
     private void sendInvite(String packageName) {
@@ -1427,7 +1418,9 @@ public class ContactsSectionFragment
                     R.string.spam_report_dialog_explain,
                     R.string.spam_report_dialog_block_checkbox,
                     R.string.spam_report_short,
-                    R.string.cancel
+                    R.string.cancel,
+                    false,
+                    null
                 );
                 sdialog.setData(contactModel);
                 sdialog.setTargetFragment(this, 0);
@@ -1446,7 +1439,10 @@ public class ContactsSectionFragment
 
     /* callback from TextWithCheckboxDialog */
     @Override
-    public void onYes(String tag, Object data, boolean checked) {
+    public void onYes(@Nullable String tag, @Nullable Object data, boolean checked) {
+        if (tag == null) {
+            return;
+        }
         switch (tag) {
             case DIALOG_TAG_REALLY_DELETE_CONTACTS:
                 try {
@@ -1473,24 +1469,7 @@ public class ContactsSectionFragment
                             serviceManager.getExcludedSyncIdentitiesService()
                                 .excludeFromSync(spammerIdentity, TriggerSource.LOCAL);
 
-                            try {
-                                new EmptyOrDeleteConversationsAsyncTask(
-                                    EmptyOrDeleteConversationsUseCase.Mode.DELETE,
-                                    new MessageReceiver[]{contactService.createReceiver(contactModel)},
-                                    serviceManager.getConversationService(),
-                                    serviceManager.getDistributionListService(),
-                                    serviceManager.getModelRepositories().getGroups(),
-                                    serviceManager.getGroupFlowDispatcher(),
-                                    serviceManager.getUserService().getIdentity(),
-                                    null,
-                                    null,
-                                    () -> {
-                                        globalEventBuses.getConversations().emit(ConversationEvent.AllConversationsUpdated.INSTANCE);
-                                        globalEventBuses.getContacts().emit(ContactEvent.ContactUpdated.javaCreate(spammerIdentity));
-                                    }).execute();
-                            } catch (Exception e) {
-                                logger.error("Unable to empty chat", e);
-                            }
+                            deleteConversation(contactModel.getIdentity());
                         } else {
                             globalEventBuses.getContacts().emit(ContactEvent.ContactUpdated.javaCreate(spammerIdentity));
                         }

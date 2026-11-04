@@ -11,19 +11,19 @@ import ch.threema.data.models.GroupModel
 import ch.threema.domain.types.GroupDatabaseId
 import ch.threema.domain.types.IdentityString
 import ch.threema.domain.types.MessageUid
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
 
 interface FileService {
-    fun getDefaultBackupPath(): File
+    fun getDefaultLegacyBackupPath(): File
 
     /**
      * @return Uri of data backup path, or null if not yet selected by user
      */
-    fun getBackupUri(): Uri?
+    fun getLegacyBackupUri(): Uri?
 
     @Throws(IOException::class)
     @WorkerThread
@@ -52,7 +52,7 @@ interface FileService {
      */
     @Throws(IOException::class)
     @WorkerThread
-    fun decryptMessageFileToTempFile(message: AbstractMessageModel): File?
+    fun decryptMessageFileToTempFile(message: MessageModel): File?
 
     /**
      * @return a decrypted file from a message, or null if the message or file does not exist.
@@ -60,7 +60,7 @@ interface FileService {
      */
     @Throws(IOException::class)
     @WorkerThread
-    fun decryptMessageFileToShareableTempFile(message: AbstractMessageModel): File?
+    fun decryptMessageFileToShareableTempFile(message: MessageModel): File?
 
     @Throws(IOException::class)
     fun decryptMessageFileToStream(messageUid: MessageUid): InputStream?
@@ -70,7 +70,7 @@ interface FileService {
 
     @Throws(IOException::class)
     @WorkerThread
-    fun copyMediaFileToGallery(message: AbstractMessageModel)
+    fun copyMediaFileToGallery(message: MessageModel)
 
     @Throws(IOException::class)
     @WorkerThread
@@ -134,6 +134,8 @@ interface FileService {
     fun getGroupProfilePictureBytes(groupDatabaseId: GroupDatabaseId): ByteArray?
 
     /**
+     * It is the caller's responsibility to recycle the [Bitmap] after it is no longer used.
+     *
      * @return the group profile picture, or null if there is no group profile picture or the file does not exist or is not a valid bitmap
      */
     fun getGroupProfilePictureBitmap(groupDatabaseId: GroupDatabaseId): Bitmap?
@@ -203,11 +205,16 @@ interface FileService {
     fun writeAndroidDefinedProfilePicture(identity: IdentityString, imageData: ByteArray)
 
     /**
+     * It is the caller's responsibility to recycle the [Bitmap] after it is no longer used.
+     *
      * @return the decrypted bitmap of a contact profile picture, or null if no file exists
      */
     @WorkerThread
     fun getUserDefinedProfilePicture(identity: IdentityString): Bitmap?
 
+    /**
+     * It is the caller's responsibility to recycle the [Bitmap] after it is no longer used.
+     */
     @WorkerThread
     fun getAndroidDefinedProfilePicture(contactModel: ContactModel): Bitmap?
 
@@ -224,6 +231,8 @@ interface FileService {
     fun getContactDefinedProfilePictureStream(identity: IdentityString): InputStream?
 
     /**
+     * It is the caller's responsibility to recycle the [Bitmap] after it is no longer used.
+     *
      * @return the decrypted bitmap of a contact-provided profile picture, or null if no contact defined profile picture exists
      */
     @WorkerThread
@@ -263,7 +272,7 @@ interface FileService {
 
     @Throws(IOException::class)
     @WorkerThread
-    fun writeConversationMediaThumbnail(message: AbstractMessageModel, thumbnail: ByteArray) {
+    fun writeConversationMediaThumbnail(message: MessageModel, thumbnail: ByteArray) {
         writeConversationMediaThumbnail(
             message,
             ResettableInputStream { ByteArrayInputStream(thumbnail) },
@@ -272,10 +281,13 @@ interface FileService {
 
     @Throws(IOException::class)
     @WorkerThread
-    fun writeConversationMediaThumbnail(message: AbstractMessageModel, thumbnail: ResettableInputStream)
+    fun writeConversationMediaThumbnail(message: MessageModel, thumbnail: ResettableInputStream)
 
+    /**
+     * If no [thumbnailCache] is used, it is the responsibility of the caller to recycle the [Bitmap] after it is no longer used.
+     */
     @WorkerThread
-    fun getMessageThumbnailBitmap(message: AbstractMessageModel?, thumbnailCache: ThumbnailCache<Int>? = null): Bitmap?
+    fun getMessageThumbnailBitmap(message: MessageModel?, thumbnailCache: ThumbnailCache? = null): Bitmap?
 
     @WorkerThread
     fun deleteMediaFiles()
@@ -288,21 +300,21 @@ interface FileService {
      * it can be shared with other apps.
      */
     @WorkerThread
-    fun copyDecryptedMessageFileToShareDirectory(message: AbstractMessageModel, decryptedFile: File): Uri?
+    fun copyDecryptedMessageFileToShareDirectory(message: MessageModel, decryptedFile: File): Uri?
 
     /**
      * Decrypt the files of [messages].
      * The returned list may not contain all files, in case some fail to be decrypted.
      */
     @WorkerThread
-    fun decryptMessageFiles(messages: List<AbstractMessageModel>): List<File>
+    fun decryptMessageFiles(messages: List<MessageModel>): List<File>
 
     /**
      * Decrypt the files of [messages] into the 'share' directory, such that they can then be shared.
      * The returned list may not contain all files, in case some fail to be decrypted.
      */
     @WorkerThread
-    fun decryptMessageFilesForSharing(messages: List<AbstractMessageModel>): List<Uri>
+    fun decryptMessageFilesForSharing(messages: List<MessageModel>): List<Uri>
 
     /**
      * Copy the decrypted thumbnail to a temporary file accessible through our FileProvider and return the Uri of the temporary file
@@ -312,5 +324,5 @@ interface FileService {
      * @return Uri of the temporary file, or null if the thumbnail does not exist, is too large or an error occurred
      */
     @WorkerThread
-    fun decryptThumbnailToShareableTempFile(message: AbstractMessageModel, maxSize: Int): Uri?
+    fun decryptThumbnailToShareableTempFile(message: MessageModel, maxSize: Int): Uri?
 }

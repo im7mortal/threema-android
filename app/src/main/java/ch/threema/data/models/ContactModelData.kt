@@ -8,6 +8,7 @@ import ch.threema.data.datatypes.AndroidContactLookupInfo
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.datatypes.ContactNameFormat
 import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverride
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.IdColor
 import ch.threema.data.models.ContactModelData.Companion.DISPLAY_NAME_INVALID_CONTACT
@@ -67,6 +68,8 @@ data class ContactModelData(
     @JvmField val typingIndicatorPolicy: TypingIndicatorPolicy,
     /** The conversation visibility of the 1:1 chat with this contact. */
     @JvmField val conversationVisibility: ConversationVisibility,
+    /** Whether the conversation is private or not. */
+    @JvmField val conversationCategory: ConversationCategory,
     /** Android contact lookup key. */
     @JvmField val androidContactLookupInfo: AndroidContactLookupInfo?,
     /**
@@ -129,6 +132,7 @@ data class ContactModelData(
             readReceiptPolicy: ReadReceiptPolicy,
             typingIndicatorPolicy: TypingIndicatorPolicy,
             conversationVisibility: ConversationVisibility,
+            conversationCategory: ConversationCategory,
             androidContactLookupInfo: AndroidContactLookupInfo?,
             localAvatarExpires: Instant?,
             isRestored: Boolean,
@@ -160,6 +164,7 @@ data class ContactModelData(
                 readReceiptPolicy = readReceiptPolicy,
                 typingIndicatorPolicy = typingIndicatorPolicy,
                 conversationVisibility = conversationVisibility,
+                conversationCategory = conversationCategory,
                 androidContactLookupInfo = androidContactLookupInfo,
                 localAvatarExpires = localAvatarExpires,
                 isRestored = isRestored,
@@ -295,6 +300,7 @@ data class ContactModelData(
         if (readReceiptPolicy != other.readReceiptPolicy) return false
         if (typingIndicatorPolicy != other.typingIndicatorPolicy) return false
         if (conversationVisibility != other.conversationVisibility) return false
+        if (conversationCategory != other.conversationCategory) return false
         if (androidContactLookupInfo != other.androidContactLookupInfo) return false
         if (localAvatarExpires != other.localAvatarExpires) return false
         if (isRestored != other.isRestored) return false
@@ -332,6 +338,7 @@ data class ContactModelData(
         result = 31 * result + readReceiptPolicy.hashCode()
         result = 31 * result + typingIndicatorPolicy.hashCode()
         result = 31 * result + conversationVisibility.hashCode()
+        result = 31 * result + conversationCategory.hashCode()
         result = 31 * result + androidContactLookupInfo.hashCode()
         result = 31 * result + localAvatarExpires.hashCode()
         result = 31 * result + isRestored.hashCode()

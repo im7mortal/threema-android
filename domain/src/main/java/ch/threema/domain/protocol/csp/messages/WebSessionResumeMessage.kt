@@ -10,7 +10,7 @@ class WebSessionResumeMessage(private val data: Map<String, String>) : AbstractM
 
     override fun allowUserProfileDistribution() = false
 
-    override fun exemptFromBlocking() = true
+    override fun exemptFromBlocking() = ExemptFromBlocking.YES
 
     override fun createImplicitlyDirectContact() = false
 

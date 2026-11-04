@@ -1,12 +1,13 @@
 package ch.threema.domain.models;
 
+import androidx.annotation.NonNull;
 import ch.threema.base.ThreemaException;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
 
 import java.io.Serializable;
+import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.security.SecureRandom;
 import java.util.Arrays;
 
 import static ch.threema.common.ByteArrayExtensionsKt.toHexString;
@@ -55,8 +56,21 @@ public class GroupId implements Serializable {
         return toHexString(this.value);
     }
 
+    /**
+     * @return A <b>signed</b> LE representation of {@code value}
+     * @see GroupId#toUnsignedNumberString
+     */
     public long toLong() {
         return ByteBuffer.wrap(value).order(ByteOrder.LITTLE_ENDIAN).getLong();
+    }
+
+    /**
+     * @return An <b>unsigned</b> LE representation of {@code value} as a String.
+     */
+    @NonNull
+    public String toUnsignedNumberString() {
+        final long signedLittleEndian = toLong();
+        return Long.toUnsignedString(signedLittleEndian);
     }
 
     @Override

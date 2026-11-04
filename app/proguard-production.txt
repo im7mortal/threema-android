@@ -1,0 +1,13 @@
+### This file contains rules which apply to all production builds of the app,
+### i.e., they specificially do not apply to sandbox build flavors like Blue or None
+
+
+# remove all log calls below info, as they have no effect in release builds anyway
+-assumenosideeffects class ch.threema.logging.ThreemaLogger {
+    public *** trace(...);
+    public *** debug(...);
+}
+-assumenosideeffects class org.slf4j.Logger {
+    public *** trace(...);
+    public *** debug(...);
+}

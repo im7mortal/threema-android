@@ -15,8 +15,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.StringDef;
 import androidx.annotation.WorkerThread;
 import ch.threema.app.ThreemaApplication;
-import ch.threema.app.services.FileService;
 import ch.threema.app.services.MessageService;
+import ch.threema.app.services.messageplayer.MessageFileDecryptionHelper;
 import ch.threema.app.services.messageplayer.MessagePlayer;
 import ch.threema.app.services.messageplayer.WebClientMessagePlayer;
 import ch.threema.app.utils.FileUtil;
@@ -30,7 +30,7 @@ import ch.threema.app.webclient.services.instance.MessageReceiver;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.readBytes;
 
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.MessageType;
 
 @WorkerThread
@@ -54,7 +54,7 @@ public class BlobRequestHandler extends MessageReceiver {
 
     // Services
     private final MessageService messageService;
-    private final FileService fileService;
+    private final MessageFileDecryptionHelper messageFileDecryptionHelper;
 
     @WorkerThread
     public interface Listener {
@@ -62,15 +62,17 @@ public class BlobRequestHandler extends MessageReceiver {
     }
 
     @AnyThread
-    public BlobRequestHandler(@NonNull HandlerExecutor handler,
-                              MessageDispatcher dispatcher,
-                              MessageService messageService,
-                              FileService fileService) {
+    public BlobRequestHandler(
+        @NonNull HandlerExecutor handler,
+        MessageDispatcher dispatcher,
+        MessageService messageService,
+        @NonNull MessageFileDecryptionHelper messageFileDecryptionHelper
+    ) {
         super(Protocol.SUB_TYPE_BLOB);
         this.handler = handler;
         this.dispatcher = dispatcher;
         this.messageService = messageService;
-        this.fileService = fileService;
+        this.messageFileDecryptionHelper = messageFileDecryptionHelper;
     }
 
     @Override
@@ -94,7 +96,7 @@ public class BlobRequestHandler extends MessageReceiver {
         // Find related message
         final String messageIdStr = args.get(Protocol.ARGUMENT_MESSAGE_ID).asStringValue().asString();
         final int messageId = Integer.parseInt(messageIdStr);
-        final AbstractMessageModel messageModel;
+        final MessageModel messageModel;
         switch (receiver.getType()) {
             case ch.threema.app.messagereceiver.MessageReceiver.Type_CONTACT:
                 messageModel = this.messageService.getContactMessageModel(messageId);
@@ -113,7 +115,7 @@ public class BlobRequestHandler extends MessageReceiver {
         final WebClientMessagePlayer player = new WebClientMessagePlayer(
             ThreemaApplication.getAppContext(),
             this.messageService,
-            this.fileService,
+            this.messageFileDecryptionHelper,
             receiver,
             messageModel
         );
@@ -121,7 +123,7 @@ public class BlobRequestHandler extends MessageReceiver {
         // Handle download events
         player.addListener("wc", new MessagePlayer.DownloadListener() {
             @Override
-            public void onEnd(AbstractMessageModel messageModel, boolean success, String message) {
+            public void onEnd(MessageModel messageModel, boolean success, String message) {
                 if (!success) {
                     logger.debug("Could not download blob: {}", message);
                     postFailed(receiverType, receiverId, temporaryId, messageId, Protocol.ERROR_BLOB_DOWNLOAD_FAILED);
@@ -134,12 +136,12 @@ public class BlobRequestHandler extends MessageReceiver {
         // Handle decryption events
         player.addListener("wc", new MessagePlayer.DecryptionListener() {
             @Override
-            public void onStart(AbstractMessageModel messageModel) {
+            public void onStart(MessageModel messageModel) {
                 logger.debug("Starting to decrypt file");
             }
 
             @Override
-            public void onEnd(AbstractMessageModel messageModel, boolean success, String message, File decryptedFile) {
+            public void onEnd(MessageModel messageModel, boolean success, String message, File decryptedFile) {
                 if (decryptedFile == null || !success) {
                     postFailed(receiverType, receiverId, temporaryId, messageId, Protocol.ERROR_BLOB_DOWNLOAD_FAILED);
                     return;

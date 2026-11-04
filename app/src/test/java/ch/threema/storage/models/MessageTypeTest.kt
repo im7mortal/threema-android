@@ -16,7 +16,7 @@ class MessageTypeTest {
         assertEquals(7, MessageType.POLL.serializedValue)
         assertEquals(8, MessageType.FILE.serializedValue)
         assertEquals(9, MessageType.VOIP_STATUS.serializedValue)
-        assertEquals(10, MessageType.DATE_SEPARATOR.serializedValue)
+        assertEquals(10, MessageType.VIRTUAL.serializedValue)
         assertEquals(11, MessageType.GROUP_CALL_STATUS.serializedValue)
         assertEquals(12, MessageType.FORWARD_SECURITY_STATUS.serializedValue)
         assertEquals(13, MessageType.GROUP_STATUS.serializedValue)
@@ -30,7 +30,7 @@ class MessageTypeTest {
         assertEquals(MessageType.POLL, MessageType.deserialize(7))
         assertEquals(MessageType.FILE, MessageType.deserialize(8))
         assertEquals(MessageType.VOIP_STATUS, MessageType.deserialize(9))
-        assertEquals(MessageType.DATE_SEPARATOR, MessageType.deserialize(10))
+        assertEquals(MessageType.VIRTUAL, MessageType.deserialize(10))
         assertEquals(MessageType.GROUP_CALL_STATUS, MessageType.deserialize(11))
         assertEquals(MessageType.FORWARD_SECURITY_STATUS, MessageType.deserialize(12))
         assertEquals(MessageType.GROUP_STATUS, MessageType.deserialize(13))
@@ -46,6 +46,21 @@ class MessageTypeTest {
     }
 
     @Test
+    fun `status messages`() {
+        assertTrue(MessageType.STATUS.isStatus)
+        assertTrue(MessageType.VOIP_STATUS.isStatus)
+        assertTrue(MessageType.VIRTUAL.isStatus)
+        assertTrue(MessageType.GROUP_CALL_STATUS.isStatus)
+        assertTrue(MessageType.FORWARD_SECURITY_STATUS.isStatus)
+        assertTrue(MessageType.GROUP_STATUS.isStatus)
+
+        assertFalse(MessageType.TEXT.isStatus)
+        assertFalse(MessageType.FILE.isStatus)
+        assertFalse(MessageType.LOCATION.isStatus)
+        assertFalse(MessageType.POLL.isStatus)
+    }
+
+    @Test
     fun `only text and file message types can be edited`() {
         assertTrue(MessageType.TEXT.canBeEdited)
         assertTrue(MessageType.FILE.canBeEdited)
@@ -54,10 +69,25 @@ class MessageTypeTest {
         assertFalse(MessageType.STATUS.canBeEdited)
         assertFalse(MessageType.POLL.canBeEdited)
         assertFalse(MessageType.VOIP_STATUS.canBeEdited)
-        assertFalse(MessageType.DATE_SEPARATOR.canBeEdited)
+        assertFalse(MessageType.VIRTUAL.canBeEdited)
         assertFalse(MessageType.GROUP_CALL_STATUS.canBeEdited)
         assertFalse(MessageType.FORWARD_SECURITY_STATUS.canBeEdited)
         assertFalse(MessageType.GROUP_STATUS.canBeEdited)
+    }
+
+    @Test
+    fun `only text, location, poll, and file message types can be emoji reacted`() {
+        assertTrue(MessageType.TEXT.supportsEmojiReactions)
+        assertTrue(MessageType.LOCATION.supportsEmojiReactions)
+        assertTrue(MessageType.POLL.supportsEmojiReactions)
+        assertTrue(MessageType.FILE.supportsEmojiReactions)
+
+        assertFalse(MessageType.STATUS.supportsEmojiReactions)
+        assertFalse(MessageType.VOIP_STATUS.supportsEmojiReactions)
+        assertFalse(MessageType.VIRTUAL.supportsEmojiReactions)
+        assertFalse(MessageType.GROUP_CALL_STATUS.supportsEmojiReactions)
+        assertFalse(MessageType.FORWARD_SECURITY_STATUS.supportsEmojiReactions)
+        assertFalse(MessageType.GROUP_STATUS.supportsEmojiReactions)
     }
 
     @Test
@@ -69,7 +99,7 @@ class MessageTypeTest {
 
         assertFalse(MessageType.STATUS.requiresMessageId)
         assertFalse(MessageType.VOIP_STATUS.requiresMessageId)
-        assertFalse(MessageType.DATE_SEPARATOR.requiresMessageId)
+        assertFalse(MessageType.VIRTUAL.requiresMessageId)
         assertFalse(MessageType.GROUP_CALL_STATUS.requiresMessageId)
         assertFalse(MessageType.FORWARD_SECURITY_STATUS.requiresMessageId)
         assertFalse(MessageType.GROUP_STATUS.requiresMessageId)

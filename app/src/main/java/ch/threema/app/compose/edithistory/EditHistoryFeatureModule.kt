@@ -1,13 +1,8 @@
 package ch.threema.app.compose.edithistory
 
-import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.viewModel
 
 val editHistoryFeatureModule = module {
-    viewModel { parameters ->
-        EditHistoryViewModel(
-            editHistoryRepository = get(),
-            messageUid = parameters.get(),
-        )
-    }
+    viewModel<EditHistoryViewModel>()
 }

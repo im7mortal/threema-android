@@ -133,6 +133,69 @@ class DatabaseNonceStoreTest {
     }
 
     @Test
+    fun testChunkedExport() {
+        assertStoreEmpty()
+
+        val nonces = createNonces()
+        val expectedHashedNonces = nonces.map { hashNonce(it) }
+
+        // Assert that storing the nonces succeeds
+        nonces.forEach {
+            assertTrue(store.store(NonceScope.CSP, it))
+            assertTrue(store.store(NonceScope.D2D, it))
+        }
+
+        val exportedCspNonces = mutableListOf<HashedNonce>()
+        store.addHashedNoncesChunk(
+            scope = NonceScope.CSP,
+            chunkSize = 256,
+            offset = 0,
+            hashedNonces = exportedCspNonces,
+        )
+        assertSameHashedNonces(expectedHashedNonces, exportedCspNonces)
+
+        val exportedD2dNonces = mutableListOf<HashedNonce>()
+        store.addHashedNoncesChunk(
+            scope = NonceScope.D2D,
+            chunkSize = 256,
+            offset = 0,
+            hashedNonces = exportedD2dNonces,
+        )
+        assertSameHashedNonces(expectedHashedNonces, exportedD2dNonces)
+    }
+
+    @Test
+    fun testChunkedExportWithoutNoncesAtOffset() {
+        assertStoreEmpty()
+
+        val nonces = createNonces()
+
+        // Assert that storing the nonces succeeds
+        nonces.forEach {
+            assertTrue(store.store(NonceScope.CSP, it))
+            assertTrue(store.store(NonceScope.D2D, it))
+        }
+
+        val exportedCspNonces = mutableListOf<HashedNonce>()
+        store.addHashedNoncesChunk(
+            scope = NonceScope.CSP,
+            chunkSize = 256,
+            offset = 256,
+            hashedNonces = exportedCspNonces,
+        )
+        assertSameHashedNonces(listOf(), exportedCspNonces)
+
+        val exportedD2dNonces = mutableListOf<HashedNonce>()
+        store.addHashedNoncesChunk(
+            scope = NonceScope.D2D,
+            chunkSize = 256,
+            offset = 256,
+            hashedNonces = exportedD2dNonces,
+        )
+        assertSameHashedNonces(listOf(), exportedD2dNonces)
+    }
+
+    @Test
     fun testBulkImportHashed() {
         assertStoreEmpty()
 

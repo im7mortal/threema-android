@@ -276,7 +276,7 @@ abstract class ReflectSettingsSyncTask() : ActiveTask<Unit>, KoinComponent {
         override fun getSettings(): Settings = settings {
             excludeFromSyncIdentities = identities {
                 identities.clear()
-                identities.addAll(excludedSyncIdentitiesService.getExcludedIdentities())
+                identities.addAll(excludedSyncIdentitiesService.getAllExcludedIdentities())
             }
         }
 

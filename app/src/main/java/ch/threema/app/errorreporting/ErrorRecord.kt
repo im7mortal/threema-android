@@ -15,6 +15,7 @@ data class ErrorRecord(
     @SerialName("exceptions")
     val exceptionDetails: List<ErrorRecordExceptionDetails>? = null,
     val message: ErrorRecordMessage? = null,
+    val attachments: List<ErrorRecordAttachment>? = null,
     @Serializable(with = InstantSerializer::class)
     val createdAt: Instant,
 )

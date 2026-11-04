@@ -29,7 +29,6 @@ import androidx.annotation.Nullable;
 import ch.threema.app.R;
 import ch.threema.app.utils.BitmapUtil;
 import ch.threema.app.utils.ConfigUtils;
-import ch.threema.storage.models.AbstractMessageModel;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 

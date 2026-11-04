@@ -3,11 +3,11 @@ package ch.threema.app.glide
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat
+import ch.threema.android.transform
 import ch.threema.app.R
 import ch.threema.app.services.FileService
 import ch.threema.app.services.avatarcache.AvatarCacheServiceImpl
 import ch.threema.app.utils.AvatarConverterUtil
-import ch.threema.app.utils.BitmapUtil
 import ch.threema.data.datatypes.IdColor
 import ch.threema.data.models.GroupModel
 import ch.threema.data.repositories.GroupModelRepository
@@ -83,12 +83,9 @@ class GroupAvatarFetcher(
     ): Bitmap? {
         var groupImage: Bitmap? = fileService.getGroupProfilePictureBitmap(groupModel.getDatabaseId())
         if (groupImage != null && !highRes) {
-            // resize image!
-            val converted = AvatarConverterUtil.convert(context.resources, groupImage)
-            if (groupImage != converted) {
-                BitmapUtil.recycle(groupImage)
+            return groupImage.transform { groupImage ->
+                AvatarConverterUtil.convert(context.resources, groupImage)
             }
-            return converted
         }
         if (groupImage == null && returnDefaultAvatarIfNone) {
             groupImage = buildDefaultAvatar(groupModel, highRes, backgroundColor)

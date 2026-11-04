@@ -11,16 +11,15 @@ import android.widget.TextView;
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 
-import java.time.Instant;
 import java.util.List;
 
 import ch.threema.app.R;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.FileUtil;
 import ch.threema.app.utils.IconUtil;
 import ch.threema.app.utils.LocaleUtil;
 import ch.threema.app.utils.MimeUtil;
 
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 public class FilePickerAdapter extends ArrayAdapter<FileInfo> {
@@ -28,8 +27,7 @@ public class FilePickerAdapter extends ArrayAdapter<FileInfo> {
     private final Context context;
     private final int resourceID;
     private final List<FileInfo> items;
-    private final @ColorInt int enabledColor = ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorOnSurface);
-    private final @ColorInt int disabledColor = ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorOnSurfaceVariant);
+    private final @ColorInt int enabledColor = getColorFromAttribute(getContext(), R.attr.colorOnSurface);
 
     FilePickerAdapter(Context context, int textViewResourceId,
                       List<FileInfo> objects) {

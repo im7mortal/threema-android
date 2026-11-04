@@ -17,7 +17,13 @@ enum class NonceScope {
 }
 
 interface NonceStore {
+
+    // TODO(ANDR-4689): Remove
     fun exists(scope: NonceScope, nonce: Nonce): Boolean
+
+    // TODO(ANDR-4689): Should only be used by libthreema message processing.
+    //  Using this method reliably will require a database migration in `DatabaseNonceStore`.
+    fun exists(scope: NonceScope, hashedNonce: HashedNonce): Boolean
     fun store(scope: NonceScope, nonce: Nonce): Boolean
     fun getCount(scope: NonceScope): Long
     fun getAllHashedNonces(scope: NonceScope): List<HashedNonce>
@@ -38,6 +44,8 @@ interface NonceStore {
     )
 
     fun insertHashedNonces(scope: NonceScope, nonces: List<HashedNonce>): Boolean
+
+    fun deleteAll()
 }
 
 fun interface NonceFactoryNonceBytesProvider {
@@ -71,6 +79,10 @@ class NonceFactory(
 
     @JvmName("existsNonce")
     fun exists(scope: NonceScope, nonce: Nonce) = nonceStore.exists(scope, nonce)
+
+    // TODO(ANDR-4689): Must only be used from libthreema message processing.
+    //  Nonce db migration is required for this to be used reliably.
+    fun exists(scope: NonceScope, hashedNonce: HashedNonce) = nonceStore.exists(scope, hashedNonce)
 
     fun getCount(scope: NonceScope): Long = nonceStore.getCount(scope)
 

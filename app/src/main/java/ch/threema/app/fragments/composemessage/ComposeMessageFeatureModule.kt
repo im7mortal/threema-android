@@ -1,23 +1,10 @@
 package ch.threema.app.fragments.composemessage
 
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
+import org.koin.plugin.module.dsl.viewModel
 
 val composeMessageFeatureModule = module {
-    viewModelOf(::ComposeMessageViewModel)
-
-    factory { parameters ->
-        ComposeMessageFragmentUtils(
-            appContext = get(),
-            messageService = get(),
-            userService = get(),
-            contactService = get(),
-            preferenceService = get(),
-            emojiReactionsRepository = get(),
-            dispatcherProvider = get(),
-            fragment = parameters.get(),
-            receiver = parameters.get(),
-            isGroupChat = parameters.get(),
-        )
-    }
+    viewModel<ComposeMessageViewModel>()
+    factory<ComposeMessageFragmentUtils>()
 }

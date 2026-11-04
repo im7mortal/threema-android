@@ -16,13 +16,13 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.sqlite.db.SupportSQLiteQueryBuilder;
 
+import static ch.threema.android.CursorExtensionsKt.readCountQueryResult;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.data.datatypes.ConversationId;
 import ch.threema.storage.CursorHelper;
 import ch.threema.storage.DatabaseCreationProvider;
 import ch.threema.storage.DatabaseProvider;
-import ch.threema.storage.DatabaseUtil;
 import ch.threema.storage.models.ConversationTag;
 import ch.threema.storage.models.ConversationTagModel;
 
@@ -51,7 +51,7 @@ public class ConversationTagFactory extends ModelFactory {
     }
 
     public long countByTag(@NonNull ConversationTag tag) {
-        return DatabaseUtil.count(
+        return readCountQueryResult(
             getReadableDatabase().rawQuery(
                 "SELECT COUNT(*) FROM " + this.getTableName() + " WHERE " + ConversationTagModel.COLUMN_TAG + "=?",
                 new String[]{

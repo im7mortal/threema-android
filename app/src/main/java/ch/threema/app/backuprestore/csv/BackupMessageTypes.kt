@@ -28,7 +28,7 @@ object BackupMessageTypes {
             MessageType.VOIP_STATUS -> VOIP_STATUS
             MessageType.GROUP_CALL_STATUS -> GROUP_CALL_STATUS
             MessageType.GROUP_STATUS -> GROUP_STATUS
-            MessageType.DATE_SEPARATOR,
+            MessageType.VIRTUAL,
             MessageType.FORWARD_SECURITY_STATUS,
             -> {
                 // these types never get written into the backup

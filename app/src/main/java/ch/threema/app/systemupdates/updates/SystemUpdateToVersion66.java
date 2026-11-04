@@ -10,11 +10,14 @@ import androidx.annotation.RequiresPermission;
 import ch.threema.app.preference.service.SynchronizedSettingsService;
 import ch.threema.app.services.SynchronizeContactsService;
 import ch.threema.app.utils.AndroidContactUtil;
-import ch.threema.app.utils.ConfigUtils;
 import kotlin.Lazy;
 
+import static ch.threema.android.PermissionExtensionsKt.checkGrantedPermission;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
+/**
+ * force a contacts resync
+ */
 public class SystemUpdateToVersion66 implements SystemUpdate {
     private static final Logger logger = getThreemaLogger("SystemUpdateToVersion66");
 
@@ -25,7 +28,7 @@ public class SystemUpdateToVersion66 implements SystemUpdate {
     @Override
     public void run() {
         var appContext = appContextLazy.getValue();
-        if (!ConfigUtils.isPermissionGranted(appContext, Manifest.permission.WRITE_CONTACTS)) {
+        if (!checkGrantedPermission(appContext, Manifest.permission.WRITE_CONTACTS)) {
             return; // best effort
         }
 
@@ -48,11 +51,6 @@ public class SystemUpdateToVersion66 implements SystemUpdate {
                 logger.error("Failed to run contact sync", e);
             }
         }
-    }
-
-    @Override
-    public String getDescription() {
-        return "force a contacts resync";
     }
 
     @Override

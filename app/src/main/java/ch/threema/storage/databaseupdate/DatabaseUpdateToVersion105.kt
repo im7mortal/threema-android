@@ -1,5 +1,8 @@
 package ch.threema.storage.databaseupdate
 
+/**
+ * empty reaction migration
+ */
 internal class DatabaseUpdateToVersion105 : DatabaseUpdate {
 
     override fun run() {
@@ -11,14 +14,14 @@ internal class DatabaseUpdateToVersion105 : DatabaseUpdate {
         //   `m_group_message.uid` was created
         //
         // This yielded problems in the db migration on some devices where the `uid` was not unique
-        // and an app crash was the result. Therefore this index change was removed from this
+        // and an app crash was the result. Therefore, this index change was removed from this
         // system update.
         // For devices where the migration succeeded without problems, the index uniqueness will be
         // fixed in the DatabaseUpdateToVersion106
         //
         // Additionally the original database scheme for reactions does not work if the foreign key
         // references a non-unique field (which is the case if the index is not unique anymore).
-        // Therefore the original creation of the tables was also removed from this migration.
+        // Therefore, the original creation of the tables was also removed from this migration.
         // The _correct_ scheme will be created in migration to version 106 where also data migration
         // will be taken care of if the migration to 105 was already executed.
         //
@@ -26,8 +29,6 @@ internal class DatabaseUpdateToVersion105 : DatabaseUpdate {
         // consistency in database versioning on devices where the migration was already successfully
         // executed.
     }
-
-    override fun getDescription() = "empty reaction migration"
 
     override val version = 105
 }

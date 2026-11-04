@@ -19,11 +19,6 @@ public class DatabaseUpdateToVersion10 implements DatabaseUpdate {
     }
 
     @Override
-    public String getDescription() {
-        return "set group capable";
-    }
-
-    @Override
     public int getVersion() {
         return 10;
     }

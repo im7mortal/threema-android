@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * create table for contact availability status
+ */
 internal class DatabaseUpdateToVersion118(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -21,8 +24,6 @@ internal class DatabaseUpdateToVersion118(
             """.trimMargin(),
         )
     }
-
-    override fun getDescription() = "create table for contact availability status"
 
     override val version = 118
 }

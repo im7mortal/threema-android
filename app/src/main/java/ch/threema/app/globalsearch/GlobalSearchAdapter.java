@@ -33,30 +33,31 @@ import ch.threema.app.emojis.EmojiImageSpan;
 import ch.threema.app.emojis.EmojiMarkupUtil;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.services.ContactService;
-import ch.threema.app.services.ConversationCategoryService;
 import ch.threema.app.services.GroupService;
 import ch.threema.app.services.UserService;
 import ch.threema.app.services.poll.PollService;
 import ch.threema.app.ui.AvatarListItemUtil;
 import ch.threema.app.ui.AvatarView;
 import ch.threema.app.ui.listitemholder.AvatarListItemHolder;
-import ch.threema.app.utils.ConfigUtils;
+import ch.threema.app.usecases.conversation.GetConversationCategoryUseCase;
 import ch.threema.app.utils.IconUtil;
 import ch.threema.app.utils.LocaleUtil;
 import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.app.utils.TextExtensionsKt;
 
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 import ch.threema.data.datatypes.ContactConversationId;
 import ch.threema.data.datatypes.ContactNameFormat;
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.data.datatypes.ConversationId;
 import ch.threema.data.datatypes.GroupConversationId;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ContactModel;
-import ch.threema.storage.models.group.GroupMessageModel;
+import ch.threema.storage.models.GroupMessageModel;
 import ch.threema.storage.models.group.GroupModelOld;
 import ch.threema.storage.models.MessageType;
 import ch.threema.storage.models.poll.PollModel;
@@ -77,7 +78,7 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
     @NonNull
     private final PollService pollService;
     @NonNull
-    private final ConversationCategoryService conversationCategoryService;
+    private final GetConversationCategoryUseCase getConversationCategoryUseCase;
     @NonNull
     private final PreferenceService preferenceService;
 
@@ -85,7 +86,7 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
     private OnClickItemListener onClickItemListener;
     private String queryString;
     private final int snippetThreshold;
-    private List<AbstractMessageModel> messageModels; // Cached copy of AbstractMessageModels
+    private List<MessageModel> messageModels; // Cached copy of MessageModels
     private final @NonNull RequestManager requestManager;
 
     private static class ViewHolder extends RecyclerView.ViewHolder {
@@ -117,7 +118,7 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         @NonNull ContactService contactService,
         @NonNull UserService userService,
         @NonNull PollService pollService,
-        @NonNull ConversationCategoryService conversationCategoryService,
+        @NonNull GetConversationCategoryUseCase getConversationCategoryUseCase,
         @NonNull PreferenceService preferenceService
     ) {
         this.context = context;
@@ -128,8 +129,8 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         this.contactService = contactService;
         this.userService = userService;
         this.pollService = pollService;
-        this.conversationCategoryService = conversationCategoryService;
         this.preferenceService = preferenceService;
+        this.getConversationCategoryUseCase = getConversationCategoryUseCase;
     }
 
     @NonNull
@@ -145,7 +146,7 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         ViewHolder viewHolder = (ViewHolder) holder;
 
         if (messageModels != null) {
-            AbstractMessageModel messageModel = getItem(position);
+            MessageModel messageModel = getItem(position);
             viewHolder.snippetView.setVisibility(View.VISIBLE);
 
             final @Nullable ConversationId conversationId;
@@ -159,7 +160,8 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
                     ? new ContactConversationId(identity)
                     : null;
             }
-            final boolean isPrivateChat = conversationId != null && conversationCategoryService.isMarkedAsPrivate(conversationId);
+            final boolean isPrivateChat = conversationId != null
+                && getConversationCategoryUseCase.call(conversationId) == ConversationCategory.PROTECTED;
             if (isPrivateChat) {
                 viewHolder.dateView.setText("");
                 viewHolder.thumbnailView.setVisibility(View.GONE);
@@ -231,7 +233,7 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         }
     }
 
-    private void initDeletedViewHolder(@NonNull ViewHolder viewHolder, @NonNull AbstractMessageModel message) {
+    private void initDeletedViewHolder(@NonNull ViewHolder viewHolder, @NonNull MessageModel message) {
         viewHolder.snippetView.setVisibility(View.INVISIBLE);
         viewHolder.snippetView.setText("");
         viewHolder.dateView.setText(LocaleUtil.formatDateRelative(message.getCreatedAt()));
@@ -245,9 +247,8 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         }
     }
 
-    private String getTitle(@NonNull AbstractMessageModel messageModel, @Nullable ContactModel contactModel) {
+    private String getTitle(@NonNull MessageModel messageModel, @Nullable ContactModel contactModel) {
         final @Nullable String name = NameUtil.getContactDisplayNameOrNickname(
-            context,
             messageModel,
             contactService,
             userService,
@@ -274,7 +275,7 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         return String.format("%s %s %s", senderName, FLOW_CHARACTER, groupDisplayName);
     }
 
-    private void loadThumbnail(@NonNull AbstractMessageModel messageModel, ViewHolder viewHolder) {
+    private void loadThumbnail(@NonNull MessageModel messageModel, ViewHolder viewHolder) {
         @DrawableRes int placeholderIcon;
 
         if (messageModel.getMessageContentsType() == MessageContentsType.VOICE_MESSAGE) {
@@ -316,12 +317,12 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
 
     @ColorInt
     private int getThumbnailViewBackgroundColor() {
-        return ConfigUtils.getColorFromAttribute(context, R.attr.colorSecondary);
+        return getColorFromAttribute(context, R.attr.colorSecondary);
     }
 
     @ColorInt
     private int getThumbnailViewIconTintColor() {
-        return ConfigUtils.getColorFromAttribute(context, R.attr.colorOnSecondary);
+        return getColorFromAttribute(context, R.attr.colorOnSecondary);
     }
 
     /**
@@ -361,12 +362,12 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         return EmojiMarkupUtil.getInstance().addTextSpans(context, fullText, viewHolder.snippetView, false, false, false, false);
     }
 
-    public void setMessageModels(List<AbstractMessageModel> messageModels) {
+    public void setMessageModels(List<MessageModel> messageModels) {
         this.messageModels = messageModels;
         notifyDataSetChanged();
     }
 
-    private void setSnippetToTextView(@NonNull AbstractMessageModel messageModel, ViewHolder viewHolder) {
+    private void setSnippetToTextView(@NonNull MessageModel messageModel, ViewHolder viewHolder) {
         CharSequence snippetText = null;
         MessageType type = messageModel.getType();
         if (type == null) {
@@ -424,7 +425,7 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
         }
     }
 
-    private AbstractMessageModel getItem(int position) {
+    private MessageModel getItem(int position) {
         return messageModels.get(position);
     }
 
@@ -448,6 +449,6 @@ public class GlobalSearchAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
     }
 
     public interface OnClickItemListener {
-        void onClick(@NonNull AbstractMessageModel messageModel, @NonNull View view, int position);
+        void onClick(@NonNull MessageModel messageModel, @NonNull View view, int position);
     }
 }

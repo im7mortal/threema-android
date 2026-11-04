@@ -27,7 +27,7 @@ object IdentityBackup {
     @JvmStatic
     @Throws(IllegalArgumentException::class, ThreemaException::class)
     fun encryptIdentityBackup(password: String, backupData: PlainBackupData): EncryptedIdentityBackup {
-        require(backupData.threemaId.length == ProtocolDefines.IDENTITY_LEN) {
+        require(backupData.identity.length == ProtocolDefines.IDENTITY_LEN) {
             "Identity has invalid length"
         }
 
@@ -87,11 +87,11 @@ object IdentityBackup {
      * help avoid mixing up password and threema identity.
      */
     data class PlainBackupData(
-        val threemaId: IdentityString,
+        val identity: IdentityString,
         val clientKey: ByteArray,
     ) {
         fun toIdentityBackupData() = IdentityBackupData(
-            threemaId,
+            identity,
             clientKey,
         )
 
@@ -101,21 +101,21 @@ object IdentityBackup {
 
             other as PlainBackupData
 
-            if (threemaId != other.threemaId) return false
+            if (identity != other.identity) return false
             if (!clientKey.secureContentEquals(other.clientKey)) return false
 
             return true
         }
 
         override fun hashCode(): Int {
-            var result = threemaId.hashCode()
+            var result = identity.hashCode()
             result = 31 * result + clientKey.contentHashCode()
             return result
         }
     }
 
     private fun IdentityBackupData.toPlainBackupData() = PlainBackupData(
-        threemaId,
+        identity,
         clientKey,
     )
 }

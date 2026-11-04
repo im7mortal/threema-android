@@ -6,7 +6,7 @@
     <string name="default_notification_sound" translatable="false">content://settings/system/notification_sound</string>
     <string name="default_ringtone" translatable="false">content://settings/system/ringtone</string>
     <string name="webclient_info_url" translatable="false">https://threema.com/threema-web</string>
-    <string name="privacy_policy_url" translatable="false">https://threema.com/privacy_policy/?lang=%1$s&amp;version=%2$s&amp;theme=%3$s&amp;platform=android</string>
+    <string name="privacy_policy_url" translatable="false">https://threema.com/privacy_policy/?lang=%1$s&amp;version=%2$s&amp;theme=%3$s</string>
     <string name="terms_of_service_url" translatable="false">https://threema.com/tos/?lang=%1$s&amp;version=%2$s&amp;theme=%3$s&amp;platform=android</string>
     <string name="referral_terms_of_service_url" translatable="false">https://threema.com/referral-tos/?lang=%1$s&amp;theme=%2$s</string>
     <string name="eula_url" translatable="false">https://threema.com/eula/?lang=%1$s&amp;version=%2$s&amp;theme=%3$s&amp;platform=android</string>

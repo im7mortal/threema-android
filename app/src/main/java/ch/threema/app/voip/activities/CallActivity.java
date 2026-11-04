@@ -2,6 +2,8 @@ package ch.threema.app.voip.activities;
 
 import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
 import static ch.threema.android.AudioManagerExtensionsKt.isConnectedToHeadsetOrSpeaker;
+import static ch.threema.android.PermissionExtensionsKt.checkGrantedPermission;
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.startup.AppStartupUtilKt.finishAndRestartLaterIfNotReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
@@ -15,7 +17,6 @@ import static ch.threema.app.voip.services.VoipStateService.VIDEO_RENDER_FLAG_OU
 import android.Manifest;
 import android.animation.ObjectAnimator;
 import android.annotation.SuppressLint;
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AppOpsManager;
 import android.app.KeyguardManager;
@@ -24,7 +25,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.graphics.Typeface;
@@ -89,13 +89,15 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.concurrent.ExecutionException;
 
+import ch.threema.android.DeviceInfo;
 import ch.threema.android.FlowJavaCompat;
+import ch.threema.android.permissions.CameraPermissionContract;
 import ch.threema.app.BuildConfig;
 import ch.threema.app.R;
+import ch.threema.app.activities.AppLockExempt;
 import ch.threema.app.activities.PermissionRequestActivity;
-import ch.threema.app.activities.ThreemaActivity;
 import ch.threema.app.di.DependencyContainer;
-import ch.threema.app.dialogs.BottomSheetAbstractDialog;
+import ch.threema.app.dialogs.BottomSheetDialog;
 import ch.threema.app.dialogs.BottomSheetListDialog;
 import ch.threema.app.dialogs.GenericAlertDialog;
 import ch.threema.app.dialogs.SimpleStringAlertDialog;
@@ -126,7 +128,6 @@ import ch.threema.app.voip.services.VideoContext;
 import ch.threema.app.voip.services.VoipCallService;
 import ch.threema.app.voip.util.VoipUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import static ch.threema.common.JavaCompat.isNullOrEmpty;
 import static ch.threema.common.JavaCompat.toHexString;
 
 import ch.threema.domain.protocol.ThreemaFeature;
@@ -142,11 +143,11 @@ import java.util.concurrent.CompletableFuture;
  * Activity for peer connection call setup, call waiting
  * and call view.
  */
-public class CallActivity extends ThreemaActivity implements
-    BottomSheetAbstractDialog.BottomSheetDialogCallback,
+public class CallActivity extends CallActivityKotlin implements
     GenericAlertDialog.DialogClickListener,
     SensorListener,
-    LifecycleOwner {
+    LifecycleOwner,
+    AppLockExempt {
     private static final Logger logger = getThreemaLogger("CallActivity");
     private static final String LIFETIME_SERVICE_TAG = "CallActivity";
     private static final String SENSOR_TAG_CALL = "voipcall";
@@ -195,14 +196,6 @@ public class CallActivity extends ThreemaActivity implements
         R.string.voip_bluetooth,
         R.string.voip_none
     };
-
-    // Permissions
-    private final static int PERMISSION_REQUEST_CAMERA = 9002;
-    /**
-     * This future resolves as soon as the camera permission request has been answered.
-     * It resolves to a boolean that indicates whether the permission was granted or not.
-     */
-    private @Nullable CompletableFuture<Boolean> camPermissionResponse;
 
     private static final String DIALOG_TAG_SELECT_AUDIO_DEVICE = "saud";
 
@@ -289,13 +282,26 @@ public class CallActivity extends ThreemaActivity implements
         result -> {
             int resultCode = result.getResultCode();
             if (resultCode == Activity.RESULT_OK) {
-                initializeCall(getIntent());
+                initializeCallWithAppLockCheck();
             } else if (resultCode == PermissionRequestActivity.RESULT_CANCELED_BY_USER) {
                 rejectCall(dependencies.getVoipStateService().getCallState().getCallId(), VoipCallAnswerData.RejectReason.DISABLED);
             }
             // We do not reject the call if the resultCode is `Activity.RESULT_CANCELED`, as this may also
             // mean that another permission request was started by onNewIntent while a request was already in progress.
         });
+
+    private final ActivityResultLauncher<Unit> cameraPermissionLauncher = registerForActivityResult(new CameraPermissionContract(), isGranted -> {
+        if (isGranted) {
+            // Permission was granted
+            logger.debug("Permission granted, set up video views");
+
+            // Start capturing
+            VoipUtil.sendVoipBroadcast(getApplicationContext(), VoipCallService.ACTION_START_CAPTURING);
+        } else {
+            // Permission was rejected
+            LongToast.makeText(CallActivity.this, R.string.permission_camera_videocall_required, Toast.LENGTH_LONG).show();
+        }
+    });
 
     /**
      * Helper: Find a view and ensure it's not null.
@@ -783,13 +789,13 @@ public class CallActivity extends ThreemaActivity implements
         // Initialize activity once all permissions are granted
         logger.info("Checking for required permissions");
         PermissionUtilsKt.requestCallPermissions(this, permissionLauncher, () -> {
-            initializeCall(getIntent());
+            initializeCallWithAppLockCheck();
             return Unit.INSTANCE;
         });
 
         // Check reject preferences and fix them if necessary
         if (dependencies.getPreferenceService().isRejectMobileCalls()) {
-            if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+            if (!checkGrantedPermission(this, Manifest.permission.READ_PHONE_STATE)) {
                 dependencies.getPreferenceService().setRejectMobileCalls(false);
             }
         }
@@ -797,8 +803,19 @@ public class CallActivity extends ThreemaActivity implements
         // make sure lock screen is not activated during call
         keepAliveHandler.removeCallbacksAndMessages(null);
         keepAliveHandler.postDelayed(keepAliveTask, KEEP_ALIVE_DELAY);
+
+        setUpDialogCallbacks();
     }
 
+    private void setUpDialogCallbacks() {
+        getSupportFragmentManager().setFragmentResultListener(DIALOG_TAG_SELECT_AUDIO_DEVICE, this, (dialogTag, result) -> {
+            BottomSheetDialog.onItemClicked(result, (tag, data) -> {
+                int ordinal = Integer.parseInt(tag);
+                final AudioDevice device = AudioDevice.values()[ordinal];
+                selectAudioDevice(device);
+            });
+        });
+    }
 
     private boolean restoreState(@NonNull Intent intent, Bundle savedInstanceState) {
         // Every valid intent must either be a call action intent,
@@ -960,7 +977,7 @@ public class CallActivity extends ThreemaActivity implements
         setIntent(intent);
         if (restoreState(intent, null)) {
             PermissionUtilsKt.requestCallPermissions(this, permissionLauncher, () -> {
-                initializeCall(intent);
+                initializeCallWithAppLockCheck();
                 return Unit.INSTANCE;
             });
         } else {
@@ -1036,7 +1053,7 @@ public class CallActivity extends ThreemaActivity implements
                         ? View.VISIBLE
                         : View.GONE
                 );
-                this.videoViews.pipButton.setVisibility(ConfigUtils.supportsPictureInPicture(this) ? View.VISIBLE : View.GONE);
+                this.videoViews.pipButton.setVisibility(DeviceInfo.supportsPictureInPicture(this) ? View.VISIBLE : View.GONE);
 
                 if (incomingVideo && !outgoingVideo) {
                     setSwappedFeeds(false);
@@ -1053,8 +1070,12 @@ public class CallActivity extends ThreemaActivity implements
                 if (this.commonViews.backgroundView != null) {
                     this.commonViews.backgroundView.setVisibility(View.VISIBLE);
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && ConfigUtils.supportsPictureInPicture(this)) {
-                    setPictureInPictureParams(new PictureInPictureParams.Builder().setAutoEnterEnabled(false).build());
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && DeviceInfo.supportsPictureInPicture(this)) {
+                    try {
+                        setPictureInPictureParams(new PictureInPictureParams.Builder().setAutoEnterEnabled(false).build());
+                    } catch (IllegalStateException e) {
+                        logger.warn("Failed to set PiP params", e);
+                    }
                 }
             }
         }
@@ -1139,7 +1160,8 @@ public class CallActivity extends ThreemaActivity implements
      *
      * @param intent the intent to initialize the activity
      */
-    private void initializeCall(Intent intent) {
+    @Override
+    protected void initializeCall(@NonNull Intent intent) {
         try {
             initializeActivity(intent);
         } catch (Exception e) {
@@ -1159,6 +1181,12 @@ public class CallActivity extends ThreemaActivity implements
         if (VoipUtil.isPSTNCallOngoing(this)) {
             LongToast.makeText(this, getString(R.string.voip_another_pstn_call), Toast.LENGTH_LONG).show();
             abortWithError(VoipCallAnswerData.RejectReason.BUSY);
+            finish();
+            return;
+        }
+
+        if (!ConfigUtils.isCallsEnabled()) {
+            abortWithError();
             finish();
             return;
         }
@@ -1228,7 +1256,7 @@ public class CallActivity extends ThreemaActivity implements
             @Override
             public void onDebouncedClick(View view) {
                 logger.info("Disconnect button pressed. Ending call.");
-                VoipUtil.sendVoipCommand(CallActivity.this, VoipCallService.class, VoipCallService.ACTION_HANGUP);
+                VoipUtil.sendOneToOneCallHangupCommand(CallActivity.this);
             }
         });
         this.commonViews.toggleMicButton.setOnClickListener(view -> {
@@ -1259,8 +1287,8 @@ public class CallActivity extends ThreemaActivity implements
                 i++;
             }
 
-            BottomSheetListDialog dialog = BottomSheetListDialog.newInstance(0, items, currentDeviceIndex);
-            dialog.show(getSupportFragmentManager(), DIALOG_TAG_SELECT_AUDIO_DEVICE);
+            BottomSheetListDialog.newInstance(0, items, currentDeviceIndex, DIALOG_TAG_SELECT_AUDIO_DEVICE)
+                .show(getSupportFragmentManager(), DIALOG_TAG_SELECT_AUDIO_DEVICE);
         });
         this.commonViews.audioSelectorButton.post(() -> {
             // We request the initial configuration as soon as the button has been created
@@ -1329,36 +1357,7 @@ public class CallActivity extends ThreemaActivity implements
                     VoipUtil.sendVoipBroadcast(getApplicationContext(), VoipCallService.ACTION_STOP_CAPTURING);
                 } else {
                     // enable outgoing
-                    if (this.camPermissionResponse != null) {
-                        // Make sure to cancel old instances of the completablefuture
-                        this.camPermissionResponse.cancel(true);
-                    }
-                    this.camPermissionResponse = new CompletableFuture<>();
-                    if (ConfigUtils.requestCameraPermissions(this, null, PERMISSION_REQUEST_CAMERA)) {
-                        // If permission was already granted, complete immediately
-                        this.camPermissionResponse.complete(true);
-                    }
-                    this.camPermissionResponse
-                        .thenAccept((granted) -> {
-                            synchronized (this.videoToggleLock) {
-                                if (granted) {
-                                    // Permission was granted
-                                    logger.debug("Permission granted, set up video views");
-
-                                    // Start capturing
-                                    VoipUtil.sendVoipBroadcast(getApplicationContext(), VoipCallService.ACTION_START_CAPTURING);
-                                } else {
-                                    // Permission was rejected
-                                    LongToast.makeText(CallActivity.this, R.string.permission_camera_videocall_required, Toast.LENGTH_LONG).show();
-                                }
-                            }
-                        })
-                        .exceptionally((e) -> {
-                            if (e != null) {
-                                logger.error("Error", e);
-                            }
-                            return null;
-                        });
+                    cameraPermissionLauncher.launch(Unit.INSTANCE);
                 }
             }
         });
@@ -1444,12 +1443,12 @@ public class CallActivity extends ThreemaActivity implements
                 ContextCompat.startForegroundService(this, serviceIntent);
 
                 if (ConfigUtils.isVideoCallsEnabled() && !dependencies.getPreferenceService().isVideoCallToggleTooltipShown()) {
-                    final @ColorInt int textColor = ConfigUtils.getColorFromAttribute(this, R.attr.colorOnPrimary);
+                    final @ColorInt int textColor = getColorFromAttribute(this, R.attr.colorOnPrimary);
 
                     try {
                         TapTargetView.showFor(CallActivity.this,
                             TapTarget.forView(commonViews.toggleOutgoingVideoButton, getString(R.string.video_calls), getString(R.string.tooltip_voip_turn_on_camera))
-                                .outerCircleColorInt(ConfigUtils.getColorFromAttribute(this, R.attr.colorPrimary))      // Specify a color for the outer circle
+                                .outerCircleColorInt(getColorFromAttribute(this, R.attr.colorPrimary))      // Specify a color for the outer circle
                                 .outerCircleAlpha(0.96f)            // Specify the alpha amount for the outer circle
                                 .targetCircleColor(android.R.color.white)   // Specify a color for the target circle
                                 .titleTextSize(24)                  // Specify the size (in sp) of the title text
@@ -1524,10 +1523,15 @@ public class CallActivity extends ThreemaActivity implements
                     videoContext.setFrameDimensions(x, y);
 
                     // Set picture in picture params to the given aspect ratio
-                    if (ConfigUtils.supportsPictureInPicture(CallActivity.this)) {
+                    if (DeviceInfo.supportsPictureInPicture(CallActivity.this)) {
                         PictureInPictureParams params = createPictureInPictureParams();
                         if (params != null) {
-                            setPictureInPictureParams(params);
+                            try {
+                                setPictureInPictureParams(params);
+                            } catch (IllegalStateException e) {
+                                // Some devices claim to support PiP despite not actually doing so
+                                logger.warn("Failed to set PiP params upon frame resolution change", e);
+                            }
                         } else {
                             logger.info("PictureInPictureParams are null");
                         }
@@ -1736,7 +1740,7 @@ public class CallActivity extends ThreemaActivity implements
         if (this.activityMode == MODE_INCOMING_CALL && contact != null) {
             rejectCall(callId, reason);
         } else if (this.activityMode == MODE_ACTIVE_CALL) {
-            VoipUtil.sendVoipCommand(CallActivity.this, VoipCallService.class, VoipCallService.ACTION_HANGUP);
+            VoipUtil.sendOneToOneCallHangupCommand(CallActivity.this);
             setResult(RESULT_CANCELED);
             finish();
         } else {
@@ -1845,46 +1849,6 @@ public class CallActivity extends ThreemaActivity implements
         });
     }
 
-    @TargetApi(Build.VERSION_CODES.S)
-    @Override
-    public void onRequestPermissionsResult(
-        int requestCode,
-        @NonNull String[] permissions,
-        @NonNull int[] grantResults
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
-        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            // Permission was granted
-            if (requestCode == PERMISSION_REQUEST_CAMERA) {
-                if (this.camPermissionResponse != null) {
-                    this.camPermissionResponse.complete(true);
-                }
-            }
-        } else {
-            if (requestCode == PERMISSION_REQUEST_CAMERA) {
-                if (this.camPermissionResponse != null) {
-                    this.camPermissionResponse.complete(false);
-                }
-            } else {
-                logger.warn("Invalid permission request code: {}", requestCode);
-            }
-        }
-    }
-
-    /**
-     * Audio bottom sheet selection
-     */
-    @Override
-    public void onSelected(String tag, String data) {
-        logger.debug("*** onSelected");
-        if (!isNullOrEmpty(tag)) {
-            int ordinal = Integer.valueOf(tag);
-            final AudioDevice device = AudioDevice.values()[ordinal];
-            this.selectAudioDevice(device);
-        }
-    }
-
     public void selectAudioDevice(@NonNull AudioDevice device) {
         final Intent intent = new Intent();
         intent.setAction(VoipCallService.ACTION_SET_AUDIO_DEVICE);
@@ -1910,11 +1874,6 @@ public class CallActivity extends ThreemaActivity implements
     public void onSensorChanged(String key, boolean value) {
         // called if sensor status changed
         logger.trace("onSensorChanged: {}={}", key, value);
-    }
-
-    @Override
-    protected boolean isPinLockable() {
-        return false;
     }
 
     /**
@@ -2040,7 +1999,7 @@ public class CallActivity extends ThreemaActivity implements
             return;
         }
 
-        if (!ConfigUtils.supportsPictureInPicture(this)) {
+        if (!DeviceInfo.supportsPictureInPicture(this)) {
             return;
         }
 

@@ -15,7 +15,7 @@ class EmptyMessage : AbstractMessage() {
 
     override fun allowUserProfileDistribution() = false
 
-    override fun exemptFromBlocking() = true
+    override fun exemptFromBlocking() = ExemptFromBlocking.YES
 
     override fun createImplicitlyDirectContact() = false
 

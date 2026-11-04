@@ -3,7 +3,7 @@ package ch.threema.localcrypto.models
 enum class RemoteSecretCheckType {
     /**
      * Indicates that the check is happening during the app's startup sequence, i.e., when the [ch.threema.app.home.HomeActivity] is opened
-     * or the wizard is completed.
+     * or a backup has been restored.
      */
     APP_STARTUP,
 

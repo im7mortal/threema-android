@@ -44,6 +44,12 @@ enum class Problem(
         dismissKey = "debug_log",
         solutionType = SolutionType.InstantAction(R.string.disable),
     ),
+    DEPRECATED_ANDROID_VERSION(
+        titleRes = R.string.problemsolver_title_android_version_deprecated,
+        explanation = ResourceIdString(R.string.problemsolver_explain_android_version_deprecated),
+        dismissKey = "deprecated_android_below_sdk29",
+        solutionType = null,
+    ),
     NOTIFICATIONS_DISABLED(
         titleRes = R.string.problemsolver_title_notifications,
         explanation = ResourceIdString(R.string.problemsolver_explain_notifications),

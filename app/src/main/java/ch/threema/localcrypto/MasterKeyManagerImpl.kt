@@ -441,4 +441,15 @@ class MasterKeyManagerImpl(
             persistKeyData()
         }
     }
+
+    /**
+     * Deletes the persisted key file, such that the master key exists only in memory afterward (if at all)
+     */
+    @Throws(IOException::class)
+    @WorkerThread
+    @Synchronized
+    fun deletePersistedKey() {
+        keyStorageManager.deleteKey()
+        keyNeedsWriting = true
+    }
 }

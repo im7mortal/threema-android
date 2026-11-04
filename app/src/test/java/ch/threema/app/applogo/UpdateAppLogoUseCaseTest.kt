@@ -1,5 +1,6 @@
 package ch.threema.app.applogo
 
+import ch.threema.app.files.AppLogoFileHandleProvider.Theme
 import ch.threema.app.services.FileService
 import ch.threema.testhelpers.buildResponse
 import ch.threema.testhelpers.mockNoRequestOkHttpClient
@@ -28,10 +29,10 @@ class UpdateAppLogoUseCaseTest {
         val lightFile = File.createTempFile("logo-light", "test")
         val darkFile = File.createTempFile("logo-dark", "test")
         val appLogoProviderMock = mockk<AppLogoProvider> {
-            coEvery { saveAppLogo(any(), "0", any()) } answers {
+            coEvery { saveAppLogo(any(), Theme.LIGHT, any()) } answers {
                 assertEquals(LIGHT_LOGO_CONTENT, firstArg<File>().readText())
             }
-            coEvery { saveAppLogo(any(), "1", any()) } answers {
+            coEvery { saveAppLogo(any(), Theme.DARK, any()) } answers {
                 assertEquals(DARK_LOGO_CONTENT, firstArg<File>().readText())
             }
             every { isAppLogoExpired(any()) } returns true
@@ -65,8 +66,8 @@ class UpdateAppLogoUseCaseTest {
             forceUpdate = false,
         )
 
-        coVerify { appLogoProviderMock.saveAppLogo(lightFile, "0", Instant.parse("2025-08-05T07:28:00Z")) }
-        coVerify { appLogoProviderMock.saveAppLogo(darkFile, "1", Instant.parse("2025-08-05T07:28:00Z")) }
+        coVerify { appLogoProviderMock.saveAppLogo(lightFile, Theme.LIGHT, Instant.parse("2025-08-05T07:28:00Z")) }
+        coVerify { appLogoProviderMock.saveAppLogo(darkFile, Theme.DARK, Instant.parse("2025-08-05T07:28:00Z")) }
         assertFalse(lightFile.exists())
         assertFalse(darkFile.exists())
     }
@@ -77,10 +78,10 @@ class UpdateAppLogoUseCaseTest {
             every { createTempFile(any(), any()) } returns File.createTempFile("logo", "test")
         }
         val appLogoProviderMock = mockk<AppLogoProvider> {
-            coEvery { saveAppLogo(any(), "0", any()) } answers {
+            coEvery { saveAppLogo(any(), Theme.LIGHT, any()) } answers {
                 assertEquals(LIGHT_LOGO_CONTENT, firstArg<File>().readText())
             }
-            coEvery { saveAppLogo(any(), "1", any()) } answers {
+            coEvery { saveAppLogo(any(), Theme.DARK, any()) } answers {
                 assertEquals(DARK_LOGO_CONTENT, firstArg<File>().readText())
             }
             every { isAppLogoExpired(any()) } returns true
@@ -110,8 +111,8 @@ class UpdateAppLogoUseCaseTest {
             forceUpdate = false,
         )
 
-        coVerify { appLogoProviderMock.saveAppLogo(any(), "0", null) }
-        coVerify { appLogoProviderMock.saveAppLogo(any(), "1", null) }
+        coVerify { appLogoProviderMock.saveAppLogo(any(), Theme.LIGHT, null) }
+        coVerify { appLogoProviderMock.saveAppLogo(any(), Theme.DARK, null) }
     }
 
     @Test
@@ -143,10 +144,10 @@ class UpdateAppLogoUseCaseTest {
             every { createTempFile(any(), any()) } returnsMany listOf(lightFile, darkFile)
         }
         val appLogoProviderMock = mockk<AppLogoProvider> {
-            coEvery { saveAppLogo(any(), "0", any()) } answers {
+            coEvery { saveAppLogo(any(), Theme.LIGHT, any()) } answers {
                 assertEquals(LIGHT_LOGO_CONTENT, firstArg<File>().readText())
             }
-            coEvery { saveAppLogo(any(), "1", any()) } answers {
+            coEvery { saveAppLogo(any(), Theme.DARK, any()) } answers {
                 assertEquals(DARK_LOGO_CONTENT, firstArg<File>().readText())
             }
             every { isAppLogoExpired(any()) } returns false
@@ -177,8 +178,8 @@ class UpdateAppLogoUseCaseTest {
             forceUpdate = true,
         )
 
-        coVerify { appLogoProviderMock.saveAppLogo(lightFile, "0", Instant.parse("2025-08-05T07:28:00Z")) }
-        coVerify { appLogoProviderMock.saveAppLogo(darkFile, "1", Instant.parse("2025-08-05T07:28:00Z")) }
+        coVerify { appLogoProviderMock.saveAppLogo(lightFile, Theme.LIGHT, Instant.parse("2025-08-05T07:28:00Z")) }
+        coVerify { appLogoProviderMock.saveAppLogo(darkFile, Theme.DARK, Instant.parse("2025-08-05T07:28:00Z")) }
         assertFalse(lightFile.exists())
         assertFalse(darkFile.exists())
     }
@@ -202,8 +203,8 @@ class UpdateAppLogoUseCaseTest {
             forceUpdate = false,
         )
 
-        coVerify(exactly = 1) { appLogoProviderMock.clearAppLogo("0") }
-        coVerify(exactly = 1) { appLogoProviderMock.clearAppLogo("1") }
+        coVerify(exactly = 1) { appLogoProviderMock.clearAppLogo(Theme.LIGHT) }
+        coVerify(exactly = 1) { appLogoProviderMock.clearAppLogo(Theme.DARK) }
     }
 
     @Test

@@ -2,23 +2,29 @@ package ch.threema.storage.models.data.media
 
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.JsonArrayIterator
+import ch.threema.data.datatypes.LocalPollId
 import ch.threema.storage.models.data.MessageDataInterface
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 
 data class PollDataModel(
     val type: Type,
-    val pollId: Int,
+    val pollId: LocalPollId,
 ) : MessageDataInterface {
-    override fun toString(): String =
+    fun serialize(): String =
         buildJsonArray {
             add(type.id)
             add(pollId)
         }
             .toString()
 
+    override fun toString(): String =
+        serialize()
+
     enum class Type(val id: Int) {
         POLL_CREATED(1),
+
+        @Deprecated("might be unused")
         POLL_MODIFIED(2),
         POLL_CLOSED(3),
     }
@@ -53,5 +59,17 @@ data class PollDataModel(
                 type = Type.POLL_CLOSED,
                 pollId = 0,
             )
+
+        @JvmStatic
+        fun createCreated(pollId: LocalPollId) = PollDataModel(
+            type = Type.POLL_CREATED,
+            pollId = pollId,
+        )
+
+        @JvmStatic
+        fun createClosed(pollId: LocalPollId) = PollDataModel(
+            type = Type.POLL_CLOSED,
+            pollId = pollId,
+        )
     }
 }

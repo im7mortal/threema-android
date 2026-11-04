@@ -5,7 +5,7 @@ import androidx.lifecycle.MutableLiveData
 import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.services.MessageService
 import ch.threema.common.DispatcherProvider
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageType
 import kotlinx.coroutines.withContext
 
@@ -13,8 +13,8 @@ class MediaGalleryRepository(
     private val dispatcherProvider: DispatcherProvider,
 ) {
 
-    private val _messages: MutableLiveData<List<AbstractMessageModel>?> = MutableLiveData(null)
-    val messages: LiveData<List<AbstractMessageModel>?> = _messages
+    private val _messages: MutableLiveData<List<MessageModel>?> = MutableLiveData(null)
+    val messages: LiveData<List<MessageModel>?> = _messages
 
     /**
      *  Loads the message models from database where the content type is in [contentTypes] and publish the results

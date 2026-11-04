@@ -25,7 +25,11 @@ class WorkDoNotDisturbUtil(
         val now = timeProvider.getLocal()
 
         val dayOfWeek = DayOfWeek.of(now.get(ChronoField.DAY_OF_WEEK))
-        val workingDays = parseWeekDays(sharedPreferences.getStringSet(appContext.getString(R.string.preferences__working_days), null))
+        val workingDays = (
+            sharedPreferences.getStringSet(appContext.getString(R.string.preferences__working_days), null)
+                ?: appContext.resources.getStringArray(R.array.working_days_default).toSet()
+            )
+            .let(::parseWeekDays)
             ?: return false
         if (dayOfWeek !in workingDays) {
             // today is not a work day

@@ -32,11 +32,6 @@ public class DatabaseUpdateToVersion58 implements DatabaseUpdate {
     }
 
     @Override
-    public String getDescription() {
-        return "change GroupMessagePendingMessageIdModel primary key";
-    }
-
-    @Override
     public int getVersion() {
         return 58;
     }

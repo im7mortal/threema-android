@@ -28,7 +28,7 @@ class AppDirectoryProviderTest {
     @Test
     fun `share directory is always created if it does not exist`() {
         val appDirectoryProvider = AppDirectoryProvider(
-            context = mockk {
+            appContext = mockk {
                 every { filesDir } returns mockk()
                 every { cacheDir } returns cacheDirectory
             },

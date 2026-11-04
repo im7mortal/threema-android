@@ -6,8 +6,8 @@ import android.graphics.drawable.Drawable
 import android.os.Build
 import android.view.View
 import androidx.core.graphics.drawable.DrawableCompat
+import ch.threema.android.getColorFromAttribute
 import ch.threema.app.R
-import ch.threema.app.utils.ConfigUtils
 import kotlin.math.sqrt
 
 internal class ThumbDatePopupBackground(context: Context) : Drawable() {
@@ -20,13 +20,11 @@ internal class ThumbDatePopupBackground(context: Context) : Drawable() {
 
     init {
         paint.isAntiAlias = true
-        paint.color = ConfigUtils.getColorFromAttribute(context, R.attr.colorSecondaryContainer)
+        paint.color = context.getColorFromAttribute(R.attr.colorSecondaryContainer)
         paint.style = Paint.Style.FILL
-        paddingStart =
-            context.resources.getDimensionPixelSize(R.dimen.thumb_date_popup_padding_start)
+        paddingStart = context.resources.getDimensionPixelSize(R.dimen.thumb_date_popup_padding_start)
         paddingEnd = context.resources.getDimensionPixelSize(R.dimen.thumb_date_popup_padding_end)
-        paddingTopBottom =
-            context.resources.getDimensionPixelSize(R.dimen.thumb_date_popup_padding_top_bottom)
+        paddingTopBottom = context.resources.getDimensionPixelSize(R.dimen.thumb_date_popup_padding_top_bottom)
     }
 
     override fun draw(canvas: Canvas) {

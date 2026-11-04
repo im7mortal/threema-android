@@ -3,13 +3,14 @@ package ch.threema.app.di
 import android.content.Context
 import ch.threema.app.GlobalAppState
 import ch.threema.app.GlobalListeners
+import ch.threema.app.activities.CloseAppActivity
 import ch.threema.app.androidcontactsync.AndroidContactChangeMonitor
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.push.PushService
 import ch.threema.app.services.avatarcache.AvatarCacheService
+import ch.threema.app.services.notification.PassphraseNotificationService
 import ch.threema.app.startup.AppStartupMonitorImpl
 import ch.threema.app.systemupdates.SystemUpdateState
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.PushUtil
 import ch.threema.app.utils.ShortcutUtil
 import ch.threema.app.voip.util.VoipUtil
@@ -48,6 +49,7 @@ class MasterKeyLockStateChangeHandler(
     private val avatarCacheService: AvatarCacheService,
     private val globalAppState: GlobalAppState,
     private val androidContactChangeMonitor: AndroidContactChangeMonitor,
+    private val passphraseNotificationService: PassphraseNotificationService,
 ) {
 
     private val coroutineScope = CoroutineScope(dispatcherProvider.worker)
@@ -65,6 +67,8 @@ class MasterKeyLockStateChangeHandler(
     ) {
         sessionScopeContainerHolder.sessionScopeContainer = sessionScopeContainer
 
+        passphraseNotificationService.cancelNewMessagesPassphraseNotification()
+
         appStartupMonitor.onMasterKeyUnlocked(databaseState, systemUpdateState)
         sessionScopeContainer.multiDeviceManagerImpl.setReconnectHandle(sessionScopeContainer.convertibleServerConnection)
 
@@ -74,7 +78,7 @@ class MasterKeyLockStateChangeHandler(
 
         // TODO(ANDR-4683): This needs to be turned into a proper monitor
         observeConnectionStateJob = coroutineScope.launch {
-            sessionScopeContainer.serviceManager.connection.watchConnectionState().collect { connectionState ->
+            sessionScopeContainer.connection.watchConnectionState().collect { connectionState ->
                 logger.info("ServerConnection state changed: {}", connectionState)
                 if (connectionState == ConnectionState.LOGGED_IN) {
                     globalAppState.lastLoggedIn = Instant.now()
@@ -107,7 +111,7 @@ class MasterKeyLockStateChangeHandler(
         globalListeners?.tearDown()
         globalListeners = null
 
-        ConfigUtils.scheduleAppRestart(appContext)
+        CloseAppActivity.closeApp(appContext)
     }
 
     private suspend fun cleanUpSession(sessionScopeContainer: SessionScopeContainer) {
@@ -143,6 +147,7 @@ class MasterKeyLockStateChangeHandler(
     }
 
     private suspend fun stopConnection(sessionScopeContainer: SessionScopeContainer) = withContext(dispatcherProvider.io) {
+        sessionScopeContainer.lifetimeService.destroy()
         sessionScopeContainer.connection.takeIf { it.isRunning }?.let { connection ->
             try {
                 connection.stop()

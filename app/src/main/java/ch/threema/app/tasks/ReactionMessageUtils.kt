@@ -2,12 +2,12 @@ package ch.threema.app.tasks
 
 import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.services.MessageService
-import ch.threema.app.utils.MessageUtil
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.models.MessageId
 import ch.threema.domain.protocol.csp.messages.GroupReactionMessage
 import ch.threema.domain.protocol.csp.messages.ReactionMessage
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
+import ch.threema.storage.models.supportsEmojiReactions
 import com.google.protobuf.ByteString
 import kotlin.text.isNotEmpty
 
@@ -19,7 +19,7 @@ fun runCommonReactionMessageReceiveSteps(
     reactionMessage: ReactionMessage,
     receiver: MessageReceiver<*>,
     messageService: MessageService,
-): AbstractMessageModel? = runCommonReactionMessageReceiveSteps(
+): MessageModel? = runCommonReactionMessageReceiveSteps(
     emojiSequenceBytes = reactionMessage.data.emojiSequenceBytes,
     messageId = reactionMessage.data.messageId,
     receiver = receiver,
@@ -30,7 +30,7 @@ fun runCommonReactionMessageReceiveSteps(
     reactionMessage: GroupReactionMessage,
     receiver: MessageReceiver<*>,
     messageService: MessageService,
-): AbstractMessageModel? = runCommonReactionMessageReceiveSteps(
+): MessageModel? = runCommonReactionMessageReceiveSteps(
     emojiSequenceBytes = reactionMessage.data.emojiSequenceBytes,
     messageId = reactionMessage.data.messageId,
     receiver = receiver,
@@ -42,7 +42,7 @@ private fun runCommonReactionMessageReceiveSteps(
     messageId: Long,
     receiver: MessageReceiver<*>,
     messageService: MessageService,
-): AbstractMessageModel? {
+): MessageModel? {
     val apiMessageId = MessageId(messageId).toString()
     val message = messageService.getMessageModelByApiMessageIdAndReceiver(apiMessageId, receiver)
 
@@ -51,7 +51,7 @@ private fun runCommonReactionMessageReceiveSteps(
         return null
     }
 
-    if (!MessageUtil.canEmojiReact(message)) {
+    if (!message.supportsEmojiReactions()) {
         logger.warn(
             "Incoming Reaction Message: Message of type {} cannot be reacted to",
             message.type,

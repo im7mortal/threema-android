@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * Migrate timestamps in database from string to unix epoch timestamps
+ */
 class DatabaseUpdateToVersion115(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -13,8 +16,6 @@ class DatabaseUpdateToVersion115(
     }
 
     override val version = 115
-
-    override fun getDescription() = "Migrate timestamps in database from string to unix epoch timestamps"
 
     private fun migrateContacts() {
         renameLastUpdateColumn("contacts")

@@ -55,6 +55,12 @@ class PreferenceStoreImpl(
         }
     }
 
+    override fun save(key: String, value: Set<String>) {
+        sharedPreferences.edit(commit = commit) {
+            putStringSet(key, value)
+        }
+    }
+
     override fun save(key: String, value: Long) {
         sharedPreferences.edit(commit = commit) {
             putLong(key, value)

@@ -24,7 +24,7 @@ import ch.threema.app.R
 import ch.threema.app.cache.ThumbnailCache
 import ch.threema.app.utils.RuntimeUtil
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -54,8 +54,8 @@ class AudioProgressBarView :
     private var waveBitmap: Bitmap? = null
     private var emptyBitmap: Bitmap? = null
     private var waveFormTask: AudioWaveformGeneratorTask? = null
-    private var thumbnailCache: ThumbnailCache<Any>? = null
-    private var messageModel: AbstractMessageModel? = null
+    private var thumbnailCache: ThumbnailCache? = null
+    private var messageModel: MessageModel? = null
     private var changeBounds: Transition = ChangeClipBounds()
 
     private var numPreCalculatedSamples: Int = 0
@@ -254,7 +254,7 @@ class AudioProgressBarView :
         return tmpBitmap
     }
 
-    override fun onDataReady(newMessageModel: AbstractMessageModel, sampleData: List<Float>) {
+    override fun onDataReady(newMessageModel: MessageModel, sampleData: List<Float>) {
         if (!isAttachedToWindow) {
             return
         }
@@ -274,11 +274,11 @@ class AudioProgressBarView :
         }
     }
 
-    override fun onError(errorMessageModel: AbstractMessageModel, errorMessage: String?) {
+    override fun onError(errorMessageModel: MessageModel, errorMessage: String?) {
         waveFormTask = null
     }
 
-    override fun onCanceled(cancelMessageModel: AbstractMessageModel) {
+    override fun onCanceled(cancelMessageModel: MessageModel) {
         waveFormTask = null
     }
 
@@ -299,8 +299,8 @@ class AudioProgressBarView :
     }
 
     fun setMessageModel(
-        newMessageModel: AbstractMessageModel?,
-        thumbnailCache: ThumbnailCache<Any>?,
+        newMessageModel: MessageModel?,
+        thumbnailCache: ThumbnailCache?,
     ) {
         if (newMessageModel == null) {
             return

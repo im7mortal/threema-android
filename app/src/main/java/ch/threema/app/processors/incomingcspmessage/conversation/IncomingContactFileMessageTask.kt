@@ -12,7 +12,7 @@ import ch.threema.domain.protocol.csp.messages.file.FileData
 import ch.threema.domain.protocol.csp.messages.file.FileMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.TriggerSource
-import ch.threema.storage.models.MessageModel
+import ch.threema.storage.models.ContactMessageModel
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.media.FileDataModel
 import java.time.Instant
@@ -72,8 +72,8 @@ class IncomingContactFileMessageTask(
         // 2. Map the FileData object to a FileDataModel instance (field "downloaded" is false)
         val fileDataModel: FileDataModel = FileDataModel.fromIncomingFileData(fileData)
 
-        // 3. Create the actual AbstractMessageModel containing the file and sender information
-        val messageModel: MessageModel = createMessageModelFromFileMessage(
+        // 3. Create the actual MessageModel containing the file and sender information
+        val messageModel: ContactMessageModel = createContactMessageModelFromFileMessage(
             fileMessage = message,
             fileDataModel = fileDataModel,
             fileData = fileData,
@@ -105,15 +105,15 @@ class IncomingContactFileMessageTask(
     }
 
     /**
-     *  @return A new instance of `AbstractMessageModel` with type [MessageType.FILE] containing
+     *  @return A new instance of `ContactMessageModel` with type [MessageType.FILE] containing
      *  the `body` and `dataObject` from the passed file information.
      */
-    private fun createMessageModelFromFileMessage(
+    private fun createContactMessageModelFromFileMessage(
         fileMessage: FileMessage,
         fileDataModel: FileDataModel,
         fileData: FileData,
-    ): MessageModel {
-        return MessageModel().apply {
+    ): ContactMessageModel {
+        return ContactMessageModel().apply {
             uid = UUID.randomUUID().toString()
             messageId = message.messageId
 
@@ -141,7 +141,7 @@ class IncomingContactFileMessageTask(
      *  Attempt to download the thumbnail and the actual media content. Even if
      *  the thumbnail download failed, we try to download the actual blob contents.
      */
-    private fun processMediaContent(fileData: FileData, messageModel: MessageModel) {
+    private fun processMediaContent(fileData: FileData, messageModel: ContactMessageModel) {
         runCatching {
             messageService.downloadThumbnailIfPresent(fileData, messageModel)
         }.onSuccess { thumbnailWasDownloaded: Boolean ->

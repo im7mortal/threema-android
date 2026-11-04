@@ -2,7 +2,10 @@ package ch.threema.app.multidevice.linking
 
 import android.graphics.Bitmap
 import androidx.annotation.WorkerThread
+import ch.threema.android.toJpegByteArray
+import ch.threema.android.use
 import ch.threema.app.BuildConfig
+import ch.threema.app.BuildFlavor
 import ch.threema.app.R
 import ch.threema.app.ThreemaApplication
 import ch.threema.app.managers.ServiceManager
@@ -10,16 +13,12 @@ import ch.threema.app.restrictions.AppRestrictions
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.license.LicenseServiceUser
 import ch.threema.app.tasks.ReflectUserProfileIdentityLinksTask
-import ch.threema.app.utils.BitmapUtil
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.base.crypto.NaCl
 import ch.threema.base.crypto.NonceScope
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.datatypes.AvailabilityStatus
-import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
-import ch.threema.data.datatypes.DistributionListConversationId
-import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.data.models.ContactModel
 import ch.threema.data.models.ContactModelData
 import ch.threema.data.models.GroupModel
@@ -53,7 +52,7 @@ import ch.threema.protobuf.d2d.sync.Contact
 import ch.threema.protobuf.d2d.sync.ContactKt
 import ch.threema.protobuf.d2d.sync.ContactKt.readReceiptPolicyOverride
 import ch.threema.protobuf.d2d.sync.ContactKt.typingIndicatorPolicyOverride
-import ch.threema.protobuf.d2d.sync.ConversationCategory
+import ch.threema.protobuf.d2d.sync.ConversationCategory as ProtocolsConversationCategory
 import ch.threema.protobuf.d2d.sync.ConversationVisibility as ProtocolsConversationVisibility
 import ch.threema.protobuf.d2d.sync.Group
 import ch.threema.protobuf.d2d.sync.GroupKt
@@ -230,8 +229,6 @@ class DeviceLinkingDataCollector(
     private val blockedIdentitiesService by lazy { serviceManager.blockedIdentitiesService }
     private val excludeFromSyncService by lazy { serviceManager.excludedSyncIdentitiesService }
     private val fileService by lazy { serviceManager.fileService }
-    private val conversationCategoryService by lazy { serviceManager.conversationCategoryService }
-    private val conversationService by lazy { serviceManager.conversationService }
     private val nonceFactory by lazy { serviceManager.nonceFactory }
     private val licenseService by lazy { serviceManager.licenseService }
     private val appRestrictions: AppRestrictions by inject()
@@ -293,7 +290,7 @@ class DeviceLinkingDataCollector(
         essentialDataBuilder.addAllD2DHashedNonces(collectD2dNonceHashes())
 
         // work
-        if (ConfigUtils.isWorkBuild()) {
+        if (BuildFlavor.IS_WORK) {
             logger.trace("Collect work credentials")
             essentialDataBuilder.setWorkCredentials(
                 collectWorkCredentials()
@@ -461,7 +458,7 @@ class DeviceLinkingDataCollector(
 
     private fun collectExcludeFromSyncIdentities(): Identities {
         return identities {
-            identities += excludeFromSyncService.getExcludedIdentities()
+            identities += excludeFromSyncService.getAllExcludedIdentities()
         }
     }
 
@@ -483,8 +480,6 @@ class DeviceLinkingDataCollector(
         contactModelData: ContactModelData,
     ): Pair<List<BlobDataProvider>, AugmentedContactProvider> {
         val blobDataProviders = mutableListOf<BlobDataProvider>()
-
-        val conversationId = ContactConversationId(identity = contactModelData.identity)
 
         val contactDefinedProfilePictureInfo: Pair<BlobDataProvider, DeltaImage>? = collectContactDefinedProfilePicture(contactModelData)
         val userDefinedProfilePictureInfo: Pair<BlobDataProvider, DeltaImage>? = collectUserDefinedProfilePicture(contactModelData)
@@ -521,16 +516,10 @@ class DeviceLinkingDataCollector(
                 userDefinedProfilePicture = userDefinedProfilePictureInfo.second
             }
 
-            conversationCategory =
-                if (conversationCategoryService.isMarkedAsPrivate(conversationId)) {
-                    ConversationCategory.PROTECTED
-                } else {
-                    ConversationCategory.DEFAULT
-                }
-
+            conversationCategory = mapConversationCategory(contactModelData.conversationCategory)
             conversationVisibility = mapConversationVisibility(contactModelData.conversationVisibility)
 
-            if (ConfigUtils.isWorkBuild() && contactModelData.workLastFullSyncAt != null) {
+            if (BuildFlavor.IS_WORK && contactModelData.workLastFullSyncAt != null) {
                 workLastFullSyncAt = contactModelData.workLastFullSyncAt.toEpochMilli()
             }
 
@@ -587,6 +576,13 @@ class DeviceLinkingDataCollector(
         }
     }
 
+    private fun mapConversationCategory(
+        conversationCategory: ConversationCategory,
+    ): ProtocolsConversationCategory = when (conversationCategory) {
+        ConversationCategory.DEFAULT -> ProtocolsConversationCategory.DEFAULT
+        ConversationCategory.PROTECTED -> ProtocolsConversationCategory.PROTECTED
+    }
+
     private fun mapConversationVisibility(
         conversationVisibility: ConversationVisibility,
     ): ProtocolsConversationVisibility = when (conversationVisibility) {
@@ -615,7 +611,9 @@ class DeviceLinkingDataCollector(
         val blobId = getNextBlobId()
 
         val blobDataProvider = BlobDataProvider(blobId) {
-            bitmapProvider.invoke()?.let { BitmapUtil.bitmapToJpegByteArray(it) }
+            bitmapProvider.invoke()?.use { bitmap ->
+                bitmap.toJpegByteArray()
+            }
         }
 
         val blobMeta = blob { id = blobId.toByteString() }
@@ -690,8 +688,6 @@ class DeviceLinkingDataCollector(
     ): Pair<List<BlobDataProvider>, AugmentedGroupProvider> {
         val blobDataProviders = mutableListOf<BlobDataProvider>()
 
-        val conversationId = GroupConversationId(groupDatabaseId = groupModel.getDatabaseId())
-
         val groupModelData = groupModel.data!!
 
         val groupAvatarInfo = collectGroupAvatar(groupModel)
@@ -715,12 +711,7 @@ class DeviceLinkingDataCollector(
                 profilePicture = groupAvatarInfo.second
             }
             memberIdentities = collectGroupIdentities(groupModelData)
-            conversationCategory =
-                if (conversationCategoryService.isMarkedAsPrivate(conversationId)) {
-                    ConversationCategory.PROTECTED
-                } else {
-                    ConversationCategory.DEFAULT
-                }
+            conversationCategory = mapConversationCategory(groupModelData.conversationCategory)
             conversationVisibility = mapConversationVisibility(groupModelData.conversationVisibility)
         }
 
@@ -785,8 +776,6 @@ class DeviceLinkingDataCollector(
     private fun mapToAugmentedDistributionList(
         distributionListModel: DistributionListModel,
     ): EssentialData.AugmentedDistributionList? {
-        val conversationId = DistributionListConversationId(distributionListId = distributionListModel.id)
-
         return collectDistributionListIdentities(distributionListModel)?.let { identities ->
             distributionList {
                 distributionListId = distributionListModel.id
@@ -794,13 +783,7 @@ class DeviceLinkingDataCollector(
                 assertValidTimestamp(distributionListModel.createdAt.toEpochMilli(), "DistributionList createdAt (${distributionListModel.id})")
                 createdAt = distributionListModel.createdAt.toEpochMilli()
                 memberIdentities = identities
-
-                conversationCategory =
-                    if (conversationCategoryService.isMarkedAsPrivate(conversationId)) {
-                        ConversationCategory.PROTECTED
-                    } else {
-                        ConversationCategory.DEFAULT
-                    }
+                conversationCategory = mapConversationCategory(distributionListModel.conversationCategory)
                 conversationVisibility = mapConversationVisibility(distributionListModel.conversationVisibility)
             }
         }?.let {

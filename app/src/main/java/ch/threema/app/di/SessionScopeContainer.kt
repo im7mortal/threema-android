@@ -5,24 +5,20 @@ import android.os.PowerManager
 import androidx.annotation.VisibleForTesting
 import androidx.core.content.getSystemService
 import ch.threema.app.BuildFlavor
-import ch.threema.app.BuildFlavor.Companion.current
+import ch.threema.app.GlobalAppState
 import ch.threema.app.androidcontactsync.usecases.SynchronizeAndroidContactsUseCase
-import ch.threema.app.backuprestore.ExportConversationService
-import ch.threema.app.backuprestore.ExportConversationServiceImpl
+import ch.threema.app.apptaskexecutor.AppTaskExecutor
 import ch.threema.app.connection.CspD2mDualConnectionSupplier
+import ch.threema.app.connection.ServerConnectionManager
 import ch.threema.app.emojis.EmojiRecent
 import ch.threema.app.emojis.EmojiService
 import ch.threema.app.emojis.search.EmojiSearchIndex
 import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.eventbus.GlobalEventFlows
-import ch.threema.app.files.AppDirectoryProvider
-import ch.threema.app.files.WallpaperFileHandleProvider
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.multidevice.MultiDeviceManagerImpl
 import ch.threema.app.notifications.CallNotificationManager
-import ch.threema.app.onprem.OnPremConfigFetcherProvider
-import ch.threema.app.onprem.OnPremServerAddressProvider
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.preference.service.SynchronizedSettingsService
 import ch.threema.app.preference.service.SynchronizedSettingsServiceImpl
@@ -38,13 +34,10 @@ import ch.threema.app.services.BlockedIdentitiesServiceImpl
 import ch.threema.app.services.CacheService
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.ContactServiceImpl
-import ch.threema.app.services.ConversationCategoryService
-import ch.threema.app.services.ConversationCategoryServiceImpl
 import ch.threema.app.services.ConversationService
 import ch.threema.app.services.ConversationServiceImpl
 import ch.threema.app.services.ConversationTagService
 import ch.threema.app.services.ConversationTagServiceImpl
-import ch.threema.app.services.DefaultServerAddressProvider
 import ch.threema.app.services.DeviceService
 import ch.threema.app.services.DeviceServiceImpl
 import ch.threema.app.services.DistributionListService
@@ -75,13 +68,12 @@ import ch.threema.app.services.SynchronizeContactsService
 import ch.threema.app.services.SynchronizeContactsServiceImpl
 import ch.threema.app.services.UserService
 import ch.threema.app.services.UserServiceImpl
-import ch.threema.app.services.WallpaperService
-import ch.threema.app.services.WallpaperServiceImpl
 import ch.threema.app.services.avatarcache.AvatarCacheService
 import ch.threema.app.services.license.LicenseService
 import ch.threema.app.services.license.LicenseServiceNoOp
 import ch.threema.app.services.license.LicenseServiceSerial
 import ch.threema.app.services.license.LicenseServiceUser
+import ch.threema.app.services.messageplayer.MessageFileDecryptionHelper
 import ch.threema.app.services.messageplayer.MessagePlayerService
 import ch.threema.app.services.messageplayer.MessagePlayerServiceImpl
 import ch.threema.app.services.notification.BadgeUpdater
@@ -100,11 +92,12 @@ import ch.threema.app.tasks.TaskCreator
 import ch.threema.app.tasks.archive.TaskArchiverImpl
 import ch.threema.app.tasks.archive.recovery.TaskRecoveryManagerImpl
 import ch.threema.app.tasks.getDebugString
+import ch.threema.app.threemasafe.ThreemaSafeBackupCreator
 import ch.threema.app.threemasafe.ThreemaSafeService
 import ch.threema.app.threemasafe.ThreemaSafeServiceImpl
 import ch.threema.app.typingindicator.TypingIndicatorManager
+import ch.threema.app.usecases.conversation.GetConversationCategoryUseCase
 import ch.threema.app.utils.AppVersionProvider.appVersion
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.DeviceIdProvider
 import ch.threema.app.utils.DoNotDisturbUtil
 import ch.threema.app.utils.ForwardSecurityStatusSender
@@ -113,13 +106,17 @@ import ch.threema.app.voip.groupcall.GroupCallManagerImpl
 import ch.threema.app.voip.groupcall.sfu.SfuConnection
 import ch.threema.app.voip.groupcall.sfu.SfuConnectionImpl
 import ch.threema.app.voip.services.VoipStateService
+import ch.threema.app.wallpapers.WallpaperService
 import ch.threema.app.webclient.manager.WebClientServiceManager
 import ch.threema.app.webclient.services.ServicesContainer
+import ch.threema.app.webclient.services.SessionWakeUpService
 import ch.threema.app.widget.WidgetUpdater
+import ch.threema.app.work.LegacyWorkPropertiesUpdater
 import ch.threema.base.HAS_DEV_FEATURES
 import ch.threema.base.ThreemaException
 import ch.threema.base.crypto.NonceFactory
 import ch.threema.base.crypto.NonceScope
+import ch.threema.base.crypto.NonceStore
 import ch.threema.base.crypto.SymmetricEncryptionService
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.DispatcherProvider
@@ -129,7 +126,7 @@ import ch.threema.data.IdentityProvider
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.data.repositories.ModelRepositories
 import ch.threema.data.repositories.ServerMessageModelRepository
-import ch.threema.domain.models.UserCredentials
+import ch.threema.domain.protocol.ChallengeResponseHelper
 import ch.threema.domain.protocol.ServerAddressProvider
 import ch.threema.domain.protocol.Version
 import ch.threema.domain.protocol.api.APIAuthenticator
@@ -149,11 +146,14 @@ import ch.threema.storage.DatabaseProvider
 import ch.threema.storage.DatabaseService
 import ch.threema.storage.factories.ContactModelFactory
 import ch.threema.storage.factories.ConversationTagFactory
+import ch.threema.storage.factories.DistributionListMemberModelFactory
+import ch.threema.storage.factories.DistributionListModelFactory
 import ch.threema.storage.factories.WebClientSessionModelFactory
 import java.security.SecureRandom
 import java.util.Locale
 import java.util.function.Supplier
 import kotlin.reflect.KProperty
+import kotlin.time.TimeSource
 import okhttp3.OkHttpClient
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
@@ -220,9 +220,14 @@ class SessionScopeContainer(
         )
     }
 
-    val nonceFactory: NonceFactory by lazyWithClosedCheck {
+    val nonceStore: NonceStore by lazyWithClosedCheck {
         val databaseNonceStore = DatabaseNonceStore(appContext, identityStore)
         databaseNonceStore.migrateIfNeeded()
+        databaseNonceStore
+    }
+
+    val nonceFactory: NonceFactory by lazyWithClosedCheck {
+        val databaseNonceStore = nonceStore
         logger.info("Nonce count (csp): {}", databaseNonceStore.getCount(NonceScope.CSP))
         logger.info("Nonce count (d2d): {}", databaseNonceStore.getCount(NonceScope.D2D))
         NonceFactory(databaseNonceStore)
@@ -238,11 +243,20 @@ class SessionScopeContainer(
             globalEventBuses = get<GlobalEventBuses>(),
             globalEventFlows = get<GlobalEventFlows>(),
             dispatcherProvider = get<DispatcherProvider>(),
+            timeProvider = get<TimeProvider>(),
         )
     }
 
     val connection: ServerConnection
         get() = convertibleServerConnection
+
+    val serverConnectionManager: ServerConnectionManager by lazyWithClosedCheck {
+        ServerConnectionManager(
+            identityProvider = get<IdentityProvider>(),
+            connection = convertibleServerConnection,
+            multiDeviceManager = multiDeviceManager,
+        )
+    }
 
     val convertibleServerConnection: ConvertibleServerConnection by lazyWithClosedCheck {
         val connectionSupplier: Supplier<ServerConnection> = CspD2mDualConnectionSupplier(
@@ -311,6 +325,7 @@ class SessionScopeContainer(
             multiDeviceManager,
             get<DeviceIdProvider>(),
             get<GlobalEventBuses>(),
+            get<LegacyWorkPropertiesUpdater>(),
         )
             .apply {
                 // TODO(ANDR-2519): Remove when md allows fs
@@ -334,7 +349,7 @@ class SessionScopeContainer(
             groupService,
             apiService,
             downloadService,
-            conversationCategoryService,
+            get<GetConversationCategoryUseCase>(),
             blockedIdentitiesService,
             multiDeviceManager,
             modelRepositories.editHistory,
@@ -355,20 +370,26 @@ class SessionScopeContainer(
     val lifetimeService: LifetimeService
         get() = lifetimeServiceOverride ?: _lifetimeService
     private val _lifetimeService: LifetimeService by lazyWithClosedCheck {
-        LifetimeServiceImpl(appContext)
+        LifetimeServiceImpl(
+            appContext = appContext,
+            serverConnectionManager = serverConnectionManager,
+            downloadService = downloadService,
+            taskManager = taskManager,
+            globalAppState = get<GlobalAppState>(),
+            timeSource = get<TimeSource.WithComparableMarks>(),
+            dispatcherProvider = get<DispatcherProvider>(),
+        )
     }
 
     val licenseService: LicenseService<*> by lazyWithClosedCheck {
-        when (current.licenseType) {
+        when (BuildFlavor.licenseType) {
             BuildFlavor.LicenseType.SERIAL,
             -> LicenseServiceSerial(
                 apiConnector,
                 get<PreferenceService>(),
                 get<DeviceIdProvider>().getDeviceId(),
             )
-            BuildFlavor.LicenseType.GOOGLE_WORK,
-            BuildFlavor.LicenseType.HMS_WORK,
-            BuildFlavor.LicenseType.ONPREM,
+            BuildFlavor.LicenseType.WORK,
             -> LicenseServiceUser(
                 apiConnector,
                 get<PreferenceService>(),
@@ -390,8 +411,7 @@ class SessionScopeContainer(
             get<DatabaseService>(),
             get<AvatarCacheService>(),
             get<FileService>(),
-            wallpaperService,
-            conversationCategoryService,
+            get<WallpaperService>(),
             get<RingtoneService>(),
             conversationTagService,
             get<PreferenceService>(),
@@ -411,12 +431,12 @@ class SessionScopeContainer(
 
     val apiService: ApiService by lazyWithClosedCheck {
         ApiServiceImpl(
-            appVersion,
             apiConnector,
             AuthTokenStore(),
             serverAddressProviderService.serverAddressProvider,
             multiDeviceManager,
-            get<OkHttpClient>(),
+            get<OkHttpClient>(qualifier = Qualifiers.okHttpBlobDownload),
+            get<OkHttpClient>(qualifier = Qualifiers.okHttpBlobUpload),
         )
     }
 
@@ -430,7 +450,6 @@ class SessionScopeContainer(
             groupService,
             distributionListService,
             messageService,
-            conversationCategoryService,
             blockedIdentitiesService,
             conversationTagService,
             get<PreferenceService>(),
@@ -441,8 +460,8 @@ class SessionScopeContainer(
     val notificationService: NotificationService by lazyWithClosedCheck {
         NotificationServiceImpl(
             appContext = appContext,
+            getConversationCategoryUseCase = get<GetConversationCategoryUseCase>(),
             lockAppService = get<LockAppService>(),
-            conversationCategoryService = conversationCategoryService,
             notificationPreferenceService = get<NotificationPreferenceService>(),
             ringtoneService = get<RingtoneService>(),
             preferenceService = get<PreferenceService>(),
@@ -482,15 +501,6 @@ class SessionScopeContainer(
         )
     }
 
-    val conversationCategoryService: ConversationCategoryService by lazyWithClosedCheck {
-        ConversationCategoryServiceImpl(
-            preferenceService = get<PreferenceService>(),
-            preferenceStore = get<PreferenceStore>(),
-            multiDeviceManager = multiDeviceManager,
-            taskCreator = taskCreator,
-        )
-    }
-
     val distributionListService: DistributionListService by lazyWithClosedCheck {
         DistributionListServiceImpl(
             appContext,
@@ -508,11 +518,17 @@ class SessionScopeContainer(
         MessagePlayerServiceImpl(
             appContext,
             messageService,
-            get<FileService>(),
             get<PreferenceService>(),
             get<NotificationPreferenceService>(),
-            conversationCategoryService,
             get<GlobalEventBuses>(),
+            messageFileDecryptionHelper,
+        )
+    }
+
+    private val messageFileDecryptionHelper: MessageFileDecryptionHelper by lazyWithClosedCheck {
+        MessageFileDecryptionHelper(
+            fileService = get(),
+            dispatcherProvider = get(),
         )
     }
 
@@ -536,15 +552,6 @@ class SessionScopeContainer(
         )
     }
 
-    val wallpaperService: WallpaperService by lazyWithClosedCheck {
-        WallpaperServiceImpl(
-            appContext,
-            get<WallpaperFileHandleProvider>(),
-            get<PreferenceService>(),
-            get<AppDirectoryProvider>(),
-        )
-    }
-
     val threemaSafeService: ThreemaSafeService by lazyWithClosedCheck {
         ThreemaSafeServiceImpl(
             appContext,
@@ -552,35 +559,21 @@ class SessionScopeContainer(
             synchronizedSettingsService,
             userService,
             contactService,
-            groupService,
-            distributionListService,
             localeService,
-            get<FileService>(),
             blockedIdentitiesService,
             excludedSyncIdentitiesService,
             profilePicRecipientsService,
-            get<DatabaseService>(),
+            get<DistributionListModelFactory>(),
+            get<DistributionListMemberModelFactory>(),
             identityStore,
             apiService,
             apiConnector,
-            conversationCategoryService,
-            serverAddressProviderService.serverAddressProvider,
-            get<EncryptedPreferenceStore>(),
             modelRepositories.contacts,
+            modelRepositories.groups,
             get<OkHttpClient>(),
             get<AppRestrictions>(),
             get<ValidContactsLookupSteps>(),
-        )
-    }
-
-    @get:Throws(ThreemaException::class)
-    val exportConversationService: ExportConversationService by lazyWithClosedCheck {
-        ExportConversationServiceImpl(
-            appContext,
-            get<FileService>(),
-            messageService,
-            contactService,
-            get<PreferenceService>(),
+            get<ThreemaSafeBackupCreator>(),
         )
     }
 
@@ -633,13 +626,7 @@ class SessionScopeContainer(
     val serverAddressProviderService: ServerAddressProviderService by lazyWithClosedCheck {
         object : ServerAddressProviderService {
             override val serverAddressProvider: ServerAddressProvider by lazyWithClosedCheck {
-                if (ConfigUtils.isOnPremBuild()) {
-                    OnPremServerAddressProvider { get<OnPremConfigFetcherProvider>().getOnPremConfigFetcher() }
-                } else {
-                    DefaultServerAddressProvider(
-                        preferenceService = get<PreferenceService>(),
-                    )
-                }
+                get<ServerAddressProvider>()
             }
         }
     }
@@ -662,11 +649,11 @@ class SessionScopeContainer(
                 blockedIdentitiesService,
                 get<PreferenceService>(),
                 userService,
-                conversationCategoryService,
                 get<FileService>(),
+                messageFileDecryptionHelper,
                 synchronizeContactsService,
                 licenseService,
-                apiConnector,
+                get<SessionWakeUpService>(),
                 modelRepositories.contacts,
                 modelRepositories.groups,
                 groupFlowDispatcher,
@@ -702,6 +689,7 @@ class SessionScopeContainer(
             userService = userService,
             contactStore = contactStore,
             identityStore = identityStore,
+            identityProvider = get<IdentityProvider>(),
             forwardSecurityMessageProcessor = forwardSecurityMessageProcessor,
             nonceFactory = nonceFactory,
             preferenceService = get<PreferenceService>(),
@@ -712,35 +700,23 @@ class SessionScopeContainer(
             fileService = get<FileService>(),
             databaseService = get<DatabaseService>(),
             taskManager = taskManager,
+            appTaskExecutor = get<AppTaskExecutor>(),
             connection = connection,
             identityBlockedSteps = get<IdentityBlockedSteps>(),
             globalEventBuses = get<GlobalEventBuses>(),
+            blockedIdentitiesService = blockedIdentitiesService,
         )
     }
 
     val apiConnector: APIConnector by lazyWithClosedCheck {
-        val authenticator: APIAuthenticator? = if (current.licenseType == BuildFlavor.LicenseType.ONPREM) {
-            // On Premise always requires authentication
-            APIAuthenticator {
-                val username = get<PreferenceService>().getLicenseUsername()
-                val password = get<PreferenceService>().getLicensePassword()
-                if (username != null && password != null) {
-                    UserCredentials(username, password)
-                } else {
-                    null
-                }
-            }
-        } else {
-            null
-        }
-
         APIConnector(
             serverAddressProviderService.serverAddressProvider,
-            ConfigUtils.isWorkBuild(),
+            get<ChallengeResponseHelper>(),
+            BuildFlavor.IS_WORK,
             get<OkHttpClient>(),
             appVersion,
             Locale.getDefault().language,
-            authenticator,
+            getOrNull<APIAuthenticator>(),
         )
     }
 

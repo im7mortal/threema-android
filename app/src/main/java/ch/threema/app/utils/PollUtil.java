@@ -3,6 +3,7 @@ package ch.threema.app.utils;
 import android.content.Context;
 import android.content.Intent;
 
+import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
 import java.util.List;
@@ -17,6 +18,7 @@ import ch.threema.app.AppConstants;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.activities.poll.PollMatrixActivity;
+import ch.threema.app.connection.ServerConnectionManager;
 import ch.threema.app.dialogs.PollVoteDialog;
 import ch.threema.app.dialogs.GenericAlertDialog;
 import ch.threema.app.dialogs.SimpleStringAlertDialog;
@@ -150,7 +152,8 @@ public class PollUtil {
      */
     public static void requestClosePoll(PollModel pollModel, Fragment targetFragment, AppCompatActivity targetActivity) {
         FragmentManager fragmentManager = targetActivity != null ? targetActivity.getSupportFragmentManager() : targetFragment.getFragmentManager();
-        if (ServiceManager.get().getConnection().getConnectionState() == ConnectionState.LOGGED_IN) {
+        ServerConnectionManager serverConnectionManager = KoinJavaComponent.get(ServerConnectionManager.class);
+        if (serverConnectionManager.getConnection().getConnectionState() == ConnectionState.LOGGED_IN) {
             GenericAlertDialog dialog = GenericAlertDialog.newInstance(R.string.ballot_close, R.string.ballot_really_close, R.string.ok, R.string.cancel);
             dialog.setData(pollModel);
             if (targetFragment != null) {

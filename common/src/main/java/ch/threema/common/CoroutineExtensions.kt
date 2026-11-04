@@ -2,16 +2,24 @@ package ch.threema.common
 
 import kotlin.reflect.KProperty
 import kotlin.time.Duration
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.take
+import kotlinx.coroutines.time.debounce
 import kotlinx.coroutines.withTimeoutOrNull
 
 suspend fun <T : Any> Flow<T>.await(item: T) {
@@ -28,6 +36,20 @@ suspend fun <T : Any> Flow<T?>.awaitNull() {
 suspend inline fun waitAtMost(timeout: Duration, noinline block: suspend () -> Unit) {
     withTimeoutOrNull(timeout) { block() }
 }
+
+/**
+ * Like [debounce], but emits the first value immediately without any delay. All subsequent values are debounced by [duration].
+ *
+ * This is useful when you want to react instantly to the initial value of a [StateFlow], while still debouncing rapid updates that follow.
+ *
+ * @param duration The debounce duration applied to all values after the first.
+ */
+@FlowPreview
+fun <T> Flow<T>.debounceAfterFirst(duration: Duration): Flow<T> =
+    merge(
+        take(1),
+        drop(1).debounce(duration),
+    )
 
 /**
  * Creates a [StateFlow] which will always hold the same [value].
@@ -183,4 +205,30 @@ fun <T1, T2, T3, T4, T5, T6, T7, T8, R> combine(
         args[6] as T7,
         args[7] as T8,
     )
+}
+
+/**
+ * Runs [action] and returns its result. If [action] fails, [onException] is invoked, where the exception can be handled, or rethrown to stop
+ * the overall execution.
+ * If no exception is thrown from [onException], [action] will be rerun again. In between retry attempts, a delay is inserted. Its duration
+ * is determined by calling [getRetryDelay]. All 3 lambdas get passed the current attempt number, which starts at 1 and is incremented on
+ * every failure.
+ */
+suspend fun <T> runWithRetry(
+    action: suspend (attempt: Int) -> T,
+    onException: (Exception, attempt: Int) -> Unit,
+    getRetryDelay: (attempt: Int) -> Duration,
+): T {
+    var attempt = 1
+    while (true) {
+        try {
+            return action(attempt)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            onException(e, attempt)
+            delay(getRetryDelay(attempt))
+            attempt++
+        }
+    }
 }

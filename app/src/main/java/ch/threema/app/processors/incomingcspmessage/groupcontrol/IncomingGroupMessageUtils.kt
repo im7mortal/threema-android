@@ -19,6 +19,7 @@ import ch.threema.domain.protocol.csp.messages.GroupSetupMessage
 import ch.threema.domain.protocol.csp.messages.GroupSyncRequestMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.types.IdentityString
+import java.io.IOException
 import java.time.Instant
 import kotlin.time.Duration.Companion.hours
 
@@ -28,6 +29,7 @@ private val logger = getThreemaLogger("IncomingGroupMessageUtils")
  * Run the common group receive steps. If the returned group is not null, then the common group receive steps have been run successfully. If null is
  * returned, this indicates that the message should be discarded.
  */
+@Throws(IOException::class)
 suspend fun runCommonGroupReceiveSteps(
     groupIdentity: GroupIdentity,
     fromIdentity: IdentityString,
@@ -45,6 +47,7 @@ suspend fun runCommonGroupReceiveSteps(
  * Run the common group receive steps. If the returned group is not null, then the common group receive steps have been run successfully. If null is
  * returned, this indicates that the message should be discarded.
  */
+@Throws(IOException::class)
 suspend fun runCommonGroupReceiveSteps(
     message: AbstractGroupMessage,
     handle: ActiveTaskCodec,
@@ -61,6 +64,7 @@ suspend fun runCommonGroupReceiveSteps(
  * Run the common group receive steps. If the returned group is not null, then the common group receive steps have been run successfully. If null is
  * returned, this indicates that the message should be discarded.
  */
+@Throws(IOException::class)
 suspend fun runCommonGroupReceiveSteps(
     creatorIdentity: IdentityString,
     groupId: GroupId,
@@ -79,14 +83,22 @@ suspend fun runCommonGroupReceiveSteps(
     // If the group could not be found
     if (groupModelData == null) {
         logger.warn("Group not found.")
-        if (!isCreator) {
-            logger.info("Running group sync request steps because group couldn't be found.")
-            runGroupSyncRequestSteps(
-                groupIdentity = GroupIdentity(creatorIdentity, groupId.toLong()),
-                serviceManager = serviceManager,
-                handle = handle,
-            )
+        // If the user is the creator of the group, discard the message and abort these steps
+        if (isCreator) {
+            return null
         }
+        // Run the _Identity Blocked Steps_ for the creator of the group.
+        // If the result indicates that the creator is blocked, discard the message and abort these steps.
+        if (serviceManager.identityBlockedSteps.run(creatorIdentity).isBlocked()) {
+            return null
+        }
+        // Run the _Group Sync Request Steps_ for the group, discard the message and abort these steps
+        logger.info("Running group sync request steps because group couldn't be found.")
+        runGroupSyncRequestSteps(
+            groupIdentity = GroupIdentity(creatorIdentity, groupId.toLong()),
+            serviceManager = serviceManager,
+            handle = handle,
+        )
         return null
     }
 
@@ -225,6 +237,7 @@ suspend fun runGroupSyncRequestSteps(
 /**
  * Fetches the group creator if not locally available and runs the group sync request steps.
  */
+@Throws(IOException::class)
 private suspend fun runGroupSyncRequestSteps(
     groupIdentity: GroupIdentity,
     serviceManager: ServiceManager,

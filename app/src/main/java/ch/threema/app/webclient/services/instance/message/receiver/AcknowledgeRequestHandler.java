@@ -11,12 +11,13 @@ import androidx.annotation.WorkerThread;
 import ch.threema.app.emojis.EmojiUtil;
 import ch.threema.app.services.MessageService;
 import ch.threema.app.services.notification.NotificationService;
-import ch.threema.app.utils.ConversationNotificationUtil;
 import ch.threema.app.webclient.Protocol;
 import ch.threema.app.webclient.exceptions.ConversionException;
 import ch.threema.app.webclient.services.instance.MessageReceiver;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.storage.models.AbstractMessageModel;
+import static ch.threema.storage.models.ModelExtensionsKt.getConversationId;
+
+import ch.threema.storage.models.MessageModel;
 
 @WorkerThread
 public class AcknowledgeRequestHandler extends MessageReceiver {
@@ -62,7 +63,7 @@ public class AcknowledgeRequestHandler extends MessageReceiver {
         }
 
         //load message
-        AbstractMessageModel messageModel = null;
+        MessageModel messageModel = null;
         switch (receiver.getType()) {
             case ch.threema.app.messagereceiver.MessageReceiver.Type_CONTACT:
                 messageModel = this.messageService.getContactMessageModel(messageId);
@@ -90,7 +91,8 @@ public class AcknowledgeRequestHandler extends MessageReceiver {
             logger.error("Unable to send emoji reaction", e);
         }
 
-        notificationService.cancelConversationNotification(ConversationNotificationUtil.getUid(messageModel));
+        var conversationId = getConversationId(messageModel);
+        notificationService.cancelAllConversationNotifications(conversationId);
     }
 
     @Override

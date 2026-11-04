@@ -21,6 +21,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -147,6 +148,10 @@ private fun LoadingWithTimeoutDialogContent(
             draggedElevation = ElevationValues.Level4,
         ),
         shape = MaterialTheme.shapes.extraLarge,
+        colors = CardDefaults.cardColors().copy(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = contentColorFor(MaterialTheme.colorScheme.surfaceContainer),
+        ),
     ) {
         Column(
             modifier = Modifier

@@ -14,9 +14,9 @@ import ch.threema.domain.protocol.csp.messages.file.FileData
 import ch.threema.domain.protocol.csp.messages.file.GroupFileMessage
 import ch.threema.domain.taskmanager.ActiveTaskCodec
 import ch.threema.domain.taskmanager.TriggerSource
+import ch.threema.storage.models.GroupMessageModel
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.media.FileDataModel
-import ch.threema.storage.models.group.GroupMessageModel
 import java.time.Instant
 import java.util.UUID
 import org.koin.core.component.KoinComponent
@@ -90,7 +90,7 @@ class IncomingGroupFileMessageTask(
         // 2. Map the FileData object to a FileDataModel instance (field "downloaded" is false)
         val fileDataModel: FileDataModel = FileDataModel.fromIncomingFileData(fileData)
 
-        // 3. Create the actual AbstractMessageModel containing the file and sender information
+        // 3. Create the actual MessageModel containing the file and sender information
         val messageModel: GroupMessageModel = createGroupMessageModelFromFileMessage(
             groupFileMessage = message,
             fileDataModel = fileDataModel,
@@ -129,7 +129,7 @@ class IncomingGroupFileMessageTask(
     }
 
     /**
-     *  @return A new instance of `AbstractMessageModel` with type [MessageType.FILE] containing
+     *  @return A new instance of `GroupMessageModel` with type [MessageType.FILE] containing
      *  the `body` and `dataObject` from the passed file information.
      */
     private fun createGroupMessageModelFromFileMessage(

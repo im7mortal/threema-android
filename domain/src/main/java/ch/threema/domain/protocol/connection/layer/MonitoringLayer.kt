@@ -21,6 +21,9 @@ import ch.threema.domain.protocol.connection.util.MdLayer4Controller
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -230,12 +233,12 @@ internal class MonitoringLayer(
         if (stopped) {
             logger.warn("Ignore attempt to start monitoring after monitoring has already been stopped")
         } else {
-            logger.trace("Set connection idle timeout to {} seconds", connectionIdleTimeout)
+            logger.trace("Set connection idle timeout to {}", connectionIdleTimeout)
             outbound.send(prepareSetConnectionIdleTimeout(connectionIdleTimeout))
             logger.debug("Start periodic echo requests")
             echoRequestJob = CoroutineScope(controller.dispatcher.coroutineContext).launch {
                 while (true) {
-                    delay(echoRequestInterval * 1000L)
+                    delay(echoRequestInterval)
                     val sequence = sendEchoRequest()
                     launch {
                         expectEchoResponse(sequence, echoResponseTimeout)
@@ -267,8 +270,8 @@ internal class MonitoringLayer(
         return sequence
     }
 
-    private suspend fun expectEchoResponse(expectedSequence: Int, responseTimeoutS: Short) {
-        delay(responseTimeoutS * 1000L)
+    private suspend fun expectEchoResponse(expectedSequence: Int, responseTimeout: Duration) {
+        delay(responseTimeout)
         if (lastRcvdEchoSeq < expectedSequence) {
             logger.info(
                 "No reply to echo request (seq: {}); terminate connection",
@@ -287,14 +290,14 @@ internal class MonitoringLayer(
         return CspContainer(ProtocolDefines.PLTYPE_ECHO_REQUEST.toUByte(), echoData)
     }
 
-    private fun prepareSetConnectionIdleTimeout(idleTimeout: Short): CspContainer {
-        if (idleTimeout < 30 || idleTimeout > 600) {
+    private fun prepareSetConnectionIdleTimeout(idleTimeout: Duration): CspContainer {
+        if (idleTimeout < 30.seconds || idleTimeout > 10.minutes) {
             throw ServerConnectionException("Invalid connection idle timeout: $idleTimeout")
         }
         val timeoutBytes = ByteBuffer
             .allocate(Short.SIZE_BYTES)
             .order(ByteOrder.LITTLE_ENDIAN)
-            .putShort(idleTimeout)
+            .putShort(idleTimeout.inWholeSeconds.toShort())
             .array()
         return CspContainer(
             ProtocolDefines.PLTYPE_SET_CONNECTION_IDLE_TIMEOUT.toUByte(),

@@ -7,21 +7,27 @@ import android.database.Cursor;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.app.services.DistributionListService;
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.data.datatypes.ConversationVisibility;
+import ch.threema.data.storage.SqliteDatabaseBackend;
 import ch.threema.storage.CursorHelper;
 import ch.threema.storage.DatabaseCreationProvider;
 import ch.threema.storage.DatabaseProvider;
-import ch.threema.storage.DatabaseUtil;
 import ch.threema.storage.QueryBuilder;
 import ch.threema.storage.models.DistributionListModel;
 
+import static ch.threema.common.DatabaseHelpers.convertToSelectionArgs;
+import static ch.threema.common.DatabaseHelpers.makePlaceholders;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.logging.ErrorReportingKt.logAndReportError;
 
 public class DistributionListModelFactory extends ModelFactory {
     private static final Logger logger = getThreemaLogger("DistributionListModelFactory");
@@ -44,17 +50,158 @@ public class DistributionListModelFactory extends ModelFactory {
         );
     }
 
+    /**
+     * Checks whether the id belongs to an existing distribution list. Note that this also includes ad-hoc distribution lists.
+     *
+     * <pre>{@code
+     * SELECT EXISTS(
+     *     SELECT 1
+     *     FROM distribution_list
+     *     WHERE id = ?
+     *     LIMIT 1
+     * )
+     * }</pre>
+     *
+     * @param id the id to check
+     * @return {@code true} if the id exists
+     */
+    public boolean existsById(long id) {
+        String query = "SELECT EXISTS(SELECT 1 FROM " + DistributionListModel.TABLE
+            + " WHERE " + DistributionListModel.COLUMN_ID + " = ? LIMIT 1 )";
+
+        try (Cursor cursor = getReadableDatabase().query(query, new String[]{String.valueOf(id)})) {
+            return cursor.moveToFirst() && cursor.getInt(0) == 1;
+        }
+    }
+
+    /**
+     * Returns {@code true} if every id from {@code ids} exists in the database
+     * <p>
+     * Ids are checked in batches of at most {@link SqliteDatabaseBackend#MAX_VARIABLE_NUMBER} to stay within SQLite's host-parameter limit.
+     *
+     * <p>
+     * Query:
+     * <pre>{@code
+     * SELECT COUNT(*)
+     *   FROM distribution_list
+     *  WHERE id IN (?, ?, ?, ...)
+     * }</pre>
+     */
+    public boolean allExist(@NonNull Set<Long> ids) {
+        if (ids.isEmpty()) {
+            return true;
+        }
+        // Copy to a java.util.List to have the subList function available for chunking
+        final List<Long> idsList = new ArrayList<>(ids);
+        for (int start = 0; start < idsList.size(); start += SqliteDatabaseBackend.MAX_VARIABLE_NUMBER) {
+            final List<Long> idsChunk = idsList.subList(
+                start,
+                Math.min(start + SqliteDatabaseBackend.MAX_VARIABLE_NUMBER, idsList.size())
+            );
+            final String placeholders = makePlaceholders(idsChunk.size());
+            final String query = "SELECT COUNT(*) FROM " + DistributionListModel.TABLE
+                + " WHERE " + DistributionListModel.COLUMN_ID + " IN (" + placeholders + ")";
+            try (final Cursor cursor = getReadableDatabase().query(query, idsChunk.toArray())) {
+                if (cursor.moveToFirst()) {
+                    final long count = cursor.getLong(0);
+                    if (count < idsChunk.size()) {
+                        return false;
+                    }
+                } else {
+                    // Cursor is empty
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+
+    /**
+     * Checks whether at least one of the provided ids corresponds to an existing distribution list.
+     *
+     * <pre>{@code
+     * SELECT EXISTS(
+     *     SELECT 1
+     *     FROM distribution_list
+     *     WHERE id IN (?, ?, ..., ?)
+     *     LIMIT 1
+     * )
+     * }</pre>
+     * <p>
+     * Ids are checked in batches of at most {@link SqliteDatabaseBackend#MAX_VARIABLE_NUMBER} to stay within SQLite's host-parameter limit. Returns
+     * as soon as any batch finds a match.
+     *
+     * @param ids the ids to check
+     * @return {@code true} if at least one id exists; {@code false} if {@code ids} is empty
+     */
+    public boolean existsAnyById(@NonNull Set<Long> ids) {
+        if (ids.isEmpty()) {
+            return false;
+        }
+        // Copy to a java.util.List to have the subList function available for chunking
+        final List<Long> idList = new ArrayList<>(ids);
+        for (int start = 0; start < idList.size(); start += SqliteDatabaseBackend.MAX_VARIABLE_NUMBER) {
+            final List<Long> chunk = idList.subList(
+                start,
+                Math.min(start + SqliteDatabaseBackend.MAX_VARIABLE_NUMBER, idList.size())
+            );
+            if (chunkExistsAny(chunk)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean chunkExistsAny(@NonNull List<Long> chunk) {
+        String placeholders = makePlaceholders(chunk.size());
+
+        String query = "SELECT EXISTS(SELECT 1 FROM " + getTableName()
+            + " WHERE " + DistributionListModel.COLUMN_ID + " IN (" + placeholders + ")"
+            + " LIMIT 1 )";
+
+        try (Cursor cursor = getReadableDatabase().query(query, chunk.toArray())) {
+            return cursor.moveToFirst() && cursor.getInt(0) == 1;
+        }
+    }
+
     @NonNull
     public List<DistributionListModel> getByIds(@NonNull List<Long> ids) {
         if (ids.isEmpty()) {
             return new ArrayList<>();
         }
-        final @NonNull String placeholders = DatabaseUtil.makePlaceholders(ids.size());
-        final @NonNull String[] selectionArgs = DatabaseUtil.convertArguments(ids);
+        final @NonNull String placeholders = makePlaceholders(ids.size());
+        final @NonNull String[] selectionArgs = convertToSelectionArgs(ids);
         final @NonNull String selection = DistributionListModel.COLUMN_ID + " IN (" + placeholders + ")";
         return convertList(
             getReadableDatabase().query(getTableName(), null, selection, selectionArgs, null, null, null)
         );
+    }
+
+    @NonNull
+    public List<DistributionListModel> getAllArchived() {
+        return convertList(
+            getReadableDatabase().query(
+                "SELECT * FROM " + getTableName() + " WHERE " + DistributionListModel.COLUMN_CONVERSATION_VISIBILITY + " = ?",
+                new Object[]{ConversationVisibility.ARCHIVED.getSerializedValue()}
+            )
+        );
+    }
+
+    @NonNull
+    public Set<Long> getAllNonAdHocIds() {
+        String query = "SELECT " + DistributionListModel.COLUMN_ID + " FROM " + getTableName() +
+            " WHERE " + DistributionListModel.COLUMN_IS_ADHOC_DISTRIBUTION_LIST + " != 1";
+
+        Set<Long> ids = new HashSet<>();
+        try (Cursor cursor = getReadableDatabase().query(query)) {
+            while (cursor.moveToNext()) {
+                ids.add(
+                    cursor.getLong(cursor.getColumnIndexOrThrow(DistributionListModel.COLUMN_ID))
+                );
+            }
+        }
+        return ids;
     }
 
     @NonNull
@@ -97,8 +244,17 @@ public class DistributionListModelFactory extends ModelFactory {
                 }
                 ConversationVisibility conversationVisibility = ConversationVisibility.deserialize(conversationVisibilityValue);
                 if (conversationVisibility == null) {
-                    logger.error("Could not read conversation visibility with value {}", conversationVisibilityValue);
+                    logAndReportError(logger, "Could not read conversation visibility with value {}", conversationVisibilityValue);
                     conversationVisibility = ConversationVisibility.NORMAL;
+                }
+                Integer conversationCategoryValue = cursorHelper.getInt(DistributionListModel.COLUMN_CONVERSATION_CATEGORY);
+                if (conversationCategoryValue == null) {
+                    throw new IllegalStateException("Conversation category value is null");
+                }
+                ConversationCategory conversationCategory = ConversationCategory.deserialize(conversationCategoryValue);
+                if (conversationCategory == null) {
+                    logAndReportError(logger, "Could not read conversation category with value {}", conversationCategoryValue);
+                    conversationCategory = ConversationCategory.DEFAULT;
                 }
 
                 distributionListModel
@@ -107,6 +263,7 @@ public class DistributionListModelFactory extends ModelFactory {
                     .setCreatedAt(cursorHelper.getInstant(DistributionListModel.COLUMN_CREATED_AT))
                     .setLastUpdate(cursorHelper.getInstant(DistributionListModel.COLUMN_LAST_UPDATE))
                     .setConversationVisibility(conversationVisibility)
+                    .setConversationCategory(conversationCategory)
                     .setAdHocDistributionList(cursorHelper.getBoolean(DistributionListModel.COLUMN_IS_ADHOC_DISTRIBUTION_LIST));
 
                 return false;
@@ -115,7 +272,7 @@ public class DistributionListModelFactory extends ModelFactory {
         return distributionListModel;
     }
 
-    public boolean createOrUpdate(@NonNull DistributionListModel distributionListModel) {
+    public void createOrUpdate(@NonNull DistributionListModel distributionListModel) {
         boolean insert = true;
         if (distributionListModel.getId() > 0) {
             Cursor cursor = getReadableDatabase().query(
@@ -137,9 +294,9 @@ public class DistributionListModelFactory extends ModelFactory {
         }
 
         if (insert) {
-            return create(distributionListModel);
+            create(distributionListModel);
         } else {
-            return update(distributionListModel);
+            update(distributionListModel);
         }
     }
 
@@ -150,6 +307,7 @@ public class DistributionListModelFactory extends ModelFactory {
         contentValues.put(DistributionListModel.COLUMN_CREATED_AT, distributionListModel.getCreatedAt() != null ? distributionListModel.getCreatedAt().toEpochMilli() : null);
         contentValues.put(DistributionListModel.COLUMN_LAST_UPDATE, distributionListModel.getLastUpdate() != null ? distributionListModel.getLastUpdate().toEpochMilli() : null);
         contentValues.put(DistributionListModel.COLUMN_CONVERSATION_VISIBILITY, distributionListModel.getConversationVisibility().getSerializedValue());
+        contentValues.put(DistributionListModel.COLUMN_CONVERSATION_CATEGORY, distributionListModel.getConversationCategory().getSerializedValue());
         contentValues.put(DistributionListModel.COLUMN_IS_ADHOC_DISTRIBUTION_LIST, distributionListModel.isAdHocDistributionList());
         return contentValues;
     }
@@ -159,9 +317,8 @@ public class DistributionListModelFactory extends ModelFactory {
      * the database, a random ID is chosen and the model is updated accordingly.
      *
      * @param distributionListModel the distribution list model that is inserted into the database
-     * @return true on success, false otherwise
      */
-    public boolean create(@NonNull DistributionListModel distributionListModel) {
+    public void create(@NonNull DistributionListModel distributionListModel) {
         ContentValues contentValues = buildContentValues(distributionListModel);
 
         long distributionListId = distributionListModel.getId();
@@ -174,10 +331,21 @@ public class DistributionListModelFactory extends ModelFactory {
 
         long newId = getWritableDatabase().insertOrThrow(this.getTableName(), null, contentValues);
         distributionListModel.setId(newId);
-        return newId > 0;
     }
 
-    public boolean update(@NonNull DistributionListModel distributionListModel) {
+    /**
+     * Persist the given distribution list model.
+     *
+     * @throws android.database.SQLException if a distribution list with the given id already exists
+     */
+    public void persist(@NonNull DistributionListModel distributionListModel) {
+        ContentValues contentValues = buildContentValues(distributionListModel);
+        contentValues.put(DistributionListModel.COLUMN_ID, distributionListModel.getId());
+
+        getWritableDatabase().insertOrThrow(getTableName(), null, contentValues);
+    }
+
+    public void update(@NonNull DistributionListModel distributionListModel) {
         ContentValues contentValues = buildContentValues(distributionListModel);
         getWritableDatabase().update(
             getTableName(),
@@ -187,7 +355,6 @@ public class DistributionListModelFactory extends ModelFactory {
                 String.valueOf(distributionListModel.getId())
             }
         );
-        return true;
     }
 
     public int delete(@NonNull DistributionListModel distributionListModel) {
@@ -277,6 +444,7 @@ public class DistributionListModelFactory extends ModelFactory {
                     "`" + DistributionListModel.COLUMN_CREATED_AT + "` BIGINT, " +
                     "`" + DistributionListModel.COLUMN_LAST_UPDATE + "` INTEGER, " +
                     "`" + DistributionListModel.COLUMN_CONVERSATION_VISIBILITY + "` INTEGER DEFAULT 0 NOT NULL, " +
+                    "`" + DistributionListModel.COLUMN_CONVERSATION_CATEGORY + "` INTEGER DEFAULT 0 NOT NULL," +
                     "`" + DistributionListModel.COLUMN_IS_ADHOC_DISTRIBUTION_LIST + "` TINYINT DEFAULT 0 " +
                     ");"
             };

@@ -1,6 +1,8 @@
 package ch.threema.android
 
+import android.graphics.ColorMatrixColorFilter
 import android.view.View
+import android.widget.ImageView
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlin.time.Duration
@@ -35,3 +37,14 @@ fun View.getTopCenterLocation(): IntArray =
 
 fun View.getBottomCenterLocation(): IntArray =
     getLocation(xOffset = width / 2, yOffset = height)
+
+private val NEGATIVE_MATRIX = floatArrayOf(
+    -1.0f, 0f, 0f, 0f, 255f, // red
+    0f, -1.0f, 0f, 0f, 255f, // green
+    0f, 0f, -1.0f, 0f, 255f, // blue
+    0f, 0f, 0f, 1.0f, 0f, // alpha
+)
+
+fun ImageView.invertColors() {
+    colorFilter = ColorMatrixColorFilter(NEGATIVE_MATRIX)
+}

@@ -23,9 +23,7 @@ import java.lang.Exception
 import java.net.MalformedURLException
 import java.net.URL
 import java.time.Instant
-import java.util.*
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -111,7 +109,7 @@ constructor(
             token = token,
             url = url,
             body = request.toByteArray(),
-            timeout = ProtocolDefines.GC_PEEK_TIMEOUT_MILLIS.milliseconds,
+            timeout = ProtocolDefines.GC_PEEK_TIMEOUT,
         )
         val body = byteResponse.body?.let { PeekResponseBody.fromSfuResponseBytes(it) }
         logger.info("Peek status for {}: {}", callId, byteResponse.statusCode)
@@ -137,7 +135,7 @@ constructor(
             token = token,
             url = url,
             body = request.toByteArray(),
-            timeout = ProtocolDefines.GC_JOIN_TIMEOUT_MILLIS.milliseconds,
+            timeout = ProtocolDefines.GC_JOIN_TIMEOUT,
         )
         val body = byteResponse.body?.let { JoinResponseBody.fromSfuResponseBytes(it) }
         logger.info("JoinResponse with HTTP-status={}: {}", byteResponse.statusCode, body)

@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import ch.threema.common.Base64
 import ch.threema.common.secureContentEquals
 import ch.threema.common.sha256
+import ch.threema.domain.libthreema.LibthreemaAware
 import ch.threema.domain.onprem.OnPremConfigDomainRuleMatchMode
 import ch.threema.domain.onprem.OnPremConfigDomainRuleSpkiAlgorithm
 import ch.threema.domain.onprem.OnPremConfigDomains
@@ -12,6 +13,7 @@ import java.security.cert.X509Certificate
 import javax.net.ssl.X509TrustManager
 
 @SuppressLint("CustomX509TrustManager")
+@LibthreemaAware
 class OnPremCertPinningTrustManager(
     private val getOnPremConfigDomains: () -> OnPremConfigDomains?,
     private val hostnameProvider: HostnameProvider,

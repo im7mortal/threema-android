@@ -452,6 +452,22 @@ class MasterKeyManagerImplTest {
         }
     }
 
+    @Test
+    fun `delete persisted key`() {
+        every { masterKeyGeneratorMock.generate() } returns MasterKeyData(ByteArray(MasterKeyConfig.KEY_LENGTH))
+        every { masterKeyStorageManagerMock.keyExists() } returns false
+        every { masterKeyStorageManagerMock.deleteKey() } just runs
+        masterKeyManager.readOrGenerateKey()
+        masterKeyManager.persistKeyDataIfNeeded()
+        verify(exactly = 1) { masterKeyStorageManagerMock.writeKey(any()) }
+
+        masterKeyManager.deletePersistedKey()
+        verify(exactly = 1) { masterKeyStorageManagerMock.deleteKey() }
+
+        masterKeyManager.persistKeyDataIfNeeded()
+        verify(exactly = 2) { masterKeyStorageManagerMock.writeKey(any()) }
+    }
+
     private fun createMasterKeyStorageStateHolder(crypto: MasterKeyCrypto = createCrypto()) =
         MasterKeyStorageStateHolder(crypto)
 

@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * create rejected group message table
+ */
 internal class DatabaseUpdateToVersion87(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -15,8 +18,6 @@ internal class DatabaseUpdateToVersion87(
                 ")",
         )
     }
-
-    override fun getDescription() = "create rejected group message table"
 
     override val version = 87
 }

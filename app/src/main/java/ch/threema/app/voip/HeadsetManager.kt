@@ -9,10 +9,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
-import androidx.core.app.ActivityCompat
+import ch.threema.android.checkGrantedPermission
 import ch.threema.base.utils.getThreemaLogger
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
@@ -421,11 +420,7 @@ class HeadsetManager(private val context: Context, private val audioManager: Aud
         val bluetoothAdapter =
             (context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager?)?.adapter
                 ?: return false
-        if (ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.BLUETOOTH_CONNECT,
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
+        if (!context.checkGrantedPermission(Manifest.permission.BLUETOOTH_CONNECT)) {
             logger.warn("No bluetooth permission to check initial bluetooth connection")
         }
         return try {

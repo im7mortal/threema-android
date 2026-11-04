@@ -6,7 +6,7 @@ import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.services.ConversationService
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.LockAppService
-import ch.threema.app.services.notification.ConversationNotification
+import ch.threema.app.services.notification.ConversationMessageNotification
 import ch.threema.app.services.notification.NotificationService
 import ch.threema.app.test.koinTestModuleRule
 import ch.threema.data.IdentityProvider
@@ -14,8 +14,8 @@ import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.datatypes.LocalGroupId
 import ch.threema.domain.protocol.csp.messages.file.FileData
-import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.ConversationModel
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.MessageContentsType
 import ch.threema.storage.models.data.media.FileDataModel
@@ -82,6 +82,10 @@ class ConversationNotificationUpdaterMonitorTest {
             lockAppService = mockk {
                 every { watchLockState() } returns lockStateFlow
             },
+            preferenceService = mockk {
+                every { shouldShowEmojiReactionNotificationsInContactConversations() } returns true
+                every { shouldShowEmojiReactionNotificationsInGroupConversations() } returns true
+            },
         )
     }
 
@@ -98,7 +102,7 @@ class ConversationNotificationUpdaterMonitorTest {
         advanceUntilIdle()
 
         verify(exactly = 1) {
-            notificationServiceMock.cancel(
+            notificationServiceMock.cancelAllConversationNotifications(
                 ContactConversationId(identity = OTHER_1.value),
             )
         }
@@ -119,7 +123,7 @@ class ConversationNotificationUpdaterMonitorTest {
         advanceUntilIdle()
 
         verify(exactly = 1) {
-            notificationServiceMock.cancel(
+            notificationServiceMock.cancelAllConversationNotifications(
                 ContactConversationId(identity = OTHER_1.value),
             )
         }
@@ -130,8 +134,8 @@ class ConversationNotificationUpdaterMonitorTest {
     @Test
     fun `conversation notification is shown upon new message`() = runTest {
         val messageMock = mockMessage(isOutbox = false, isStatusMessage = false, isRead = false)
-        val notificationMock = mockk<ConversationNotification>()
-        every { conversationNotificationConverterMock.convert(messageMock) } returns notificationMock
+        val notificationMock = mockk<ConversationMessageNotification>()
+        every { conversationNotificationConverterMock.convertMessageNotification(messageMock) } returns notificationMock
 
         val monitorJob = launch(UnconfinedTestDispatcher(testScheduler)) {
             conversationNotificationUpdaterMonitor.run()
@@ -150,8 +154,8 @@ class ConversationNotificationUpdaterMonitorTest {
     @Test
     fun `no conversation notification is shown upon new message when conversation does not exist`() = runTest {
         val messageMock = mockMessage(isOutbox = false, isStatusMessage = false, isRead = false)
-        val notificationMock = mockk<ConversationNotification>()
-        every { conversationNotificationConverterMock.convert(messageMock) } returns notificationMock
+        val notificationMock = mockk<ConversationMessageNotification>()
+        every { conversationNotificationConverterMock.convertMessageNotification(messageMock) } returns notificationMock
         every { conversationServiceMock.get(messageMock) } returns null
 
         val monitorJob = launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -224,7 +228,7 @@ class ConversationNotificationUpdaterMonitorTest {
 
     @Test
     fun `no conversation notification is shown for call status messages`() = runTest {
-        val messageMock = mockMessage(isOutbox = false, isStatusMessage = false, isRead = false, type = MessageType.GROUP_CALL_STATUS)
+        val messageMock = mockMessage(isOutbox = false, isStatusMessage = true, isRead = false, type = MessageType.GROUP_CALL_STATUS)
 
         val monitorJob = launch(UnconfinedTestDispatcher(testScheduler)) {
             conversationNotificationUpdaterMonitor.run()
@@ -243,8 +247,8 @@ class ConversationNotificationUpdaterMonitorTest {
     @Test
     fun `conversation notification is updated when message is edited`() = runTest {
         val messageMock = mockMessage(isOutbox = false, isStatusMessage = false, isRead = false)
-        val notificationMock = mockk<ConversationNotification>()
-        every { conversationNotificationConverterMock.convert(messageMock) } returns notificationMock
+        val notificationMock = mockk<ConversationMessageNotification>()
+        every { conversationNotificationConverterMock.convertMessageNotification(messageMock) } returns notificationMock
 
         val monitorJob = launch(UnconfinedTestDispatcher(testScheduler)) {
             conversationNotificationUpdaterMonitor.run()
@@ -263,8 +267,8 @@ class ConversationNotificationUpdaterMonitorTest {
     @Test
     fun `conversation notification is updated when message is deleted`() = runTest {
         val messageMock = mockMessage(isOutbox = false, isStatusMessage = false, isRead = false)
-        val notificationMock = mockk<ConversationNotification>()
-        every { conversationNotificationConverterMock.convert(messageMock) } returns notificationMock
+        val notificationMock = mockk<ConversationMessageNotification>()
+        every { conversationNotificationConverterMock.convertMessageNotification(messageMock) } returns notificationMock
 
         val monitorJob = launch(UnconfinedTestDispatcher(testScheduler)) {
             conversationNotificationUpdaterMonitor.run()
@@ -385,10 +389,10 @@ class ConversationNotificationUpdaterMonitorTest {
                 every { renderingType } returns FileData.RENDERING_MEDIA
             },
         )
-        val notificationMock1 = mockk<ConversationNotification>()
-        val notificationMock2 = mockk<ConversationNotification>()
-        every { conversationNotificationConverterMock.convert(imageMessageMock) } returns notificationMock1
-        every { conversationNotificationConverterMock.convert(videoMessageMock) } returns notificationMock2
+        val notificationMock1 = mockk<ConversationMessageNotification>()
+        val notificationMock2 = mockk<ConversationMessageNotification>()
+        every { conversationNotificationConverterMock.convertMessageNotification(imageMessageMock) } returns notificationMock1
+        every { conversationNotificationConverterMock.convertMessageNotification(videoMessageMock) } returns notificationMock2
 
         val monitorJob = launch(UnconfinedTestDispatcher(testScheduler)) {
             conversationNotificationUpdaterMonitor.run()
@@ -440,7 +444,7 @@ class ConversationNotificationUpdaterMonitorTest {
             type: MessageType = MessageType.TEXT,
             messageContentsType: Int = 0,
             fileData: FileDataModel = mockk(),
-        ): AbstractMessageModel =
+        ): MessageModel =
             mockk {
                 every { this@mockk.isOutbox } returns isOutbox
                 every { this@mockk.isStatusMessage } returns isStatusMessage

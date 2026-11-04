@@ -20,6 +20,7 @@ import ch.threema.app.utils.executor.BackgroundExecutor
 import ch.threema.base.crypto.NonceFactory
 import ch.threema.common.DispatcherProvider
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.models.ContactModelData
 import ch.threema.data.repositories.ContactModelRepository
@@ -48,6 +49,7 @@ import ch.threema.test.TestData.PUBLIC_KEY
 import ch.threema.test.TestDatabaseProvider
 import ch.threema.test.TestIdentityProvider
 import ch.threema.testhelpers.MUST_NOT_BE_CALLED
+import ch.threema.testhelpers.TestTimeProvider
 import io.mockk.mockk
 import java.time.Instant
 import kotlin.test.BeforeTest
@@ -160,6 +162,7 @@ class MarkContactAsDeletedBackgroundTaskTest {
         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
         conversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory = ConversationCategory.DEFAULT,
         androidContactLookupInfo = null,
         localAvatarExpires = null,
         isRestored = false,
@@ -183,14 +186,13 @@ class MarkContactAsDeletedBackgroundTaskTest {
             serviceManager.contactService,
             serviceManager.conversationService,
             serviceManager.ringtoneService,
-            serviceManager.conversationCategoryService,
             serviceManager.profilePicRecipientsService,
             serviceManager.wallpaperService,
             serviceManager.fileService,
             serviceManager.excludedSyncIdentitiesService,
             serviceManager.dhSessionStore,
             serviceManager.notificationService,
-            ContactModelFactory(databaseProvider, identityProviderMock),
+            ContactModelFactory(databaseProvider),
         )
         contactModelRepository = ModelRepositories(
             databaseProvider = databaseProvider,
@@ -201,10 +203,10 @@ class MarkContactAsDeletedBackgroundTaskTest {
             globalEventBuses = mockk(relaxed = true),
             globalEventFlows = mockk(relaxed = true),
             dispatcherProvider = DispatcherProvider.default,
+            timeProvider = TestTimeProvider(),
         ).contacts
 
-        // Add a contact "from sync". This has no side effects and does not reflect the contact.
-        contactModelRepository.createFromSync(testContactModelData)
+        contactModelRepository.persistNewContact(testContactModelData)
     }
 
     @Test

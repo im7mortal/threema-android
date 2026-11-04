@@ -24,6 +24,7 @@ public class EmptyView extends LinearLayout {
 
     private static final int NO_IMAGE_RES = -1;
 
+    private final int minHeightForImage;
     private final TextView emptyText;
     private final ImageView emptyImageView;
     private final CircularProgressIndicator loadingView;
@@ -45,6 +46,8 @@ public class EmptyView extends LinearLayout {
 
     public EmptyView(Context context, AttributeSet attrs, int parentOffset) {
         super(context, attrs);
+
+        minHeightForImage = getResources().getDimensionPixelSize(R.dimen.empty_view_min_height_for_image);
 
         setOrientation(LinearLayout.VERTICAL);
         setGravity(Gravity.CENTER);
@@ -76,8 +79,8 @@ public class EmptyView extends LinearLayout {
     public void setup(@StringRes int labelRes, @DrawableRes int imageRes) {
         this.imageRes = imageRes;
         this.emptyImageView.setImageResource(imageRes);
-        this.emptyImageView.setVisibility(VISIBLE);
         this.emptyText.setText(labelRes);
+        updateImageVisibility();
     }
 
     public void setColorsInt(@ColorInt int background, @ColorInt int foreground) {
@@ -85,13 +88,31 @@ public class EmptyView extends LinearLayout {
         this.emptyText.setTextColor(foreground);
     }
 
+    private boolean isLoading = false;
+    private boolean hasSpaceForImage = true;
+
     public void setLoading(boolean isLoading) {
         this.loadingView.setVisibility(isLoading ? VISIBLE : GONE);
         this.emptyText.setVisibility(isLoading ? GONE : VISIBLE);
-        this.emptyImageView.setVisibility((isLoading || !hasImageRes()) ? GONE : VISIBLE);
+        this.isLoading = isLoading;
+        updateImageVisibility();
     }
 
     private boolean hasImageRes() {
         return this.imageRes != NO_IMAGE_RES;
+    }
+
+    private void updateImageVisibility() {
+        emptyImageView.setVisibility((isLoading || !hasImageRes() || !hasSpaceForImage) ? GONE : VISIBLE);
+    }
+
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        boolean hasSpaceForImage = MeasureSpec.getSize(heightMeasureSpec) > minHeightForImage;
+        if (hasSpaceForImage != this.hasSpaceForImage) {
+            this.hasSpaceForImage = hasSpaceForImage;
+            updateImageVisibility();
+        }
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
     }
 }

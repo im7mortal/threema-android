@@ -5,29 +5,28 @@ import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
 import android.database.sqlite.SQLiteException
-import android.os.Build
 import android.os.Process
+import androidx.annotation.StringRes
 import androidx.annotation.WorkerThread
 import androidx.appcompat.app.AppCompatDelegate
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.edit
 import androidx.lifecycle.ProcessLifecycleOwner
-import androidx.preference.PreferenceManager
-import ch.threema.app.AppConstants.ACTIVITY_CONNECTION_LIFETIME
 import ch.threema.app.debug.StrictModeMonitor
 import ch.threema.app.di.MasterKeyLockStateChangeHandler
 import ch.threema.app.di.SessionScopeContainer
 import ch.threema.app.di.getOrNull
 import ch.threema.app.di.initDependencyInjection
+import ch.threema.app.di.injectNonBinding
 import ch.threema.app.drafts.DraftManagerImpl
 import ch.threema.app.errorreporting.ThreemaUncaughtExceptionHandler
 import ch.threema.app.logging.AppVersionLogger
 import ch.threema.app.logging.ExitReasonLogger
 import ch.threema.app.monitors.MonitorController
-import ch.threema.app.notifications.NotificationIDs
+import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.restrictions.AppRestrictionService
 import ch.threema.app.services.ThreemaPushService
 import ch.threema.app.services.avatarcache.AvatarCacheService
+import ch.threema.app.services.withConnection
 import ch.threema.app.startup.AppProcessLifecycleObserver
 import ch.threema.app.startup.AppStartupError
 import ch.threema.app.startup.AppStartupMonitorImpl
@@ -38,14 +37,15 @@ import ch.threema.app.systemupdates.SystemUpdateProvider
 import ch.threema.app.systemupdates.SystemUpdater
 import ch.threema.app.threemasafe.ThreemaSafeService
 import ch.threema.app.ui.DynamicColorsHelper
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.FileUtil
 import ch.threema.app.utils.LinuxSecureRandom
 import ch.threema.app.voip.Config
 import ch.threema.app.webclient.services.SessionWakeUpService
 import ch.threema.app.workers.WorkerStartupScheduler
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.base.utils.withTimeMeasurement
 import ch.threema.common.DispatcherProvider
+import ch.threema.domain.libthreema.LibthreemaAware
 import ch.threema.domain.stores.DHSessionStore
 import ch.threema.libthreema.LogLevel
 import ch.threema.libthreema.initialize as initLibthreema
@@ -65,9 +65,8 @@ import ch.threema.storage.DatabaseState
 import ch.threema.storage.DatabaseUpdateException
 import ch.threema.storage.SQLDHSessionStore
 import ch.threema.storage.setupDatabaseLogging
-import kotlin.getValue
 import kotlin.system.exitProcess
-import kotlin.time.measureTime
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
@@ -80,6 +79,7 @@ import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("ThreemaApplication")
 
+@LibthreemaAware
 class ThreemaApplication : Application() {
 
     // TODO(ANDR-4187): Move these dependencies and the logic that uses them to a better place
@@ -111,15 +111,17 @@ class ThreemaApplication : Application() {
 
         setUpSecureRandom()
 
-        setUpDayNightMode(this)
-
         initDependencyInjection(this)
+
+        setUpDayNightMode()
 
         with(get<AppVersionLogger>()) {
             logAppVersionInfo()
             updateAppVersionHistory()
         }
-        get<ExitReasonLogger>().logExitReason()
+        coroutineScope.launch {
+            get<ExitReasonLogger>().logExitReason()
+        }
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(get<AppProcessLifecycleObserver>())
 
@@ -166,7 +168,7 @@ class ThreemaApplication : Application() {
         try {
             val result = masterKeyManager.readOrGenerateKey()
             if (result == MasterKeyReadResult.NEWLY_GENERATED) {
-                launch {
+                launch(dispatcherProvider.io) {
                     deleteOrphanedUserData(applicationContext)
                 }
             }
@@ -215,7 +217,9 @@ class ThreemaApplication : Application() {
         private val masterKeyManager: MasterKeyManager by inject()
         private val appStartupMonitor: AppStartupMonitorImpl by inject()
         private val masterKeyLockStateChangeHandler: MasterKeyLockStateChangeHandler by inject()
+        private val preferenceService: PreferenceService by inject()
         private val dispatcherProvider: DispatcherProvider by inject()
+        private val threemaPushServiceStarter: ThreemaPushService.Starter by injectNonBinding()
         private val coroutineScope by lazy { CoroutineScope(dispatcherProvider.worker) }
 
         private suspend fun onMasterKeyUnlocked(masterKey: MasterKey) {
@@ -224,18 +228,20 @@ class ThreemaApplication : Application() {
             val appContext = instance
 
             val sharedPreferences = get<SharedPreferences>()
-            resolveMasterKeyDeactivationRaceCondition(appContext, masterKeyManager, sharedPreferences)
-            setUpDayNightMode(appContext)
+            coroutineScope.launch(dispatcherProvider.io) {
+                resolveMasterKeyDeactivationRaceCondition(appContext, masterKeyManager, sharedPreferences)
+                setDefaultPreferences(appContext, sharedPreferences)
+            }
+            setUpDayNightMode()
 
             try {
                 setUpSqlCipher()
                 val databaseProvider: DatabaseProviderImpl = get()
                 coroutineScope.launch {
                     try {
-                        val time = measureTime {
+                        withTimeMeasurement(logger, "openDatabase") {
                             databaseProvider.open(masterKey)
                         }
-                        logger.info("Database is ready after {}", time)
                     } catch (e: DatabaseUpdateException) {
                         appStartupMonitor.reportUnexpectedAppStartupError("DB-${e.failedDatabaseUpdateVersion}")
                     } catch (e: DatabaseDowngradeException) {
@@ -266,21 +272,16 @@ class ThreemaApplication : Application() {
 
                 startThreemaPushIfNeeded(appContext)
 
-                setDefaultPreferences(appContext, sharedPreferences)
-
-                if (ConfigUtils.isWorkBuild()) {
+                if (BuildFlavor.IS_WORK) {
                     coroutineScope.launch {
                         get<AppRestrictionService>().reload()
                     }
                 }
 
-                cancelNewMessageNotification(appContext)
-
-                // trigger a connection now, just to be sure we're up-to-date and any broken connection
-                // (e.g. from before a reboot) is preempted.
-                with(sessionScopeContainer.lifetimeService) {
-                    acquireConnection("resetConnection")
-                    releaseConnectionLinger("resetConnection", ACTIVITY_CONNECTION_LIFETIME)
+                coroutineScope.launch {
+                    // trigger a connection now, just to be sure we're up-to-date and any broken connection
+                    // (e.g. from before a reboot) is preempted.
+                    sessionScopeContainer.lifetimeService.withConnection(sourceTag = "resetConnection", linger = 1.minutes)
                 }
 
                 coroutineScope.launch {
@@ -305,7 +306,7 @@ class ThreemaApplication : Application() {
         }
 
         private fun startThreemaPushIfNeeded(context: Context) {
-            ThreemaPushService.tryStart(logger, context)
+            threemaPushServiceStarter.startIfNeeded(logger)
         }
 
         private fun runSystemUpdatesIfNeeded(
@@ -335,17 +336,13 @@ class ThreemaApplication : Application() {
             return databaseProvider.oldVersion?.coerceAtMost(109)
         }
 
-        private fun setUpDayNightMode(context: Context) {
-            AppCompatDelegate.setDefaultNightMode(ConfigUtils.getAppThemePrefs(context))
+        private fun setUpDayNightMode() {
+            AppCompatDelegate.setDefaultNightMode(preferenceService.getTheme().mode)
         }
 
         private fun setUpSqlCipher() {
             System.loadLibrary("sqlcipher")
             setupDatabaseLogging()
-        }
-
-        private fun cancelNewMessageNotification(context: Context) {
-            NotificationManagerCompat.from(context).cancel(NotificationIDs.NEW_MESSAGE_LOCKED_NOTIFICATION_ID)
         }
 
         // TODO(ANDR-4800): Move this elsewhere
@@ -368,44 +365,62 @@ class ThreemaApplication : Application() {
         }
 
         /**
-         * Set the hardware echo cancellation preference depending on the device type exclusion list and initially set all default preferences.
-         *
-         * This reads all the xml files and applies the default values for each of the preferences. This is done by the preference manager by creating
-         * the views and attaching them. As the synchronized settings require the service manager to be available to persist the setting, this method
-         * must be called after the service manager has been initialized.
+         * We explicitly set the value of some shared preferences to their default value here. This is needed for preferences that use
+         * a dynamically computed default value, as well as those where using a specific default-value while reading is not possible in all places
+         * where the preference is read.
          *
          * TODO(ANDR-4800): Move this elsewhere
          */
+        @WorkerThread
         private fun setDefaultPreferences(context: Context, sharedPreferences: SharedPreferences) {
-            // If device is in AEC exclusion list and the user did not choose a preference yet,
-            // update the shared preference.
-            if (sharedPreferences.getString(context.getString(R.string.preferences__voip_echocancel), "none") == "none") {
-                // Determine whether device is excluded from hardware AEC
-                val modelInfo = Build.MANUFACTURER + ";" + Build.MODEL
-                val exclude = !Config.allowHardwareAec()
+            sharedPreferences.edit {
+                // If device is in AEC exclusion list and the user did not choose a preference yet, update the shared preference.
+                applyIfNotSet(context, sharedPreferences, R.string.preferences__voip_echocancel) { key ->
+                    putString(key, if (Config.allowHardwareAec()) "hw" else "sw")
+                }
 
-                // Set default preference
-                sharedPreferences.edit {
-                    if (exclude) {
-                        logger.debug("Device {} is on AEC exclusion list, switching to software echo cancellation", modelInfo)
-                        putString(context.getString(R.string.preferences__voip_echocancel), "sw")
-                    } else {
-                        logger.debug("Device {} is not on AEC exclusion list", modelInfo)
-                        putString(context.getString(R.string.preferences__voip_echocancel), "hw")
-                    }
+                // TODO(ANDR-5022): These defaults are currently only needed because Synchronized Settings have no mechanism for setting a default
+                applyIfNotSet(context, sharedPreferences, R.string.preferences__voip_enable) { key ->
+                    putBoolean(key, true)
+                }
+                applyIfNotSet(context, sharedPreferences, R.string.preferences__voip_video_enable) { key ->
+                    putBoolean(key, true)
+                }
+                applyIfNotSet(context, sharedPreferences, R.string.preferences__group_calls_enable) { key ->
+                    putBoolean(key, true)
+                }
+                applyIfNotSet(context, sharedPreferences, R.string.preferences__read_receipts) { key ->
+                    putBoolean(key, true)
+                }
+                applyIfNotSet(context, sharedPreferences, R.string.preferences__typing_indicator) { key ->
+                    putBoolean(key, true)
+                }
+                applyIfNotSet(context, sharedPreferences, R.string.preferences__notification_preview) { key ->
+                    putBoolean(key, true)
+                }
+
+                // These defaults can be removed once we drop Android 7
+                applyIfNotSet(context, sharedPreferences, R.string.preferences__notification_sound) { key ->
+                    putString(key, context.getString(R.string.default_notification_sound))
+                }
+                applyIfNotSet(context, sharedPreferences, R.string.preferences__group_notification_sound) { key ->
+                    putString(key, context.getString(R.string.default_notification_sound))
+                }
+                applyIfNotSet(context, sharedPreferences, R.string.preferences__group_calls_ringtone) { key ->
+                    putString(key, context.getString(R.string.default_ringtone))
                 }
             }
+        }
 
-            try {
-                PreferenceManager.setDefaultValues(context, R.xml.preference_chat, true)
-                PreferenceManager.setDefaultValues(context, R.xml.preference_privacy, true)
-                PreferenceManager.setDefaultValues(context, R.xml.preference_appearance, true)
-                PreferenceManager.setDefaultValues(context, R.xml.preference_notifications, true)
-                PreferenceManager.setDefaultValues(context, R.xml.preference_media, true)
-                PreferenceManager.setDefaultValues(context, R.xml.preference_calls, true)
-                PreferenceManager.setDefaultValues(context, R.xml.preference_advanced_options, true)
-            } catch (e: Exception) {
-                logger.error("Failed to set default preferences values", e)
+        private inline fun SharedPreferences.Editor.applyIfNotSet(
+            context: Context,
+            sharedPreferences: SharedPreferences,
+            @StringRes keyId: Int,
+            apply: SharedPreferences.Editor.(key: String) -> Unit,
+        ) {
+            val key = context.getString(keyId)
+            if (!sharedPreferences.contains(key)) {
+                apply(key)
             }
         }
 
@@ -438,7 +453,7 @@ class ThreemaApplication : Application() {
             // uploading state as in sending state a persistent task is already scheduled and the
             // message will be sent when a connection is available.
             with(databaseService) {
-                messageModelFactory.markUnscheduledFileMessagesAsFailed()
+                contactMessageModelFactory.markUnscheduledFileMessagesAsFailed()
                 groupMessageModelFactory.markUnscheduledFileMessagesAsFailed()
                 distributionListMessageModelFactory.markUnscheduledFileMessagesAsFailed()
             }

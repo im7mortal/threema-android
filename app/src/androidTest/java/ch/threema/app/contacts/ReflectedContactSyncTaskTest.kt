@@ -10,6 +10,7 @@ import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.processors.reflectedd2dsync.ReflectedContactSyncTask
 import ch.threema.base.crypto.NonceFactory
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.IdColor
 import ch.threema.data.models.ContactModel
@@ -34,13 +35,14 @@ import ch.threema.protobuf.d2d.sync.Contact
 import ch.threema.protobuf.d2d.sync.ContactKt.deprecatedNotificationSoundPolicyOverride
 import ch.threema.protobuf.d2d.sync.ContactKt.readReceiptPolicyOverride
 import ch.threema.protobuf.d2d.sync.ContactKt.typingIndicatorPolicyOverride
-import ch.threema.protobuf.d2d.sync.ConversationCategory
+import ch.threema.protobuf.d2d.sync.ConversationCategory as ProtocolsConversationCategory
 import ch.threema.protobuf.d2d.sync.ConversationVisibility as ProtocolsConversationVisibility
 import ch.threema.protobuf.d2d.sync.contact
 import ch.threema.test.TestData.PUBLIC_KEY
 import ch.threema.test.TestDatabaseProvider
 import ch.threema.test.TestIdentityProvider
 import ch.threema.testhelpers.TestDispatcherProvider
+import ch.threema.testhelpers.TestTimeProvider
 import com.google.protobuf.kotlin.toByteString
 import io.mockk.mockk
 import java.time.Instant
@@ -85,6 +87,7 @@ class ReflectedContactSyncTaskTest {
         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
         conversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory = ConversationCategory.DEFAULT,
         androidContactLookupInfo = null,
         localAvatarExpires = null,
         isRestored = false,
@@ -125,6 +128,7 @@ class ReflectedContactSyncTaskTest {
             globalEventBuses = mockk(relaxed = true),
             globalEventFlows = mockk(relaxed = true),
             dispatcherProvider = TestDispatcherProvider(),
+            timeProvider = TestTimeProvider(),
         ).contacts
     }
 
@@ -154,7 +158,7 @@ class ReflectedContactSyncTaskTest {
             deprecatedNotificationSoundPolicyOverride = deprecatedNotificationSoundPolicyOverride {
                 default = unit {}
             }
-            conversationCategory = ConversationCategory.DEFAULT
+            conversationCategory = ProtocolsConversationCategory.DEFAULT
             conversationVisibility = ProtocolsConversationVisibility.NORMAL
         }
 

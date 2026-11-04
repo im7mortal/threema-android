@@ -1,29 +1,45 @@
 package ch.threema.app.backupcenter
 
+import ch.threema.app.backupcenter.models.LastLocalDataBackupInfo
 import ch.threema.app.framework.BaseViewModel
+import ch.threema.app.preference.service.PreferenceService
 import ch.threema.common.DispatcherProvider
-import ch.threema.common.kiloBytes
-import java.time.Instant
-import kotlin.random.Random
-import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.withContext
 
 class LocalDataBackupViewModel(
+    private val preferenceService: PreferenceService,
     private val dispatcherProvider: DispatcherProvider,
-) : BaseViewModel<LocalDataBackupViewState, Unit>() {
-    override suspend fun initialize(): LocalDataBackupViewState {
-        // TODO(ANDR-4880): Mocked data for now, replace with actual values once they are available
-        delay(500.milliseconds)
-        return withContext(dispatcherProvider.io) {
-            LocalDataBackupViewState(
-                lastBackupData = LocalDataBackupViewState.LastBackupData(
-                    time = Instant.ofEpochMilli(1_778_663_772_000L),
-                    size = Random.nextInt(250, 2_000_000).kiloBytes,
-                    mediaIncluded = false,
-                    location = "Threema Backups/BackupFile.dat",
-                ),
-            )
+) : BaseViewModel<LocalDataBackupViewState, LocalDataBackupViewModelEvent>() {
+    override suspend fun initialize(): LocalDataBackupViewState = withContext(dispatcherProvider.io) {
+        val lastBackupInfo = preferenceService.getLastLocalDataBackupInfo()
+            ?: run {
+                // If no backup has ever been created, this screen will be skipped
+                emitEvent(LocalDataBackupViewModelEvent.ProceedToBackupCreation)
+                awaitCancellation()
+            }
+
+        runWhenActive {
+            preferenceService.watchLastLocalDataBackupInfo()
+                .collect { lastLocalDataBackupInfo ->
+                    lastLocalDataBackupInfo
+                        ?.toViewState()
+                        ?.let { newViewState ->
+                            updateViewState { newViewState }
+                        }
+                }
         }
+
+        lastBackupInfo.toViewState()
     }
+
+    private fun LastLocalDataBackupInfo.toViewState() =
+        LocalDataBackupViewState(
+            lastBackupData = LocalDataBackupViewState.LastBackupData(
+                time = createdAt,
+                size = size,
+                mediaIncluded = mediaIncluded,
+                location = location,
+            ),
+        )
 }

@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import androidx.lifecycle.lifecycleScope
 import ch.threema.android.buildActivityIntent
+import ch.threema.app.BuildFlavor
 import ch.threema.app.R
 import ch.threema.app.ThreemaApplication
 import ch.threema.app.activities.AddContactActivity
@@ -12,8 +13,6 @@ import ch.threema.app.di.awaitAppFullyReady
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.BlockedIdentitiesService
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.ConversationCategoryService
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.common.DispatcherProvider
 import com.bumptech.glide.Glide
 import kotlinx.coroutines.launch
@@ -23,7 +22,6 @@ import org.koin.android.ext.android.inject
 class UserListFragment : RecipientListFragment() {
     private val contactService: ContactService by inject()
     private val blockedIdentitiesService: BlockedIdentitiesService by inject()
-    private val conversationCategoryService: ConversationCategoryService by inject()
     private val preferenceService: PreferenceService by inject()
     private val dispatcherProvider: DispatcherProvider by inject()
 
@@ -47,7 +45,7 @@ class UserListFragment : RecipientListFragment() {
             awaitAppFullyReady()
 
             val contactModels = withContext(dispatcherProvider.io) {
-                if (ConfigUtils.isWorkBuild()) {
+                if (BuildFlavor.IS_WORK) {
                     // Excluding invalid and work contacts
                     contactService
                         .getAllDisplayed(ContactService.ContactSelection.EXCLUDE_INVALID)
@@ -65,7 +63,6 @@ class UserListFragment : RecipientListFragment() {
                 checkedItemPositions,
                 contactService,
                 blockedIdentitiesService,
-                conversationCategoryService,
                 preferenceService,
                 this@UserListFragment,
                 Glide.with(ThreemaApplication.getAppContext()),

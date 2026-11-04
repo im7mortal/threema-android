@@ -5,6 +5,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
+import android.os.Build;
 import android.provider.MediaStore;
 
 import androidx.annotation.NonNull;
@@ -18,6 +19,8 @@ import org.slf4j.Logger;
 import java.io.IOException;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
+import ch.threema.android.DeviceInfo;
 
 public class VideoUtil {
     private static final Logger logger = getThreemaLogger("VideoUtil");
@@ -77,12 +80,21 @@ public class VideoUtil {
     public static ExoPlayer getExoPlayer(@NonNull Context context) {
         DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(context);
         renderersFactory.setEnableDecoderFallback(true);
-        if (ConfigUtils.hasAsyncMediaCodecBug()) {
+        if (hasAsyncMediaCodecBug()) {
             renderersFactory.forceDisableMediaCodecAsynchronousQueueing();
         }
         return new ExoPlayer.Builder(context, renderersFactory)
             .setSeekBackIncrementMs(5000)
             .setSeekForwardIncrementMs(5000)
             .build();
+    }
+
+    /**
+     * Check if this device has a bug related to media codec's async mode as described here https://github.com/google/ExoPlayer/issues/10021
+     */
+    private static boolean hasAsyncMediaCodecBug() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            DeviceInfo.isSamsungDevice() &&
+            Build.MODEL.startsWith("SM-G97");
     }
 }

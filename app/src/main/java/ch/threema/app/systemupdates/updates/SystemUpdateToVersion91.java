@@ -11,12 +11,14 @@ import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
 import androidx.preference.PreferenceManager;
+
+import ch.threema.app.BuildConfig;
 import ch.threema.app.BuildFlavor;
 import ch.threema.app.R;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.SynchronizeContactsUtil;
 import kotlin.Lazy;
 
+import static ch.threema.android.PermissionExtensionsKt.checkGrantedPermission;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 /**
@@ -29,12 +31,12 @@ public class SystemUpdateToVersion91 implements SystemUpdate {
 
     @Override
     public void run() {
-        if (BuildFlavor.getCurrent().isLibre()) {
+        if (BuildFlavor.IS_LIBRE) {
             var appContext = appContextLazy.getValue();
             final boolean isSyncContacts = PreferenceManager.getDefaultSharedPreferences(appContext).getBoolean(appContext.getString(R.string.preferences__sync_contacts), false);
 
             if (!SynchronizeContactsUtil.isRestrictedProfile(appContext) && isSyncContacts) {
-                if (ConfigUtils.isPermissionGranted(appContext, Manifest.permission.WRITE_CONTACTS)) {
+                if (checkGrantedPermission(appContext, Manifest.permission.WRITE_CONTACTS)) {
                     final AccountManager accountManager = AccountManager.get(appContext);
 
                     if (accountManager != null) {
@@ -59,11 +61,6 @@ public class SystemUpdateToVersion91 implements SystemUpdate {
                 }
             }
         }
-    }
-
-    @Override
-    public String getDescription() {
-        return "fix libre account type";
     }
 
     @Override

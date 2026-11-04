@@ -36,10 +36,12 @@ import ch.threema.app.compose.message.MessageDetailsListBox
 import ch.threema.app.compose.message.MessageTimestampsListBox
 import ch.threema.app.compose.theme.ThreemaTheme
 import ch.threema.app.compose.theme.dimens.GridUnit
+import ch.threema.app.dialogs.BottomSheetDialog
 import ch.threema.app.dialogs.BottomSheetGridDialog
 import ch.threema.app.dialogs.GenericAlertDialog
 import ch.threema.app.dialogs.GenericAlertDialog.DialogClickListener
 import ch.threema.app.preference.service.PreferenceService
+import ch.threema.app.services.MessageService
 import ch.threema.app.ui.BottomSheetItem
 import ch.threema.app.ui.CustomTextSelectionCallback
 import ch.threema.app.utils.ConfigUtils
@@ -48,7 +50,7 @@ import ch.threema.app.utils.LinkConfirmationListener.Companion.DIALOG_TAG_CONFIR
 import ch.threema.app.utils.LinkifyUtil
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageType
 import com.google.android.material.appbar.MaterialToolbar
 import org.koin.android.ext.android.inject
@@ -64,13 +66,14 @@ class MessageDetailsActivity : ThreemaToolbarActivity(), DialogClickListener, Li
     }
 
     private val preferenceService: PreferenceService by inject()
+    private val messageService: MessageService by inject()
 
     private lateinit var toolbar: MaterialToolbar
 
     private val viewModel: MessageDetailsViewModel by viewModel<MessageDetailsViewModel> {
         parametersOf(
-            IntentDataUtil.getAbstractMessageId(intent),
-            IntentDataUtil.getAbstractMessageType(intent),
+            IntentDataUtil.getMessageId(intent),
+            IntentDataUtil.getMessageType(intent)!!,
         )
     }
 
@@ -136,14 +139,31 @@ class MessageDetailsActivity : ThreemaToolbarActivity(), DialogClickListener, Li
             }
         }
 
-    override fun getLayoutResource(): Int {
-        return R.layout.activity_message_details
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setUpDialogCallbacks()
     }
+
+    private fun setUpDialogCallbacks() {
+        supportFragmentManager.setFragmentResultListener(DIALOG_TAG_ADD_CONTACT, this) { _, result ->
+            BottomSheetDialog.onItemClicked(result) { tag, data ->
+                LinkifyUtil.launchAddContactActivity(this, tag, data)
+            }
+        }
+    }
+
+    override fun getLayoutResource() = R.layout.activity_message_details
 
     override fun initActivity(savedInstanceState: Bundle?): Boolean {
         theme.applyStyle(preferenceService.getFontStyle(), true)
 
         if (!super.initActivity(savedInstanceState)) {
+            return false
+        }
+
+        if (IntentDataUtil.getMessageModel(intent, messageService) == null) {
+            val messageId = IntentDataUtil.getMessageId(intent)
+            logger.warn("Message with id {} not found, finishing activity", messageId)
             return false
         }
 
@@ -159,10 +179,9 @@ class MessageDetailsActivity : ThreemaToolbarActivity(), DialogClickListener, Li
         dialog.show(supportFragmentManager, DIALOG_TAG_CONFIRM_LINK)
     }
 
-    override fun showBottomSheetGridDialog(items: ArrayList<BottomSheetItem?>?) {
-        val dialog = BottomSheetGridDialog.newInstance(R.string.add_contact_in, items)
-        dialog.setCallback { tag: String?, data: String? -> LinkifyUtil.launchAddContactActivity(this, tag, data) }
-        dialog.show(supportFragmentManager, "bsh")
+    override fun showBottomSheetGridDialog(items: List<BottomSheetItem>) {
+        BottomSheetGridDialog.newInstance(title = R.string.add_contact_in, items = items, requestKey = DIALOG_TAG_ADD_CONTACT)
+            .show(supportFragmentManager, DIALOG_TAG_ADD_CONTACT)
     }
 
     override fun shouldHandleLinkClick() = true
@@ -173,79 +192,81 @@ class MessageDetailsActivity : ThreemaToolbarActivity(), DialogClickListener, Li
 
         editHistoryComposeView.setContent {
             ThreemaTheme {
-                val uiState: ChatMessageDetailsUiState by viewModel.uiState.collectAsStateWithLifecycle()
-                val messageModel: MessageUiModel = uiState.message
-                val editHistoryViewModel: EditHistoryViewModel = koinViewModel { parametersOf(messageModel.uid) }
-                val editHistoryUiState by editHistoryViewModel.editHistoryUiState.collectAsStateWithLifecycle()
+                val uiState: ChatMessageDetailsUiState? by viewModel.uiState.collectAsStateWithLifecycle()
+                uiState?.let { uiState ->
+                    val messageModel: MessageUiModel = uiState.message
+                    val editHistoryViewModel: EditHistoryViewModel = koinViewModel { parametersOf(messageModel.uid) }
+                    val editHistoryEntries by editHistoryViewModel.editHistoryEntries.collectAsStateWithLifecycle()
 
-                Scaffold(
-                    contentWindowInsets = WindowInsets.safeDrawing.only(
-                        WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
-                    ),
-                ) { insetsPadding ->
+                    Scaffold(
+                        contentWindowInsets = WindowInsets.safeDrawing.only(
+                            WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom,
+                        ),
+                    ) { insetsPadding ->
 
-                    EditHistoryList(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = GridUnit.x2),
-                        contentPadding = insetsPadding,
-                        editHistoryUiState = editHistoryUiState,
-                        isOutbox = messageModel.isOutbox,
-                        shouldMarkupText = uiState.shouldMarkupText,
-                        linkifyListener = this,
-                        headerContent = {
-                            when (messageModel.type) {
-                                MessageType.TEXT,
-                                MessageType.FILE,
-                                MessageType.LOCATION,
-                                -> Column {
-                                    SpacerVertical(height = GridUnit.x2)
-                                    CompleteMessageBubble(
-                                        message = messageModel,
-                                        shouldMarkupText = uiState.shouldMarkupText,
-                                        linkifyListener = this@MessageDetailsActivity,
-                                        isTextSelectable = true,
-                                        textSelectionCallback = textSelectionCallback,
-                                    )
-                                    if (uiState.hasReactions) {
-                                        SpacerVertical(height = GridUnit.x0_25)
-                                        HintText(
-                                            text = stringResource(R.string.emoji_reactions_message_details_hint),
+                        EditHistoryList(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = GridUnit.x2),
+                            contentPadding = insetsPadding,
+                            editHistoryEntries = editHistoryEntries,
+                            isOutbox = messageModel.isOutbox,
+                            shouldMarkupText = uiState.shouldMarkupText,
+                            linkifyListener = this,
+                            headerContent = {
+                                when (messageModel.type) {
+                                    MessageType.TEXT,
+                                    MessageType.FILE,
+                                    MessageType.LOCATION,
+                                    -> Column {
+                                        SpacerVertical(height = GridUnit.x2)
+                                        CompleteMessageBubble(
+                                            message = messageModel,
+                                            shouldMarkupText = uiState.shouldMarkupText,
+                                            linkifyListener = this@MessageDetailsActivity,
+                                            isTextSelectable = true,
+                                            textSelectionCallback = textSelectionCallback,
+                                        )
+                                        if (uiState.hasReactions) {
+                                            SpacerVertical(height = GridUnit.x0_25)
+                                            HintText(
+                                                text = stringResource(R.string.emoji_reactions_message_details_hint),
+                                            )
+                                        }
+                                    }
+
+                                    else -> Unit
+                                }
+                            },
+                            footerContent = {
+                                Column {
+                                    if (messageModel.messageTimestampsUiModel.hasProperties()) {
+                                        SpacerVertical(height = GridUnit.x1)
+                                        MessageTimestampsListBox(
+                                            messageTimestampsUiModel = messageModel.messageTimestampsUiModel,
+                                            isOutbox = messageModel.isOutbox,
+                                        )
+                                    }
+                                    if (messageModel.messageDetailsUiModel.hasProperties()) {
+                                        SpacerVertical(height = GridUnit.x2)
+                                        MessageDetailsListBox(
+                                            messageDetailsUiModel = messageModel.messageDetailsUiModel,
+                                            isOutbox = messageModel.isOutbox,
+                                        )
+                                    }
+                                    if (preferenceService.showMessageDebugInfo()) {
+                                        SpacerVertical(height = GridUnit.x2)
+                                        MessageDebugInfoBox(
+                                            type = messageModel.type,
+                                            rowId = messageModel.id,
+                                            uid = messageModel.uid,
+                                            isOutbox = messageModel.isOutbox,
                                         )
                                     }
                                 }
-
-                                else -> Unit
-                            }
-                        },
-                        footerContent = {
-                            Column {
-                                if (messageModel.messageTimestampsUiModel.hasProperties()) {
-                                    SpacerVertical(height = GridUnit.x1)
-                                    MessageTimestampsListBox(
-                                        messageTimestampsUiModel = messageModel.messageTimestampsUiModel,
-                                        isOutbox = messageModel.isOutbox,
-                                    )
-                                }
-                                if (messageModel.messageDetailsUiModel.hasProperties()) {
-                                    SpacerVertical(height = GridUnit.x2)
-                                    MessageDetailsListBox(
-                                        messageDetailsUiModel = messageModel.messageDetailsUiModel,
-                                        isOutbox = messageModel.isOutbox,
-                                    )
-                                }
-                                if (preferenceService.showMessageDebugInfo()) {
-                                    SpacerVertical(height = GridUnit.x2)
-                                    MessageDebugInfoBox(
-                                        type = messageModel.type,
-                                        rowId = messageModel.id,
-                                        uid = messageModel.uid,
-                                        isOutbox = messageModel.isOutbox,
-                                    )
-                                }
-                            }
-                        },
-                    )
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -279,11 +300,13 @@ class MessageDetailsActivity : ThreemaToolbarActivity(), DialogClickListener, Li
     }
 
     companion object {
+        private const val DIALOG_TAG_ADD_CONTACT = "addcn"
+
         private const val CONTEXT_MENU_FORWARD = 600
         private const val CONTEXT_MENU_GROUP = 22200
 
         @JvmStatic
-        fun createIntent(context: Context, messageModel: AbstractMessageModel) = buildActivityIntent<MessageDetailsActivity>(context) {
+        fun createIntent(context: Context, messageModel: MessageModel) = buildActivityIntent<MessageDetailsActivity>(context) {
             IntentDataUtil.append(messageModel, this)
         }
     }

@@ -2,13 +2,12 @@ package ch.threema.app.tasks
 
 import ch.threema.app.groupflows.GroupChanges
 import ch.threema.app.profilepicture.GroupProfilePictureUploader.GroupProfilePictureUploadResult
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.FileService
 import ch.threema.base.crypto.NonceFactory
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.contentEquals
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
-import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverride
 import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverridePolicy
@@ -31,7 +30,7 @@ import ch.threema.protobuf.common.identities
 import ch.threema.protobuf.common.image
 import ch.threema.protobuf.common.unit
 import ch.threema.protobuf.d2d.GroupSync.Update.MemberStateChange
-import ch.threema.protobuf.d2d.sync.ConversationCategory
+import ch.threema.protobuf.d2d.sync.ConversationCategory as ProtocolsConversationCategory
 import ch.threema.protobuf.d2d.sync.ConversationVisibility as ProtocolsConversationVisibility
 import ch.threema.protobuf.d2d.sync.Group
 import ch.threema.protobuf.d2d.sync.GroupKt
@@ -429,37 +428,34 @@ abstract class ReflectGroupSyncUpdateTask(
      */
     class ReflectGroupConversationCategoryUpdateTask(
         groupIdentity: GroupIdentity,
-        private val isPrivateChat: Boolean,
+        private val conversationCategory: ConversationCategory,
     ) : ReflectGroupSyncUpdateTask(
         groupIdentity = groupIdentity,
-    ),
-        KoinComponent {
-        private val conversationCategoryService: ConversationCategoryService by inject()
-
+    ) {
         override val type: String = "ReflectGroupConversationCategoryUpdateTask"
 
-        override fun isChangeValid(currentData: GroupModelData): Boolean {
-            // The change must be correct, otherwise we must not reflect that change
-            return conversationCategoryService.isMarkedAsPrivate(
-                conversationId = GroupConversationId(groupDatabaseId = groupModel.getDatabaseId()),
-            ) == isPrivateChat
-        }
+        override fun isChangeValid(currentData: GroupModelData): Boolean =
+            currentData.conversationCategory == conversationCategory
 
         override val buildGroupSyncChanges: GroupKt.Dsl.() -> Unit = {
-            conversationCategory = if (isPrivateChat) {
-                ConversationCategory.PROTECTED
-            } else {
-                ConversationCategory.DEFAULT
+            conversationCategory = when (this@ReflectGroupConversationCategoryUpdateTask.conversationCategory) {
+                ConversationCategory.DEFAULT -> ProtocolsConversationCategory.DEFAULT
+                ConversationCategory.PROTECTED -> ProtocolsConversationCategory.PROTECTED
             }
         }
 
         override fun serialize(): SerializableTaskData {
-            return ReflectGroupConversationCategoryData(
+            return ReflectGroupConversationCategoryDataV2(
                 groupIdentity = groupModel.groupIdentity,
-                isPrivateChat = isPrivateChat,
+                conversationCategorySerialized = conversationCategory.serializedValue,
             )
         }
 
+        /**
+         * Note that this is only used for backwards compatibility as we used to persist this task data. We still need to be able to restore this task
+         * data as some clients may have persisted it.
+         */
+        @Deprecated("Use ReflectContactConversationCategoryUpdateDataV2 instead")
         @Serializable
         data class ReflectGroupConversationCategoryData(
             private val groupIdentity: GroupIdentity,
@@ -468,9 +464,29 @@ abstract class ReflectGroupSyncUpdateTask(
             override fun createTask(): Task<*, TaskCodec> {
                 return ReflectGroupConversationCategoryUpdateTask(
                     groupIdentity = groupIdentity,
-                    isPrivateChat = isPrivateChat,
+                    conversationCategory = if (isPrivateChat) {
+                        ConversationCategory.PROTECTED
+                    } else {
+                        ConversationCategory.DEFAULT
+                    },
                 )
             }
+        }
+
+        @Serializable
+        data class ReflectGroupConversationCategoryDataV2(
+            private val groupIdentity: GroupIdentity,
+            private val conversationCategorySerialized: Int,
+        ) : SerializableTaskData {
+            override fun createTask(): Task<*, TaskCodec> =
+                ReflectGroupConversationCategoryUpdateTask(
+                    groupIdentity = groupIdentity,
+                    conversationCategory = requireConversationCategory(),
+                )
+
+            private fun requireConversationCategory(): ConversationCategory =
+                ConversationCategory.deserialize(conversationCategorySerialized)
+                    ?: error("Could not deserialize conversation category from value $conversationCategorySerialized")
         }
     }
 

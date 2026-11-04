@@ -12,10 +12,7 @@
         <DropDownPreference
             android:key="@string/preferences__theme"
             android:title="@string/prefs_theme"
-            android:icon="@drawable/ic_palette_outline"
-            android:entries="@array/list_theme"
-            android:entryValues="@array/list_theme_values"
-            android:defaultValue="" />
+            android:icon="@drawable/ic_palette_outline" />
 
         <CheckBoxPreference
             android:widgetLayout="@layout/preference_switch_layout"
@@ -35,10 +32,7 @@
         <DropDownPreference
             android:key="@string/preferences__emoji_style"
             android:title="@string/prefs_emoji_style"
-            android:icon="@drawable/ic_emoji"
-            android:entries="@array/list_emoji_style"
-            android:entryValues="@array/list_emoji_style_values"
-            android:defaultValue="0" />
+            android:icon="@drawable/ic_emoji" />
 
         <CheckBoxPreference
             android:widgetLayout="@layout/preference_switch_layout"

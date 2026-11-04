@@ -5,6 +5,9 @@ import net.zetetic.database.sqlcipher.SQLiteDatabase
 
 private val logger = getThreemaLogger("DatabaseUpdateToVersion89")
 
+/**
+ * add lastUpdate field
+ */
 internal class DatabaseUpdateToVersion89(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -107,8 +110,6 @@ internal class DatabaseUpdateToVersion89(
         """,
         )
     }
-
-    override fun getDescription() = "add lastUpdate field"
 
     override val version = 89
 }

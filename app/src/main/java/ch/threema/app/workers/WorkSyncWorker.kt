@@ -1,7 +1,6 @@
 package ch.threema.app.workers
 
 import android.content.Context
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
@@ -16,48 +15,26 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.await
+import ch.threema.android.ToastDuration
 import ch.threema.android.buildNotification
 import ch.threema.android.buildOneTimeWorkRequest
 import ch.threema.android.buildPeriodicWorkRequest
 import ch.threema.android.setConstraints
 import ch.threema.android.setInputData
+import ch.threema.android.showToast
+import ch.threema.app.BuildFlavor
+import ch.threema.app.GlobalAppState
 import ch.threema.app.R
-import ch.threema.app.applogo.UpdateAppLogoUseCase
-import ch.threema.app.asynctasks.AddOrUpdateWorkContactBackgroundTask
 import ch.threema.app.di.awaitAppFullyReadyWithTimeout
 import ch.threema.app.notifications.NotificationChannels
 import ch.threema.app.notifications.NotificationIDs
 import ch.threema.app.preference.service.PreferenceService
-import ch.threema.app.restrictions.AppRestrictionService
-import ch.threema.app.restrictions.AppRestrictions
-import ch.threema.app.routines.UpdateWorkInfoRoutine
-import ch.threema.app.services.ContactService
-import ch.threema.app.services.UserService
-import ch.threema.app.services.license.LicenseService
-import ch.threema.app.services.notification.NotificationService
-import ch.threema.app.tasks.BatchUpdateContactAvailabilityStatusTask
-import ch.threema.app.tasks.BatchUpdateContactWorkLastFullSyncAtTask
-import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.RuntimeUtil
 import ch.threema.app.utils.WorkManagerUtil
+import ch.threema.app.work.WorkSync
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.common.Http
-import ch.threema.data.datatypes.AvailabilityStatus
-import ch.threema.data.models.ContactModel
-import ch.threema.data.repositories.ContactModelRepository
-import ch.threema.domain.models.UserCredentials
-import ch.threema.domain.models.VerificationLevel
-import ch.threema.domain.models.WorkVerificationLevel
-import ch.threema.domain.protocol.api.APIConnector
-import ch.threema.domain.protocol.api.work.WorkData
-import ch.threema.domain.stores.IdentityStore
-import ch.threema.domain.taskmanager.TaskManager
-import ch.threema.domain.types.IdentityString
-import java.time.Instant
+import ch.threema.data.IdentityProvider
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -67,186 +44,41 @@ class WorkSyncWorker(
     private val context: Context,
     workerParameters: WorkerParameters,
 ) : CoroutineWorker(context, workerParameters), KoinComponent {
-
-    private val contactService: ContactService by inject()
-    private val preferenceService: PreferenceService by inject()
-    private val licenseService: LicenseService<*> by inject()
-    private val apiConnector: APIConnector by inject()
-    private val notificationService: NotificationService by inject()
-    private val userService: UserService by inject()
-    private val identityStore: IdentityStore by inject()
-    private val contactModelRepository: ContactModelRepository by inject()
-    private val appRestrictions: AppRestrictions by inject()
-    private val updateAppLogoUseCase: UpdateAppLogoUseCase by inject()
-    private val appRestrictionService: AppRestrictionService by inject()
-    private val taskManager: TaskManager by inject()
+    private val globalAppState: GlobalAppState by inject()
+    private val workSync: WorkSync by inject()
+    private val identityProvider: IdentityProvider by inject()
 
     override suspend fun doWork(): Result {
-        val forceUpdate: Boolean = inputData.getBoolean(EXTRA_FORCE_UPDATE, false)
-        val newWorkContacts: MutableList<ContactModel> = mutableListOf()
-
-        logger.info("Refreshing work data. Force = {}", forceUpdate)
-
+        if (!BuildFlavor.IS_WORK) {
+            logger.error("Not allowed to run in a non-work environment")
+            return Result.failure()
+        }
+        if (globalAppState.specialMode != null) {
+            return Result.retry()
+        }
         awaitAppFullyReadyWithTimeout(timeout = 20.seconds)
             ?: return Result.failure()
 
-        if (!ConfigUtils.isWorkBuild()) {
-            logger.info("Not allowed to run in a non work environment")
+        if (!identityProvider.hasIdentity()) {
+            logger.info("No identity found. Aborting work sync worker.")
             return Result.failure()
         }
 
-        val credentials =
-            licenseService.loadCredentials() as? UserCredentials ?: return Result.failure()
+        val forceAppLogoFetch: Boolean = inputData.getBoolean(EXTRA_FORCE_APP_LOGO_FETCH, false)
 
-        val workData: WorkData?
-        try {
-            // TODO(ANDR-3172): Get all contacts via contact model repository
-            val allContacts: List<ch.threema.storage.models.ContactModel> = contactService.all
-            val identities = arrayOfNulls<String>(allContacts.size)
-            for (n in allContacts.indices) {
-                identities[n] = allContacts[n].identity
+        val workSyncResult = workSync.run(forceAppLogoFetch = forceAppLogoFetch)
+
+        return when (workSyncResult) {
+            WorkSync.WorkSyncResult.Success -> Result.success()
+            WorkSync.WorkSyncResult.MissingCredentials,
+            WorkSync.WorkSyncResult.Fetch2Failed,
+            WorkSync.WorkSyncResult.ContactUpdateFailed,
+            -> Result.failure()
+
+            WorkSync.WorkSyncResult.Fetch2Unauthorized -> {
+                context.showToast(R.string.fetch2_failure, duration = ToastDuration.LONG)
+                Result.failure()
             }
-            workData = apiConnector.fetchWorkData(
-                /* username = */
-                credentials.username,
-                /* password = */
-                credentials.password,
-                /* identities = */
-                identities,
-            )
-        } catch (e: Exception) {
-            logger.error("Failed to fetch2 work data from API", e)
-            notificationService.cancelWorkSyncProgress()
-            return Result.failure()
-        }
-
-        if (workData.responseCode > 0) {
-            logger.error(
-                "Failed to fetch2 work data. Server response code = {}",
-                workData.responseCode,
-            )
-            if (workData.responseCode == Http.StatusCode.UNAUTHORIZED) {
-                RuntimeUtil.runOnUiThread {
-                    Toast.makeText(context, R.string.fetch2_failure, Toast.LENGTH_LONG).show()
-                }
-            }
-            notificationService.cancelWorkSyncProgress()
-            return Result.failure()
-        }
-
-        val existingWorkIdentities = contactService.allWork.map { it.identity }.toSet()
-        val fetchedWorkIdentities = workData.workContacts.map { it.threemaId }.toSet()
-
-        val pendingContactWorkLastFullSyncAtUpdates = mutableMapOf<IdentityString, Instant>()
-        val pendingContactAvailabilityStatusUpdates = mutableMapOf<IdentityString, AvailabilityStatus>()
-
-        // Create or update work contacts
-        val refreshedWorkIdentities = workData
-            .workContacts
-            .mapNotNull { workContact ->
-                AddOrUpdateWorkContactBackgroundTask(
-                    workContact = workContact,
-                    myIdentity = userService.identity!!,
-                    contactModelRepository = contactModelRepository,
-                    pendingUpdateContactWorkLastFullSyncAt = { identity, workLastFullSyncAt ->
-                        pendingContactWorkLastFullSyncAtUpdates[identity] = workLastFullSyncAt
-                    },
-                    pendingUpdateContactAvailabilityStatus = { identity, availabilityStatus ->
-                        pendingContactAvailabilityStatusUpdates[identity] = availabilityStatus
-                    },
-                ).runSynchronously()
-            }
-            .map(ContactModel::identity)
-
-        // Schedule tasks to batch-update contacts workLastFullSyncAtTimestamp values
-        if (pendingContactWorkLastFullSyncAtUpdates.isNotEmpty()) {
-            val batchUpdateContactWorkLastFullSyncAtTasks = BatchUpdateContactWorkLastFullSyncAtTask.createBatchedTasks(
-                workLastFullSyncAtTimestamps = pendingContactWorkLastFullSyncAtUpdates,
-            )
-            batchUpdateContactWorkLastFullSyncAtTasks.forEach(taskManager::schedule)
-        }
-
-        // Schedule tasks to batch-update contacts availability status values
-        if (pendingContactAvailabilityStatusUpdates.isNotEmpty()) {
-            val batchUpdateContactAvailabilityStatusTasks = BatchUpdateContactAvailabilityStatusTask.createBatchedTasks(
-                availabilityStatuses = pendingContactAvailabilityStatusUpdates,
-            )
-            batchUpdateContactAvailabilityStatusTasks.forEach(taskManager::schedule)
-        }
-
-        val newWorkIdentities = refreshedWorkIdentities - existingWorkIdentities
-        newWorkContacts.addAll(
-            newWorkIdentities.mapNotNull(contactModelRepository::getByIdentity),
-        )
-
-        // Downgrade work contacts
-        val downgradedIdentities = existingWorkIdentities - fetchedWorkIdentities
-        downgradedIdentities.mapNotNull { contactModelRepository.getByIdentity(it) }.forEach {
-            // The contact is no longer a work contact, so set work verification level to none
-            it.setWorkVerificationLevelFromLocal(WorkVerificationLevel.NONE)
-
-            // Additionally, the contact may not be server verified anymore (except it has been
-            // fully verified before)
-            if (it.data?.verificationLevel == VerificationLevel.SERVER_VERIFIED) {
-                it.setVerificationLevelFromLocal(VerificationLevel.UNVERIFIED)
-            }
-        }
-
-        // update app-logos
-        logger.trace("Updating app logos")
-        val updateAppLogoJob = coroutineScope {
-            launch {
-                updateAppLogoUseCase.call(
-                    lightUrl = workData.logoLight,
-                    darkUrl = workData.logoDark,
-                    forceUpdate = forceUpdate,
-                )
-            }
-        }
-        preferenceService.setCustomSupportUrl(workData.supportUrl)
-        // Save the Mini-MDM Parameters to a local file
-        appRestrictionService.storeWorkMDMSettings(workData.mdm)
-
-        // update work info
-        UpdateWorkInfoRoutine(
-            /* apiConnector = */
-            apiConnector,
-            /* identityStore = */
-            identityStore,
-            /* deviceService = */
-            null,
-            /* licenseService = */
-            licenseService,
-            /* appRestrictions */
-            appRestrictions,
-        ).run()
-        preferenceService.setWorkDirectoryEnabled(workData.directory.enabled)
-        preferenceService.setWorkDirectoryCategories(workData.directory.categories)
-        preferenceService.setWorkOrganization(workData.organization)
-        logger.trace("CheckInterval = {}", workData.checkInterval)
-        if (workData.checkInterval > 0) {
-            // schedule next interval
-            preferenceService.setWorkSyncCheckInterval(workData.checkInterval.seconds)
-        }
-
-        notificationService.cancelWorkSyncProgress()
-
-        updateAppLogoJob.join()
-
-        logger.info("Refreshing work data successfully finished")
-
-        if (newWorkContacts.isEmpty()) {
-            return Result.success()
-        }
-        val wasSuccessful = ContactUpdateWorker.fetchAndUpdateContactModels(
-            contactModels = newWorkContacts,
-            apiConnector = apiConnector,
-            preferenceService = preferenceService,
-        )
-        return if (wasSuccessful) {
-            Result.success()
-        } else {
-            Result.failure()
         }
     }
 
@@ -271,7 +103,7 @@ class WorkSyncWorker(
         private val preferenceService: PreferenceService,
     ) {
         fun schedulePeriodicWorkSync() {
-            if (!ConfigUtils.isWorkBuild()) {
+            if (!BuildFlavor.IS_WORK) {
                 logger.debug("Do not start work sync worker in non-work build")
                 return
             }
@@ -313,13 +145,13 @@ class WorkSyncWorker(
         }
 
         private fun buildOneTimeWorkRequest(
-            forceUpdate: Boolean,
+            forceAppLogoFetch: Boolean,
             tag: String?,
         ): OneTimeWorkRequest =
             buildOneTimeWorkRequest<WorkSyncWorker> {
                 setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 setInputData {
-                    putBoolean(EXTRA_FORCE_UPDATE, forceUpdate)
+                    putBoolean(EXTRA_FORCE_APP_LOGO_FETCH, forceAppLogoFetch)
                 }
                 if (tag != null) {
                     addTag(tag)
@@ -335,7 +167,7 @@ class WorkSyncWorker(
                 }
                 addTag(schedulePeriodMs.inWholeMilliseconds.toString())
                 setInputData {
-                    putBoolean(EXTRA_FORCE_UPDATE, false)
+                    putBoolean(EXTRA_FORCE_APP_LOGO_FETCH, false)
                 }
             }
 
@@ -346,10 +178,10 @@ class WorkSyncWorker(
          * `performOneTimeWorkSync(Activity, Runnable, Runnable)`.
          */
         fun performOneTimeWorkSync(
-            forceUpdate: Boolean,
+            forceAppLogoFetch: Boolean,
             tag: String?,
         ) {
-            val workRequest = buildOneTimeWorkRequest(forceUpdate, tag)
+            val workRequest = buildOneTimeWorkRequest(forceAppLogoFetch, tag)
             workManager.enqueueUniqueWork(
                 WorkerNames.WORKER_WORK_SYNC,
                 ExistingWorkPolicy.REPLACE,
@@ -370,7 +202,7 @@ class WorkSyncWorker(
         ) {
             val workerTag = "OneTimeWorkSyncWorker"
             val workRequest = buildOneTimeWorkRequest(
-                forceUpdate = true,
+                forceAppLogoFetch = true,
                 tag = workerTag,
             )
             workManager.getWorkInfoByIdLiveData(workRequest.id)
@@ -383,6 +215,7 @@ class WorkSyncWorker(
                             // later and the sync completes successfully.
                             logger.info("Work info is null")
                         }
+
                         else -> Unit
                     }
                 }
@@ -395,6 +228,6 @@ class WorkSyncWorker(
     }
 
     companion object {
-        private const val EXTRA_FORCE_UPDATE = "FORCE_UPDATE"
+        private const val EXTRA_FORCE_APP_LOGO_FETCH = "FORCE_UPDATE"
     }
 }

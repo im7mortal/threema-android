@@ -79,6 +79,10 @@ class KeyStoreCrypto(
         keyStoreSecretKeyManager.deleteSecretKey(keyAlias.value)
     }
 
+    fun deleteAllSecretKeys() {
+        keyStoreSecretKeyManager.deleteAllSecretKeys()
+    }
+
     companion object {
         private const val CIPHER_TRANSFORMATION = "AES/GCM/NoPadding"
         private const val GCM_AUTHENTICATION_TAG_LENGTH = 128

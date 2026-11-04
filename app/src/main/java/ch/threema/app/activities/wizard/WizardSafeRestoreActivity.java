@@ -21,16 +21,16 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.android.ToastDuration;
+import ch.threema.app.BuildFlavor;
 import ch.threema.app.R;
-import ch.threema.app.activities.ThreemaAppCompatActivity;
+import ch.threema.app.activities.ThreemaActivity;
+import ch.threema.app.connection.ServerConnectionManager;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.dialogs.GenericProgressDialog;
 import ch.threema.app.dialogs.PasswordEntryDialog;
 import ch.threema.app.dialogs.SimpleStringAlertDialog;
 import ch.threema.app.dialogs.WizardDialog;
 import ch.threema.app.dialogs.WizardSafeSearchPhoneDialog;
-import ch.threema.app.managers.ServiceManager;
-import ch.threema.app.services.ActivityService;
 import ch.threema.app.threemasafe.ThreemaSafeAdvancedDialog;
 import ch.threema.app.threemasafe.ThreemaSafeMDMConfig;
 import ch.threema.app.threemasafe.ThreemaSafeServerInfo;
@@ -40,6 +40,7 @@ import ch.threema.app.ui.LongToast;
 import ch.threema.app.ui.SpacingValues;
 import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.ui.interop.TextButtonPrimaryXml;
+import ch.threema.app.utils.AppRestarter;
 import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.DialogUtil;
 import ch.threema.app.utils.executor.BackgroundExecutor;
@@ -53,12 +54,13 @@ import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.common.Http;
 import ch.threema.common.HttpResponseException;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
+import kotlin.Lazy;
 
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
-public class WizardSafeRestoreActivity extends ThreemaAppCompatActivity implements
+public class WizardSafeRestoreActivity extends ThreemaActivity implements
     PasswordEntryDialog.PasswordEntryDialogClickListener,
     WizardSafeSearchPhoneDialog.WizardSafeSearchPhoneDialogCallback,
     WizardDialog.WizardDialogCallback,
@@ -78,7 +80,9 @@ public class WizardSafeRestoreActivity extends ThreemaAppCompatActivity implemen
     @NonNull
     private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
     @NonNull
-    private final ActivityService activityService = KoinJavaComponent.get(ActivityService.class);
+    private final AppRestarter appRestarter = KoinJavaComponent.get(AppRestarter.class);
+    @NonNull
+    private final Lazy<ServerConnectionManager> serverConnectionManagerLazy = KoinJavaComponent.inject(ServerConnectionManager.class);
 
     private final BackgroundExecutor executor = new BackgroundExecutor();
 
@@ -156,30 +160,6 @@ public class WizardSafeRestoreActivity extends ThreemaAppCompatActivity implemen
         });
     }
 
-    @Override
-    protected void onPause() {
-        activityService.pause(this);
-        super.onPause();
-    }
-
-    @Override
-    protected void onResume() {
-        activityService.resume(this);
-        super.onResume();
-    }
-
-    @Override
-    protected void onDestroy() {
-        activityService.destroy(this);
-        super.onDestroy();
-    }
-
-    @Override
-    public void onUserInteraction() {
-        activityService.userInteract(this);
-        super.onUserInteraction();
-    }
-
     private void showPasswordPrompt() {
         PasswordEntryDialog dialogFragment = PasswordEntryDialog.newInstance(
             R.string.safe_enter_password,
@@ -233,9 +213,9 @@ public class WizardSafeRestoreActivity extends ThreemaAppCompatActivity implemen
             protected void onPreExecute() {
                 GenericProgressDialog.newInstance(R.string.restore, R.string.please_wait).show(getSupportFragmentManager(), DIALOG_TAG_PROGRESS);
                 try {
-                    ServiceManager.require().stopConnection();
+                    serverConnectionManagerLazy.getValue().stopConnection();
                 } catch (InterruptedException e) {
-                    DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_PROGRESS, true);
+                    DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_PROGRESS);
                     // TODO(ANDR-4447): The error message should be localized
                     showFailureMessage("Backup cancelled");
                     cancel();
@@ -266,7 +246,7 @@ public class WizardSafeRestoreActivity extends ThreemaAppCompatActivity implemen
 
             @Override
             protected void onPostExecute(String failureMessage) {
-                DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_PROGRESS, true);
+                DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_PROGRESS);
 
                 if (failureMessage == null) {
                     runApplicationSetupStepsAndFinish();
@@ -301,7 +281,7 @@ public class WizardSafeRestoreActivity extends ThreemaAppCompatActivity implemen
 
             @Override
             public Boolean runInBackground() {
-                return dependencies.getApplicationSetupSteps().run();
+                return dependencies.getApplicationSetupSteps().runSynchronously();
             }
 
             @Override
@@ -317,7 +297,7 @@ public class WizardSafeRestoreActivity extends ThreemaAppCompatActivity implemen
     }
 
     private void finishSuccessfully() {
-        if (ConfigUtils.isWorkBuild()) {
+        if (BuildFlavor.IS_WORK) {
             GenericProgressDialog.newInstance(
                 R.string.work_data_sync_desc,
                 R.string.please_wait
@@ -328,12 +308,12 @@ public class WizardSafeRestoreActivity extends ThreemaAppCompatActivity implemen
                 WizardSafeRestoreActivity.this,
                 () -> {
                     // On success
-                    DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_WORK_SYNC, true);
+                    DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_WORK_SYNC);
                     onSuccessfulRestore();
                 },
                 () -> {
                     // On fail
-                    DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_WORK_SYNC, true);
+                    DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_WORK_SYNC);
                     showToast(WizardSafeRestoreActivity.this, R.string.unable_to_fetch_configuration, ToastDuration.LONG);
                     logger.warn("Unable to post work request for fetch2 or preset password was denied");
                     removeIdentity();
@@ -372,11 +352,11 @@ public class WizardSafeRestoreActivity extends ThreemaAppCompatActivity implemen
             true
         ).show(getSupportFragmentManager(), "d");
         try {
-            ServiceManager.require().startConnection();
+            serverConnectionManagerLazy.getValue().startConnection();
         } catch (Exception e) {
             logger.error("Unexpectedly failed to start connection", e);
         }
-        ConfigUtils.scheduleAppRestart(getApplicationContext(), 3000);
+        appRestarter.scheduleAppRestart(3000);
     }
 
     @Override

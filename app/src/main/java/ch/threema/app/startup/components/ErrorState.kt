@@ -17,6 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import ch.threema.android.getColorFromAttribute
 import ch.threema.app.R
 import ch.threema.app.appstartup.ForceDowngradeButton
 import ch.threema.app.compose.common.buttons.primary.ButtonPrimary
@@ -26,7 +27,6 @@ import ch.threema.app.compose.preview.PreviewThreemaAll
 import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.dimens.GridUnit
 import ch.threema.app.startup.AppStartupError
-import ch.threema.app.utils.ConfigUtils
 
 @Composable
 fun ErrorState(
@@ -146,7 +146,7 @@ fun ErrorState(
                 modifier = Modifier.size(120.dp),
                 painter = painterResource(R.drawable.ic_error_rounded),
                 contentDescription = null,
-                tint = Color(ConfigUtils.getColorFromAttribute(context, R.attr.colorError)),
+                tint = Color(context.getColorFromAttribute(R.attr.colorError)),
             )
 
             Spacer(Modifier.height(GridUnit.x6))

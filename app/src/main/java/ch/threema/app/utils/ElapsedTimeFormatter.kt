@@ -7,10 +7,16 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 object ElapsedTimeFormatter {
+    /**
+     * Helper function to use [toHMMSS] from Java. Should not be used from Kotlin
+     */
     @JvmStatic
     fun secondsToString(seconds: Long): String =
         seconds.seconds.toHMMSS()
 
+    /**
+     * Helper function to use [toHMMSS] from Java. Should not be used from Kotlin
+     */
     @JvmStatic
     fun millisecondsToString(milliseconds: Long): String =
         milliseconds.milliseconds.toHMMSS()

@@ -6,21 +6,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ch.threema.app.eventbus.GlobalEventFlows
 import ch.threema.app.eventbus.events.MessageEvent
-import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.MessageService
-import ch.threema.app.utils.QuoteUtil
 import ch.threema.app.utils.StateBitmapUtil
 import ch.threema.common.ByteSize
 import ch.threema.common.bytes
-import ch.threema.data.datatypes.ContactNameFormat
 import ch.threema.data.repositories.EmojiReactionsRepository
 import ch.threema.domain.protocol.csp.messages.fs.ForwardSecurityMode
 import ch.threema.domain.types.MessageUid
-import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.DistributionListMessageModel
+import ch.threema.storage.models.GroupMessageModel
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageState
 import ch.threema.storage.models.MessageType
-import ch.threema.storage.models.group.GroupMessageModel
 import java.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,29 +25,26 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.koin.core.annotation.InjectedParam
 
 class MessageDetailsViewModel(
     messageService: MessageService,
     private val globalEventFlows: GlobalEventFlows,
     private val emojiReactionsRepository: EmojiReactionsRepository,
-    private val preferenceService: PreferenceService,
-    private val messageId: Int,
-    private val messageType: String,
+    @InjectedParam messageId: Int,
+    @InjectedParam messageType: String,
 ) : ViewModel() {
 
-    private val _uiState: MutableStateFlow<ChatMessageDetailsUiState> = let {
-        val message = messageService.getMessageModelFromId(messageId, messageType)
-        MutableStateFlow(
+    private val _uiState: MutableStateFlow<ChatMessageDetailsUiState?> = MutableStateFlow(
+        messageService.getMessageModelFromId(messageId, messageType)?.let { message ->
             ChatMessageDetailsUiState(
-                message = message.toUiModel(
-                    contactNameFormat = preferenceService.getContactNameFormat(),
-                ),
+                message = message.toUiModel(),
                 hasReactions = message.hasReactions(),
                 shouldMarkupText = true,
-            ),
-        )
-    }
-    val uiState: StateFlow<ChatMessageDetailsUiState> = _uiState.asStateFlow()
+            )
+        },
+    )
+    val uiState: StateFlow<ChatMessageDetailsUiState?> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -59,7 +53,8 @@ class MessageDetailsViewModel(
             globalEventFlows
                 .messages
                 .mapNotNull { event ->
-                    val currentMessageUid: MessageUid = uiState.value.message.uid
+                    val currentMessageUid: MessageUid = uiState.value?.message?.uid
+                        ?: return@mapNotNull null
                     val messageFromEvent = when (event) {
                         is MessageEvent.NewMessage -> null
                         is MessageEvent.MessagesUpdated -> event.messages.find { it.uid == currentMessageUid }
@@ -74,21 +69,23 @@ class MessageDetailsViewModel(
         }
     }
 
-    private fun AbstractMessageModel.hasReactions(): Boolean =
+    private fun MessageModel.hasReactions(): Boolean =
         emojiReactionsRepository.safeGetReactionsByMessage(this).isNotEmpty()
 
-    private fun refreshMessage(updatedMessage: AbstractMessageModel) {
+    private fun refreshMessage(updatedMessage: MessageModel) {
         _uiState.update {
-            it.copy(
-                message = updatedMessage.toUiModel(
-                    contactNameFormat = preferenceService.getContactNameFormat(),
-                ),
+            it?.copy(
+                message = updatedMessage.toUiModel(),
             )
         }
     }
 
     fun markupText(value: Boolean) {
-        _uiState.update { it.copy(shouldMarkupText = value) }
+        _uiState.update {
+            it?.copy(
+                shouldMarkupText = value,
+            )
+        }
     }
 }
 
@@ -151,17 +148,14 @@ data class MessageDetailsUiModel(
     }
 }
 
-fun AbstractMessageModel.toUiModel(contactNameFormat: ContactNameFormat) = MessageUiModel(
+fun MessageModel.toUiModel() = MessageUiModel(
     id = this.id,
     uid = this.uid!!,
-    text = QuoteUtil.getMessageBody(
-        this.type,
-        this.body,
-        this.caption,
-        this.isOutbox,
-        false,
-        contactNameFormat,
-    ) ?: "",
+    text = if (type == MessageType.TEXT) {
+        body
+    } else {
+        caption
+    } ?: "",
     createdAt = this.createdAt!!,
     editedAt = this.editedAt,
     isDeleted = this.isDeleted,
@@ -174,17 +168,17 @@ fun AbstractMessageModel.toUiModel(contactNameFormat: ContactNameFormat) = Messa
     type = this.type,
 )
 
-fun AbstractMessageModel?.toMessageTimestampsUiModel(): MessageTimestampsUiModel {
+fun MessageModel?.toMessageTimestampsUiModel(): MessageTimestampsUiModel {
     if (this == null) {
         return MessageTimestampsUiModel()
     }
-    if (this.isStatusMessage) {
-        return MessageTimestampsUiModel(createdAt = this.createdAt)
-    } else if (this.type == MessageType.GROUP_CALL_STATUS) {
+    if (type == MessageType.GROUP_CALL_STATUS) {
         return MessageTimestampsUiModel(
-            sentAt = this.createdAt,
-            deliveredAt = if (!this.isOutbox) this.deliveredAt else null,
+            sentAt = createdAt,
+            deliveredAt = if (!isOutbox) deliveredAt else null,
         )
+    } else if (isStatusMessage) {
+        return MessageTimestampsUiModel(createdAt = createdAt)
     }
 
     return if (this.isOutbox) {
@@ -225,11 +219,8 @@ fun AbstractMessageModel?.toMessageTimestampsUiModel(): MessageTimestampsUiModel
     }
 }
 
-fun AbstractMessageModel?.toMessageDetailsUiModel(): MessageDetailsUiModel {
-    if (this == null) {
-        return MessageDetailsUiModel()
-    }
-    if (this.isStatusMessage || this.type == MessageType.GROUP_CALL_STATUS) {
+fun MessageModel?.toMessageDetailsUiModel(): MessageDetailsUiModel {
+    if (this == null || isStatusMessage) {
         return MessageDetailsUiModel()
     }
     val fileSize: ByteSize? = if (this.type == MessageType.FILE) {

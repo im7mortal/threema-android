@@ -1,5 +1,6 @@
 package ch.threema.app.mediagallery;
 
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
 import static ch.threema.android.ToastKt.showToast;
 import static ch.threema.app.utils.RecyclerViewUtil.thumbScrollerPopupStyle;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
@@ -82,7 +83,7 @@ import ch.threema.app.utils.RuntimeUtil;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.DistributionListModel;
 import ch.threema.storage.models.group.GroupModelOld;
@@ -111,8 +112,9 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
     private Chip chipContentTypeVoiceMessage;
     private Chip chipContentTypeAudio;
     private Chip chipContentTypeFile;
+    @Nullable
     private ActionMode actionMode = null;
-    private AbstractMessageModel initialMessageModel = null;
+    private MessageModel initialMessageModel = null;
 
     @NonNull
     private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
@@ -212,14 +214,14 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
 
         emptyView = new EmptyView(this);
         emptyView.setColorsInt(
-            ConfigUtils.getColorFromAttribute(this, android.R.attr.colorBackground),
-            ConfigUtils.getColorFromAttribute(this, R.attr.colorOnBackground)
+            getColorFromAttribute(this, android.R.attr.colorBackground),
+            getColorFromAttribute(this, R.attr.colorOnBackground)
         );
         emptyView.setup(getString(R.string.no_media_found_generic));
         ((ViewGroup) recyclerView.getParent()).addView(emptyView);
         recyclerView.setEmptyView(emptyView);
         emptyView.setLoading(true);
-        mediaGalleryAdapter = new MediaGalleryAdapter(this, this, messageReceiver, gridLayoutManager.getSpanCount());
+        mediaGalleryAdapter = new MediaGalleryAdapter(this, this);
         recyclerView.setAdapter(mediaGalleryAdapter);
 
         if (fastScroller == null) {
@@ -231,7 +233,7 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
                 .setPopupTextProvider((view, position) -> {
                     int firstVisible = gridLayoutManager.findFirstCompletelyVisibleItemPosition();
                     if (firstVisible >= 0) {
-                        AbstractMessageModel item = mediaGalleryAdapter.getItemAtPosition(firstVisible);
+                        MessageModel item = mediaGalleryAdapter.getItemAtPosition(firstVisible);
                         if (item != null) {
                             return LocaleUtil.formatDateRelative(item.getCreatedAt());
                         }
@@ -246,7 +248,7 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
         if (initialMessageModel != null) {
             recyclerView.post(() -> {
                 for (int position = 0; position < mediaGalleryAdapter.getItemCount(); position++) {
-                    AbstractMessageModel messageModel = mediaGalleryAdapter.getItemAtPosition(position);
+                    MessageModel messageModel = mediaGalleryAdapter.getItemAtPosition(position);
                     if (messageModel != null && messageModel.getId() == initialMessageModel.getId()) {
                         gridLayoutManager.scrollToPosition(position);
                         break;
@@ -259,9 +261,9 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
     }
 
     private void setObservers() {
-        viewModel.getMessages().observe(this, abstractMessageModels -> {
+        viewModel.getMessages().observe(this, messageModels -> {
             emptyView.setLoading(false);
-            mediaGalleryAdapter.setItems(abstractMessageModels);
+            mediaGalleryAdapter.setItems(messageModels);
             if (actionMode != null) {
                 actionMode.invalidate();
             }
@@ -297,7 +299,7 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
     }
 
     private void showInChat() {
-        final @Nullable AbstractMessageModel messageModel = mediaGalleryAdapter.getCheckedItemAt(0);
+        final @Nullable MessageModel messageModel = mediaGalleryAdapter.getCheckedItemAt(0);
         if (messageModel == null || mediaGalleryAdapter.getCheckedItemsCount() != 1) {
             return;
         }
@@ -353,8 +355,8 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
             actionBarTitle = NameUtil.getContactDisplayNameOrNickname(contactModel, true, dependencies.getPreferenceService().getContactNameFormat());
         }
 
-        String type = IntentDataUtil.getAbstractMessageType(intent);
-        int id = IntentDataUtil.getAbstractMessageId(intent);
+        String type = IntentDataUtil.getMessageType(intent);
+        int id = IntentDataUtil.getMessageId(intent);
 
         if (type != null && id != 0) {
             initialMessageModel = dependencies.getMessageService().getMessageModelFromId(id, type);
@@ -378,7 +380,7 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
     }
 
     private void discardMessages() {
-        List<AbstractMessageModel> selectedMessages = mediaGalleryAdapter.getCheckedItems();
+        List<MessageModel> selectedMessages = mediaGalleryAdapter.getCheckedItems();
         GenericAlertDialog dialog = GenericAlertDialog.newInstance(R.string.really_delete_message_title, String.format(getString(R.string.really_delete_media), selectedMessages.size()), R.string.delete_message, R.string.cancel);
         dialog.setData(selectedMessages);
         dialog.show(getSupportFragmentManager(), DELETE_MESSAGES_CONFIRM_TAG);
@@ -387,7 +389,9 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
     private void saveMessages() {
         if (ConfigUtils.requestWriteStoragePermissions(this, null, PERMISSION_REQUEST_SAVE_MESSAGE)) {
             saveSelectedMediaFiles();
-            actionMode.finish();
+            if (actionMode != null) {
+                actionMode.finish();
+            }
             onBackPressedCallback.setEnabled(false);
         }
     }
@@ -410,8 +414,8 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
     }
 
     @SuppressLint("StaticFieldLeak")
-    private void reallyDiscardMessages(final CopyOnWriteArrayList<AbstractMessageModel> selectedMessages) {
-        new LifecycleAwareAsyncTask<Void, List<AbstractMessageModel>>() {
+    private void reallyDiscardMessages(final CopyOnWriteArrayList<MessageModel> selectedMessages) {
+        new LifecycleAwareAsyncTask<Void, List<MessageModel>>() {
             boolean cancelled = false;
 
             @Override
@@ -428,15 +432,15 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
             }
 
             @Override
-            protected List<AbstractMessageModel> doInBackground(Void params) {
+            protected List<MessageModel> doInBackground(Void params) {
                 int i = 0;
-                List<AbstractMessageModel> deletedMessages = new ArrayList<>();
-                Iterator<AbstractMessageModel> checkedItemsIterator = selectedMessages.iterator();
+                List<MessageModel> deletedMessages = new ArrayList<>();
+                Iterator<MessageModel> checkedItemsIterator = selectedMessages.iterator();
                 while (checkedItemsIterator.hasNext() && !cancelled) {
                     final int index = i++;
                     publishProgress(() -> DialogUtil.updateProgress(getSupportFragmentManager(), DIALOG_TAG_DELETING_MEDIA, index + 1));
                     try {
-                        final AbstractMessageModel messageModel = checkedItemsIterator.next();
+                        final MessageModel messageModel = checkedItemsIterator.next();
 
                         if (messageModel != null) {
                             deletedMessages.add(messageModel);
@@ -450,9 +454,9 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
             }
 
             @Override
-            protected void onPostExecute(List<AbstractMessageModel> deletedMessages) {
+            protected void onPostExecute(List<MessageModel> deletedMessages) {
                 mediaGalleryAdapter.removeItems(deletedMessages);
-                DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_DELETING_MEDIA, true);
+                DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_DELETING_MEDIA);
                 String text = recyclerView.getContext().getResources().getQuantityString(R.plurals.message_deleted, deletedMessages.size(), deletedMessages.size());
                 Snackbar.make(recyclerView, text, Snackbar.LENGTH_LONG).show();
                 if (actionMode != null) {
@@ -495,7 +499,7 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
         }
     }
 
-    public void decryptAndShow(final AbstractMessageModel message, final CircularProgressIndicator progressBar) {
+    public void decryptAndShow(final MessageModel message, final CircularProgressIndicator progressBar) {
         showProgressBar(progressBar);
         var fileService = dependencies.getFileService();
         var appContext = getApplicationContext();
@@ -521,7 +525,7 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
             .execute(this, message);
     }
 
-    public void showInMediaFragment(final AbstractMessageModel m, final View v) {
+    public void showInMediaFragment(final MessageModel m, final View v) {
         Intent intent = new Intent(this, MediaViewerActivity.class);
         IntentDataUtil.append(m, intent);
         intent.putExtra(MediaViewerActivity.EXTRA_ID_IMMEDIATE_PLAY, true);
@@ -550,20 +554,23 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
         } else {
             if (requestCode == PERMISSION_REQUEST_SAVE_MESSAGE) {
                 if (!shouldShowRequestPermissionRationale(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
+                    // TODO(ANDR-5211): Use rationale as intended
                     ConfigUtils.showPermissionRationale(this, recyclerView, R.string.permission_storage_required);
                 }
             }
         }
-        actionMode.finish();
+        if (actionMode != null) {
+            actionMode.finish();
+        }
     }
 
     @Override
     public void onYes(@Nullable String tag, @Nullable Object data) {
-        reallyDiscardMessages(new CopyOnWriteArrayList<>((ArrayList<AbstractMessageModel>) data));
+        reallyDiscardMessages(new CopyOnWriteArrayList<>((ArrayList<MessageModel>) data));
     }
 
     @Override
-    public void onClick(@Nullable AbstractMessageModel messageModel, @Nullable View view, int position) {
+    public void onClick(@Nullable MessageModel messageModel, @Nullable View view, int position) {
         if (actionMode != null) {
             logger.info("Message selection toggled");
             mediaGalleryAdapter.toggleChecked(position);
@@ -606,7 +613,7 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
     }
 
     @Override
-    public boolean onLongClick(@Nullable AbstractMessageModel messageModel, @Nullable View itemView, int position) {
+    public boolean onLongClick(@Nullable MessageModel messageModel, @Nullable View itemView, int position) {
         if (actionMode != null) {
             logger.info("Long pressed message, leaving selection mode");
             actionMode.finish();
@@ -634,7 +641,7 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
         if (mediaGalleryAdapter.getCheckedItemsCount() > ComposeMessageFragment.MAX_FORWARDABLE_ITEMS) {
             return false;
         }
-        for (AbstractMessageModel message : mediaGalleryAdapter.getCheckedItems()) {
+        for (MessageModel message : mediaGalleryAdapter.getCheckedItems()) {
             if (!message.isAvailable()) {
                 return false;
             }
@@ -724,13 +731,13 @@ public class MediaGalleryActivity extends ThreemaToolbarActivity implements
                 @Override
                 @Deprecated
                 protected void onPostExecute(Void aVoid) {
-                    DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_DECRYPTING_MESSAGES, true);
+                    DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_DECRYPTING_MESSAGES);
                 }
             }.execute(MediaGalleryActivity.this, null);
         }
 
         private void shareMediaMessages(List<? extends @NotNull Uri> uris) {
-            List<AbstractMessageModel> selectedMessages = mediaGalleryAdapter.getCheckedItems();
+            List<MessageModel> selectedMessages = mediaGalleryAdapter.getCheckedItems();
             if (uris.size() == 1) {
                 ExpandableTextEntryDialog alertDialog = ExpandableTextEntryDialog.newInstance(
                     getString(R.string.share_media),

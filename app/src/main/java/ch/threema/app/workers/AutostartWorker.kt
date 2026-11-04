@@ -1,19 +1,23 @@
 package ch.threema.app.workers
 
-import android.annotation.SuppressLint
+import android.Manifest
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import ch.threema.android.buildNotification
+import ch.threema.android.checkGrantedPermission
+import ch.threema.android.getPendingIntentForActivity
 import ch.threema.app.R
 import ch.threema.app.di.awaitAppFullyReadyWithTimeout
 import ch.threema.app.home.HomeActivity
 import ch.threema.app.notifications.NotificationChannels
 import ch.threema.app.notifications.NotificationIDs
+import ch.threema.app.notifications.NotificationRequestCodes
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.preference.service.SynchronizedSettingsService
 import ch.threema.app.services.UserService
@@ -29,19 +33,20 @@ private val logger = getThreemaLogger("AutostartWorker")
 class AutostartWorker(
     val context: Context,
     workerParameters: WorkerParameters,
-) :
-    CoroutineWorker(context, workerParameters), KoinComponent {
+) : CoroutineWorker(context, workerParameters), KoinComponent {
 
     private val masterKeyManager: MasterKeyManager by inject()
     private val preferenceService: PreferenceService by inject()
     private val synchronizedSettingsService: SynchronizedSettingsService by inject()
     private val userService: UserService by inject()
 
-    @SuppressLint("MissingPermission")
     override suspend fun doWork(): Result {
         logger.info("Processing AutoStart - start")
 
-        if (masterKeyManager.isLockedWithPassphrase()) {
+        if (
+            masterKeyManager.isLockedWithPassphrase() &&
+            (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || context.checkGrantedPermission(Manifest.permission.POST_NOTIFICATIONS))
+        ) {
             val notification = buildNotification(context, NotificationChannels.NOTIFICATION_CHANNEL_NOTICE) {
                 setSmallIcon(R.drawable.ic_notification_small)
                 setContentTitle(context.getString(R.string.master_key_locked))
@@ -52,11 +57,11 @@ class AutostartWorker(
                 val notificationIntent = IntentDataUtil.createActionIntentHideAfterUnlock(HomeActivity.createIntent(context))
                 notificationIntent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
                 setContentIntent(
-                    PendingIntent.getActivity(
-                        context,
-                        0,
-                        notificationIntent,
-                        PendingIntent.FLAG_IMMUTABLE,
+                    getPendingIntentForActivity(
+                        context = context,
+                        requestCode = NotificationRequestCodes.HOME_ACTIVITY,
+                        intent = notificationIntent,
+                        flags = PendingIntent.FLAG_IMMUTABLE,
                     ),
                 )
             }

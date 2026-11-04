@@ -9,6 +9,8 @@ import ch.threema.app.tasks.ReflectLocalGroupLeaveOrDisband
 import ch.threema.app.testutils.TestHelpers
 import ch.threema.app.testutils.clearDatabaseAndCaches
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationCategory
+import ch.threema.data.datatypes.ConversationSpamReportingState
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.ContactModelData
@@ -59,6 +61,7 @@ class LeaveGroupFlowTest : GroupFlowTest() {
         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
         conversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory = ConversationCategory.DEFAULT,
         profilePictureBlobId = null,
         androidContactLookupInfo = null,
         localAvatarExpires = null,
@@ -77,11 +80,13 @@ class LeaveGroupFlowTest : GroupFlowTest() {
         synchronizedAt = null,
         lastUpdate = Instant.now(),
         conversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory = ConversationCategory.DEFAULT,
         groupDescription = null,
         groupDescriptionChangedAt = null,
         otherMembers = emptySet(),
         userState = UserState.MEMBER,
         notificationTriggerPolicyOverride = null,
+        spamReportingState = ConversationSpamReportingState.DEFAULT,
     )
 
     private val initialGroupModelData = myInitialGroupModelData.copy(
@@ -107,13 +112,12 @@ class LeaveGroupFlowTest : GroupFlowTest() {
 
         assert(myContact.identity == TestHelpers.ensureIdentity(serviceManager))
 
-        // Note that we use from sync to prevent any reflection. This is only acceptable in tests.
-        contactModelRepository.createFromSync(initialContactData)
+        contactModelRepository.persistNewContact(initialContactData)
         groupModelRepository.apply {
-            createFromSync(myInitialGroupModelData)
-            createFromSync(initialGroupModelData)
-            createFromSync(initialLeftGroupModelData)
-            createFromSync(initialKickedGroupModelData)
+            persistNewGroup(myInitialGroupModelData)
+            persistNewGroup(initialGroupModelData)
+            persistNewGroup(initialLeftGroupModelData)
+            persistNewGroup(initialKickedGroupModelData)
         }
     }
 

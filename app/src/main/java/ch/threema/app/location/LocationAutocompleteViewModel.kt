@@ -27,6 +27,10 @@ class LocationAutocompleteViewModel(
     private val _isLoading = MutableStateFlow(false)
     val isLoading: LiveData<Boolean> = _isLoading.asLiveData()
 
+    private val _isOffline = MutableStateFlow(false)
+    val isOffline
+        get() = _isOffline.value
+
     fun search(poiQuery: PoiQuery) {
         currentQuery.value = poiQuery
     }
@@ -40,6 +44,7 @@ class LocationAutocompleteViewModel(
         }
 
         try {
+            _isOffline.value = false
             _isLoading.value = true
             return poiRepository.getPoiNames(center, query)
         } catch (e: ThreemaException) {
@@ -47,6 +52,7 @@ class LocationAutocompleteViewModel(
             return null
         } catch (e: IOException) {
             logger.warn("Failed to fetch POI", e)
+            _isOffline.value = true
             return null
         } finally {
             _isLoading.value = false

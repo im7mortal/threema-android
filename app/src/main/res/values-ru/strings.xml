@@ -170,10 +170,10 @@
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="backup_sum">Экспортировать свой ${app_name_short} ID</string>
     <string name="backup_and_delete">Резервное копирование и удаление</string>
-    <string name="delete_id_title">Удалить ID</string>
+    <string name="delete_id_menu_title">Удалить ID и данные</string>
     <string name="delete_id_message">Если у вас нет созданной или экспортированной резервной копии этого ID, вы больше никогда не сможете отправлять или получать сообщения, используя этот ID.\n\nЕсли вы больше не хотите использовать этот ID, рекомендуется задать пароль аннулирования и отозвать ID на сайте myid.threema.ch/revoke перед его удалением.</string>
     <string name="delete_id_message2">Последнее предупреждение: вы действительно хотите удалить свой ID?</string>
-    <string name="delete_id_sum">Навсегда удалить свой ${app_name_short} ID и все данные на этом устройстве</string>
+    <string name="delete_id_summary">Удалить свой ${app_name_short} ID и все данные на этом устройстве</string>
     <string name="delete_all_data_prompt">Удалить все данные приложения?</string>
     <string name="backup_password_summary">Ваш экспорт ID будет зашифрован паролем. Используйте сочетание латинских букв, цифр и специальных символов. Не забудьте записать или запомнить свой новый пароль!</string>
     <string name="backup_password_again_summary">Введите пароль ещё раз</string>
@@ -440,12 +440,6 @@
     <string name="media_gallery_pictures">Изображения</string>
     <string name="media_gallery_videos">Видео</string>
     <string name="group_membership_title">Участник этих групп</string>
-    <string name="group_description">Описание группы</string>
-    <string name="change_group_description">Изменить описание группы</string>
-    <string name="add_group_description">Добавить описание группы</string>
-    <string name="read_more">читать больше</string>
-    <string name="read_less">читать меньше</string>
-    <string name="changed_group_desc_date">Последнее изменение:\u0020</string>
     <string name="num_items_sected">%s выбрано</string>
     <string name="really_delete_media">Удалить %d медиасообщений?</string>
     <string name="check_updates">Проверить обновления</string>
@@ -794,6 +788,8 @@
     <string name="text">Текст</string>
     <string name="undo">Отменить</string>
     <string name="android_backup_date">Последнее рез. копирование</string>
+    <string name="threema_safe_configuration_title">Конфигурация</string>
+    <string name="threema_safe_last_backup_date_and_time">Время</string>
     <string name="discard">Отменить</string>
     <string name="android_backup_restart_threema">Приложение будет перезапущено в течение нескольких секунд.</string>
     <string name="battery_optimizations_title">Отключить энергосбережение</string>
@@ -974,6 +970,7 @@
     <string name="safe_no_backup_found">На сервере не найдена резервная копия. Проверьте ID и пароль.</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="safe_select_id">Найдено несколько ${app_name_short} ID. Выберите ID для использования:</string>
+    <!-- Button label on "Threema Safe" feature, to allow the user to trigger the backup process -->
     <string name="safe_backup_now">Создать копию</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="safe_enable_explain_short">Включите ${app_name_short} Safe для автоматического создания защищённых анонимных резервных копий всех ваших важных данных.</string>
@@ -1293,6 +1290,7 @@
     <string name="prefs_header_receipts">Уведомления</string>
     <string name="prefs_title_reset_receipts">Сбросить индивидуальные настройки</string>
     <string name="prefs_sum_reset_receipts">Сброс уведомлений о прочтении и индикатора ввода текста для конкретных контактов до настроек по умолчанию</string>
+    <string name="confirm_sum_reset_receipts">Сброс индивидуальных настроек уведомлений о прочтении и индикации ввода текста на настройки по умолчанию?</string>
     <string name="reset_successful">Успешно сброшено до настроек по умолчанию</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="qr_scanner_id_hint">Сканируйте QR-код контакта для проверки его личности. Чтобы показать код, попросите контакта нажать на аватар в левом верхнем углу на главном экране ${app_name_short}.</string>
@@ -1382,7 +1380,7 @@
     <string name="forward_security_notification_rejected_text_generic">Одно или несколько сообщений невозможно отправить.</string>
     <string name="self_updater_installation_failed">Невозможно загрузить обновление. Загрузите и установите обновление с сайта <a href="https://shop.threema.ch/download">https://shop.threema.ch/download</a> вручную.</string>
     <string name="spam_first_contact">Этот чат инициирован неизвестным контактом</string>
-    <string name="spam_report">Сообщить о спаме</string>
+    <string name="spam_report">Жалоба на спам</string>
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="spam_report_dialog_explain">Если продолжить, ID и псевдоним этого контакта будут переданы в ${company_name} вместе с вашим ID. Никакое содержимое или персональные данные при этом не пересылаются. Данный контакт не будет уведомлен об этом действии.</string>
     <string name="spam_report_dialog_block_checkbox">Также блокировать этот контакт и удалить чат</string>
@@ -1556,6 +1554,10 @@
     <string name="problemsolver_title_app_battery_usgae_optimized">Использование батареи приложением установлено на «оптимальное»</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="problemsolver_explain_app_battery_usgae_optimized">Приложению не разрешено поддерживать постоянное подключение к серверам, которое требуется для работы ${app_name_short} Push. Вы не будете получать уведомления о новых сообщениях, когда приложение работает в фоновом режиме. Чтобы это исправить, нажмите «Использование батареи приложением» и выберите «Неограниченно».</string>
+    <!-- Title of warning message that informs the user that the version of Android they are using will soon no longer be supported. -->
+    <string name="problemsolver_title_android_version_deprecated">Эта версия Android скоро перестанет поддерживаться</string>
+    <!-- Details of warning message that informs the user that the version of Android they are using will soon no longer be supported. ${app_name} is a placeholder that should be kept as-is and not translated. -->
+    <string name="problemsolver_explain_android_version_deprecated">Вы используете Android-устройство, на которое больше не поступают обновления программного обеспечения. По соображениям безопасности ${app_name} скоро перестанет поддерживать эту версию Android.</string>
     <string name="problemsolver_to_settings">К настройкам</string>
     <!-- Label on button to dismiss/hide a warning -->
     <string name="problemsolver_dismiss">Скрыть</string>
@@ -1779,6 +1781,90 @@
     <!-- A hint text that will be played by the android screen reader in accessibility mode. It explains the effect of a click action. -->
     <!-- Clicking will open a new modal view that displays the full length of a contact's availability status description. -->
     <string name="accessibility_view_full_availability_status">Нажмите, чтобы просмотреть полный статус доступности</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a 1 to 1 conversation.
+    Placeholder %1$s will be replaced with the emojis.
+    Placeholder %2$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_contact">Реакция %1$s на: %2$s</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a 1 to 1 conversation with many emojis.
+    Placeholder %1$s will be replaced with the emojis until a defined count.
+    Placeholder %2$d will be replaced with the remaining emoji count that is not displayed in %1$s.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_contact_more">Реакции %1$s +%2$d на: %3$s</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation and a single reactor person.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the emojis.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_group_one_person">%1$s отреагировал(а) %2$s на: %3$s</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation and a single reactor person with many emojis.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the emojis until a defined count.
+    Placeholder %3$d will be replaced with the remaining emoji count that is not displayed in %2$s.
+    Placeholder %4$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_group_one_person_more">%1$s отреагировал(а) %2$s +%3$d на: %4$s</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation with 2 reacting persons.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the name of the other reacting person.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_group_two_persons">%1$s и %2$s отреагировали на: %3$s</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation with more than 2 reacting persons.
+    Placeholder %1$s will be replaced with the name of the most recent reacting person.
+    Placeholder %2$d will be replaced with the remaining person count that also reacted.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_group_more_persons">%1$s и ещё %2$d отреагировали на: %3$s</string>
+    <!-- Placeholder %1$s will be replaced with the message body of the text message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_text">«%1$s»</string>
+    <string name="emoji_reaction_notification_preview_image">Изображение</string>
+    <!-- Placeholder %1$s will be replaced with the caption text of the image message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_image_caption">«%1$s»</string>
+    <string name="emoji_reaction_notification_preview_video">Видео</string>
+    <!-- Placeholder %1$s will be replaced with the caption text of the video message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_video_caption">«%1$s»</string>
+    <!-- Placeholder %1$s will be replaced with the duration of the audio message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_audio">Аудио (%1$s)</string>
+    <!-- Placeholder %1$s will be replaced with the caption text of the audio message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_audio_caption">Аудио «%1$s»</string>
+    <!-- Placeholder %1$s will be replaced with the duration of the voice message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_voice_message">Голосовое сообщение (%1$s)</string>
+    <!-- Placeholder %1$s will be replaced with the caption or filename of the file message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_file">Файл «%1$s»</string>
+    <string name="emoji_reaction_notification_preview_poll">Опрос</string>
+    <!-- Placeholder %1$s will be replaced with the poll's name of the poll message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_poll_named">Опрос «%1$s»</string>
+    <string name="emoji_reaction_notification_preview_location">Местоположение</string>
+    <!-- Placeholder %1$s will be replaced with the POI name of the location message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_location_named">Местоположение «%1$s»</string>
+    <string name="emoji_reaction_notification_preview_contact">Контакт</string>
+    <!-- Placeholder %1$s will be replaced with the contact name of the contact message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_contact_named">Контакт «%1$s»</string>
+    <string name="prefs_title_emoji_reaction_notifications">Уведомления об эмоциональных реакциях</string>
+    <string name="prefs_title_emoji_reaction_contact_notifications">В чатах</string>
+    <string name="prefs_description_emoji_reaction_contact_notifications">Получать уведомления об эмоциональных реакциях на ваши сообщения в приватных чатах</string>
+    <string name="prefs_title_emoji_reaction_group_notifications">В групповых чатах</string>
+    <string name="prefs_description_emoji_reaction_group_notifications">Получать уведомления об эмоциональных реакциях на ваши сообщения в групповых чатах</string>
+    <string name="group_spam_banner_message">Данная группа принадлежит неизвестному пользователю</string>
+    <string name="group_spam_banner_button_not_spam">Не спам</string>
+    <string name="group_spam_banner_button_report_spam">Жалоба на спам</string>
+    <!-- Placeholder 1 holds the display name of a group conversation -->
+    <string name="group_spam_report_dialog_title_named">Жалоба на %1$s</string>
+    <string name="group_spam_report_dialog_title">Жалоба на группу</string>
+    <string name="group_spam_report_dialog_message">Идентификатор данной группы, количество участников, а также ID и псевдоним создателя группы будут переданы в Threema вместе с вашим ID. Содержимое сообщений и личная информация переданы не будут, никто из участников группы не будет уведомлен.</string>
+    <string name="group_spam_report_dialog_also_block_and_delete">Также заблокировать создателя и удалить чат</string>
+    <string name="group_spam_report_dialog_cancel">Отмена</string>
+    <string name="group_spam_report_dialog_report">Жалоба</string>
+    <!-- This is shown in a loading indicator dialog while a spam group is being reported -->
+    <string name="reporting_group_in_progress">Жалоба на группу</string>
     <plurals name="contacts_counter_label">
         <item quantity="one">%d контакт</item>
         <item quantity="few">%d контакта</item>
@@ -1814,6 +1900,12 @@
         <item quantity="few">%d новых сообщения</item>
         <item quantity="many">%d новых сообщений</item>
         <item quantity="other">%d новых сообщений</item>
+    </plurals>
+    <plurals name="new_emoji_reactions">
+        <item quantity="one">%d новая реакция</item>
+        <item quantity="few">%d новых реакции</item>
+        <item quantity="many">%d новых реакций</item>
+        <item quantity="other">%d новых реакций</item>
     </plurals>
     <plurals name="unread_messages">
         <item quantity="one">%d непрочитанное сообщение</item>

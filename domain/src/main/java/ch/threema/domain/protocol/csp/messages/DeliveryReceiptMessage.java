@@ -51,8 +51,8 @@ public class DeliveryReceiptMessage extends AbstractMessage {
     }
 
     @Override
-    public boolean exemptFromBlocking() {
-        return false;
+    public ExemptFromBlocking exemptFromBlocking() {
+        return ExemptFromBlocking.NO;
     }
 
     @Override

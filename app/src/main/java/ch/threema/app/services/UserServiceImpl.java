@@ -7,6 +7,7 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.provider.ContactsContract;
 
+import ch.threema.app.BuildConfig;
 import ch.threema.app.eventbus.GlobalEventBuses;
 import ch.threema.app.eventbus.events.ProfileEvent;
 import ch.threema.app.preference.service.SynchronizedSettingsService;
@@ -14,6 +15,7 @@ import ch.threema.app.profilepicture.CheckedProfilePicture;
 import ch.threema.app.profilepicture.ProfilePicture;
 import ch.threema.app.profilepicture.RawProfilePicture;
 import ch.threema.app.stores.ReadonlyInMemoryIdentityStore;
+import ch.threema.app.work.LegacyWorkPropertiesUpdater;
 import ch.threema.base.crypto.NaCl;
 
 import org.json.JSONException;
@@ -33,14 +35,12 @@ import ch.threema.app.listeners.SMSVerificationListener;
 import ch.threema.app.managers.ListenerManager;
 import ch.threema.app.multidevice.MultiDeviceManager;
 import ch.threema.app.preference.service.PreferenceService;
-import ch.threema.app.routines.UpdateWorkInfoRoutine;
 import ch.threema.domain.models.Nickname;
 import ch.threema.domain.models.SerialCredentials;
 import ch.threema.domain.models.UserCredentials;
 import ch.threema.app.stores.PreferenceStore;
 import ch.threema.app.tasks.ReflectUserProfileNicknameSyncTask;
 import ch.threema.app.tasks.TaskCreator;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.ContactUtil;
 import ch.threema.app.utils.DeviceIdProvider;
 import ch.threema.app.utils.LocaleUtil;
@@ -102,6 +102,8 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
     private final DeviceIdProvider deviceIdProvider;
     @NonNull
     private final GlobalEventBuses globalEventBuses;
+    @NonNull
+    private final LegacyWorkPropertiesUpdater legacyWorkPropertiesUpdater;
     private String policyResponseData;
     private String policySignature;
     private int policyErrorCode;
@@ -125,7 +127,8 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
         @NonNull TaskCreator taskCreator,
         @NonNull MultiDeviceManager multiDeviceManager,
         @NonNull DeviceIdProvider deviceIdProvider,
-        @NonNull GlobalEventBuses globalEventBuses
+        @NonNull GlobalEventBuses globalEventBuses,
+        @NonNull LegacyWorkPropertiesUpdater legacyWorkPropertiesUpdater
     ) {
         this.context = context;
         this.preferenceStore = preferenceStore;
@@ -141,6 +144,7 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
         this.multiDeviceManager = multiDeviceManager;
         this.deviceIdProvider = deviceIdProvider;
         this.globalEventBuses = globalEventBuses;
+        this.legacyWorkPropertiesUpdater = legacyWorkPropertiesUpdater;
     }
 
     @Override
@@ -149,10 +153,10 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
             throw new ThreemaException("please remove your existing identity " + this.getIdentity());
         }
 
-        // no need to send a request if we have no licence
+        // no need to send a request if we have no license
         // note that CheckLicenseRoutine may not have received an upstream response yet.
         if (policySignature == null && policyResponseData == null && credentials == null
-            && !(BuildFlavor.getCurrent().getLicenseType().equals(BuildFlavor.LicenseType.NONE))
+            && !(BuildFlavor.getLicenseType().equals(BuildFlavor.LicenseType.NONE))
         ) {
             throw new ThreemaException(context.getString(R.string.missing_app_licence) + "\n" + context.getString(R.string.app_store_error_code, policyErrorCode));    /* Create identity phase 1 unsuccessful:*/
         } else {
@@ -366,8 +370,7 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
             normalizedMobileNo,
             this.getLanguage(),
             this.identityStore,
-            (BuildFlavor.getCurrent().getLicenseType() == BuildFlavor.LicenseType.GOOGLE_WORK ||
-                BuildFlavor.getCurrent().getLicenseType() == BuildFlavor.LicenseType.HMS_WORK)
+            (!BuildFlavor.IS_ON_PREM && BuildFlavor.getLicenseType() == BuildFlavor.LicenseType.WORK)
                 ? "threemawork" : null
         );
 
@@ -492,14 +495,7 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
     }
 
     @Override
-    public void persistPhoneIdentityLinkFromSync(
-        @Nullable String phoneNumber,
-        @NonNull TriggerSource triggerSource
-    ) {
-        if (triggerSource != TriggerSource.SYNC) {
-            throw new IllegalArgumentException("Cannot persist phone number from " + triggerSource);
-        }
-
+    public void persistPhoneIdentityLink(@Nullable String phoneNumber) {
         if (phoneNumber != null) {
             this.preferenceStore.save(PreferenceStore.PREFS_LINKED_MOBILE, phoneNumber);
         } else {
@@ -512,14 +508,7 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
     }
 
     @Override
-    public void persistEmailIdentityLinkFromSync(
-        @Nullable String email,
-        @NonNull TriggerSource triggerSource
-    ) {
-        if (triggerSource != TriggerSource.SYNC) {
-            throw new IllegalArgumentException("Cannot persist email from " + triggerSource);
-        }
-
+    public void persistEmailIdentityLink(@Nullable String email) {
         if (email != null) {
             this.preferenceStore.save(PreferenceStore.PREFS_LINKED_EMAIL, email);
         } else {
@@ -530,6 +519,7 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
     }
 
     @Override
+    @NonNull
     public String getPublicNickname() {
         return this.identityStore.getPublicNickname();
     }
@@ -543,8 +533,8 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
             : "";
         this.identityStore.setPublicNickname(publicNicknameTruncated);
         // run update work info (only if the app is the work version)
-        if (ConfigUtils.isWorkBuild()) {
-            UpdateWorkInfoRoutine.start();
+        if (BuildFlavor.IS_WORK) {
+            legacyWorkPropertiesUpdater.runAsynchronously();
         }
         if (!publicNicknameTruncated.equals(oldNickname)
             && multiDeviceManager.isMultiDeviceActive()
@@ -556,6 +546,12 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
             );
         }
         return publicNicknameTruncated;
+    }
+
+    @Override
+    public void persistPublicNickname(@Nullable Nickname publicNickname) {
+        logger.info("Persisting nickname");
+        identityStore.setPublicNickname(publicNickname != null ? publicNickname.getNickname() : "");
     }
 
     @NonNull
@@ -634,6 +630,24 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
 
         // Notify event bus
         globalEventBuses.getProfiles().emit(new ProfileEvent.ProfilePictureUpdated(triggerSource));
+    }
+
+    @Override
+    public void persistUserProfilePicture(@Nullable byte[] profilePictureBytes) throws IOException {
+        String identity = getIdentity();
+        if (identity == null) {
+            logger.error("Cannot persist user profile picture when there is no identity");
+            return;
+        }
+
+        if (profilePictureBytes != null) {
+            fileService.writeUserDefinedProfilePicture(identity, profilePictureBytes);
+        } else {
+            fileService.removeUserDefinedProfilePicture(identity);
+        }
+
+        // Note that we do not notify the event bus on purpose. We do not want to create side
+        // effects with this method.
     }
 
     @Override
@@ -720,7 +734,7 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
             data.blobId = blobUploader.upload();
         } catch (ThreemaException | IOException e) {
             logger.error("Could not upload contact photo", e);
-            if (isHttpAuthError(e) && ConfigUtils.isOnPremBuild()) {
+            if (isHttpAuthError(e) && BuildFlavor.IS_ON_PREM) {
                 apiService.invalidateAuthToken();
             }
 
@@ -748,7 +762,7 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
             password,
             new IdentityBackup.EncryptedIdentityBackup(backupString)
         );
-        return restoreIdentity(decryptedBackup.getThreemaId(), decryptedBackup.getClientKey());
+        return restoreIdentity(decryptedBackup.getIdentity(), decryptedBackup.getClientKey());
     }
 
     @Override
@@ -920,7 +934,7 @@ public class UserServiceImpl implements UserService, CreateIdentityRequestDataIn
     public JSONObject createIdentityRequestDataJSON() throws JSONException {
         JSONObject baseObject = new JSONObject();
 
-        BuildFlavor.LicenseType licenseType = BuildFlavor.getCurrent().getLicenseType();
+        BuildFlavor.LicenseType licenseType = BuildFlavor.getLicenseType();
         String deviceId = deviceIdProvider.getDeviceId();
 
         baseObject.put("deviceId", deviceId);

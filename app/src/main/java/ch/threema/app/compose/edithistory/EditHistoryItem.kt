@@ -51,7 +51,7 @@ fun EditHistoryTimelineItem(
         shouldFadeOutLineTop = shouldFadeOutTimeLineTop,
         shouldFadeOutLineBottom = shouldFadeOutTimeLineBottom,
         labelContent = {
-            EditedAtLabel(editHistoryEntry.editedAt)
+            EditedAtLabel(editHistoryEntry.createdAt)
         },
     ) {
         EditHistoryItemBubble(
@@ -80,7 +80,7 @@ fun EditHistoryItem(
     onClick: (() -> Unit)? = null,
 ) {
     Column(modifier) {
-        EditedAtLabel(editHistoryEntry.editedAt)
+        EditedAtLabel(editHistoryEntry.createdAt)
         Spacer(Modifier.height(4.dp))
         EditHistoryItemBubble(
             bubbleModifier = bubbleModifier,

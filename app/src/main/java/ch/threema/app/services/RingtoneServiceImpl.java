@@ -13,8 +13,8 @@ import androidx.core.app.NotificationCompat;
 import java.util.HashMap;
 import java.util.Map;
 
+import ch.threema.android.DeviceInfo;
 import ch.threema.app.R;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.RingtoneUtil;
 import ch.threema.data.datatypes.ConversationId;
 import ch.threema.data.datatypes.ConversationIdObfuscated;
@@ -26,7 +26,7 @@ public class RingtoneServiceImpl implements RingtoneService {
 
     private final @NonNull NotificationPreferenceService notificationPreferenceService;
     private @NonNull Map<ConversationIdObfuscated, String> ringtoneURIs = new HashMap<>();
-    private final boolean supportsNotificationChannels = ConfigUtils.supportsNotificationChannels();
+    private final boolean supportsNotificationChannels = DeviceInfo.supportsNotificationChannels();
 
     public RingtoneServiceImpl(@NonNull NotificationPreferenceService notificationPreferenceService) {
         this.notificationPreferenceService = notificationPreferenceService;

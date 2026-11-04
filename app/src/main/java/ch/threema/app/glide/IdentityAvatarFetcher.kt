@@ -3,6 +3,7 @@ package ch.threema.app.glide
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.vectordrawable.graphics.drawable.VectorDrawableCompat
+import ch.threema.android.transform
 import ch.threema.app.R
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ContactService
@@ -146,7 +147,9 @@ class IdentityAvatarFetcher(
         try {
             val result = fileService.getContactDefinedProfilePicture(identity)
             if (result != null && !highRes) {
-                return AvatarConverterUtil.convert(this.context.resources, result)
+                return result.transform { bitmap ->
+                    AvatarConverterUtil.convert(context.resources, bitmap)
+                }
             }
             return result
         } catch (e: Exception) {
@@ -162,7 +165,9 @@ class IdentityAvatarFetcher(
         return try {
             var result = fileService.getUserDefinedProfilePicture(identity)
             if (result != null && !highRes) {
-                result = AvatarConverterUtil.convert(this.context.resources, result)
+                result = result.transform { bitmap ->
+                    AvatarConverterUtil.convert(context.resources, bitmap)
+                }
             }
             result
         } catch (e: Exception) {
@@ -185,7 +190,9 @@ class IdentityAvatarFetcher(
         return try {
             var result = fileService.getAndroidDefinedProfilePicture(contactModel)
             if (result != null && !highRes) {
-                result = AvatarConverterUtil.convert(this.context.resources, result)
+                result = result.transform { bitmap ->
+                    AvatarConverterUtil.convert(context.resources, bitmap)
+                }
             }
             result
         } catch (e: Exception) {

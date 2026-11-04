@@ -54,6 +54,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
+import ch.threema.app.activities.BackPressHandler;
 import ch.threema.app.activities.EnterSerialActivity;
 import ch.threema.app.activities.ThreemaActivity;
 import ch.threema.app.di.DependencyContainer;
@@ -68,6 +69,8 @@ import ch.threema.app.utils.FileUtil;
 import ch.threema.app.utils.LocaleUtil;
 import ch.threema.app.utils.MimeUtil;
 import ch.threema.app.utils.RecyclerViewUtil;
+
+import static ch.threema.android.MenuExtensionsKt.tintIcon;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import me.zhanghai.android.fastscroll.FastScroller;
 import me.zhanghai.android.fastscroll.FastScrollerBuilder;
@@ -83,7 +86,8 @@ import static com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_
 import static com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_HIDDEN;
 
 abstract public class MediaSelectionBaseActivity extends ThreemaActivity implements View.OnClickListener,
-    MediaAttachAdapter.ItemClickListener {
+    MediaAttachAdapter.ItemClickListener,
+    BackPressHandler {
     private static final Logger logger = getThreemaLogger("MediaSelectionBaseActivity");
 
     @NonNull
@@ -352,7 +356,7 @@ abstract public class MediaSelectionBaseActivity extends ThreemaActivity impleme
             return true;
         });
         topMenuItem.setIcon(R.drawable.ic_collections);
-        ConfigUtils.tintMenuIcon(this, topMenuItem, R.attr.colorOnSurface);
+        tintIcon(topMenuItem, this, R.attr.colorOnSurface);
 
         // Fetch all media, add a unique menu item for each media storage bucket and media type group.
         registerOnAllDataFetchedListener(new Observer<>() {
@@ -413,7 +417,7 @@ abstract public class MediaSelectionBaseActivity extends ThreemaActivity impleme
                                 item.setIcon(R.drawable.ic_webp);
                                 break;
                         }
-                        ConfigUtils.tintMenuIcon(MediaSelectionBaseActivity.this, item, R.attr.colorOnSurface);
+                        tintIcon(item, MediaSelectionBaseActivity.this, R.attr.colorOnSurface);
                     }
 
                     for (String bucket : buckets) {
@@ -423,7 +427,7 @@ abstract public class MediaSelectionBaseActivity extends ThreemaActivity impleme
                                 return true;
                             });
                             item.setIcon(R.drawable.ic_outline_folder_24);
-                            ConfigUtils.tintMenuIcon(MediaSelectionBaseActivity.this, item, R.attr.colorOnSurface);
+                            tintIcon(item, MediaSelectionBaseActivity.this, R.attr.colorOnSurface);
                         }
                     }
 
@@ -597,12 +601,7 @@ abstract public class MediaSelectionBaseActivity extends ThreemaActivity impleme
     }
 
     @Override
-    protected boolean enableOnBackPressedCallback() {
-        return true;
-    }
-
-    @Override
-    protected void handleOnBackPressed() {
+    public void handleOnBackPressed() {
         logger.debug("*** onBackPressed");
         synchronized (previewLock) {
             if (pagerContainer.getVisibility() == View.VISIBLE) {

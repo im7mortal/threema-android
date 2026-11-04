@@ -1,18 +1,29 @@
 package ch.threema.data.storage
 
 import android.database.Cursor
+import androidx.core.database.getLongOrNull
+import ch.threema.android.iterate
+import ch.threema.android.map
 import ch.threema.app.utils.ThrowingConsumer
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DatabaseHelpers.convertToSelectionArgs
+import ch.threema.common.DatabaseHelpers.makePlaceholders
+import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.data.repositories.EmojiReactionEntryCreateException
 import ch.threema.storage.DatabaseProvider
 import ch.threema.storage.buildContentValues
 import ch.threema.storage.factories.ContactEmojiReactionModelFactory
 import ch.threema.storage.factories.GroupEmojiReactionModelFactory
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.ContactMessageModel
+import ch.threema.storage.models.DistributionListMessageModel
+import ch.threema.storage.models.GroupMessageModel
 import ch.threema.storage.models.MessageModel
-import ch.threema.storage.models.group.GroupMessageModel
 import ch.threema.storage.models.group.GroupModelOld
+import ch.threema.storage.runQuery
 import ch.threema.storage.runTransaction
+import ch.threema.storage.runUpdate
+import java.time.Instant
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
 private val logger = getThreemaLogger("EmojiReactionsDaoImpl")
@@ -20,7 +31,7 @@ private val logger = getThreemaLogger("EmojiReactionsDaoImpl")
 class EmojiReactionsDaoImpl(
     private val databaseProvider: DatabaseProvider,
 ) : EmojiReactionsDao {
-    override fun create(entry: DbEmojiReaction, messageModel: AbstractMessageModel) {
+    override fun create(entry: DbEmojiReaction, messageModel: MessageModel) {
         val table = getReactionTableForMessage(messageModel)
             ?: throw EmojiReactionEntryCreateException(
                 IllegalArgumentException("Cannot create reaction entry for message of class ${messageModel.javaClass.name}"),
@@ -32,7 +43,7 @@ class EmojiReactionsDaoImpl(
         )
     }
 
-    override fun remove(entry: DbEmojiReaction, messageModel: AbstractMessageModel) {
+    override fun remove(entry: DbEmojiReaction, messageModel: MessageModel) {
         val table = getReactionTableForMessage(messageModel) ?: return
 
         val removedEntries = databaseProvider.writableDatabase.delete(
@@ -44,7 +55,7 @@ class EmojiReactionsDaoImpl(
         logger.debug("{} entries removed for reaction {}", removedEntries, entry)
     }
 
-    override fun deleteAllByMessage(messageModel: AbstractMessageModel) {
+    override fun deleteAllByMessage(messageModel: MessageModel) {
         val table = getReactionTableForMessage(messageModel) ?: return
 
         val deletedEntries = databaseProvider.writableDatabase.delete(
@@ -60,7 +71,7 @@ class EmojiReactionsDaoImpl(
         )
     }
 
-    override fun findAllByMessage(messageModel: AbstractMessageModel): List<DbEmojiReaction> {
+    override fun findAllByMessage(messageModel: MessageModel): List<DbEmojiReaction> {
         val table = getReactionTableForMessage(messageModel) ?: return emptyList()
 
         val query = "SELECT * FROM $table WHERE ${DbEmojiReaction.COLUMN_MESSAGE_ID} = ? " +
@@ -72,7 +83,77 @@ class EmojiReactionsDaoImpl(
                 messageModel.id,
             )
 
-        return cursor.use { getResult(it) }
+        return cursor.map(::convert)
+    }
+
+    override fun findAllByMessages(messageModels: List<MessageModel>): List<DbEmojiReaction> {
+        val groupedMessageModels = messageModels.groupBy { messageModel ->
+            getReactionTableForMessage(messageModel)
+        }
+        return buildList {
+            groupedMessageModels.forEach { (table, messageModels) ->
+                table ?: return@forEach
+                messageModels
+                    .chunked(SqliteDatabaseBackend.MAX_VARIABLE_NUMBER) { messageModelsChunk ->
+                        val args = convertToSelectionArgs(messageModelsChunk) { it.id.toString() }
+                        databaseProvider.readableDatabase.runQuery(
+                            table = table,
+                            selection = "${DbEmojiReaction.COLUMN_MESSAGE_ID} IN (${makePlaceholders(args.size)})",
+                            selectionArgs = args,
+                            orderBy = "${DbEmojiReaction.COLUMN_REACTED_AT} DESC",
+                        )
+                            .iterate { cursor ->
+                                add(convert(cursor))
+                            }
+                    }
+            }
+        }
+            .sortedByDescending { it.reactedAt }
+    }
+
+    override fun markUnreadReactionsAsReadForContactConversation(contactConversationId: ContactConversationId, readAt: Instant): Set<Int> =
+        markUnreadReactionsAsRead(
+            reactionTable = ContactEmojiReactionModelFactory.TABLE,
+            messageIdsSubQuery = "SELECT ${MessageModel.COLUMN_ID} FROM ${ContactMessageModel.TABLE} WHERE ${MessageModel.COLUMN_IDENTITY} = ?",
+            subQueryArgs = arrayOf(contactConversationId.identity),
+            readAt = readAt,
+        )
+
+    override fun markUnreadReactionsAsReadForGroupConversation(groupConversationId: GroupConversationId, readAt: Instant): Set<Int> =
+        markUnreadReactionsAsRead(
+            reactionTable = GroupEmojiReactionModelFactory.TABLE,
+            messageIdsSubQuery = "SELECT ${MessageModel.COLUMN_ID} FROM ${GroupMessageModel.TABLE} WHERE ${GroupMessageModel.COLUMN_GROUP_ID} = ?",
+            subQueryArgs = arrayOf(groupConversationId.groupDatabaseId.toString()),
+            readAt = readAt,
+        )
+
+    private fun markUnreadReactionsAsRead(
+        reactionTable: String,
+        messageIdsSubQuery: String,
+        subQueryArgs: Array<String>,
+        readAt: Instant,
+    ): Set<Int> {
+        val unreadSelection = "${DbEmojiReaction.COLUMN_READ_AT} IS NULL AND ${DbEmojiReaction.COLUMN_MESSAGE_ID} IN ($messageIdsSubQuery)"
+        val affectedMessageIds = databaseProvider.readableDatabase
+            .rawQuery(
+                "SELECT DISTINCT ${DbEmojiReaction.COLUMN_MESSAGE_ID} FROM `$reactionTable` WHERE $unreadSelection",
+                subQueryArgs,
+            )
+            .map { cursor -> cursor.getInt(0) }
+            .toSet()
+        if (affectedMessageIds.isEmpty()) {
+            return emptySet()
+        }
+        val updatedEntries = databaseProvider.writableDatabase.runUpdate(
+            table = reactionTable,
+            values = buildContentValues {
+                put(DbEmojiReaction.COLUMN_READ_AT, readAt.toEpochMilli())
+            },
+            whereClause = unreadSelection,
+            whereArgs = subQueryArgs,
+        )
+        logger.debug("{} unread reactions in table {} marked as read", updatedEntries, reactionTable)
+        return affectedMessageIds
     }
 
     override fun deleteAll() {
@@ -82,13 +163,11 @@ class EmojiReactionsDaoImpl(
         }
     }
 
-    override fun getContactReactionsCount(): Long {
-        return getReactionCount(ContactEmojiReactionModelFactory.TABLE)
-    }
+    override fun getContactReactionsCount(): Long =
+        getReactionCount(ContactEmojiReactionModelFactory.TABLE)
 
-    override fun getGroupReactionsCount(): Long {
-        return getReactionCount(GroupEmojiReactionModelFactory.TABLE)
-    }
+    override fun getGroupReactionsCount(): Long =
+        getReactionCount(GroupEmojiReactionModelFactory.TABLE)
 
     private fun getReactionCount(table: String): Long {
         val query = "SELECT COUNT(*) FROM `$table`"
@@ -112,13 +191,13 @@ class EmojiReactionsDaoImpl(
 
         val query = """
             SELECT
-                m.${AbstractMessageModel.COLUMN_IDENTITY} as $resultColumnContactIdentity,
-                m.${AbstractMessageModel.COLUMN_API_MESSAGE_ID} as $resultColumnApiMessageId,
+                m.${MessageModel.COLUMN_IDENTITY} as $resultColumnContactIdentity,
+                m.${MessageModel.COLUMN_API_MESSAGE_ID} as $resultColumnApiMessageId,
                 r.${DbEmojiReaction.COLUMN_SENDER_IDENTITY} as $resultColumnSenderIdentity,
                 r.${DbEmojiReaction.COLUMN_EMOJI_SEQUENCE} as $resultColumnEmojiSequence,
                 r.${DbEmojiReaction.COLUMN_REACTED_AT} as $resultColumnReactedAt
-            FROM ${ContactEmojiReactionModelFactory.TABLE} r JOIN ${MessageModel.TABLE} m
-            ON r.${DbEmojiReaction.COLUMN_MESSAGE_ID} = m.${AbstractMessageModel.COLUMN_ID}
+            FROM ${ContactEmojiReactionModelFactory.TABLE} r JOIN ${ContactMessageModel.TABLE} m
+            ON r.${DbEmojiReaction.COLUMN_MESSAGE_ID} = m.${MessageModel.COLUMN_ID}
             ORDER BY r.${DbEmojiReaction.COLUMN_MESSAGE_ID}
         """.trimIndent()
 
@@ -160,7 +239,7 @@ class EmojiReactionsDaoImpl(
             SELECT
                 g.${GroupModelOld.COLUMN_API_GROUP_ID} as $resultColumnGroupId,
                 g.${GroupModelOld.COLUMN_CREATOR_IDENTITY} as $resultColumnGroupCreatorIdentity,
-                m.${AbstractMessageModel.COLUMN_API_MESSAGE_ID} as $resultColumnApiMessageId,
+                m.${MessageModel.COLUMN_API_MESSAGE_ID} as $resultColumnApiMessageId,
                 r.${DbEmojiReaction.COLUMN_SENDER_IDENTITY} as $resultColumnSenderIdentity,
                 r.${DbEmojiReaction.COLUMN_EMOJI_SEQUENCE} as $resultColumnEmojiSequence,
                 r.${DbEmojiReaction.COLUMN_REACTED_AT} as $resultColumnReactedAt
@@ -169,7 +248,7 @@ class EmojiReactionsDaoImpl(
                 ${GroupMessageModel.TABLE} m,
                 ${GroupModelOld.TABLE} g
             WHERE
-                r.${DbEmojiReaction.COLUMN_MESSAGE_ID} = m.${AbstractMessageModel.COLUMN_ID}
+                r.${DbEmojiReaction.COLUMN_MESSAGE_ID} = m.${MessageModel.COLUMN_ID}
                 AND m.${GroupMessageModel.COLUMN_GROUP_ID} = g.${GroupModelOld.COLUMN_ID}
             ORDER BY r.${DbEmojiReaction.COLUMN_MESSAGE_ID}
         """.trimIndent()
@@ -207,53 +286,52 @@ class EmojiReactionsDaoImpl(
         }
     }
 
-    private fun getReactionTableForMessage(messageModel: AbstractMessageModel): String? {
-        return when (messageModel) {
+    private fun getReactionTableForMessage(messageModel: MessageModel): String? =
+        when (messageModel) {
             is GroupMessageModel -> GroupEmojiReactionModelFactory.TABLE
-            is MessageModel -> ContactEmojiReactionModelFactory.TABLE
-            else -> return null
-        }
-    }
-
-    private fun getResult(cursor: Cursor): MutableList<DbEmojiReaction> {
-        val result = mutableListOf<DbEmojiReaction>()
-        while (cursor.moveToNext()) {
-            val messageId = cursor.getInt(
-                getColumnIndexOrThrow(
-                    cursor,
-                    DbEmojiReaction.COLUMN_MESSAGE_ID,
-                ),
-            )
-            val senderIdentity = cursor.getString(
-                getColumnIndexOrThrow(
-                    cursor,
-                    DbEmojiReaction.COLUMN_SENDER_IDENTITY,
-                ),
-            )
-            val emojiSequence = cursor.getString(
-                getColumnIndexOrThrow(
-                    cursor,
-                    DbEmojiReaction.COLUMN_EMOJI_SEQUENCE,
-                ),
-            )
-            val reactedAt = cursor.getInstant(
-                getColumnIndexOrThrow(
-                    cursor,
-                    DbEmojiReaction.COLUMN_REACTED_AT,
-                ),
-            )
-
-            result.add(
-                DbEmojiReaction(
-                    messageId = messageId,
-                    senderIdentity = senderIdentity,
-                    emojiSequence = emojiSequence,
-                    reactedAt = reactedAt,
-                ),
-            )
+            is ContactMessageModel -> ContactEmojiReactionModelFactory.TABLE
+            is DistributionListMessageModel -> null
         }
 
-        return result
+    private fun convert(cursor: Cursor): DbEmojiReaction {
+        val messageId = cursor.getInt(
+            getColumnIndexOrThrow(
+                cursor,
+                DbEmojiReaction.COLUMN_MESSAGE_ID,
+            ),
+        )
+        val senderIdentity = cursor.getString(
+            getColumnIndexOrThrow(
+                cursor,
+                DbEmojiReaction.COLUMN_SENDER_IDENTITY,
+            ),
+        )
+        val emojiSequence = cursor.getString(
+            getColumnIndexOrThrow(
+                cursor,
+                DbEmojiReaction.COLUMN_EMOJI_SEQUENCE,
+            ),
+        )
+        val reactedAt = cursor.getInstant(
+            getColumnIndexOrThrow(
+                cursor,
+                DbEmojiReaction.COLUMN_REACTED_AT,
+            ),
+        )
+        val readAt = cursor.getLongOrNull(
+            getColumnIndexOrThrow(
+                cursor,
+                DbEmojiReaction.COLUMN_READ_AT,
+            ),
+        )?.let(Instant::ofEpochMilli)
+
+        return DbEmojiReaction(
+            messageId = messageId,
+            senderIdentity = senderIdentity,
+            emojiSequence = emojiSequence,
+            reactedAt = reactedAt,
+            readAt = readAt,
+        )
     }
 
     override fun insertContactReactionsInTransaction(block: EmojiReactionsDao.TransactionalReactionInsertScope) {
@@ -281,9 +359,7 @@ class EmojiReactionsDaoImpl(
                     conflictAlgorithm = SQLiteDatabase.CONFLICT_IGNORE,
                     values = entry.getContentValues(),
                 ) >= 0
-                if (logger.isDebugEnabled) {
-                    logger.debug("Insert reaction {}, success={}", entry, success)
-                }
+                logger.debug("Insert reaction {}, success={}", entry, success)
             }
         }
     }
@@ -293,5 +369,6 @@ class EmojiReactionsDaoImpl(
         put(DbEmojiReaction.COLUMN_SENDER_IDENTITY, senderIdentity)
         put(DbEmojiReaction.COLUMN_EMOJI_SEQUENCE, emojiSequence)
         put(DbEmojiReaction.COLUMN_REACTED_AT, reactedAt.toEpochMilli())
+        put(DbEmojiReaction.COLUMN_READ_AT, readAt?.toEpochMilli())
     }
 }

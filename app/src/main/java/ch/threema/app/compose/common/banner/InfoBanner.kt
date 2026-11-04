@@ -15,7 +15,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -37,8 +36,8 @@ fun InfoBanner(
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(GridUnit.x1_5),
-        color = colorResource(R.color.status_background_info),
-        contentColor = colorResource(R.color.on_status_background),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
     ) {
         Row(
             modifier = Modifier.padding(GridUnit.x1_5),

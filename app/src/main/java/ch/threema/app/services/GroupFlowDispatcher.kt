@@ -1,5 +1,6 @@
 package ch.threema.app.services
 
+import ch.threema.app.apptaskexecutor.AppTaskExecutor
 import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.groupflows.CreateGroupFlow
 import ch.threema.app.groupflows.DisbandGroupFlow
@@ -11,6 +12,8 @@ import ch.threema.app.groupflows.GroupLeaveIntent
 import ch.threema.app.groupflows.GroupResyncFlow
 import ch.threema.app.groupflows.LeaveGroupFlow
 import ch.threema.app.groupflows.RemoveGroupFlow
+import ch.threema.app.groupflows.ReportGroupFlow
+import ch.threema.app.groupflows.ReportGroupIntent
 import ch.threema.app.groupflows.UpdateGroupFlow
 import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.preference.service.PreferenceService
@@ -23,6 +26,7 @@ import ch.threema.app.utils.executor.BackgroundExecutor
 import ch.threema.app.voip.groupcall.GroupCallManager
 import ch.threema.base.SessionScoped
 import ch.threema.base.crypto.NonceFactory
+import ch.threema.data.IdentityProvider
 import ch.threema.data.models.GroupModel
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.data.repositories.GroupModelRepository
@@ -52,6 +56,7 @@ class GroupFlowDispatcher(
     private val userService: UserService,
     private val contactStore: ContactStore,
     private val identityStore: IdentityStore,
+    private val identityProvider: IdentityProvider,
     private val forwardSecurityMessageProcessor: ForwardSecurityMessageProcessor,
     private val nonceFactory: NonceFactory,
     private val preferenceService: PreferenceService,
@@ -62,9 +67,11 @@ class GroupFlowDispatcher(
     private val fileService: FileService,
     private val databaseService: DatabaseService,
     private val taskManager: TaskManager,
+    private val appTaskExecutor: AppTaskExecutor,
     private val connection: ServerConnection,
     private val identityBlockedSteps: IdentityBlockedSteps,
     private val globalEventBuses: GlobalEventBuses,
+    private val blockedIdentitiesService: BlockedIdentitiesService,
 ) {
     private val outgoingCspMessageServices by lazy {
         OutgoingCspMessageServices(
@@ -123,6 +130,26 @@ class GroupFlowDispatcher(
             taskManager,
             connection,
             globalEventBuses,
+        ),
+    )
+
+    fun runReportGroupFlow(
+        groupModel: GroupModel,
+        intent: ReportGroupIntent,
+    ) = backgroundExecutor.executeDeferred(
+        ReportGroupFlow(
+            groupModel = groupModel,
+            reportGroupIntent = intent,
+            groupModelRepository = groupModelRepository,
+            contactModelRepository = contactModelRepository,
+            taskManager = taskManager,
+            appTaskExecutor = appTaskExecutor,
+            multiDeviceManager = multiDeviceManager,
+            groupService = groupService,
+            connection = connection,
+            groupCallManager = groupCallManager,
+            blockedIdentitiesService = blockedIdentitiesService,
+            identityProvider = identityProvider,
         ),
     )
 

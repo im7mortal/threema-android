@@ -14,6 +14,9 @@ import net.zetetic.database.sqlcipher.SQLiteDatabase
 
 private val logger = getThreemaLogger("DatabaseUpdateToVersion120")
 
+/**
+ * Convert legacy image, audio and video messages to file messages
+ */
 @OptIn(ExperimentalSerializationApi::class)
 class DatabaseUpdateToVersion120(
     private val sqLiteDatabase: SQLiteDatabase,
@@ -204,8 +207,6 @@ class DatabaseUpdateToVersion120(
     }
 
     override val version = 120
-
-    override fun getDescription() = "Convert legacy image, audio and video messages to file messages"
 
     companion object {
         private const val MESSAGE_TYPE_IMAGE = 1

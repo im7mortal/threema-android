@@ -10,18 +10,24 @@ import ch.threema.domain.protocol.csp.ProtocolDefines
 @Immutable
 value class Identity(val value: IdentityString) {
     init {
-        require(value.length == ProtocolDefines.IDENTITY_LEN)
-        require(
-            value.all { char ->
-                char.isLatinUpperCaseLetter() || char.isDigit() || char == '*' || char == '@'
-            },
-        )
+        require(isValidIdentity(value)) { "$value is not a valid identity" }
     }
 
-    private fun Char.isLatinUpperCaseLetter() =
-        this in 'A'..'Z'
-
     override fun toString() = value
+
+    companion object {
+        @JvmStatic
+        fun isValidIdentity(value: String): Boolean =
+            value.length == ProtocolDefines.IDENTITY_LEN &&
+                value[0].run { isLatinUpperCaseLetter() || isDigit() || equals('*') } &&
+                (1 until ProtocolDefines.IDENTITY_LEN).all { index ->
+                    val char = value[index]
+                    char.isLatinUpperCaseLetter() || char.isDigit()
+                }
+
+        private fun Char.isLatinUpperCaseLetter() =
+            this in 'A'..'Z'
+    }
 }
 
 fun String.toIdentityOrNull(): Identity? =

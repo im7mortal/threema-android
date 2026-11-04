@@ -5,6 +5,9 @@ import net.zetetic.database.sqlcipher.SQLiteDatabase
 
 private val logger = getThreemaLogger("DatabaseUpdateToVersion106")
 
+/**
+ * create/migrate reaction tables/indices
+ */
 internal class DatabaseUpdateToVersion106(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -114,8 +117,6 @@ internal class DatabaseUpdateToVersion106(
                 "FROM $messageTable m JOIN $legacyReactionTable r ON m.uid = r.messageUid",
         )
     }
-
-    override fun getDescription() = "create/migrate reaction tables/indices"
 
     override val version = 106
 }

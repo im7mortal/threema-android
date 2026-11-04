@@ -3,11 +3,14 @@ package ch.threema.app.voip.groupcall
 import ch.threema.base.ThreemaException
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.emptyByteArray
+import ch.threema.common.toDirectByteBuffer
+import ch.threema.domain.libthreema.LibthreemaAware
 import ch.threema.libthreema.CryptoException
 import ch.threema.libthreema.blake2bMac256
 
 private val logger = getThreemaLogger("CryptoCallUtils")
 
+@LibthreemaAware
 object CryptoCallUtils {
 
     private const val PERSONAL = "3ma-call"
@@ -25,11 +28,11 @@ object CryptoCallUtils {
     ): ByteArray = try {
         blake2bMac256(
             key = key,
-            personal = PERSONAL.encodeToByteArray(),
-            salt = salt.encodeToByteArray(),
-            data = data,
+            personal = PERSONAL.toDirectByteBuffer(),
+            salt = salt.toDirectByteBuffer(),
+            data = data.toDirectByteBuffer(),
         )
-    } catch (cryptoException: CryptoException.InvalidParameter) {
+    } catch (cryptoException: CryptoException.ConversionException) {
         logger.error("Failed to compute blake2b hash", cryptoException)
         throw ThreemaException("Failed to compute blake2b hash", cryptoException)
     }

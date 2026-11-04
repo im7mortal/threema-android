@@ -27,11 +27,13 @@ import java.util.regex.Pattern;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
+
+import ch.threema.android.DeviceInfo;
 import ch.threema.app.R;
 import ch.threema.app.location.MapActivity;
 import ch.threema.app.services.MessageService;
 import ch.threema.domain.protocol.csp.messages.location.Poi;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.data.LocationDataModel;
 
 import static ch.threema.app.location.LocationExtensionsKt.toCoordinates;
@@ -157,12 +159,12 @@ public class GeoLocationUtil {
 
     public class GeocoderHandler extends Handler {
         private MessageService messageService;
-        private AbstractMessageModel messageModel;
+        private MessageModel messageModel;
 
         public GeocoderHandler() {
         }
 
-        public GeocoderHandler(MessageService messageService, AbstractMessageModel messageModel) {
+        public GeocoderHandler(MessageService messageService, MessageModel messageModel) {
             this.messageService = messageService;
             this.messageModel = messageModel;
         }
@@ -203,7 +205,7 @@ public class GeoLocationUtil {
         }
     }
 
-    public static Uri getLocationUri(@NonNull AbstractMessageModel model) {
+    public static Uri getLocationUri(@NonNull MessageModel model) {
         final double latitude = model.getLocationData().latitude;
         final double longitude = model.getLocationData().longitude;
         final @Nullable String poiName = model.getLocationData().poiNameOrNull;
@@ -276,7 +278,8 @@ public class GeoLocationUtil {
     public static boolean viewLocation(@NonNull Context context, @NonNull LocationDataModel locationData) {
         // Note that this check does only work for some devices. Other devices may report version
         // 3.0 even if they do not support it. This may lead to a crash when displaying a location.
-        if (ConfigUtils.getSupportedGlEsVersion(context) < 3.0) {
+        var supportedGlEsVersion = DeviceInfo.getSupportedGlEsVersion(context);
+        if (supportedGlEsVersion != null && supportedGlEsVersion < 3.0) {
             // Note that we do not abort here if the supported version could not be determined. The
             // risk of showing the location without support for gl es 3.0 is low, as this does not
             // necessarily lead to a crash. The potential damage would be larger if we would prevent

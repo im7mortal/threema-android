@@ -1,6 +1,7 @@
 package ch.threema.app.threemasafe;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.os.Bundle;
@@ -51,9 +52,9 @@ public class ThreemaSafeConfigureActivity extends ThreemaToolbarActivity impleme
     private static final String DIALOG_TAG_PREPARING = "prep";
     private static final String DIALOG_TAG_ADVANCED = "adv";
 
-    public static final String EXTRA_CHANGE_PASSWORD = "cp";
-    public static final String EXTRA_WORK_FORCE_PASSWORD = "fp";
-    public static final String EXTRA_OPEN_HOME_ACTIVITY = "oha";
+    private static final String EXTRA_CHANGE_PASSWORD = "cp";
+    private static final String EXTRA_WORK_FORCE_PASSWORD = "fp";
+    private static final String EXTRA_OPEN_HOME_ACTIVITY = "oha";
     private static final String DIALOG_TAG_UNSAFE_PASSWORD = "unsafe";
     private static final String DIALOG_TAG_UNSAFE_PASSWORD_WORK = "unsafework";
 
@@ -196,7 +197,7 @@ public class ThreemaSafeConfigureActivity extends ThreemaToolbarActivity impleme
 
                 @Override
                 protected void onPostExecute(Boolean passwordOK) {
-                    DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_PREPARING, true);
+                    DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_PREPARING);
 
                     if (masterkey != null) {
                         if (!passwordOK) {
@@ -327,5 +328,23 @@ public class ThreemaSafeConfigureActivity extends ThreemaToolbarActivity impleme
         super.onConfigurationChanged(newConfig);
 
         ConfigUtils.adjustToolbar(this, getToolbar());
+    }
+
+    @NonNull
+    public static Intent createConfigIntent(@NonNull Context context) {
+        return new Intent(context, ThreemaSafeConfigureActivity.class);
+    }
+
+    @NonNull
+    public static Intent createChangePasswordIntent(@NonNull Context context) {
+        return new Intent(context, ThreemaSafeConfigureActivity.class)
+            .putExtra(EXTRA_CHANGE_PASSWORD, true);
+    }
+
+    @NonNull
+    public static Intent createForceChangePasswordIntent(@NonNull Context context) {
+        return new Intent(context, ThreemaSafeConfigureActivity.class)
+            .putExtra(EXTRA_WORK_FORCE_PASSWORD, true)
+            .putExtra(EXTRA_OPEN_HOME_ACTIVITY, true);
     }
 }

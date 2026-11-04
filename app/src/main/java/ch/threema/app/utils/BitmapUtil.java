@@ -37,6 +37,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.WorkerThread;
 import ch.threema.app.webclient.utils.ThumbnailUtils;
+
+import static ch.threema.android.BitmapExtensionsKt.transform;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.common.IntExtensionsKt.roundUpToPowerOfTwo;
@@ -171,34 +173,29 @@ public class BitmapUtil {
         return bitmap;
     }
 
-    @Nullable
-    public static byte[] getJpegByteArray(Bitmap bitmap, float rotation, int flip) {
-        if (bitmap != null) {
-            if (rotation != 0f || flip != FLIP_NONE) {
-                bitmap = rotateBitmap(bitmap, rotation, flip);
-            }
-
-            byte[] bitmapArray = bitmapToJpegByteArray(bitmap);
-            recycle(bitmap);
-
-            return bitmapArray;
+    @NonNull
+    public static byte[] getJpegByteArray(@NonNull Bitmap bitmap, float rotation, int flip) {
+        if (rotation != 0f || flip != FLIP_NONE) {
+            bitmap = rotateBitmap(bitmap, rotation, flip);
         }
-        return null;
+
+        try {
+            return bitmapToJpegByteArray(bitmap);
+        } finally {
+            bitmap.recycle();
+        }
     }
 
-    @Nullable
-    public static byte[] getPngByteArray(Bitmap bitmap, float rotation, int flip) {
-        if (bitmap != null) {
-            if (rotation != 0f || flip != FLIP_NONE) {
-                bitmap = rotateBitmap(bitmap, rotation, flip);
-            }
-
-            byte[] bitmapArray = bitmapToPngByteArray(bitmap);
-            recycle(bitmap);
-
-            return bitmapArray;
+    @NonNull
+    public static byte[] getPngByteArray(@NonNull Bitmap bitmap, float rotation, int flip) {
+        if (rotation != 0f || flip != FLIP_NONE) {
+            bitmap = rotateBitmap(bitmap, rotation, flip);
         }
-        return null;
+        try {
+            return bitmapToPngByteArray(bitmap);
+        } finally {
+            bitmap.recycle();
+        }
     }
 
     /**
@@ -268,13 +265,13 @@ public class BitmapUtil {
                     Bitmap result = BitmapFactory.decodeStream(new BufferedInputStream(data), null, options);
                     if (replaceTransparency && result != null && result.hasAlpha()) {
                         logger.debug("Image has alpha channel, replace transparency with white");
-                        result = replaceTransparency(result, Color.WHITE);
+                        result = transform(result, b -> replaceTransparency(b, Color.WHITE));
                     }
 
                     if (applyExifOrientation) {
                         BitmapUtil.ExifOrientation exifOrientation = BitmapUtil.getExifOrientation(context, imageUri);
                         if (result != null && (exifOrientation.getRotation() != 0f || exifOrientation.getFlip() != BitmapUtil.FLIP_NONE)) {
-                            return BitmapUtil.rotateBitmap(result, exifOrientation.getRotation(), exifOrientation.getFlip());
+                            return transform(result, b -> BitmapUtil.rotateBitmap(b, exifOrientation.getRotation(), exifOrientation.getFlip()));
                         }
                     }
 
@@ -319,13 +316,13 @@ public class BitmapUtil {
     }
 
     /**
-     * Replace transparency in bitmap with new color.
-     * After the replacement, the old bitmap will be recycled and cannot be reused.
+     * Replace transparency in bitmap with new color
      *
      * @param in    The bitmap to be processed
      * @param color A color, e.g. Color.WHITE
      * @return A new bitmap with transparency replaced by the specified color
      */
+    @NonNull
     public static Bitmap replaceTransparency(@NonNull Bitmap in, @ColorInt int color) {
         if (in.getConfig() != null) {
             final Bitmap out = Bitmap.createBitmap(in.getWidth(), in.getHeight(), in.getConfig());
@@ -359,16 +356,17 @@ public class BitmapUtil {
             o2.inPreferredConfig = isJpeg ? Bitmap.Config.RGB_565 : Bitmap.Config.ARGB_8888;
 
             Bitmap newPhoto = BitmapFactory.decodeStream(imageData, null, o2);
+            if (newPhoto == null) {
+                return null;
+            }
             try {
-                if (newPhoto != null) {
-                    if (isJpeg) {
-                        return bitmapToJpegByteArray(newPhoto);
-                    } else {
-                        return bitmapToPngByteArray(newPhoto);
-                    }
+                if (isJpeg) {
+                    return bitmapToJpegByteArray(newPhoto);
+                } else {
+                    return bitmapToPngByteArray(newPhoto);
                 }
             } finally {
-                recycle(newPhoto);
+                newPhoto.recycle();
             }
         } catch (Exception x) {
             logger.error("Exception", x);
@@ -393,11 +391,9 @@ public class BitmapUtil {
         return bitmap;
     }
 
-    public static Bitmap resizeBitmap(Bitmap sourceBitmap, int width, int height) {
+    @Nullable
+    public static Bitmap resizeBitmap(@NonNull Bitmap sourceBitmap, int width, int height) {
         SampleResult sampleSize = BitmapUtil.getSampleSize(sourceBitmap.getWidth(), sourceBitmap.getHeight(), width, height);
-
-        Bitmap res = null;
-
         if (sampleSize.inSampleSize > 0) {
             try {
                 return Bitmap.createScaledBitmap(sourceBitmap, sampleSize.newWidth, sampleSize.newHeight, true);
@@ -405,7 +401,7 @@ public class BitmapUtil {
                 logger.error("Exception", x);
             }
         }
-        return res;
+        return null;
     }
 
     public static class ExifOrientation {
@@ -504,22 +500,13 @@ public class BitmapUtil {
         return new ExifOrientation(FLIP_NONE, 0F);
     }
 
-    public static void recycle(Bitmap bitmapToRecycle) {
-        if (bitmapToRecycle != null && !bitmapToRecycle.isRecycled()) {
-            bitmapToRecycle.recycle();
-        }
-    }
-
-    public static Bitmap tintImage(Bitmap bitmap, @ColorInt int color) {
-        if (bitmap != null) {
-            Paint paint = new Paint();
-            paint.setColorFilter(new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN));
-            Bitmap bitmapResult = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.ARGB_8888);
-            Canvas canvas = new Canvas(bitmapResult);
-            canvas.drawBitmap(bitmap, 0, 0, paint);
-            return bitmapResult;
-        }
-        return bitmap;
+    private static Bitmap tintImage(@NonNull Bitmap bitmap, @ColorInt int color) {
+        Paint paint = new Paint();
+        paint.setColorFilter(new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN));
+        Bitmap bitmapResult = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmapResult);
+        canvas.drawBitmap(bitmap, 0, 0, paint);
+        return bitmapResult;
     }
 
     public static Bitmap addOverlay(@NonNull Bitmap background, @NonNull Bitmap foreground, int offset) {
@@ -532,8 +519,21 @@ public class BitmapUtil {
             int y = (bgHeight - foreground.getHeight()) / 2;
 
             cv.drawBitmap(background, 0, 0, null);
-            cv.drawBitmap(BitmapUtil.tintImage(foreground, Color.GRAY), x + offset, y + offset, null);
-            cv.drawBitmap(BitmapUtil.tintImage(foreground, Color.WHITE), x, y, null);
+
+            Bitmap layer1 = BitmapUtil.tintImage(foreground, Color.GRAY);
+            try {
+                cv.drawBitmap(layer1, x + offset, y + offset, null);
+            } finally {
+                layer1.recycle();
+            }
+
+            Bitmap layer2 = BitmapUtil.tintImage(foreground, Color.WHITE);
+            try {
+                cv.drawBitmap(layer2, x, y, null);
+            } finally {
+                layer2.recycle();
+            }
+
             cv.save();
             cv.restore();
             return result;
@@ -543,7 +543,7 @@ public class BitmapUtil {
     }
 
     @Nullable
-    public static Bitmap getBitmapFromVectorDrawable(Drawable icon, Integer tintColor) {
+    public static Bitmap getBitmapFromVectorDrawable(@NonNull Drawable icon, @Nullable Integer tintColor) {
         Bitmap bitmap = null;
         if (icon instanceof BitmapDrawable) {
             bitmap = ((BitmapDrawable) icon).getBitmap();

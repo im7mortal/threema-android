@@ -1,10 +1,10 @@
 package ch.threema.app.processors.incomingcspmessage.workdelta
 
 import ch.threema.app.BuildConfig
+import ch.threema.app.BuildFlavor
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.processors.incomingcspmessage.IncomingCspMessageSubTask
 import ch.threema.app.processors.incomingcspmessage.ReceiveStepsResult
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.workers.WorkSyncWorker
 import ch.threema.base.crypto.NonceScope
 import ch.threema.base.utils.getThreemaLogger
@@ -56,7 +56,7 @@ class IncomingWorkSyncDeltaMessageTask(
         }
 
         // 1. If not Work flavor, log a warning, discard the message and abort these steps.
-        if (!ConfigUtils.isWorkBuild()) {
+        if (!BuildFlavor.IS_WORK) {
             logger.warn("Received a work sync delta message in a none-work build")
             return ReceiveStepsResult.DISCARD
         }
@@ -195,7 +195,7 @@ class IncomingWorkSyncDeltaMessageTask(
 
     private fun enqueueFullWorkSync() {
         workSyncScheduler.performOneTimeWorkSync(
-            forceUpdate = false,
+            forceAppLogoFetch = false,
             tag = null,
         )
     }

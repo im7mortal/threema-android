@@ -11,6 +11,8 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.webkit.MimeTypeMap
 import androidx.annotation.WorkerThread
+import ch.threema.android.DeviceInfo
+import ch.threema.android.transform
 import ch.threema.app.BuildConfig
 import ch.threema.app.cache.ThumbnailCache
 import ch.threema.app.files.AppDirectoryProvider
@@ -42,7 +44,7 @@ import ch.threema.domain.types.GroupDatabaseId
 import ch.threema.domain.types.IdentityString
 import ch.threema.domain.types.MessageUid
 import ch.threema.storage.buildContentValues
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.getFileName
 import java.io.ByteArrayInputStream
@@ -70,7 +72,7 @@ class FileServiceImpl(
         get() = Environment.getExternalStorageDirectory().toString() + "/" + BuildConfig.MEDIA_PATH + "/"
 
     init {
-        if (!ConfigUtils.supportsNotificationChannels()) {
+        if (!DeviceInfo.supportsNotificationChannels()) {
             updateLegacyRingtoneIfInvalid(appContext.contentResolver, notificationPreferenceService)
         }
     }
@@ -88,7 +90,7 @@ class FileServiceImpl(
         }
     }
 
-    override fun getDefaultBackupPath(): File {
+    override fun getDefaultLegacyBackupPath(): File {
         val directory = File(mediaPathPrefix, "Backups")
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             if (!directory.exists()) {
@@ -98,12 +100,12 @@ class FileServiceImpl(
         return directory
     }
 
-    override fun getBackupUri(): Uri? =
-        preferenceService.getDataBackupUri()
+    override fun getLegacyBackupUri(): Uri? =
+        preferenceService.getLegacyDataBackupUri()
             ?: if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 null
             } else {
-                Uri.fromFile(getDefaultBackupPath())
+                Uri.fromFile(getDefaultLegacyBackupPath())
             }
 
     @WorkerThread
@@ -161,17 +163,17 @@ class FileServiceImpl(
 
     @WorkerThread
     @Throws(IOException::class)
-    override fun decryptMessageFileToTempFile(message: AbstractMessageModel): File? =
+    override fun decryptMessageFileToTempFile(message: MessageModel): File? =
         decryptMessageFileToTempFile(message, targetDirectory = appDirectoryProvider.cacheDirectory)
 
     @WorkerThread
     @Throws(IOException::class)
-    override fun decryptMessageFileToShareableTempFile(message: AbstractMessageModel): File? =
+    override fun decryptMessageFileToShareableTempFile(message: MessageModel): File? =
         decryptMessageFileToTempFile(message, targetDirectory = appDirectoryProvider.shareDirectory)
 
     @WorkerThread
     @Throws(IOException::class)
-    private fun decryptMessageFileToTempFile(message: AbstractMessageModel, targetDirectory: File): File? {
+    private fun decryptMessageFileToTempFile(message: MessageModel, targetDirectory: File): File? {
         val messageUid = message.uid ?: return null
         val fileName = message.getFileName()
         val decryptedFile = if (fileName != null) {
@@ -206,7 +208,7 @@ class FileServiceImpl(
      *
      * @return The extension including a leading "." or null if no extension could be guessed or the message is not a file message
      */
-    private fun getMediaFileExtension(message: AbstractMessageModel): String? {
+    private fun getMediaFileExtension(message: MessageModel): String? {
         if (message.type != MessageType.FILE) {
             return null
         }
@@ -312,7 +314,7 @@ class FileServiceImpl(
         }
 
     @Throws(IOException::class)
-    override fun copyMediaFileToGallery(message: AbstractMessageModel) {
+    override fun copyMediaFileToGallery(message: MessageModel) {
         if (message.type != MessageType.FILE) {
             return
         }
@@ -337,7 +339,7 @@ class FileServiceImpl(
         }
     }
 
-    private fun constructGalleryMediaFilename(message: AbstractMessageModel): String =
+    private fun constructGalleryMediaFilename(message: MessageModel): String =
         message.getFileName()
             ?.takeUnlessEmpty()
             ?: run {
@@ -548,7 +550,7 @@ class FileServiceImpl(
 
     @WorkerThread
     @Throws(IOException::class)
-    override fun writeConversationMediaThumbnail(message: AbstractMessageModel, thumbnail: ResettableInputStream) {
+    override fun writeConversationMediaThumbnail(message: MessageModel, thumbnail: ResettableInputStream) {
         val maxWidth = ConfigUtils.getPreferredThumbnailWidth(appContext, false)
             .coerceAtMost(MessageServiceImpl.THUMBNAIL_SIZE_PX * 2)
         val resizedThumbnailBytes = BitmapUtil.resizeImageToMaxWidth(thumbnail, maxWidth)
@@ -565,7 +567,7 @@ class FileServiceImpl(
     }
 
     @WorkerThread
-    override fun getMessageThumbnailBitmap(message: AbstractMessageModel?, thumbnailCache: ThumbnailCache<Int>?): Bitmap? {
+    override fun getMessageThumbnailBitmap(message: MessageModel?, thumbnailCache: ThumbnailCache?): Bitmap? {
         if (message == null) {
             return null
         }
@@ -579,18 +581,15 @@ class FileServiceImpl(
         val messageUid = message.uid
             ?: return null
 
-        val originalBitmap = messageFileHandleProvider.getThumbnail(messageUid).decodeToBitmap()
+        val originalBitmap = messageFileHandleProvider.getThumbnail(messageUid)
+            .decodeToBitmap()
             ?: return null
 
         try {
-            val thumbnailBitmap = BitmapUtil.resizeBitmapExactlyToMaxWidth(originalBitmap, MessageServiceImpl.THUMBNAIL_SIZE_PX)
-            try {
-                thumbnailCache?.set(message.id, thumbnailBitmap)
-            } finally {
-                if (originalBitmap != thumbnailBitmap) {
-                    originalBitmap.recycle()
-                }
+            val thumbnailBitmap = originalBitmap.transform { bitmap ->
+                BitmapUtil.resizeBitmapExactlyToMaxWidth(bitmap, MessageServiceImpl.THUMBNAIL_SIZE_PX)
             }
+            thumbnailCache?.set(message.id, thumbnailBitmap)
             return thumbnailBitmap
         } catch (e: Exception) {
             logger.error("Failed to resize thumbnail", e)
@@ -625,7 +624,7 @@ class FileServiceImpl(
     }
 
     @WorkerThread
-    override fun copyDecryptedMessageFileToShareDirectory(message: AbstractMessageModel, decryptedFile: File): Uri? {
+    override fun copyDecryptedMessageFileToShareDirectory(message: MessageModel, decryptedFile: File): Uri? {
         if (!decryptedFile.exists()) {
             return null
         }
@@ -648,7 +647,7 @@ class FileServiceImpl(
     }
 
     @WorkerThread
-    override fun decryptMessageFiles(messages: List<AbstractMessageModel>): List<File> {
+    override fun decryptMessageFiles(messages: List<MessageModel>): List<File> {
         val files = mutableListOf<File>()
         var exception: Exception? = null
 
@@ -674,7 +673,7 @@ class FileServiceImpl(
     }
 
     @WorkerThread
-    override fun decryptMessageFilesForSharing(messages: List<AbstractMessageModel>): List<Uri> {
+    override fun decryptMessageFilesForSharing(messages: List<MessageModel>): List<Uri> {
         val shareFileUris = mutableListOf<Uri>()
         var exception: Exception? = null
 
@@ -701,7 +700,7 @@ class FileServiceImpl(
     }
 
     @WorkerThread
-    override fun decryptThumbnailToShareableTempFile(message: AbstractMessageModel, maxSize: Int): Uri? {
+    override fun decryptThumbnailToShareableTempFile(message: MessageModel, maxSize: Int): Uri? {
         val messageUid = message.uid
             ?: return null
         val fileHandle = messageFileHandleProvider.getThumbnail(messageUid)

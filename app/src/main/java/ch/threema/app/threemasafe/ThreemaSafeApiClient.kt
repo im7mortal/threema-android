@@ -8,12 +8,12 @@ import ch.threema.common.getSuccessBodyOrThrow
 import ch.threema.common.throwIfNotSuccessful
 import ch.threema.common.withUserAgent
 import ch.threema.domain.protocol.getUserAgent
+import java.io.IOException
 import kotlin.time.Duration.Companion.seconds
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import okio.IOException
 import org.json.JSONException
 import org.json.JSONObject
 

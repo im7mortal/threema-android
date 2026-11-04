@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 import androidx.annotation.AnyThread;
 import androidx.annotation.IntDef;
@@ -27,6 +28,7 @@ import ch.threema.app.voip.groupcall.GroupCallDescription;
 import ch.threema.base.ProgressListener;
 import ch.threema.base.SessionScoped;
 import ch.threema.base.ThreemaException;
+import ch.threema.data.datatypes.MessageIdentifier;
 import ch.threema.domain.models.GroupId;
 import ch.threema.domain.models.MessageId;
 import ch.threema.domain.protocol.csp.MessageTooLongException;
@@ -38,10 +40,10 @@ import ch.threema.domain.protocol.csp.messages.file.FileData;
 import ch.threema.domain.protocol.csp.messages.fs.ForwardSecurityMode;
 import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.protobuf.csp.e2e.Reaction;
-import ch.threema.storage.models.AbstractMessageModel;
-import ch.threema.storage.models.DistributionListMessageModel;
-import ch.threema.storage.models.group.GroupMessageModel;
 import ch.threema.storage.models.MessageModel;
+import ch.threema.storage.models.DistributionListMessageModel;
+import ch.threema.storage.models.GroupMessageModel;
+import ch.threema.storage.models.ContactMessageModel;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.MessageType;
 import ch.threema.storage.models.poll.PollModel;
@@ -76,9 +78,9 @@ public interface MessageService {
     }
 
     interface CompletionHandler {
-        void sendComplete(AbstractMessageModel messageModel);
+        void sendComplete(MessageModel messageModel);
 
-        void sendQueued(AbstractMessageModel messageModel);
+        void sendQueued(MessageModel messageModel);
 
         void sendError(int reason);
     }
@@ -142,24 +144,18 @@ public interface MessageService {
         }
     }
 
-    /**
-     * @deprecated use createStatusMessage new style
-     */
-    @Deprecated
-    AbstractMessageModel createStatusMessage(String statusMessage, MessageReceiver receiver);
+    MessageModel createVoipStatus(VoipStatusDataModel data,
+                                  MessageReceiver receiver,
+                                  boolean isOutbox,
+                                  boolean isRead);
 
-    AbstractMessageModel createVoipStatus(VoipStatusDataModel data,
-                                          MessageReceiver receiver,
-                                          boolean isOutbox,
-                                          boolean isRead);
+    MessageModel createGroupCallStatus(@NonNull GroupCallStatusDataModel data,
+                                       @NonNull MessageReceiver receiver,
+                                       @Nullable GroupCallDescription call,
+                                       boolean isOutbox,
+                                       Instant postedDate);
 
-    AbstractMessageModel createGroupCallStatus(@NonNull GroupCallStatusDataModel data,
-                                               @NonNull MessageReceiver receiver,
-                                               @Nullable GroupCallDescription call,
-                                               boolean isOutbox,
-                                               Instant postedDate);
-
-    AbstractMessageModel createForwardSecurityStatus(
+    MessageModel createForwardSecurityStatus(
         @NonNull MessageReceiver receiver,
         @ForwardSecurityStatusDataModel.ForwardSecurityStatusType int type,
         int quantity,
@@ -177,7 +173,7 @@ public interface MessageService {
      * @param newGroupName the new group name (needed for RENAMED)
      * @return the group status message model
      */
-    AbstractMessageModel createGroupStatus(
+    MessageModel createGroupStatus(
         @NonNull GroupMessageReceiver receiver,
         @NonNull GroupStatusDataModel.GroupStatusType type,
         @Nullable String identity,
@@ -185,9 +181,9 @@ public interface MessageService {
         @Nullable String newGroupName
     );
 
-    AbstractMessageModel sendText(String message, MessageReceiver receiver) throws Exception;
+    MessageModel sendText(String message, MessageReceiver receiver) throws Exception;
 
-    AbstractMessageModel sendLocation(@NonNull Location location, @Nullable String poiName, MessageReceiver receiver, CompletionHandler completionHandler) throws ThreemaException;
+    MessageModel sendLocation(@NonNull Location location, @Nullable String poiName, MessageReceiver receiver, CompletionHandler completionHandler) throws ThreemaException;
 
     /**
      * Edit a message's text, send it to a receiver and save the edited message as described in saveEditedMessageText.
@@ -195,17 +191,29 @@ public interface MessageService {
      * @param message original message to edit
      * @param newText new message text
      */
-    void sendEditedMessageText(@NonNull AbstractMessageModel message, @NonNull String newText, @NonNull Instant editedAt, @NonNull MessageReceiver receiver) throws Exception;
+    void sendEditedMessageText(@NonNull MessageModel message, @NonNull String newText, @NonNull Instant editedAt, @NonNull MessageReceiver receiver) throws Exception;
 
     /**
-     * Save the edited text of a message. If editedAt is not null, an edit history entry will be created with the previous text of the message.
-     * Note that if editedAt is null, the message will not be marked as edited
+     * Save the edited text of a message. Note that this should only be called if the message hasn't been sent yet.
+     * Note that this functionality is questionable as it might introduce race conditions where the old message is being sent to receivers.
      *
      * @param message  Message model containing the previous text of the message
      * @param text     the new text for this message
-     * @param editedAt the date when the message was edited or null
      */
-    void saveEditedMessageText(@NonNull AbstractMessageModel message, String text, @Nullable Instant editedAt);
+    void saveLocallyEditedMessageText(@NonNull MessageModel message, String text);
+
+    /**
+     * Save the edited text of a message that already has been sent. Therefore, this will also create an edit entry.
+     *
+     * @param messageModel The message model that has been edited.
+     * @param text         The new text for this message.
+     * @param editedAt     The timestamp when the message has been edited.
+     */
+    void saveEditedMessageText(
+        @NonNull MessageModel messageModel,
+        @NonNull String text,
+        @NonNull Instant editedAt
+    );
 
     /**
      * Save a reaction message
@@ -218,7 +226,7 @@ public interface MessageService {
      * @return True if the reaction message was saved successfully
      */
     boolean saveEmojiReactionMessage(
-        @NonNull AbstractMessageModel targetMessage,
+        @NonNull MessageModel targetMessage,
         @NonNull String senderIdentity,
         @Nullable Reaction.ActionCase actionCase,
         @NonNull String emojiSequence,
@@ -231,7 +239,7 @@ public interface MessageService {
      * @param targetMessage Message to clear the state for
      */
     // TODO(ANDR-3325): Remove ACK/DEC compatibility
-    void clearMessageState(@NonNull AbstractMessageModel targetMessage);
+    void clearMessageState(@NonNull MessageModel targetMessage);
 
     /**
      * Send an emoji reaction to a receiver and save it locally.
@@ -246,14 +254,14 @@ public interface MessageService {
      * true if the reaction has been sent, or the emojiSequence is not a fully-qualified emoji sequence
      */
     @WorkerThread
-    boolean sendEmojiReaction(@NonNull AbstractMessageModel message, @NonNull String emojiSequence, @NonNull MessageReceiver receiver, boolean markAsRead) throws ThreemaException;
+    boolean sendEmojiReaction(@NonNull MessageModel message, @NonNull String emojiSequence, @NonNull MessageReceiver receiver, boolean markAsRead) throws ThreemaException;
 
     /**
      * Delete a message's content and any related data (e.g. edit history, emoji reactions)
      *
      * @param message original message to delete
      */
-    void deleteMessageContentsAndRelatedData(@NonNull AbstractMessageModel message, Instant deletedAt);
+    void deleteMessageContentsAndRelatedData(@NonNull MessageModel message, Instant deletedAt);
 
     String getCorrelationId();
 
@@ -270,7 +278,7 @@ public interface MessageService {
     );
 
     @WorkerThread
-    AbstractMessageModel sendMedia(@NonNull List<MediaItem> mediaItems, @NonNull List<MessageReceiver> messageReceivers, @Nullable MessageServiceImpl.SendResultListener sendResultListener);
+    MessageModel sendMedia(@NonNull List<MediaItem> mediaItems, @NonNull List<MessageReceiver> messageReceivers, @Nullable MessageServiceImpl.SendResultListener sendResultListener);
 
     /**
      * Resend the message. Note that this is always triggered by a user interaction and therefore
@@ -281,15 +289,15 @@ public interface MessageService {
      * @param completionHandler the completion handler that is triggered on completion
      */
     void resendMessage(
-        @NonNull AbstractMessageModel messageModel,
-        @NonNull MessageReceiver<AbstractMessageModel> receiver,
+        @NonNull MessageModel messageModel,
+        @NonNull MessageReceiver<MessageModel> receiver,
         @Nullable CompletionHandler completionHandler,
         @NonNull Collection<String> recipientIdentities,
         @NonNull MessageId messageId,
         @NonNull TriggerSource triggerSource
     ) throws Exception;
 
-    AbstractMessageModel sendPollMessage(
+    MessageModel sendPollMessage(
         @NonNull PollModel pollModel,
         @NonNull MessageId messageId,
         @NonNull TriggerSource triggerSource
@@ -305,14 +313,14 @@ public interface MessageService {
      * saved even if the message has already been marked as read.
      * <p>
      * Do not use this method for reactions: Use
-     * {@link #addMessageReaction(AbstractMessageModel, MessageState, String, Instant)} instead.
+     * {@link #addMessageReaction(MessageModel, MessageState, String, Instant)} instead.
      *
      * @param messageModel the message model that should be updated
      * @param state        the mew state
      * @param date         the date of the state change
      */
     void updateOutgoingMessageState(
-        @NonNull final AbstractMessageModel messageModel,
+        @NonNull final MessageModel messageModel,
         @NonNull MessageState state,
         @NonNull Instant date
     );
@@ -326,35 +334,35 @@ public interface MessageService {
      * @param date         the date of the state change
      */
     void addMessageReaction(
-        @NonNull AbstractMessageModel messageModel,
+        @NonNull MessageModel messageModel,
         @NonNull MessageState state,
         @NonNull String fromIdentity,
         @NonNull Instant date
     );
 
-    boolean markAsRead(AbstractMessageModel message, boolean silent);
+    boolean markAsRead(MessageModel message, boolean silent);
 
     @WorkerThread
-    boolean markAsConsumed(AbstractMessageModel message) throws ThreemaException;
+    boolean markAsConsumed(MessageModel message) throws ThreemaException;
 
-    void remove(AbstractMessageModel messageModel);
+    void remove(MessageModel messageModel);
 
     /**
      * if silent is true, no event will be fired on delete
      */
-    void remove(AbstractMessageModel messageModel, boolean silent);
+    void remove(MessageModel messageModel, boolean silent);
 
     /**
      * Delete a message's content and send a delete message to a receiver. Any edit history entries
      * belonging to this message will also be deleted.
      */
-    void sendDeleteMessage(@NonNull AbstractMessageModel messageModel, @NonNull MessageReceiver receiver) throws Exception;
+    void sendDeleteMessage(@NonNull MessageModel messageModel, @NonNull MessageReceiver receiver) throws Exception;
 
     /**
      * Process an incoming contact message. Note that this method must not be used for voip and poll
      * vote messages.
      *
-     * @param message the received contact message
+     * @param message       the received contact message
      * @param triggerSource the trigger source
      * @return true if processing the message was successful, false if the message should be discarded
      * @throws Exception if processing the message failed
@@ -366,7 +374,7 @@ public interface MessageService {
      * messages. Additionally, the common group receive steps must be executed before calling this
      * method.
      *
-     * @param message the received group message
+     * @param message       the received group message
      * @param triggerSource the trigger source of the incoming message
      * @return true if processing the message was successful, false if the message should be discarded
      * @throws Exception if processing the message failed
@@ -378,22 +386,22 @@ public interface MessageService {
 
     @WorkerThread
     @NonNull
-    List<AbstractMessageModel> getMessagesForReceiver(@NonNull MessageReceiver receiver, MessageFilter messageFilter, boolean appendUnreadMessage);
+    List<MessageModel> getMessagesForReceiver(@NonNull MessageReceiver receiver, MessageFilter messageFilter, boolean appendUnreadMessage);
 
     @WorkerThread
     @NonNull
-    List<AbstractMessageModel> getMessagesForReceiver(@NonNull MessageReceiver receiver, MessageFilter messageFilter);
+    List<MessageModel> getMessagesForReceiver(@NonNull MessageReceiver receiver, MessageFilter messageFilter);
 
     @WorkerThread
-    List<AbstractMessageModel> getMessagesForReceiver(@NonNull MessageReceiver receiver);
+    List<MessageModel> getMessagesForReceiver(@NonNull MessageReceiver receiver);
 
-    List<AbstractMessageModel> getMessageForPoll(PollModel pollModel);
-
-    @Nullable
-    MessageModel getContactMessageModel(final Integer id);
+    List<MessageModel> getMessageForPoll(PollModel pollModel);
 
     @Nullable
-    MessageModel getContactMessageModel(String uid);
+    ContactMessageModel getContactMessageModel(final Integer id);
+
+    @Nullable
+    ContactMessageModel getContactMessageModel(String uid);
 
     @Nullable
     GroupMessageModel getGroupMessageModel(final Integer id);
@@ -404,14 +412,22 @@ public interface MessageService {
     @Nullable
     DistributionListMessageModel getDistributionListMessageModel(long id);
 
+    @Nullable
+    DistributionListMessageModel getDistributionListMessageModel(@NonNull MessageId messageId, long distributionListId);
+
     /**
      * Get the contact message model by message id and identity.
      */
     @Nullable
-    MessageModel getContactMessageModel(
+    ContactMessageModel getContactMessageModel(
         @NonNull final MessageId messageId,
         @NonNull final String identity
     );
+
+    /**
+     * Returns {@code true} if any of the given messages exist locally.
+     */
+    boolean anyExists(@NonNull Set<MessageIdentifier> messageIdentifiers);
 
     /**
      * Get the group message model by message id, creator identity, and group id.
@@ -423,26 +439,26 @@ public interface MessageService {
         @NonNull GroupId groupId
     );
 
-    MessageString getMessageString(AbstractMessageModel messageModel, int maxLength);
+    MessageString getMessageString(MessageModel messageModel, int maxLength);
 
-    MessageString getMessageString(AbstractMessageModel messageModel, int maxLength, boolean withPrefix);
+    MessageString getMessageString(MessageModel messageModel, int maxLength, boolean withPrefix);
 
-    boolean downloadThumbnailIfPresent(@NonNull FileData fileData, @NonNull AbstractMessageModel messageModel) throws Exception;
+    boolean downloadThumbnailIfPresent(@NonNull FileData fileData, @NonNull MessageModel messageModel) throws Exception;
 
-    boolean shouldAutoDownload(@NonNull AbstractMessageModel messageModel);
+    boolean shouldAutoDownload(@NonNull MessageModel messageModel);
 
     @WorkerThread
-    boolean downloadMediaMessage(AbstractMessageModel mediaMessageModel, ProgressListener progressListener) throws Exception;
+    boolean downloadMediaMessage(MessageModel mediaMessageModel, ProgressListener progressListener) throws Exception;
 
-    boolean cancelMessageDownload(AbstractMessageModel messageModel);
+    boolean cancelMessageDownload(MessageModel messageModel);
 
-    void cancelMessageUpload(AbstractMessageModel messageModel);
+    void cancelMessageUpload(MessageModel messageModel);
 
-    AbstractMessageModel savePollCreateMessage(
+    MessageModel savePollCreateMessage(
         @NonNull MessageReceiver<?> receiver,
         @NonNull MessageId messageId,
         @NonNull PollSetupInterface message,
-        @Nullable AbstractMessageModel messageModel,
+        @Nullable MessageModel messageModel,
         int messageFlags,
         @Nullable ForwardSecurityMode forwardSecurityMode,
         @NonNull TriggerSource triggerSource
@@ -457,7 +473,7 @@ public interface MessageService {
      * @return A list of matching message models
      */
     @NonNull
-    List<AbstractMessageModel> getMessagesForText(@Nullable String queryString, @MessageService.MessageFilterFlags int filterFlags, boolean sortAscending);
+    List<MessageModel> getMessagesForText(@Nullable String queryString, @MessageService.MessageFilterFlags int filterFlags, boolean sortAscending);
 
 
     /**
@@ -473,7 +489,7 @@ public interface MessageService {
 
     void removeAll() throws SQLException, IOException, ThreemaException;
 
-    void save(AbstractMessageModel messageModel);
+    void save(@Nullable MessageModel messageModel);
 
     void markConversationAsRead(MessageReceiver messageReceiver, NotificationService notificationService);
 
@@ -482,24 +498,25 @@ public interface MessageService {
      */
     long getTotalMessageCount();
 
-    boolean shareMediaMessages(Context context, ArrayList<AbstractMessageModel> models, ArrayList<Uri> shareFileUris, String caption);
+    boolean shareMediaMessages(Context context, ArrayList<MessageModel> models, ArrayList<Uri> shareFileUris, String caption);
 
-    boolean viewMediaMessage(Context context, AbstractMessageModel model, Uri uri);
+    boolean viewMediaMessage(Context context, MessageModel model, Uri uri);
 
-    boolean shareTextMessage(Context context, AbstractMessageModel model);
-
-    AbstractMessageModel getMessageModelFromId(int id, String type);
+    boolean shareTextMessage(Context context, MessageModel model);
 
     @Nullable
-    AbstractMessageModel getMessageModelByApiMessageIdAndReceiver(@Nullable String id, @NonNull MessageReceiver messageReceiver);
+    MessageModel getMessageModelFromId(int id, @Nullable String type);
 
-    void cancelVideoTranscoding(AbstractMessageModel messageModel);
+    @Nullable
+    MessageModel getMessageModelByApiMessageIdAndReceiver(@Nullable String id, @NonNull MessageReceiver messageReceiver);
+
+    void cancelVideoTranscoding(MessageModel messageModel);
 
     /**
      * Create a message receiver for the specified message model
      *
-     * @param messageModel AbstractMessageModel to create a receiver for
-     * @throws ThreemaException in case no MessageReceiver could be created or the AbstractMessageModel is none of the three possible message types
+     * @param messageModel MessageModel to create a receiver for
+     * @throws ThreemaException in case no MessageReceiver could be created or the MessageModel is none of the three possible message types
      */
-    MessageReceiver getMessageReceiver(AbstractMessageModel messageModel) throws ThreemaException;
+    MessageReceiver getMessageReceiver(MessageModel messageModel) throws ThreemaException;
 }

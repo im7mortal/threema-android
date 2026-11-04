@@ -42,7 +42,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import ch.threema.android.buildActivityIntent
+import ch.threema.android.dismissDialog
 import ch.threema.app.R
+import ch.threema.app.activities.BackPressHandler
 import ch.threema.app.activities.ComposeMessageActivity
 import ch.threema.app.activities.DistributionListAddActivity
 import ch.threema.app.activities.GroupDetailActivity
@@ -63,6 +65,7 @@ import ch.threema.app.compose.theme.dimens.GridUnit
 import ch.threema.app.contactdetails.ContactDetailActivity
 import ch.threema.app.dialogs.GenericAlertDialog
 import ch.threema.app.dialogs.GenericAlertDialog.DialogClickListener
+import ch.threema.app.dialogs.GenericProgressDialog
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.preference.service.PreferenceService.EmojiStyle
 import ch.threema.app.ui.InsetSides
@@ -81,11 +84,17 @@ import ch.threema.data.datatypes.DistributionListConversationId
 import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.domain.types.Identity
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
-class ArchiveActivity : ThreemaToolbarActivity(), DialogClickListener, SearchView.OnQueryTextListener {
+class ArchiveActivity :
+    ThreemaToolbarActivity(),
+    DialogClickListener,
+    SearchView.OnQueryTextListener,
+    BackPressHandler {
     private val preferenceService: PreferenceService by inject()
     private val viewModel: ArchiveViewModel by viewModel()
     private val identityProvider: IdentityProvider by inject()
@@ -103,18 +112,46 @@ class ArchiveActivity : ThreemaToolbarActivity(), DialogClickListener, SearchVie
         lifecycleScope.launch {
             repeatOnLifecycle(state = Lifecycle.State.STARTED) {
                 launch {
-                    viewModel.events.collect { archiveScreenEvent ->
-                        when (archiveScreenEvent) {
+                    viewModel.events.collect { event ->
+                        when (event) {
                             ArchiveScreenEvent.ConversationsUnarchived -> actionMode?.finish()
-                            ArchiveScreenEvent.ConversationsDeleted -> actionMode?.finish()
+                            is ArchiveScreenEvent.ConversationsDeleted -> {
+                                showDeletionSnackbar(event.count)
+                                actionMode?.finish()
+                            }
                             is ArchiveScreenEvent.ShowReallyDeleteConversationsDialog -> showReallyDeleteSelectedConversationsDialog(
-                                archiveScreenEvent.content,
+                                event.content,
                             )
                         }
                     }
                 }
+                launch {
+                    viewModel.deletionInProgress
+                        .dropWhile { !it }
+                        .collect { inProgress ->
+                            if (inProgress) {
+                                if (supportFragmentManager.findFragmentByTag(DIALOG_TAG_DELETING_CONVERSATIONS) == null) {
+                                    GenericProgressDialog.newInstance(R.string.deleting_chat, R.string.emptying_chat_deleting_messages)
+                                        .show(supportFragmentManager, DIALOG_TAG_DELETING_CONVERSATIONS)
+                                }
+                            } else {
+                                supportFragmentManager.dismissDialog(DIALOG_TAG_DELETING_CONVERSATIONS)
+                            }
+                        }
+                }
             }
         }
+    }
+
+    private fun showDeletionSnackbar(count: Int) {
+        if (count == 0) {
+            return
+        }
+        Snackbar.make(
+            findViewById(R.id.parent_layout) ?: return,
+            resources.getQuantityString(R.plurals.chat_deleted, count, count),
+            Snackbar.LENGTH_SHORT,
+        ).show()
     }
 
     private fun onClickConversation(conversationId: ConversationId) {
@@ -132,7 +169,7 @@ class ArchiveActivity : ThreemaToolbarActivity(), DialogClickListener, SearchVie
             R.string.ok,
             R.string.cancel,
         )
-        dialog.show(supportFragmentManager, DIALOG_TAG_REALLY_DELETE_CHATS)
+        dialog.show(supportFragmentManager, DIALOG_TAG_REALLY_DELETE_CONVERSATIONS)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -292,18 +329,13 @@ class ArchiveActivity : ThreemaToolbarActivity(), DialogClickListener, SearchVie
         }
     }
 
-    override fun enableOnBackPressedCallback() = true
-
     override fun handleOnBackPressed() {
         actionMode?.let(ActionMode::finish) ?: run { finish() }
     }
 
     override fun onYes(tag: String?, data: Any?) {
-        if (tag == DIALOG_TAG_REALLY_DELETE_CHATS) {
-            viewModel.confirmDeleteCurrentlySelected(
-                supportFragmentManager = supportFragmentManager,
-                snackbarFeedbackView = findViewById(R.id.parent_layout),
-            )
+        if (tag == DIALOG_TAG_REALLY_DELETE_CONVERSATIONS) {
+            viewModel.confirmDeleteCurrentlySelected()
         }
     }
 
@@ -321,7 +353,8 @@ class ArchiveActivity : ThreemaToolbarActivity(), DialogClickListener, SearchVie
 
         private const val INTENT_DATA_SEARCH_QUERY = "search-query"
 
-        private const val DIALOG_TAG_REALLY_DELETE_CHATS = "delc"
+        private const val DIALOG_TAG_REALLY_DELETE_CONVERSATIONS = "delc"
+        private const val DIALOG_TAG_DELETING_CONVERSATIONS = "dc"
 
         fun createIntent(context: Context, searchQuery: String? = null) = buildActivityIntent<ArchiveActivity>(context) {
             putExtra(INTENT_DATA_SEARCH_QUERY, searchQuery)
@@ -339,7 +372,7 @@ private fun ArchiveActivityContent(
     onClickJoinOrOpenGroupCall: (GroupConversationId) -> Unit,
     avatarBitmapProvider: suspend (ConversationId) -> ImmutableBitmap?,
     ownIdentity: Identity,
-    @EmojiStyle emojiStyle: Int,
+    emojiStyle: EmojiStyle,
     contactNameFormat: ContactNameFormat,
 ) {
     Box(
@@ -515,7 +548,7 @@ private fun ArchiveActivityContent_Preview() {
                 onClickJoinOrOpenGroupCall = {},
                 avatarBitmapProvider = { null },
                 ownIdentity = PreviewData.IDENTITY_ME,
-                emojiStyle = PreferenceService.EMOJI_STYLE_ANDROID,
+                emojiStyle = EmojiStyle.ANDROID,
                 contactNameFormat = ContactNameFormat.DEFAULT,
             )
         }
@@ -536,7 +569,7 @@ private fun ArchiveActivityContent_Preview_Empty() {
                 onClickJoinOrOpenGroupCall = {},
                 avatarBitmapProvider = { null },
                 ownIdentity = PreviewData.IDENTITY_ME,
-                emojiStyle = PreferenceService.EMOJI_STYLE_ANDROID,
+                emojiStyle = EmojiStyle.ANDROID,
                 contactNameFormat = ContactNameFormat.DEFAULT,
             )
         }

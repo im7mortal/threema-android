@@ -1,6 +1,5 @@
 package ch.threema.app.preference
 
-import android.Manifest
 import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.ClipData
@@ -8,17 +7,16 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.SharedPreferences
-import android.content.SharedPreferences.OnSharedPreferenceChangeListener
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
-import androidx.core.content.ContextCompat
+import androidx.activity.result.launch
 import androidx.core.content.IntentCompat
 import androidx.core.content.getSystemService
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.preference.DropDownPreference
 import androidx.preference.Preference
@@ -28,9 +26,11 @@ import androidx.preference.TwoStatePreference
 import ch.threema.android.Destroyer.Companion.createDestroyer
 import ch.threema.android.ToastDuration
 import ch.threema.android.buildActivityIntent
+import ch.threema.android.dismissDialog
 import ch.threema.android.format
 import ch.threema.android.ownedBy
-import ch.threema.android.registerPermissionResultContract
+import ch.threema.android.permissions.BluetoothPermissionContract
+import ch.threema.android.permissions.ReadPhoneStatePermissionContract
 import ch.threema.android.registerSimpleActivityResultContract
 import ch.threema.android.showToast
 import ch.threema.app.AppConstants
@@ -64,14 +64,12 @@ import ch.threema.app.services.MessageServiceImpl.SendResultListener
 import ch.threema.app.services.RingtoneService
 import ch.threema.app.services.ThreemaPushService
 import ch.threema.app.services.UserService
-import ch.threema.app.services.WallpaperService
 import ch.threema.app.services.notification.NotificationService
 import ch.threema.app.troubleshooting.contacts.ContactsDiagnosticsActivity
 import ch.threema.app.ui.MediaItem
 import ch.threema.app.usecases.ExportDebugLogUseCase
 import ch.threema.app.usecases.ShareDebugLogUseCase
 import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.DialogUtil
 import ch.threema.app.utils.HibernationUtil
 import ch.threema.app.utils.MimeUtil
 import ch.threema.app.utils.PowermanagerUtil
@@ -79,9 +77,9 @@ import ch.threema.app.utils.PushUtil
 import ch.threema.app.utils.executor.BackgroundExecutor
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.app.voip.activities.WebRTCDebugActivity
+import ch.threema.app.wallpapers.WallpaperService
 import ch.threema.app.webclient.activities.WebDiagnosticsActivity
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.common.DispatcherProvider
 import ch.threema.common.TimeProvider
 import ch.threema.common.minus
 import ch.threema.data.models.ContactModel
@@ -97,9 +95,9 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
 
 private val logger = getThreemaLogger("SettingsAdvancedOptionsFragment")
@@ -107,7 +105,6 @@ private val logger = getThreemaLogger("SettingsAdvancedOptionsFragment")
 class SettingsAdvancedOptionsFragment :
     ThreemaPreferenceFragment(),
     DialogClickListener,
-    OnSharedPreferenceChangeListener,
     TextEntryDialogClickListener,
     CancelableHorizontalProgressDialog.ProgressDialogClickListener {
     init {
@@ -115,7 +112,6 @@ class SettingsAdvancedOptionsFragment :
     }
 
     private val wallpaperService: WallpaperService by inject()
-    private val sharedPreferences: SharedPreferences by inject()
     private val preferenceService: PreferenceService by inject()
     private val ringtoneService: RingtoneService by inject()
     private val notificationService: NotificationService by inject()
@@ -125,7 +121,6 @@ class SettingsAdvancedOptionsFragment :
     private val groupService: GroupService by inject()
     private val validContactsLookupSteps: ValidContactsLookupSteps by inject()
     private val contactModelRepository: ContactModelRepository by inject()
-    private val dispatcherProvider: DispatcherProvider by inject()
     private val hibernationUtil: HibernationUtil by inject()
     private val exportDebugLogUseCase: ExportDebugLogUseCase by inject()
     private val shareDebugLogUseCase: ShareDebugLogUseCase by inject()
@@ -135,6 +130,7 @@ class SettingsAdvancedOptionsFragment :
     private val timeProvider: TimeProvider by inject()
     private val globalEventBuses: GlobalEventBuses by inject()
     private val watchDebugLogSummaryUseCase: WatchDebugLogSummaryUseCase by inject()
+    private val threemaPushServiceStarter: ThreemaPushService.Starter by inject()
     private val destroyer = createDestroyer()
 
     private var fragmentView: View? = null
@@ -155,7 +151,7 @@ class SettingsAdvancedOptionsFragment :
         PushService.servicesInstalled(context)
     }
 
-    private val readPhoneStatePermissionLauncher = registerPermissionResultContract { isGranted ->
+    private val readPhoneStatePermissionLauncher = registerForActivityResult(ReadPhoneStatePermissionContract()) { isGranted ->
         if (isGranted) {
             updateReadPhoneStatePermissionPref()
         } else {
@@ -164,7 +160,7 @@ class SettingsAdvancedOptionsFragment :
             }
         }
     }
-    private val bluetoothPermissionLauncher = registerPermissionResultContract { isGranted ->
+    private val bluetoothPermissionLauncher = registerForActivityResult(BluetoothPermissionContract()) { isGranted ->
         if (isGranted) {
             updateBluetoothPermissionPref()
         } else {
@@ -188,6 +184,42 @@ class SettingsAdvancedOptionsFragment :
     private val hibernationSettingsLauncher = registerSimpleActivityResultContract()
 
     private var debugLogWarningShown = false
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        if (!BuildFlavor.FORCE_THREEMA_PUSH) {
+            lifecycleScope.launch {
+                repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    watchThreemaPushSetting()
+                }
+            }
+        }
+    }
+
+    private suspend fun watchThreemaPushSetting() {
+        preferenceService.watchMustUseThreemaPush().drop(1).collect { useThreemaPush ->
+            if (!isAdded) {
+                return@collect
+            }
+            logger.info("Threema Push state changed = {}", useThreemaPush)
+
+            if (pushServicesInstalled) {
+                PushUtil.enqueuePushTokenUpdate(requireContext(), useThreemaPush, false)
+            }
+
+            if (useThreemaPush) {
+                if (threemaPushServiceStarter.startIfNeeded(logger)) {
+                    showToast(R.string.threema_push_activated, ToastDuration.LONG)
+                } else {
+                    logger.info("Unable to activate threema push")
+                    threemaPushTwoStatePreference.setChecked(false)
+                }
+            } else {
+                threemaPushServiceStarter.stop()
+            }
+        }
+    }
 
     override fun initializePreferences() {
         initLoggingPrefs()
@@ -227,7 +259,7 @@ class SettingsAdvancedOptionsFragment :
             }
         }
 
-        if (BuildFlavor.current.isOnPrem) {
+        if (BuildFlavor.IS_ON_PREM) {
             sendLogPreference.isVisible = false
         } else {
             sendLogPreference.onClick {
@@ -251,7 +283,7 @@ class SettingsAdvancedOptionsFragment :
                     showToast(R.string.an_error_occurred)
                     logger.error("Failed to share debug log", e)
                 } finally {
-                    DialogUtil.dismissDialog(parentFragmentManager, DIALOG_TAG_SHARE_LOG, true)
+                    parentFragmentManager.dismissDialog(DIALOG_TAG_SHARE_LOG)
                 }
             }
         }
@@ -352,6 +384,10 @@ class SettingsAdvancedOptionsFragment :
                 }
             }
             updateSentryIdPreference()
+
+            if (BuildConfig.LOG_TOMBSTONES_FOR_NATIVE_CRASHES) {
+                getPref<Preference>(R.string.preferences__store_tombstones).isVisible = true
+            }
         }
     }
 
@@ -368,7 +404,7 @@ class SettingsAdvancedOptionsFragment :
     private fun initPushPrefs() {
         pushTokenResetBroadcastReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                DialogUtil.dismissDialog(parentFragmentManager, DIALOG_TAG_PUSH_REGISTER, true)
+                parentFragmentManager.dismissDialog(DIALOG_TAG_PUSH_REGISTER)
                 val message = when {
                     intent.getBooleanExtra(PushUtil.EXTRA_REGISTRATION_ERROR_BROADCAST, false) -> {
                         getString(R.string.token_register_failed)
@@ -531,33 +567,27 @@ class SettingsAdvancedOptionsFragment :
     }
 
     private fun updateReadPhoneStatePermissionPref() {
-        val context = requireContext()
-
         val phonePref = getPref<Preference>(R.string.preferences__grant_read_phone_state_permission)
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
+        if (ReadPhoneStatePermissionContract.isPermissionGranted(requireContext())) {
             phonePref.isEnabled = false
         } else {
             phonePref.isEnabled = true
             phonePref.onClick {
-                ConfigUtils.requestReadPhonePermission(requireActivity(), readPhoneStatePermissionLauncher)
+                readPhoneStatePermissionLauncher.launch()
             }
         }
     }
 
     private fun updateBluetoothPermissionPref() {
-        val context = getContext()
+        val context = requireContext()
         val bluetoothPref = getPref<Preference>(R.string.preferences__grant_bluetooth_permission)
 
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-            (context != null && ConfigUtils.isPermissionGranted(context, Manifest.permission.BLUETOOTH_CONNECT))
-        ) {
+        if (BluetoothPermissionContract.isPermissionGranted(context)) {
             bluetoothPref.isEnabled = false
         } else {
             bluetoothPref.isEnabled = true
-            bluetoothPref.onPreferenceClickListener = Preference.OnPreferenceClickListener {
-                val activity = activity ?: return@OnPreferenceClickListener false
-                ConfigUtils.requestBluetoothConnectPermission(activity, bluetoothPermissionLauncher)
-                true
+            bluetoothPref.onClick {
+                bluetoothPermissionLauncher.launch()
             }
         }
     }
@@ -612,16 +642,13 @@ class SettingsAdvancedOptionsFragment :
             DIALOG_TAG_REMOVE_WALLPAPERS -> {
                 lifecycleScope.launch {
                     try {
-                        withContext(dispatcherProvider.io) {
-                            wallpaperService.deleteAll()
-                        }
+                        wallpaperService.deleteAll()
                     } catch (e: IOException) {
                         logger.error("Failed to delete wallpapers", e)
                         showToast(R.string.an_error_occurred)
                         return@launch
                     }
                     showToast(R.string.wallpapers_removed)
-                    preferenceService.setCustomWallpaperEnabled(false)
                 }
             }
 
@@ -630,7 +657,7 @@ class SettingsAdvancedOptionsFragment :
                 contactService.resetAllNotificationTriggerPolicyOverrideFromLocal()
                 groupService.resetAllNotificationTriggerPolicyOverrideFromLocal()
                 notificationService.recreateNotificationChannels()
-                if (BuildFlavor.current.isWork) {
+                if (BuildFlavor.IS_WORK) {
                     preferenceService.setAfterWorkDNDEnabled(false)
                 }
                 showToast(R.string.reset_ringtones_confirm)
@@ -675,8 +702,6 @@ class SettingsAdvancedOptionsFragment :
 
     override fun onStart() {
         super.onStart()
-
-        sharedPreferences.registerOnSharedPreferenceChangeListener(this)
         LocalBroadcastManager.getInstance(requireContext()).registerReceiver(
             pushTokenResetBroadcastReceiver,
             IntentFilter(AppConstants.INTENT_PUSH_REGISTRATION_COMPLETE),
@@ -686,42 +711,11 @@ class SettingsAdvancedOptionsFragment :
     }
 
     override fun onStop() {
-        sharedPreferences.unregisterOnSharedPreferenceChangeListener(this)
         LocalBroadcastManager.getInstance(requireContext()).unregisterReceiver(pushTokenResetBroadcastReceiver)
 
-        DialogUtil.dismissDialog(parentFragmentManager, DIALOG_TAG_PUSH_REGISTER, true)
+        parentFragmentManager.dismissDialog(DIALOG_TAG_PUSH_REGISTER)
 
         super.onStop()
-    }
-
-    override fun onSharedPreferenceChanged(sharedPreferences: SharedPreferences, key: String?) {
-        if (BuildFlavor.current.forceThreemaPush) {
-            return
-        }
-
-        if (key == getString(R.string.preferences__threema_push_switch)) {
-            val newValue = sharedPreferences.getBoolean(getString(R.string.preferences__threema_push_switch), false)
-
-            if (!isAdded) {
-                return
-            }
-
-            if (pushServicesInstalled) {
-                // remove token silently
-                PushUtil.enqueuePushTokenUpdate(requireContext(), newValue, false)
-            }
-
-            if (newValue) {
-                if (ThreemaPushService.tryStart(logger, requireContext())) {
-                    showToast(R.string.threema_push_activated, ToastDuration.LONG)
-                } else {
-                    logger.info("Unable to activate threema push")
-                    threemaPushTwoStatePreference.setChecked(false)
-                }
-            } else {
-                requireActivity().stopService(Intent(requireContext(), ThreemaPushService::class.java))
-            }
-        }
     }
 
     @Deprecated("Deprecated in Java")
@@ -814,7 +808,7 @@ class SettingsAdvancedOptionsFragment :
                 if (!isAdded) {
                     return
                 }
-                DialogUtil.dismissDialog(parentFragmentManager, DIALOG_TAG_SEND_LOG, true)
+                parentFragmentManager.dismissDialog(DIALOG_TAG_SEND_LOG)
 
                 if (result == SendToSupportResult.SUCCESS) {
                     showToast(R.string.message_sent, ToastDuration.LONG)

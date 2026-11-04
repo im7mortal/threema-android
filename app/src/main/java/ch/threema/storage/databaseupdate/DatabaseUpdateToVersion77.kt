@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * Add table for Group Calls
+ */
 internal class DatabaseUpdateToVersion77(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -14,8 +17,6 @@ internal class DatabaseUpdateToVersion77(
                 "`gck` TEXT NOT NULL)",
         )
     }
-
-    override fun getDescription() = "GroupCalls"
 
     override val version = 77
 }

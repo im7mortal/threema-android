@@ -5,6 +5,9 @@ import ch.threema.app.tasks.SyncPredefinedContactsTask
 import ch.threema.domain.taskmanager.TaskManager
 import org.koin.core.component.inject
 
+/**
+ * schedule a task that syncs the verification levels of predefined contacts
+ */
 class SystemUpdateToVersion127 : SystemUpdate {
     private val multiDeviceManager: MultiDeviceManager by inject()
     private val taskManager: TaskManager by inject()
@@ -18,7 +21,4 @@ class SystemUpdateToVersion127 : SystemUpdate {
     }
 
     override val version = 127
-
-    override fun getDescription() =
-        "schedule a task that syncs the verification levels of predefined contacts"
 }

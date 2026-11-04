@@ -19,7 +19,6 @@ class WakeLockServiceImplTest {
     @Test
     fun acquire() {
         mockkStatic(ConfigUtils::class)
-        every { ConfigUtils.isNokiaDevice() } returns false
 
         val mockPowerManager = mockk<PowerManager>()
         val mockLifetimeService = mockk<LifetimeService>(relaxed = true)

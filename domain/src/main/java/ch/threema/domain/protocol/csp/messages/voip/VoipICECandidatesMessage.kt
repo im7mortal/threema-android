@@ -3,6 +3,7 @@ package ch.threema.domain.protocol.csp.messages.voip
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.protocol.csp.messages.BadMessageException
+import ch.threema.domain.protocol.csp.messages.ExemptFromBlocking
 import ch.threema.domain.protocol.csp.messages.voip.VoipICECandidatesMessage.Companion.fromByteArray
 import ch.threema.domain.protocol.csp.messages.voip.VoipICECandidatesMessage.Companion.fromReflected
 import ch.threema.protobuf.d2d.IncomingMessage
@@ -29,7 +30,7 @@ class VoipICECandidatesMessage : VoipMessage() {
 
     override fun allowUserProfileDistribution(): Boolean = false
 
-    override fun exemptFromBlocking(): Boolean = false
+    override fun exemptFromBlocking(): ExemptFromBlocking = ExemptFromBlocking.NO
 
     override fun protectAgainstReplay(): Boolean = false
 

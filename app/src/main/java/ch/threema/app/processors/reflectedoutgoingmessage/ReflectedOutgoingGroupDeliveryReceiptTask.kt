@@ -7,8 +7,8 @@ import ch.threema.domain.models.MessageId
 import ch.threema.domain.protocol.csp.messages.GroupDeliveryReceiptMessage
 import ch.threema.protobuf.common.CspE2eMessageType
 import ch.threema.protobuf.d2d.OutgoingMessage
+import ch.threema.storage.models.GroupMessageModel
 import ch.threema.storage.models.MessageState
-import ch.threema.storage.models.group.GroupMessageModel
 import java.time.Instant
 
 private val logger = getThreemaLogger("ReflectedOutgoingGroupDeliveryReceiptTask")

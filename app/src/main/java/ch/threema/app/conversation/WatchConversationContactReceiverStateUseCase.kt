@@ -1,8 +1,8 @@
 package ch.threema.app.conversation
 
+import ch.threema.app.BuildFlavor
 import ch.threema.app.usecases.contacts.WatchContactAvatarIterationUseCase
 import ch.threema.app.usecases.contacts.WatchContactNameFormatSettingUseCase
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.repositories.ContactModelRepository
 import kotlinx.coroutines.flow.Flow
@@ -28,7 +28,7 @@ class WatchConversationContactReceiverStateUseCase(
                 ConversationReceiverState.Contact(
                     displayName = contactModelData.getDisplayName(contactNameFormat),
                     showIdentityTypeBadge = contactModelData.showIdentityTypeBadge(
-                        isWorkBuild = ConfigUtils.isWorkBuild(),
+                        isWorkBuild = BuildFlavor.IS_WORK,
                     ),
                     verificationLevel = contactModelData.verificationLevel,
                     workVerificationLevel = contactModelData.workVerificationLevel,

@@ -6,12 +6,14 @@ import ch.threema.testhelpers.assertGZippedBody
 import ch.threema.testhelpers.assertHasHeader
 import ch.threema.testhelpers.assertMethod
 import ch.threema.testhelpers.assertUrl
+import ch.threema.testhelpers.createTempDirectory
 import ch.threema.testhelpers.loadResource
 import ch.threema.testhelpers.mockOkHttpClient
 import ch.threema.testhelpers.respondWith
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import java.io.File
 import java.util.UUID
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -124,7 +126,7 @@ class SentryServiceTest {
     }
 
     @Test
-    fun `send non-fatal error record without exception details`() = runTest {
+    fun `send non-fatal error record, without exception details, without attachments`() = runTest {
         getExpectedBody = {
             loadResource("api/requests/sentry-envelope-with-message.txt")
         }
@@ -136,6 +138,46 @@ class SentryServiceTest {
                 message = ErrorRecordMessage(
                     message = "This is a %s",
                     parameters = listOf("test"),
+                ),
+                createdAt = timeProvider.get() - 10.minutes,
+            ),
+        )
+
+        verify(exactly = 1) { okHttpClientMock.newCall(any()) }
+    }
+
+    @Test
+    fun `send non-fatal error record, without exception details, with attachments`() = runTest {
+        getExpectedBody = {
+            loadResource("api/requests/sentry-envelope-with-message-and-attachments.txt")
+        }
+
+        val tempDirectory = createTempDirectory()
+        val emptyFile = File(tempDirectory, "empty-file.txt")
+        emptyFile.createNewFile()
+        val textFile = File(tempDirectory, "text-file.txt")
+        textFile.writeText("Hello World")
+        sentryService.sendErrorRecord(
+            ErrorRecord(
+                id = UUID.fromString(ERROR_ID),
+                level = ErrorRecordLevel.ERROR,
+                message = ErrorRecordMessage(
+                    message = "This is a %s",
+                    parameters = listOf("test"),
+                ),
+                attachments = listOf(
+                    ErrorRecordAttachment(
+                        file = emptyFile,
+                        mimeType = null,
+                    ),
+                    ErrorRecordAttachment(
+                        file = File("does-not-exist"),
+                        mimeType = null,
+                    ),
+                    ErrorRecordAttachment(
+                        file = textFile,
+                        mimeType = "text/plain",
+                    ),
                 ),
                 createdAt = timeProvider.get() - 10.minutes,
             ),

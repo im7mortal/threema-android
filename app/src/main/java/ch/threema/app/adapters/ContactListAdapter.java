@@ -3,7 +3,6 @@ package ch.threema.app.adapters;
 import android.content.Context;
 import android.text.Spannable;
 import android.text.SpannableString;
-import android.text.format.DateUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -241,7 +240,7 @@ public class ContactListAdapter extends FilterableListAdapter implements Section
     private String getInitial(ContactModel c, boolean afterSorting, int position) {
         String firstLetter, sortingValue;
 
-        sortingValue = ContactUtil.getSafeNameString(c, preferenceService.isContactListSortingFirstName());
+        sortingValue = ContactUtil.getSafeNameString(c, preferenceService.getContactSortOrder());
         if (sortingValue.isEmpty()) {
             firstLetter = PLACEHOLDER_BLANK_HEADER;
         } else {

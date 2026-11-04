@@ -1,14 +1,8 @@
 package ch.threema.app.emojireactions
 
-import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.viewModel
 
 val emojiReactionsFeatureModule = module {
-    viewModel { parameters ->
-        EmojiReactionsViewModel(
-            emojiReactionsRepository = get(),
-            messageService = get(),
-            reactionMessageIdentifier = parameters.get(),
-        )
-    }
+    viewModel<EmojiReactionsViewModel>()
 }

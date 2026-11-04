@@ -8,8 +8,8 @@ import ch.threema.app.services.notification.NotificationService
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.DispatcherProvider
 import ch.threema.data.datatypes.ConversationId
-import ch.threema.storage.models.AbstractMessageModel
 import ch.threema.storage.models.ConversationModel
+import ch.threema.storage.models.MessageModel
 import java.sql.SQLException
 import kotlinx.coroutines.withContext
 
@@ -26,13 +26,13 @@ class MarkConversationAsReadUseCase(
         val conversationModel: ConversationModel = conversationService.get(conversationId)
             ?: return@withContext
         val messageReceiver: MessageReceiver<*> = conversationModel.messageReceiver
-        val unreadMessages: List<AbstractMessageModel> = try {
+        val unreadMessages: List<MessageModel> = try {
             messageReceiver.getUnreadMessages()
         } catch (e: SQLException) {
             logger.error("Failed to determine unread messages for conversation {}", conversationId, e)
             return@withContext
         }
-        notificationService.cancel(conversationId)
+        notificationService.cancelAllConversationNotifications(conversationId)
         MarkAsReadRoutine(
             conversationService,
             messageService,

@@ -12,6 +12,7 @@ import ch.threema.domain.models.UserState
 import ch.threema.domain.models.VerificationLevel
 import ch.threema.domain.models.WorkVerificationLevel
 import ch.threema.domain.types.IdentityString
+import ch.threema.domain.types.MessageUid
 import java.time.Instant
 
 // This file contains the types used in the database abstraction layer.
@@ -54,6 +55,8 @@ data class DbContact(
     val typingIndicatorPolicy: TypingIndicatorPolicy,
     /** The conversation visibility of the 1:1 chat with this contact. */
     val conversationVisibility: ConversationVisibility,
+    /** Whether the conversation is private or not. */
+    val conversationCategory: Int,
     /** Android contact lookup key. */
     val androidContactLookupKey: String?,
     /** Local avatar expiration date. */
@@ -94,6 +97,8 @@ data class DbGroup(
     val lastUpdate: Instant?,
     /** The conversation visibility of this group chat. */
     val conversationVisibility: ConversationVisibility,
+    /** Whether the conversation is private or not. */
+    val conversationCategory: Int,
     /** The color index. */
     val colorIndex: Int,
     /** The group description. */
@@ -106,34 +111,35 @@ data class DbGroup(
     val userState: UserState,
     val notificationTriggerPolicyOverridePolicy: Int?,
     val notificationTriggerPolicyOverrideExpiresAt: Instant?,
+    val spamReportingState: Int,
 )
 
 data class DbEditHistoryEntry(
     /** The unique id used as primary key. */
     val uid: Int = 0,
-    /** The uid of the edited message referencing the [ch.threema.storage.models.AbstractMessageModel.COLUMN_UID] */
-    val messageUid: String,
-    /** The id of the edited message referencing the [ch.threema.storage.models.AbstractMessageModel.COLUMN_ID]
+    /** The uid of the edited message referencing the [ch.threema.storage.models.MessageModel.COLUMN_UID] */
+    val messageUid: MessageUid,
+    /** The id of the edited message referencing the [ch.threema.storage.models.MessageModel.COLUMN_ID]
      *  Can be identical for different classes of messages that are stored in different tables
      *  This is only used as foreign key because uid is not actually constrained as unique
      */
     val messageId: Int,
     /** The former text of the edited message. */
     val text: String?,
-    /** Timestamp when the message was edited and hence the entry created. */
-    val editedAt: Instant,
+    /** Timestamp when the former text of the message was created. */
+    val createdAt: Instant,
 ) {
     companion object {
         const val COLUMN_UID = "uid"
         const val COLUMN_MESSAGE_UID = "messageUid"
         const val COLUMN_MESSAGE_ID = "messageId"
         const val COLUMN_TEXT = "text"
-        const val COLUMN_EDITED_AT = "editedAt"
+        const val COLUMN_CREATED_AT = "createdAt"
     }
 }
 
 data class DbEmojiReaction(
-    /** The row id of the message this reaction refers to - see [ch.threema.storage.models.AbstractMessageModel.COLUMN_ID] */
+    /** The row id of the message this reaction refers to - see [ch.threema.storage.models.MessageModel.COLUMN_ID] */
     val messageId: Int,
     /** The identity of the person who reacted. This may differ from the sender of the message */
     val senderIdentity: IdentityString,
@@ -141,11 +147,14 @@ data class DbEmojiReaction(
     val emojiSequence: String,
     /** Timestamp when the reaction was locally created. */
     val reactedAt: Instant,
+    /** Timestamp when the reaction was marked as read by the user. `null` if the reaction is still unread. */
+    val readAt: Instant?,
 ) {
     companion object {
         const val COLUMN_MESSAGE_ID = "messageId"
         const val COLUMN_SENDER_IDENTITY = "senderIdentity"
         const val COLUMN_EMOJI_SEQUENCE = "emojiSequence"
         const val COLUMN_REACTED_AT = "reactedAt"
+        const val COLUMN_READ_AT = "readAt"
     }
 }

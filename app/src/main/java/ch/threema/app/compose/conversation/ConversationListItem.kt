@@ -82,11 +82,13 @@ import ch.threema.app.compose.conversation.models.GroupCallUiModel
 import ch.threema.app.compose.conversation.models.INACTIVE_CONTACT_ALPHA
 import ch.threema.app.compose.conversation.models.UnreadState
 import ch.threema.app.compose.preview.PreviewData
+import ch.threema.app.compose.preview.PreviewData.IDENTITY_ME
+import ch.threema.app.compose.preview.PreviewData.IDENTITY_OTHER_2
+import ch.threema.app.compose.preview.PreviewData.IDENTITY_OTHER_3
 import ch.threema.app.compose.theme.ThreemaPreviewWrapper
 import ch.threema.app.compose.theme.color.CustomColors
 import ch.threema.app.compose.theme.dimens.GridUnit
 import ch.threema.app.conversation.MessageViewElementFactory
-import ch.threema.app.preference.service.PreferenceService.Companion.EMOJI_STYLE_ANDROID
 import ch.threema.app.preference.service.PreferenceService.EmojiStyle
 import ch.threema.app.ui.models.MessageViewElement
 import ch.threema.app.usecases.conversations.AvatarIteration
@@ -104,6 +106,7 @@ import ch.threema.data.datatypes.DistributionListConversationId
 import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.data.datatypes.LocalGroupId
 import ch.threema.domain.types.Identity
+import ch.threema.domain.types.Mention
 import java.time.Instant
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
@@ -126,7 +129,7 @@ fun ConversationListItem(
     localDayOfYear: LocalDayOfYear,
     avatarBitmapProvider: suspend (ConversationId) -> ImmutableBitmap?,
     ownIdentity: Identity,
-    @EmojiStyle emojiStyle: Int,
+    emojiStyle: EmojiStyle,
     contactNameFormat: ContactNameFormat,
     onClick: (ConversationId) -> Unit,
     onLongClick: (ConversationId) -> Unit,
@@ -381,7 +384,7 @@ private fun ConversationListItemContent(
     draftData: ConversationUiModel.DraftData?,
     conversationIcon: IconInfo?,
     muteStatusIcon: Int?,
-    @EmojiStyle emojiStyle: Int,
+    emojiStyle: EmojiStyle,
     contactNameFormat: ContactNameFormat,
     isTyping: Boolean,
     onClick: () -> Unit,
@@ -477,7 +480,7 @@ private fun FirstLine(
     unreadState: UnreadState?,
     groupCall: GroupCallUiModel?,
     @DrawableRes muteStatusIcon: Int?,
-    @EmojiStyle emojiStyle: Int,
+    emojiStyle: EmojiStyle,
 ) {
     Row(
         modifier = modifier,
@@ -556,7 +559,7 @@ private fun SecondLine(
     groupCall: GroupCallUiModel?,
     unreadState: UnreadState?,
     draftData: ConversationUiModel.DraftData?,
-    @EmojiStyle emojiStyle: Int,
+    emojiStyle: EmojiStyle,
     contactNameFormat: ContactNameFormat,
     isTyping: Boolean,
 ) {
@@ -669,7 +672,7 @@ private fun SecondLineOngoingGroupCall(
 private fun SecondLineDraft(
     modifier: Modifier,
     draftData: ConversationUiModel.DraftData,
-    @EmojiStyle emojiStyle: Int,
+    emojiStyle: EmojiStyle,
     ownIdentity: Identity,
 ) {
     Row(
@@ -695,7 +698,7 @@ private fun SecondLineDraft(
             ),
             mentionFeature = MentionFeature.On(
                 ownIdentity = ownIdentity,
-                identityDisplayNames = draftData.mentionNames,
+                displayNames = draftData.mentionNames,
             ),
             markupEnabled = true,
             highlightFeature = HighlightFeature.Off,
@@ -724,7 +727,7 @@ private fun SecondLineMessage(
     localDayOfYear: LocalDayOfYear,
     unreadState: UnreadState?,
     ownIdentity: Identity,
-    @EmojiStyle emojiStyle: Int,
+    emojiStyle: EmojiStyle,
     contactNameFormat: ContactNameFormat,
 ) {
     val context = LocalContext.current
@@ -839,7 +842,7 @@ private fun SecondLineMessage(
             ),
             mentionFeature = MentionFeature.On(
                 ownIdentity = ownIdentity,
-                identityDisplayNames = latestMessageData.mentionNames,
+                displayNames = latestMessageData.mentionNames,
             ),
             highlightFeature = HighlightFeature.Off,
         )
@@ -1094,7 +1097,7 @@ private class PreviewProviderContactConversationListItemItemUiModel : PreviewPar
         ),
         createContactConversationListItemUiModel(
             latestMessageData = PreviewData.LatestMessageData.incomingFileMessage(
-                caption = "This is your file @[${PreviewData.IDENTITY_ME}]",
+                caption = "This is your file ${Mention.Identity(IDENTITY_ME)}",
             ),
         ),
         createContactConversationListItemUiModel(
@@ -1158,12 +1161,12 @@ private class PreviewProviderGroupConversationListItemUiModel : PreviewParameter
         createGroupConversationListItemUiModel(),
         createGroupConversationListItemUiModel(
             latestMessageData = PreviewData.LatestMessageData.incomingTextMessage(
-                body = "Hey @[${PreviewData.IDENTITY_OTHER_2}] @[${PreviewData.IDENTITY_OTHER_3}] ",
+                body = "Hey ${Mention.Identity(IDENTITY_OTHER_2)} ${Mention.Identity(IDENTITY_OTHER_3)} ",
             ),
         ),
         createGroupConversationListItemUiModel(
             draftData = ConversationUiModel.DraftData(
-                draft = "Draft mentioning @[${PreviewData.IDENTITY_OTHER_2}]",
+                draft = "Draft mentioning ${Mention.Identity(IDENTITY_OTHER_2)}",
                 mentionNames = PreviewData.mentionNames,
             ),
         ),
@@ -1365,8 +1368,8 @@ private fun Preview(conversationListItemUiModel: ConversationListItemUiModel) {
         avatarIteration = AvatarIteration.initial,
         localDayOfYear = 1,
         avatarBitmapProvider = { null },
-        ownIdentity = PreviewData.IDENTITY_ME,
-        emojiStyle = EMOJI_STYLE_ANDROID,
+        ownIdentity = IDENTITY_ME,
+        emojiStyle = EmojiStyle.ANDROID,
         contactNameFormat = ContactNameFormat.DEFAULT,
         onClick = {},
         onLongClick = {},

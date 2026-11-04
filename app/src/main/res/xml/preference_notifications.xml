@@ -124,6 +124,26 @@
     </PreferenceCategory>
 
     <PreferenceCategory
+        android:key="@string/preferences__emoji_reaction_notifications"
+        android:title="@string/prefs_title_emoji_reaction_notifications">
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="@string/preferences__emoji_reaction_contact_notifications"
+            android:summary="@string/prefs_description_emoji_reaction_contact_notifications"
+            android:title="@string/prefs_title_emoji_reaction_contact_notifications"
+            android:widgetLayout="@layout/preference_switch_layout" />
+
+        <CheckBoxPreference
+            android:defaultValue="true"
+            android:key="@string/preferences__emoji_reaction_group_notifications"
+            android:title="@string/prefs_title_emoji_reaction_group_notifications"
+            android:summary="@string/prefs_description_emoji_reaction_group_notifications"
+            android:widgetLayout="@layout/preference_switch_layout" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory
         android:key="pref_key_inapp"
         android:title="@string/prefs_inapp">
         <CheckBoxPreference

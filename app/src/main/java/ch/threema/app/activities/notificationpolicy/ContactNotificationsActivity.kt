@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.core.view.isVisible
 import ch.threema.android.buildActivityIntent
 import ch.threema.app.AppConstants
+import ch.threema.app.di.isSessionScopeReady
 import ch.threema.app.services.RingtoneService
 import ch.threema.app.ui.muteAppliesAt
 import ch.threema.app.utils.logScreenVisibility
@@ -40,6 +41,10 @@ class ContactNotificationsActivity : NotificationsActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (!isSessionScopeReady()) {
+            // TODO(ANDR-4389): Improve
+            return
+        }
         if (contactIdentity.isNullOrEmpty() || contactModel == null) {
             finish()
             return

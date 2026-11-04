@@ -41,3 +41,13 @@ fun <T, U> Collection<T>.hasDuplicatesBy(getValue: (T) -> U): Boolean {
     }
     return false
 }
+
+fun <E, C : Collection<E>> Collection<C>.sumOfSizes(): Int =
+    sumOf { it.size }
+
+fun <T> List<T>.forEachReversed(action: (T) -> Unit) {
+    val listIterator = listIterator(size)
+    while (listIterator.hasPrevious()) {
+        action(listIterator.previous())
+    }
+}

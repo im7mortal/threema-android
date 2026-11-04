@@ -5,6 +5,7 @@ import ch.threema.domain.models.GroupId
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.protocol.csp.messages.AbstractGroupMessage
 import ch.threema.domain.protocol.csp.messages.BadMessageException
+import ch.threema.domain.protocol.csp.messages.ExemptFromBlocking
 import ch.threema.domain.protocol.csp.messages.location.GroupLocationMessage.Companion.fromByteArray
 import ch.threema.protobuf.csp.e2e.fs.Version
 import ch.threema.protobuf.d2d.IncomingMessage
@@ -41,7 +42,7 @@ class GroupLocationMessage(private val locationMessageData: LocationMessageData)
 
     override fun allowUserProfileDistribution(): Boolean = true
 
-    override fun exemptFromBlocking(): Boolean = false
+    override fun exemptFromBlocking(): ExemptFromBlocking = ExemptFromBlocking.NO
 
     override fun createImplicitlyDirectContact(): Boolean = false
 

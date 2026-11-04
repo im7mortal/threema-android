@@ -9,6 +9,7 @@ import ch.threema.testhelpers.respondWith
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import java.io.IOException
 import java.time.Instant
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -21,7 +22,6 @@ import kotlin.time.Duration.Companion.seconds
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Response
 import okhttp3.ResponseBody
-import okio.IOException
 import org.json.JSONObject
 
 class OnPremConfigFetcherTest {
@@ -55,6 +55,7 @@ class OnPremConfigFetcherTest {
             onPremConfigStore = onPremConfigStoreMock,
             serverParameters = serverConfigParameters,
             timeProvider = timeProvider,
+            appIdentifier = APP_IDENTIFIER,
         )
 
         fetcher.getOrFetch()
@@ -63,7 +64,8 @@ class OnPremConfigFetcherTest {
             okHttpClientMock.newCall(
                 match { request ->
                     request.url == serverConfigParameters.oppfUrl.toHttpUrl() &&
-                        request.header("Authorization") == BASIC_AUTH_HEADER_VALUE
+                        request.header("Authorization") == BASIC_AUTH_HEADER_VALUE &&
+                        request.header("X-App-Identifier") == APP_IDENTIFIER
                 },
             )
         }
@@ -95,6 +97,7 @@ class OnPremConfigFetcherTest {
             onPremConfigStore = onPremConfigStoreMock,
             serverParameters = serverParameters,
             timeProvider = timeProvider,
+            appIdentifier = null,
         )
         fetcher.getOrFetch()
 
@@ -128,6 +131,7 @@ class OnPremConfigFetcherTest {
             onPremConfigStore = onPremConfigStoreMock,
             serverParameters = serverParameters,
             timeProvider = timeProvider,
+            appIdentifier = null,
         )
         assertNull(fetcher.getCached())
 
@@ -169,6 +173,7 @@ class OnPremConfigFetcherTest {
             onPremConfigStore = onPremConfigStoreMock,
             serverParameters = serverParameters,
             timeProvider = timeProvider,
+            appIdentifier = null,
         )
         fetcher.getOrFetch()
 
@@ -192,6 +197,7 @@ class OnPremConfigFetcherTest {
             onPremConfigStore = onPremConfigStoreMock,
             serverParameters = serverParameters,
             timeProvider = TestTimeProvider(),
+            appIdentifier = null,
         )
 
         assertFailsWith<ThreemaException> {
@@ -213,6 +219,7 @@ class OnPremConfigFetcherTest {
             onPremConfigStore = onPremConfigStoreMock,
             serverParameters = serverParameters,
             timeProvider = timeProvider,
+            appIdentifier = null,
         )
         assertFailsWith<UnauthorizedFetchException> {
             fetcher.getOrFetch()
@@ -245,6 +252,7 @@ class OnPremConfigFetcherTest {
             onPremConfigStore = onPremConfigStoreMock,
             serverParameters = serverParameters,
             timeProvider = timeProvider,
+            appIdentifier = null,
         )
         assertFailsWith<ThreemaException> {
             fetcher.getOrFetch()
@@ -279,6 +287,7 @@ class OnPremConfigFetcherTest {
             onPremConfigStore = onPremConfigStoreMock,
             serverParameters = serverParameters,
             timeProvider = timeProvider,
+            appIdentifier = null,
         )
         assertFailsWith<ThreemaException> {
             fetcher.getOrFetch()
@@ -305,6 +314,7 @@ class OnPremConfigFetcherTest {
             onPremConfigStore = onPremConfigStoreMock,
             serverParameters = serverParameters,
             timeProvider = TestTimeProvider(),
+            appIdentifier = null,
         )
         val exception = assertFailsWith<ThreemaException> {
             fetcher.getOrFetch()
@@ -328,6 +338,7 @@ class OnPremConfigFetcherTest {
             onPremConfigStore = onPremConfigStoreMock,
             serverParameters = serverParameters,
             timeProvider = timeProvider,
+            appIdentifier = null,
         )
 
         val exception = assertFailsWith<ThreemaException> {
@@ -359,6 +370,7 @@ class OnPremConfigFetcherTest {
             onPremConfigStore = onPremConfigStoreMock,
             serverParameters = serverConfigParameters,
             timeProvider = timeProvider,
+            appIdentifier = APP_IDENTIFIER,
         )
 
         assertNotNull(fetcher.fetchFallback())
@@ -368,7 +380,8 @@ class OnPremConfigFetcherTest {
             okHttpClientMock.newCall(
                 match { request ->
                     request.url == serverConfigParameters.oppfFallbackUrl.toHttpUrl() &&
-                        request.header("Authorization") == null
+                        request.header("Authorization") == null &&
+                        request.header("X-App-Identifier") == APP_IDENTIFIER
                 },
             )
         }
@@ -400,6 +413,7 @@ class OnPremConfigFetcherTest {
             onPremConfigStore = onPremConfigStoreMock,
             serverParameters = serverConfigParameters,
             timeProvider = timeProvider,
+            appIdentifier = null,
         )
 
         fetcher.fetchFallback()
@@ -441,6 +455,8 @@ class OnPremConfigFetcherTest {
         }
 
     companion object {
+        private const val APP_IDENTIFIER = "my-test-app"
+
         private val serverParameters = OnPremServerConfigParameters(
             oppfUrl = "https://example.com/config.oppf",
             username = "username",

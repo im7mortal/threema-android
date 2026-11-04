@@ -4,7 +4,6 @@ import android.content.Context
 import android.text.format.DateFormat
 import ch.threema.app.utils.VCardExtractor
 import org.koin.core.module.dsl.viewModel
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 val mediaAttacherFeatureModule = module {
@@ -17,5 +16,5 @@ val mediaAttacherFeatureModule = module {
             dispatcherProvider = get(),
         )
     }
-    viewModelOf(::MediaAttachViewModel)
+    viewModel<MediaAttachViewModel> { MediaAttachViewModel(get()) }
 }

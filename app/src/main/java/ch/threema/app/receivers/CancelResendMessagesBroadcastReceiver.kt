@@ -5,13 +5,14 @@ import android.content.Context
 import android.content.Intent
 import ch.threema.android.buildBroadcastReceiverIntent
 import ch.threema.android.goAsync
+import ch.threema.app.GlobalAppState
 import ch.threema.app.di.awaitSessionScopeReady
 import ch.threema.app.di.injectNullableNonBinding
 import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.eventbus.events.ActionEvent
 import ch.threema.app.services.MessageService
 import ch.threema.app.utils.IntentDataUtil
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
@@ -21,15 +22,19 @@ import org.koin.core.component.inject
  */
 class CancelResendMessagesBroadcastReceiver : BroadcastReceiver(), KoinComponent {
     private val globalEventBuses: GlobalEventBuses by inject()
+    private val globalAppState: GlobalAppState by inject()
     private val messageService: MessageService? by injectNullableNonBinding()
 
     override fun onReceive(context: Context, intent: Intent) = goAsync {
+        if (globalAppState.specialMode != null) {
+            return@goAsync
+        }
         awaitSessionScopeReady()
 
         val messageService = messageService ?: return@goAsync
         // It is sufficient to trigger the listener. If the home activity (that manages resending
         // the messages) is not available, this event can be dismissed anyway.
-        IntentDataUtil.getAbstractMessageModels(intent, messageService).forEach { messageModel ->
+        IntentDataUtil.getMessageModels(intent, messageService).forEach { messageModel ->
             globalEventBuses.actions.emit(ActionEvent.ResendNotificationDismissed(messageModel))
         }
     }
@@ -37,7 +42,7 @@ class CancelResendMessagesBroadcastReceiver : BroadcastReceiver(), KoinComponent
     companion object {
         fun createIntent(
             context: Context,
-            failedMessages: List<AbstractMessageModel>,
+            failedMessages: List<MessageModel>,
         ) = buildBroadcastReceiverIntent<CancelResendMessagesBroadcastReceiver>(context) {
             IntentDataUtil.appendMultipleMessageTypes(failedMessages, this)
         }

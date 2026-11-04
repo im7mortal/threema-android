@@ -69,7 +69,7 @@ import ch.threema.app.dialogs.GenericAlertDialog
 import ch.threema.app.dialogs.SelectorDialog
 import ch.threema.app.framework.EventHandler
 import ch.threema.app.framework.WithViewState
-import ch.threema.app.preference.service.PreferenceService
+import ch.threema.app.preference.service.PreferenceService.EmojiStyle
 import ch.threema.app.ui.SelectorDialogItem
 import ch.threema.app.ui.ThreemaSearchView
 import ch.threema.app.utils.ConfigUtils
@@ -80,7 +80,7 @@ import ch.threema.common.consume
 import ch.threema.data.IdentityProvider
 import ch.threema.data.datatypes.ContactNameFormat
 import ch.threema.domain.types.Identity
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.BitmapTransitionOptions
 import com.google.android.material.search.SearchBar
@@ -236,7 +236,7 @@ class StarredMessagesActivity :
         modifier: Modifier,
         insetsPadding: PaddingValues,
         listItems: List<StarredMessageListItemUiModel>,
-        @PreferenceService.EmojiStyle emojiStyle: Int,
+        emojiStyle: EmojiStyle,
         contactNameFormat: ContactNameFormat,
         ownIdentity: Identity,
         query: String?,
@@ -287,13 +287,13 @@ class StarredMessagesActivity :
     /**
      *  `Glide.with(Activity)` respects the activities lifecycle state.
      */
-    private suspend fun provideMediaPreviewBitmap(abstractMessageModel: AbstractMessageModel): ImmutableBitmap? =
+    private suspend fun provideMediaPreviewBitmap(messageModel: MessageModel): ImmutableBitmap? =
         withContext(dispatcherProvider.io) {
             runCatching {
                 Glide
                     .with(this@StarredMessagesActivity)
                     .asBitmap()
-                    .load(abstractMessageModel)
+                    .load(messageModel)
                     .transition(BitmapTransitionOptions.withCrossFade())
                     .submit()
                     .get()
@@ -304,7 +304,7 @@ class StarredMessagesActivity :
             }
         }
 
-    private fun onClickMessageBubble(messageModel: AbstractMessageModel) {
+    private fun onClickMessageBubble(messageModel: MessageModel) {
         if (actionMode != null) {
             viewModel.toggleListItemSelected(
                 messageId = messageModel.id,
@@ -315,7 +315,7 @@ class StarredMessagesActivity :
         }
     }
 
-    private fun onLongClickMessageBubble(messageModel: AbstractMessageModel) {
+    private fun onLongClickMessageBubble(messageModel: MessageModel) {
         actionMode?.finish()
         viewModel.toggleListItemSelected(
             messageId = messageModel.id,
@@ -452,7 +452,7 @@ class StarredMessagesActivity :
         }
     }
 
-    private fun showMessage(messageModel: AbstractMessageModel) {
+    private fun showMessage(messageModel: MessageModel) {
         logger.info("Navigating to starred message")
         hideKeyboard()
         val intent = ComposeMessageActivity.createIntentJumpToMessage(

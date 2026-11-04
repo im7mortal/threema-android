@@ -2,8 +2,11 @@ package ch.threema.data.storage
 
 import android.database.sqlite.SQLiteException
 import ch.threema.app.utils.ThrowingConsumer
+import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
+import java.time.Instant
 
 interface EmojiReactionsDao {
     /**
@@ -15,22 +18,41 @@ interface EmojiReactionsDao {
      * @throws SQLiteException if insertion fails due to a conflict
      * @throws ch.threema.data.repositories.EmojiReactionEntryCreateException if inserting the [DbEmojiReaction] in the database failed
      */
-    fun create(entry: DbEmojiReaction, messageModel: AbstractMessageModel)
+    fun create(entry: DbEmojiReaction, messageModel: MessageModel)
 
     /**
      * Remove an emoji reaction from the database
      */
-    fun remove(entry: DbEmojiReaction, messageModel: AbstractMessageModel)
+    fun remove(entry: DbEmojiReaction, messageModel: MessageModel)
 
     /**
-     * Delete all reactions referred to by the specified message id
+     * Delete all reactions referred to by the specified message
      */
-    fun deleteAllByMessage(messageModel: AbstractMessageModel)
+    fun deleteAllByMessage(messageModel: MessageModel)
 
     /**
-     * Find all reactions referred to by the specified message id
+     * Find all reactions referred to by the specified message
      */
-    fun findAllByMessage(messageModel: AbstractMessageModel): List<DbEmojiReaction>
+    fun findAllByMessage(messageModel: MessageModel): List<DbEmojiReaction>
+
+    /**
+     * Find all reactions referred to by the specified messages
+     */
+    fun findAllByMessages(messageModels: List<MessageModel>): List<DbEmojiReaction>
+
+    /**
+     * Mark all unread reactions of the contact conversation as read at [readAt].
+     *
+     * @return The ids of the messages that had unread reactions marked as read
+     */
+    fun markUnreadReactionsAsReadForContactConversation(contactConversationId: ContactConversationId, readAt: Instant): Set<Int>
+
+    /**
+     * Mark all unread reactions of the group conversation as read at [readAt].
+     *
+     * @return The ids of the messages that had unread reactions marked as read
+     */
+    fun markUnreadReactionsAsReadForGroupConversation(groupConversationId: GroupConversationId, readAt: Instant): Set<Int>
 
     /**
      * Delete all reactions from the database.

@@ -39,6 +39,7 @@ import ch.threema.base.crypto.SymmetricEncryptionResult;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.data.datatypes.ContactNameFormat;
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.data.datatypes.ConversationId;
 import ch.threema.data.datatypes.GroupConversationId;
 import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverride;
@@ -55,8 +56,8 @@ import ch.threema.domain.taskmanager.TaskManager;
 import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.protobuf.csp.e2e.Reaction;
 import ch.threema.storage.DatabaseService;
-import ch.threema.storage.models.AbstractMessageModel;
-import ch.threema.storage.models.group.GroupMessageModel;
+import ch.threema.storage.models.MessageModel;
+import ch.threema.storage.models.GroupMessageModel;
 import ch.threema.storage.models.group.GroupModelOld;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.MessageType;
@@ -112,6 +113,20 @@ public class GroupMessageReceiver implements MessageReceiver<GroupMessageModel> 
             : null;
     }
 
+    @Override
+    public ConversationCategory getConversationCategory() {
+        if (groupModel == null) {
+            logger.warn("Cannot get conversation category if group model is null");
+            return ConversationCategory.DEFAULT;
+        }
+        GroupModelData groupModelData = groupModel.getData();
+        if (groupModelData == null) {
+            logger.warn("Cannot get conversation category if group model data is null");
+            return ConversationCategory.DEFAULT;
+        }
+        return groupModelData.conversationCategory;
+    }
+
     @NonNull
     @Override
     public GroupMessageModel createLocalModel(
@@ -133,23 +148,6 @@ public class GroupMessageReceiver implements MessageReceiver<GroupMessageModel> 
         m.setUid(UUID.randomUUID().toString());
         return m;
     }
-
-    @Override
-    @Deprecated
-    public GroupMessageModel createAndSaveStatusModel(String statusBody, Instant postedAt) {
-        GroupMessageModel m = new GroupMessageModel(true);
-        m.setType(MessageType.TEXT);
-        m.setGroupId(group.getId());
-        m.setPostedAt(postedAt);
-        m.setCreatedAt(Instant.now());
-        m.setSaved(true);
-        m.setUid(UUID.randomUUID().toString());
-        m.setBody(statusBody);
-
-        saveLocalModel(m);
-        return m;
-    }
-
 
     @Override
     public void saveLocalModel(GroupMessageModel save) {
@@ -349,7 +347,7 @@ public class GroupMessageReceiver implements MessageReceiver<GroupMessageModel> 
      * @param emojiSequence The emoji sequence of the reaction
      * @param reactedAt     The timestamp of the reaction
      */
-    public void sendReaction(AbstractMessageModel messageModel, Reaction.ActionCase actionCase, @NonNull String emojiSequence, @NonNull Instant reactedAt) {
+    public void sendReaction(MessageModel messageModel, Reaction.ActionCase actionCase, @NonNull String emojiSequence, @NonNull Instant reactedAt) {
         // identities that support receiving emoji reactions
         Set<String> emojiReactionsIdentities = GroupUtil.getRecipientIdentitiesByFeatureSupport(getFeatureSupport(ThreemaFeature.EMOJI_REACTIONS));
         // all group identities except sender
@@ -496,7 +494,7 @@ public class GroupMessageReceiver implements MessageReceiver<GroupMessageModel> 
     }
 
     @Override
-    public boolean isMessageBelongsToMe(AbstractMessageModel message) {
+    public boolean isMessageBelongsToMe(MessageModel message) {
         return message instanceof GroupMessageModel
             && ((GroupMessageModel) message).getGroupId() == group.getId();
     }

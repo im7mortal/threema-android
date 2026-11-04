@@ -3,15 +3,15 @@ package ch.threema.app.voip
 import ch.threema.app.voip.activities.CallActivityHelper
 import ch.threema.app.voip.util.CallIdGenerator
 import ch.threema.app.voip.viewmodel.GroupCallViewModel
-import org.koin.core.module.dsl.factoryOf
-import org.koin.core.module.dsl.singleOf
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
+import org.koin.plugin.module.dsl.single
+import org.koin.plugin.module.dsl.viewModel
 
 val voipFeatureModule = module {
-    factoryOf(::CallActivityHelper)
-    factoryOf(::CallIdGenerator)
-    viewModelOf(::GroupCallViewModel)
+    factory<CallActivityHelper>()
+    factory<CallIdGenerator>()
+    viewModel<GroupCallViewModel>()
 
-    singleOf(::VoipCallStatusMonitor)
+    single<VoipCallStatusMonitor>()
 }

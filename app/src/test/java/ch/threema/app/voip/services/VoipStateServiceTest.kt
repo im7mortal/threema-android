@@ -1,5 +1,6 @@
 package ch.threema.app.voip.services
 
+import android.app.PendingIntent
 import android.content.Context
 import android.media.AudioManager
 import android.os.SystemClock
@@ -116,6 +117,8 @@ class VoipStateServiceTest {
         mockkStatic(SystemClock::class)
         mockkStatic(VoipUtil::class)
         every { VoipUtil.sendVoipBroadcast(any(), any()) } just runs
+        mockkStatic(PendingIntent::class)
+        every { PendingIntent.getBroadcast(any(), any(), any(), any()) } answers { mockk() }
 
         // Instantiate service
         service = VoipStateService(
@@ -138,6 +141,7 @@ class VoipStateServiceTest {
     fun tearDown() {
         unmockkStatic(SystemClock::class)
         unmockkStatic(VoipUtil::class)
+        unmockkStatic(PendingIntent::class)
         unmockkObject(ServiceManager)
     }
 

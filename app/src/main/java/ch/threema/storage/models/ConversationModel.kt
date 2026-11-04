@@ -5,6 +5,7 @@ import ch.threema.app.messagereceiver.DistributionListMessageReceiver
 import ch.threema.app.messagereceiver.GroupMessageReceiver
 import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationId
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.DistributionListConversationId
@@ -18,8 +19,8 @@ class ConversationModel(
 ) {
 
     val id: ConversationId = when {
-        isContactConversation -> ContactConversationId(identity = contact!!.identity)
-        isGroupConversation -> GroupConversationId(groupDatabaseId = group!!.id.toLong())
+        isContactConversation -> ContactConversationId(identity = contactModel!!.identity)
+        isGroupConversation -> GroupConversationId(groupDatabaseId = groupModel!!.getDatabaseId())
         isDistributionListConversation -> DistributionListConversationId(distributionListId = distributionList!!.id)
         else -> error("Can not determine id of conversation model for receiver of type ${messageReceiver.type}")
     }
@@ -69,7 +70,7 @@ class ConversationModel(
     var messageCount: Long = 0L
 
     @JvmField
-    var latestMessage: AbstractMessageModel? = null
+    var latestMessage: MessageModel? = null
 
     var unreadCount: Long = 0L
         set(value) {
@@ -84,6 +85,13 @@ class ConversationModel(
 
     @JvmField
     var conversationVisibility: ConversationVisibility = ConversationVisibility.NORMAL
+
+    val conversationCategory: ConversationCategory
+        get() = when (id) {
+            is ContactConversationId -> contactModel?.data?.conversationCategory ?: ConversationCategory.DEFAULT
+            is GroupConversationId -> groupModel?.data?.conversationCategory ?: ConversationCategory.DEFAULT
+            is DistributionListConversationId -> distributionList?.conversationCategory ?: ConversationCategory.DEFAULT
+        }
 
     // Only used by the web-client
     var position: Int = -1

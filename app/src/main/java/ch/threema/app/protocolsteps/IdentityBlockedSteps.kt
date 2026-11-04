@@ -65,7 +65,7 @@ class IdentityBlockedSteps(
             return BlockState.NOT_BLOCKED
         }
 
-        if (groupService.getGroupsByIdentity(identity).any { groupService.isGroupMember(it) }) {
+        if (groupService.getGroupsContainingIdentity(identity).any(groupService::isGroupMember)) {
             return BlockState.NOT_BLOCKED
         }
 

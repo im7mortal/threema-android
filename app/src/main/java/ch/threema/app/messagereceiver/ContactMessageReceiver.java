@@ -48,6 +48,7 @@ import static ch.threema.common.JavaCompat.hexToByteArray;
 import ch.threema.data.datatypes.ContactConversationId;
 import ch.threema.data.datatypes.ContactNameFormat;
 import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverride;
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.data.datatypes.ConversationId;
 import ch.threema.data.models.ContactModelData;
 import ch.threema.data.repositories.ContactModelRepository;
@@ -70,16 +71,16 @@ import ch.threema.domain.taskmanager.TaskManager;
 import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.protobuf.csp.e2e.Reaction;
 import ch.threema.storage.DatabaseService;
-import ch.threema.storage.models.AbstractMessageModel;
-import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.MessageModel;
+import ch.threema.storage.models.ContactModel;
+import ch.threema.storage.models.ContactMessageModel;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.MessageType;
 import ch.threema.storage.models.poll.PollModel;
 import ch.threema.storage.models.data.MessageContentsType;
 import ch.threema.storage.models.data.media.FileDataModel;
 
-public class ContactMessageReceiver implements MessageReceiver<MessageModel> {
+public class ContactMessageReceiver implements MessageReceiver<ContactMessageModel> {
 
     private static final Logger logger = getThreemaLogger("ContactMessageReceiver");
 
@@ -128,15 +129,29 @@ public class ContactMessageReceiver implements MessageReceiver<MessageModel> {
         );
     }
 
+    @Override
+    public ConversationCategory getConversationCategory() {
+        if (contactModel == null) {
+            logger.warn("Cannot get conversation category if contact model is null");
+            return ConversationCategory.DEFAULT;
+        }
+        ContactModelData contactModelData = contactModel.getData();
+        if (contactModelData == null) {
+            logger.warn("Cannot get conversation category if contact model data is null");
+            return ConversationCategory.DEFAULT;
+        }
+        return contactModelData.conversationCategory;
+    }
+
     @NonNull
     @Override
-    public MessageModel createLocalModel(
+    public ContactMessageModel createLocalModel(
         @Nullable final MessageId messageId,
         MessageType type,
         @MessageContentsType int contentsType,
         Instant postedAt
     ) {
-        MessageModel m = new MessageModel();
+        ContactMessageModel m = new ContactMessageModel();
         if (type != null && type.getRequiresMessageId()) {
             m.setMessageId(messageId != null ? messageId : MessageId.random());
         }
@@ -150,33 +165,13 @@ public class ContactMessageReceiver implements MessageReceiver<MessageModel> {
         return m;
     }
 
-    /**
-     * @deprecated use createAndSaveStatusDataModel instead.
-     */
     @Override
-    @Deprecated
-    public MessageModel createAndSaveStatusModel(String statusBody, Instant postedAt) {
-        MessageModel m = new MessageModel(true);
-        m.setType(MessageType.TEXT);
-        m.setPostedAt(postedAt);
-        m.setCreatedAt(Instant.now());
-        m.setSaved(true);
-        m.setUid(UUID.randomUUID().toString());
-        m.setIdentity(contact.getIdentity());
-        m.setBody(statusBody);
-
-        saveLocalModel(m);
-
-        return m;
+    public void saveLocalModel(ContactMessageModel save) {
+        databaseService.getContactMessageModelFactory().createOrUpdate(save);
     }
 
     @Override
-    public void saveLocalModel(MessageModel save) {
-        databaseService.getMessageModelFactory().createOrUpdate(save);
-    }
-
-    @Override
-    public void createAndSendTextMessage(@NonNull MessageModel messageModel) {
+    public void createAndSendTextMessage(@NonNull ContactMessageModel messageModel) {
         // Mark the contact as non-hidden and unarchived
         contactService.setAcquaintanceLevel(contact.getIdentity(), AcquaintanceLevel.DIRECT);
         contactService.unarchive(contact.getIdentity(), TriggerSource.LOCAL);
@@ -191,7 +186,7 @@ public class ContactMessageReceiver implements MessageReceiver<MessageModel> {
         ));
     }
 
-    public void resendTextMessage(@NonNull MessageModel messageModel) {
+    public void resendTextMessage(@NonNull ContactMessageModel messageModel) {
         contactService.setAcquaintanceLevel(contact.getIdentity(), AcquaintanceLevel.DIRECT);
         contactService.unarchive(contact.getIdentity(), TriggerSource.LOCAL);
 
@@ -203,7 +198,7 @@ public class ContactMessageReceiver implements MessageReceiver<MessageModel> {
     }
 
     @Override
-    public void createAndSendLocationMessage(@NonNull MessageModel messageModel) {
+    public void createAndSendLocationMessage(@NonNull ContactMessageModel messageModel) {
         // Mark the contact as non-hidden and unarchived
         contactService.setAcquaintanceLevel(contact.getIdentity(), AcquaintanceLevel.DIRECT);
         contactService.unarchive(contact.getIdentity(), TriggerSource.LOCAL);
@@ -218,7 +213,7 @@ public class ContactMessageReceiver implements MessageReceiver<MessageModel> {
         ));
     }
 
-    public void resendLocationMessage(@NonNull MessageModel messageModel) {
+    public void resendLocationMessage(@NonNull ContactMessageModel messageModel) {
         // Mark the contact as non-hidden and unarchived
         contactService.setAcquaintanceLevel(contact.getIdentity(), AcquaintanceLevel.DIRECT);
         contactService.unarchive(contact.getIdentity(), TriggerSource.LOCAL);
@@ -236,7 +231,7 @@ public class ContactMessageReceiver implements MessageReceiver<MessageModel> {
         @Nullable byte[] thumbnailBlobId,
         @Nullable byte[] fileBlobId,
         @Nullable SymmetricEncryptionResult encryptionResult,
-        @NonNull MessageModel messageModel,
+        @NonNull ContactMessageModel messageModel,
         @Nullable Collection<String> recipientIdentities
     ) throws ThreemaException {
         // Enrich file data model with blob id and encryption key
@@ -270,7 +265,7 @@ public class ContactMessageReceiver implements MessageReceiver<MessageModel> {
     public void createAndSendPollSetupMessage(
         @NonNull PollData pollData,
         @NonNull PollModel pollModel,
-        @NonNull MessageModel messageModel,
+        @NonNull ContactMessageModel messageModel,
         @Nullable Collection<String> recipientIdentities,
         @NonNull TriggerSource triggerSource
     ) throws ThreemaException {
@@ -465,7 +460,7 @@ public class ContactMessageReceiver implements MessageReceiver<MessageModel> {
      * message model is returned.
      */
     @Nullable
-    public MessageState sendReaction(AbstractMessageModel messageModel, Reaction.ActionCase actionCase, @NonNull String emojiSequence, @NonNull Instant reactedAt) {
+    public MessageState sendReaction(MessageModel messageModel, Reaction.ActionCase actionCase, @NonNull String emojiSequence, @NonNull Instant reactedAt) {
         if (getEmojiReactionSupport() == MessageReceiver.Reactions_NONE) {
             return sendLegacyReaction(messageModel, actionCase, emojiSequence, reactedAt);
         } else {
@@ -485,10 +480,10 @@ public class ContactMessageReceiver implements MessageReceiver<MessageModel> {
 
     @Nullable
     private MessageState sendLegacyReaction(
-        AbstractMessageModel messageModel,
-        Reaction.ActionCase actionCase,
-        @NonNull String emojiSequence,
-        @NonNull Instant reactedAt
+            MessageModel messageModel,
+            Reaction.ActionCase actionCase,
+            @NonNull String emojiSequence,
+            @NonNull Instant reactedAt
     ) {
         if (actionCase == Reaction.ActionCase.WITHDRAW) {
             // In case we withdraw the reaction we do not send a delivery receipt because
@@ -526,8 +521,8 @@ public class ContactMessageReceiver implements MessageReceiver<MessageModel> {
 
     @Override
     @NonNull
-    public List<MessageModel> loadMessages(MessageService.MessageFilter filter) {
-        return databaseService.getMessageModelFactory().find(
+    public List<ContactMessageModel> loadMessages(MessageService.MessageFilter filter) {
+        return databaseService.getContactMessageModelFactory().find(
             contact.getIdentity(),
             filter
         );
@@ -541,29 +536,29 @@ public class ContactMessageReceiver implements MessageReceiver<MessageModel> {
      * @return {@code true} if there is a call with the given id within the latest calls, {@code false} otherwise
      */
     public boolean hasVoipCallStatus(long callId, int limit) {
-        return databaseService.getMessageModelFactory().hasVoipStatusForCallId(contact.getIdentity(), callId, limit);
+        return databaseService.getContactMessageModelFactory().hasVoipStatusForCallId(contact.getIdentity(), callId, limit);
     }
 
     @Override
     public long getMessagesCount() {
-        return databaseService.getMessageModelFactory().countMessages(
+        return databaseService.getContactMessageModelFactory().countMessages(
             contact.getIdentity());
     }
 
     @Override
     public long getUnreadMessagesCount() {
-        return databaseService.getMessageModelFactory().countUnreadMessages(
+        return databaseService.getContactMessageModelFactory().countUnreadMessages(
             contact.getIdentity());
     }
 
     @NonNull
     @Override
-    public List<MessageModel> getUnreadMessages() {
-        return databaseService.getMessageModelFactory().getUnreadMessages(contact.getIdentity());
+    public List<ContactMessageModel> getUnreadMessages() {
+        return databaseService.getContactMessageModelFactory().getUnreadMessages(contact.getIdentity());
     }
 
-    public MessageModel getLastMessage() {
-        return databaseService.getMessageModelFactory().getLastMessage(contact.getIdentity());
+    public ContactMessageModel getLastMessage() {
+        return databaseService.getContactMessageModelFactory().getLastMessage(contact.getIdentity());
     }
 
     public ContactModel getContact() {
@@ -617,8 +612,8 @@ public class ContactMessageReceiver implements MessageReceiver<MessageModel> {
     }
 
     @Override
-    public boolean isMessageBelongsToMe(AbstractMessageModel message) {
-        return message instanceof MessageModel
+    public boolean isMessageBelongsToMe(MessageModel message) {
+        return message instanceof ContactMessageModel
             && message.getIdentity().equals(contact.getIdentity());
     }
 

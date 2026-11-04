@@ -122,6 +122,11 @@ public class InMemoryDHSessionStore implements DHSessionStore {
     }
 
     @Override
+    public void deleteAll() {
+        dhSessionList.clear();
+    }
+
+    @Override
     public void setDHSessionStoreErrorHandler(@NonNull DHSessionStoreErrorHandler errorHandler) {
         // Nothing to do here
     }

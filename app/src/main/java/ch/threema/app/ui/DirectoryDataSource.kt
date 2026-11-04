@@ -78,10 +78,9 @@ class DirectoryDataSource(
                     }
                     workDirectoryFilter.page(0)
                     workDirectoryFilter.sortBy(
-                        if (preferenceService.isContactListSortingFirstName()) {
-                            WorkDirectoryFilter.SORT_BY_FIRST_NAME
-                        } else {
-                            WorkDirectoryFilter.SORT_BY_LAST_NAME
+                        when (preferenceService.getContactSortOrder()) {
+                            PreferenceService.ContactSortOrder.FIRST_NAME -> WorkDirectoryFilter.SORT_BY_FIRST_NAME
+                            PreferenceService.ContactSortOrder.LAST_NAME -> WorkDirectoryFilter.SORT_BY_LAST_NAME
                         },
                         true,
                     )

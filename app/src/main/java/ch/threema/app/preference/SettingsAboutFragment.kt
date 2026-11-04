@@ -8,6 +8,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
+import ch.threema.android.dismissDialog
 import ch.threema.android.getInstallerPackageName
 import ch.threema.android.showToast
 import ch.threema.app.BuildConfig
@@ -21,7 +22,6 @@ import ch.threema.app.restrictions.AppRestrictions
 import ch.threema.app.services.license.LicenseService
 import ch.threema.app.services.license.LicenseServiceSerial
 import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.DialogUtil
 import ch.threema.app.utils.IntentDataUtil
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.app.webviews.EulaActivity
@@ -79,7 +79,7 @@ class SettingsAboutFragment : ThreemaPreferenceFragment() {
 
     private fun initPrivacyPolicyPref() {
         val privacyPolicyPreference = getPref<Preference>(R.string.preferences__privacy_policy)
-        if (ConfigUtils.isOnPremBuild() && !ConfigUtils.isDemoOPServer(preferenceService)) {
+        if (BuildFlavor.IS_ON_PREM && !ConfigUtils.isDemoOPServer(preferenceService)) {
             privacyPolicyPreference.isVisible = false
         } else {
             privacyPolicyPreference.onClick {
@@ -90,7 +90,7 @@ class SettingsAboutFragment : ThreemaPreferenceFragment() {
 
     private fun initTermsOfServicePref() {
         val licensePreference = getPref<Preference>(R.string.preferences__terms_of_service)
-        if (BuildFlavor.current.licenseType == BuildFlavor.LicenseType.ONPREM) {
+        if (BuildFlavor.IS_ON_PREM) {
             licensePreference.isVisible = false
         } else {
             licensePreference.onClick {
@@ -101,7 +101,7 @@ class SettingsAboutFragment : ThreemaPreferenceFragment() {
 
     private fun initEndUserLicensePref() {
         val licensePreference = getPref<Preference>(R.string.preferences__eula)
-        if (BuildFlavor.current.licenseType == BuildFlavor.LicenseType.GOOGLE) {
+        if (BuildFlavor.licenseType == BuildFlavor.LicenseType.GOOGLE) {
             licensePreference.onClick {
                 startActivity(EulaActivity.createIntent(requireContext()))
             }
@@ -182,7 +182,7 @@ class SettingsAboutFragment : ThreemaPreferenceFragment() {
     private fun initSelfUpdatePref() {
         val checkUpdatePreference = getPref<Preference>(R.string.preferences__check_updates)
 
-        if (BuildFlavor.current.maySelfUpdate) {
+        if (BuildFlavor.MAY_SELF_UPDATE) {
             checkUpdatePreference.onClick {
                 checkForUpdates(licenseService as LicenseServiceSerial)
             }
@@ -193,7 +193,7 @@ class SettingsAboutFragment : ThreemaPreferenceFragment() {
     }
 
     private fun initServerConfigSection() {
-        val shouldShowServer = ConfigUtils.isOnPremBuild()
+        val shouldShowServer = BuildFlavor.IS_ON_PREM
         val shouldShowUsername = shouldShowUsername()
         val shouldShowRemoteSecretActivated = masterKeyManager.isProtectedWithRemoteSecret() == true
 
@@ -229,7 +229,7 @@ class SettingsAboutFragment : ThreemaPreferenceFragment() {
     }
 
     private fun shouldShowUsername(): Boolean =
-        ConfigUtils.isWorkBuild() && !appRestrictions.isReadOnlyProfile()
+        BuildFlavor.IS_WORK && !appRestrictions.isReadOnlyProfile()
 
     private fun getServerInfo(): String =
         preferenceService.getOppfUrl()
@@ -256,7 +256,7 @@ class SettingsAboutFragment : ThreemaPreferenceFragment() {
 
     private fun StringBuilder.appendBuildFlavor() {
         append(" ")
-        append(BuildFlavor.current.fullDisplayName)
+        append(BuildFlavor.fullDisplayName)
     }
 
     private fun onRemoteSecretClicked() {
@@ -271,7 +271,7 @@ class SettingsAboutFragment : ThreemaPreferenceFragment() {
     @Suppress("DEPRECATION")
     @SuppressLint("StaticFieldLeak")
     private fun checkForUpdates(licenseServiceSerial: LicenseServiceSerial) {
-        if (!BuildFlavor.current.maySelfUpdate) {
+        if (!BuildFlavor.MAY_SELF_UPDATE) {
             logger.warn("Called checkForUpdate in a build variant without self-updating")
             return
         }
@@ -296,7 +296,7 @@ class SettingsAboutFragment : ThreemaPreferenceFragment() {
                 }
             }
 
-            DialogUtil.dismissDialog(parentFragmentManager, DIALOG_TAG_CHECK_UPDATE, true)
+            parentFragmentManager.dismissDialog(DIALOG_TAG_CHECK_UPDATE)
             when (result) {
                 is Result.UpdateUrl -> {
                     val updateMessage = getString(R.string.update_available_message)

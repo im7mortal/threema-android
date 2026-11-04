@@ -36,13 +36,13 @@ class ThreemaSafeUploadWorker(
     private val notificationService: NotificationService by inject()
 
     override suspend fun doWork(): Result {
+        awaitAppFullyReadyWithTimeout(timeout = 20.seconds)
+            ?: return Result.retry()
+
         val forceUpdate: Boolean = inputData.getBoolean(EXTRA_FORCE_UPDATE, false)
         var success = true
 
         logger.info("Threema Safe upload worker started, force = {}", forceUpdate)
-
-        awaitAppFullyReadyWithTimeout(timeout = 20.seconds)
-            ?: return Result.failure()
 
         if (ConfigUtils.isSerialLicensed() && !ConfigUtils.isSerialLicenseValid()) {
             // skip upload if license was revoked or is temporarily unavailable

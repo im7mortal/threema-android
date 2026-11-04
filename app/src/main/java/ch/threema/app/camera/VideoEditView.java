@@ -56,6 +56,7 @@ import ch.threema.app.utils.LocaleUtil;
 import ch.threema.app.utils.RuntimeUtil;
 import ch.threema.app.utils.VideoUtil;
 import ch.threema.app.video.VideoTimelineThumbnailTask;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 @UnstableApi
@@ -304,7 +305,7 @@ public class VideoEditView extends FrameLayout implements VideoTimelineThumbnail
     }
 
     @Override
-    protected void dispatchDraw(Canvas canvas) {
+    protected void dispatchDraw(@NonNull Canvas canvas) {
         super.dispatchDraw(canvas);
 
         if (videoItem != null && videoItem.getVideoSize() == PreferenceService.VIDEO_SIZE_SEND_AS_FILE) {
@@ -395,10 +396,9 @@ public class VideoEditView extends FrameLayout implements VideoTimelineThumbnail
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (videoItem.getVideoSize() == PreferenceService.VIDEO_SIZE_SEND_AS_FILE) {
+        if (videoItem == null || videoPlayer == null || videoItem.getVideoSize() == PreferenceService.VIDEO_SIZE_SEND_AS_FILE) {
             return super.onTouchEvent(event);
         }
-
         int action = event.getAction();
         int x = (int) event.getX();
         int y = (int) event.getY();
@@ -493,6 +493,9 @@ public class VideoEditView extends FrameLayout implements VideoTimelineThumbnail
                 if (isMoving == MOVING_LEFT || isMoving == MOVING_RIGHT) {
                     videoItem.setStartTimeMs(getVideoPositionFromTimelinePosition(offsetLeft));
                     videoItem.setEndTimeMs(getVideoPositionFromTimelinePosition(this.timelineGridLayout.getWidth() - offsetRight));
+                    if (timelineDragListener != null) {
+                        timelineDragListener.onTrimFinished();
+                    }
 
                     isMoving = MOVING_NONE;
 
@@ -632,10 +635,21 @@ public class VideoEditView extends FrameLayout implements VideoTimelineThumbnail
                 videoView.setAlpha(0.0f);
             }
 
-            long startPosition = videoItem.getStartTimeMs() * 1000;
-            long endPosition = (videoItem.getEndTimeMs() == videoItem.getDurationMs() || videoItem.getEndTimeMs() == 0 || videoItem.getEndTimeMs() == MediaItem.TIME_UNDEFINED) ?
-                TIME_END_OF_SOURCE :
-                videoItem.getEndTimeMs() * 1000;
+            // ClippingMediaSource requires 0 <= startPosition <= endPosition, so validate the trim values before constructing it.
+            long startMs = Math.max(0, videoItem.getStartTimeMs());
+            if (videoItem.getDurationMs() > 0 && startMs > videoItem.getDurationMs()) {
+                startMs = videoItem.getDurationMs();
+            }
+            long startPosition = startMs * 1000;
+            long endTimeMs = videoItem.getEndTimeMs();
+            long endPosition;
+            if (endTimeMs == videoItem.getDurationMs() || endTimeMs <= 0) {
+                endPosition = TIME_END_OF_SOURCE;
+            } else if (endTimeMs * 1000 < startPosition) {
+                endPosition = TIME_END_OF_SOURCE;
+            } else {
+                endPosition = endTimeMs * 1000;
+            }
 
             videoPlayer.setMediaItem(videoSourceMediaItem);
             ClippingMediaSource clippingSource = new ClippingMediaSource(mediaSourceFactory.createMediaSource(videoSourceMediaItem),
@@ -679,11 +693,13 @@ public class VideoEditView extends FrameLayout implements VideoTimelineThumbnail
         startTimeTextView.setText(LocaleUtil.formatTimerText(startTime, true));
         endTimeTextView.setText(LocaleUtil.formatTimerText(endTime, true));
 
-        if (videoFileSize > 0L) {
+        if (videoFileSize > 0L && videoItem != null && videoItem.getDurationMs() > 0) {
             long croppedDurationMs = endTime - startTime;
 
             long size = videoFileSize * croppedDurationMs / videoItem.getDurationMs();
             sizeTextView.setText(Formatter.formatFileSize(context, size));
+        } else {
+            sizeTextView.setText(Formatter.formatFileSize(context, 0));
         }
     }
 
@@ -711,25 +727,28 @@ public class VideoEditView extends FrameLayout implements VideoTimelineThumbnail
         }
     }
 
-    private final Runnable updateProgressAction = new Runnable() {
-        @Override
-        public void run() {
-            updateProgressBar();
-        }
-    };
+    private final Runnable updateProgressAction = this::updateProgressBar;
 
     private long getVideoPositionFromTimelinePosition(int timelinePosition) {
-        if (this.timelineGridLayout.getWidth() != 0) {
-            return timelinePosition * videoItem.getDurationMs() / this.timelineGridLayout.getWidth();
+        final int width = this.timelineGridLayout.getWidth();
+        if (width == 0 || videoItem.getDurationMs() <= 0) {
+            return 0;
         }
-        return 0;
+        return Math.max(0, Math.min(timelinePosition, width)) * videoItem.getDurationMs() / width;
     }
 
     private int getTimelinePositionFromVideoPosition(long videoCurrentPosition) {
-        if (this.timelineGridLayout.getWidth() != 0) {
-            return (int) (videoCurrentPosition * this.timelineGridLayout.getWidth() / videoItem.getDurationMs());
+        final int width = this.timelineGridLayout.getWidth();
+        if (width == 0 || videoItem.getDurationMs() <= 0) {
+            return 0;
         }
-        return 0;
+        if (videoCurrentPosition <= 0) {
+            return 0;
+        }
+        if (videoCurrentPosition >= videoItem.getDurationMs()) {
+            return width;
+        }
+        return (int) (videoCurrentPosition * width / videoItem.getDurationMs());
     }
 
     @Override
@@ -778,11 +797,15 @@ public class VideoEditView extends FrameLayout implements VideoTimelineThumbnail
             videoFileSize = f.length();
         }
 
-        offsetLeft = VideoEditView.this.getTimelinePositionFromVideoPosition(videoItem.getStartTimeMs());
-        offsetRight = timelineGridLayout.getWidth() - VideoEditView.this.getTimelinePositionFromVideoPosition(videoItem.getEndTimeMs());
-
         RuntimeUtil.runOnUiThread(() -> {
             if (isAttachedToWindow()) {
+                final int width = timelineGridLayout.getWidth();
+                offsetLeft = getTimelinePositionFromVideoPosition(videoItem.getStartTimeMs());
+                long endTimeMs = videoItem.getEndTimeMs();
+                int endTimePosition = (endTimeMs <= 0 || endTimeMs >= videoItem.getDurationMs()) ?
+                    width :
+                    getTimelinePositionFromVideoPosition(endTimeMs);
+                offsetRight = width - endTimePosition;
                 updateStartAndEnd(videoItem.getStartTimeMs(), videoItem.getEndTimeMs());
             }
         });
@@ -797,5 +820,7 @@ public class VideoEditView extends FrameLayout implements VideoTimelineThumbnail
         void onTimelineDragStart();
 
         void onTimelineDragStop();
+
+        void onTrimFinished();
     }
 }

@@ -3,6 +3,9 @@ package ch.threema.storage.databaseupdate
 import android.content.Context
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * remove user's identity from contacts (2)
+ */
 internal class DatabaseUpdateToVersion117(
     private val sqLiteDatabase: SQLiteDatabase,
     private val context: Context,
@@ -14,8 +17,6 @@ internal class DatabaseUpdateToVersion117(
 
         sqLiteDatabase.rawExecSQL("DELETE FROM `contacts` WHERE `identity` = ?", myIdentity)
     }
-
-    override fun getDescription() = "remove user's identity from contacts (2)"
 
     override val version = 117
 }

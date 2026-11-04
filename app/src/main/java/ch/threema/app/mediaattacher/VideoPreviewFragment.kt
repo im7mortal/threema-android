@@ -17,6 +17,8 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import ch.threema.android.ToastDuration
+import ch.threema.android.buildBundle
+import ch.threema.android.getParcelableCompat
 import ch.threema.android.showToast
 import ch.threema.app.R
 import ch.threema.app.utils.VideoUtil
@@ -28,14 +30,23 @@ import com.alexvasilkov.gestures.views.GestureFrameLayout
 
 private val logger = getThreemaLogger("VideoPreviewFragment")
 
-class VideoPreviewFragment(
-    private val mediaAttachItem: MediaAttachItem,
-) : Fragment(),
+class VideoPreviewFragment() :
+    Fragment(),
     Player.Listener,
     PreviewFragmentInterface {
     init {
         logScreenVisibility(logger)
         setRetainInstance(true)
+    }
+
+    constructor(mediaAttachItem: MediaAttachItem) : this() {
+        arguments = buildBundle {
+            putParcelable(ARG_MEDIA_ATTACH_ITEM, mediaAttachItem)
+        }
+    }
+
+    private val mediaAttachItem: MediaAttachItem by lazy(LazyThreadSafetyMode.NONE) {
+        requireArguments().getParcelableCompat<MediaAttachItem>(ARG_MEDIA_ATTACH_ITEM)!!
     }
 
     private var rootView: View? = null
@@ -138,5 +149,9 @@ class VideoPreviewFragment(
         videoPlayer?.stop()
         videoPlayer?.release()
         videoPlayer = null
+    }
+
+    companion object {
+        private const val ARG_MEDIA_ATTACH_ITEM = "media_attach_item"
     }
 }

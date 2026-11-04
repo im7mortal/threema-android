@@ -4,7 +4,6 @@ import android.app.Activity
 import android.app.Activity.OVERRIDE_TRANSITION_CLOSE
 import android.app.Activity.OVERRIDE_TRANSITION_OPEN
 import android.content.Context
-import android.content.Intent
 import android.graphics.Color
 import android.os.Build
 import android.view.View
@@ -58,10 +57,4 @@ fun Activity.disableExitTransition() {
         @Suppress("DEPRECATION")
         overridePendingTransition(0, 0)
     }
-}
-
-fun Activity.navigateToLauncher() {
-    val intent = Intent(Intent.ACTION_MAIN)
-        .addCategory(Intent.CATEGORY_HOME)
-    startActivity(intent)
 }

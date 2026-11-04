@@ -1,5 +1,7 @@
 package ch.threema.app.emojis;
 
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -14,7 +16,6 @@ import androidx.annotation.Nullable;
 import com.google.android.material.textview.MaterialTextView;
 
 import ch.threema.app.R;
-import ch.threema.app.utils.ConfigUtils;
 
 public class EmojiConversationTextView extends MaterialTextView {
     protected final EmojiMarkupUtil emojiMarkupUtil;
@@ -54,7 +55,7 @@ public class EmojiConversationTextView extends MaterialTextView {
                     0,
                     getHeight() - (getTextSize() * 3),
                     Color.TRANSPARENT,
-                    ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorOnBackground),
+                    getColorFromAttribute(getContext(), R.attr.colorOnBackground),
                     Shader.TileMode.CLAMP));
         }
         super.onDraw(canvas);

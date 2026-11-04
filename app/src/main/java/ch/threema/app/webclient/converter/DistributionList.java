@@ -10,7 +10,7 @@ import ch.threema.app.services.DistributionListService;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.app.webclient.exceptions.ConversionException;
 import ch.threema.data.datatypes.ContactNameFormat;
-import ch.threema.data.datatypes.DistributionListConversationId;
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.DistributionListModel;
 
@@ -47,9 +47,7 @@ public class DistributionList extends Converter {
                 .put(Receiver.CAN_DELETE, true)
                 .put(CAN_CHANGE_MEMBERS, true));
 
-            final boolean isPrivateChat = getConversationCategoryService().isMarkedAsPrivate(
-                new DistributionListConversationId(distributionList.getId())
-            );
+            final boolean isPrivateChat = distributionList.getConversationCategory() == ConversationCategory.PROTECTED;
             final boolean isVisible = !isPrivateChat || !getPreferenceService().arePrivateChatsHidden();
             builder.put(Receiver.LOCKED, isPrivateChat);
             builder.put(Receiver.VISIBLE, isVisible);

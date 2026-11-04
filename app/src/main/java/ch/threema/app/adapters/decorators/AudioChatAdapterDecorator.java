@@ -24,11 +24,11 @@ import ch.threema.app.utils.LinkifyUtil;
 import ch.threema.app.utils.MessageUtil;
 import ch.threema.app.utils.RuntimeUtil;
 import ch.threema.logging.ThreemaLogger;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.data.media.FileDataModel;
 
-import static ch.threema.app.utils.MessageUtilKt.getUiContentColor;
+import static ch.threema.app.ui.MessageModelUiExtensionsKt.getUiContentColor;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
@@ -48,12 +48,12 @@ public class AudioChatAdapterDecorator extends ChatAdapterDecorator {
     private final UserInteractionListener userInteractionListener;
 
     public AudioChatAdapterDecorator(
-        AbstractMessageModel messageModel,
-        @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
-        @NonNull LinkifyUtil.LinkifyListener linkifyListener,
-        @NonNull MessagePlayerFactory messagePlayerFactory,
-        @NonNull UserInteractionListener userInteractionListener,
-        Helper helper
+            MessageModel messageModel,
+            @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
+            @NonNull LinkifyUtil.LinkifyListener linkifyListener,
+            @NonNull MessagePlayerFactory messagePlayerFactory,
+            @NonNull UserInteractionListener userInteractionListener,
+            Helper helper
     ) {
         super(messageModel, chatAdapterDecoratorListener, linkifyListener, helper);
         this.messagePlayerFactory = messagePlayerFactory;
@@ -209,16 +209,14 @@ public class AudioChatAdapterDecorator extends ChatAdapterDecorator {
 
                 Context applicationContext = context.getApplicationContext();
                 audioMessagePlayer
-                    .addListener(LISTENER_TAG, humanReadableMessage -> RuntimeUtil.runOnUiThread(() -> Toast.makeText(applicationContext, humanReadableMessage, Toast.LENGTH_SHORT).show()))
-
                     .addListener(LISTENER_TAG, new MessagePlayer.DecryptionListener() {
                         @Override
-                        public void onStart(AbstractMessageModel messageModel) {
+                        public void onStart(MessageModel messageModel) {
                             invalidate(holder, context, position);
                         }
 
                         @Override
-                        public void onEnd(final AbstractMessageModel messageModel, boolean success, final String message, File decryptedFile) {
+                        public void onEnd(final MessageModel messageModel, boolean success, final String message, File decryptedFile) {
                             if (!success) {
                                 RuntimeUtil.runOnUiThread(() -> {
                                     holder.controller.setPlay();
@@ -233,16 +231,16 @@ public class AudioChatAdapterDecorator extends ChatAdapterDecorator {
 
                     .addListener(LISTENER_TAG, new MessagePlayer.DownloadListener() {
                         @Override
-                        public void onStart(AbstractMessageModel messageModel) {
+                        public void onStart(MessageModel messageModel) {
                             invalidate(holder, context, position);
                         }
 
                         @Override
-                        public void onStatusUpdate(AbstractMessageModel messageModel, int progress) {
+                        public void onStatusUpdate(MessageModel messageModel, int progress) {
                         }
 
                         @Override
-                        public void onEnd(final AbstractMessageModel messageModel, boolean success, final String message) {
+                        public void onEnd(final MessageModel messageModel, boolean success, final String message) {
                             if (!success) {
                                 RuntimeUtil.runOnUiThread(() -> {
                                     holder.controller.setReadyToDownload();
@@ -257,7 +255,7 @@ public class AudioChatAdapterDecorator extends ChatAdapterDecorator {
 
                     .addListener(LISTENER_TAG, new MessagePlayer.PlaybackListener() {
                         @Override
-                        public void onPlay(final AbstractMessageModel messageModel, boolean autoPlay) {
+                        public void onPlay(final MessageModel messageModel, boolean autoPlay) {
                             RuntimeUtil.runOnUiThread(() -> {
                                 if (holder.position == position && getMessageModel().getId() == messageModel.getId()) {
                                     logger.debug("onPlay");
@@ -268,7 +266,7 @@ public class AudioChatAdapterDecorator extends ChatAdapterDecorator {
                         }
 
                         @Override
-                        public void onPause(final AbstractMessageModel messageModel) {
+                        public void onPause(final MessageModel messageModel) {
                             RuntimeUtil.runOnUiThread(() -> {
                                 if (holder.position == position && getMessageModel().getId() == messageModel.getId()) {
                                     logger.debug("onPause");
@@ -279,7 +277,7 @@ public class AudioChatAdapterDecorator extends ChatAdapterDecorator {
                         }
 
                         @Override
-                        public void onStatusUpdate(final AbstractMessageModel messageModel, final int pos) {
+                        public void onStatusUpdate(final MessageModel messageModel, final int pos) {
                             RuntimeUtil.runOnUiThread(() -> {
                                 if (holder.position == position && getMessageModel().getId() == messageModel.getId()) {
                                     if (holder.seekBar != null) {
@@ -297,7 +295,7 @@ public class AudioChatAdapterDecorator extends ChatAdapterDecorator {
                         }
 
                         @Override
-                        public void onStop(final AbstractMessageModel messageModel) {
+                        public void onStop(final MessageModel messageModel) {
                             RuntimeUtil.runOnUiThread(() -> {
                                 if (holder.position == position && getMessageModel().getId() == messageModel.getId()) {
                                     logger.debug("onStop getMessageModel {} messageModel {} position {}", getMessageModel().getId(), messageModel.getId(), position);

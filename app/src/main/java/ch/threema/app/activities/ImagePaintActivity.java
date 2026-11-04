@@ -1,5 +1,7 @@
 package ch.threema.app.activities;
 
+import static ch.threema.android.MenuExtensionsKt.tintIcon;
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.utils.BitmapUtil.FLIP_HORIZONTAL;
 import static ch.threema.app.utils.BitmapUtil.FLIP_NONE;
@@ -127,7 +129,8 @@ import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 import ch.threema.data.models.GroupModel;
 
-public class ImagePaintActivity extends ThreemaToolbarActivity implements GenericAlertDialog.DialogClickListener {
+public class ImagePaintActivity extends ThreemaToolbarActivity implements GenericAlertDialog.DialogClickListener,
+    BackPressHandler {
     private static final Logger logger = getThreemaLogger("ImagePaintActivity");
 
     {
@@ -335,12 +338,7 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
     }
 
     @Override
-    protected boolean enableOnBackPressedCallback() {
-        return true;
-    }
-
-    @Override
-    protected void handleOnBackPressed() {
+    public void handleOnBackPressed() {
         if (hasChanges()) {
             GenericAlertDialog dialogFragment = GenericAlertDialog.newInstance(
                 R.string.discard_changes_title,
@@ -488,7 +486,7 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
         if (activityMode == ActivityMode.EDIT_IMAGE) {
             Drawable checkDrawable = AppCompatResources.getDrawable(this, R.drawable.ic_check);
             Objects.requireNonNull(checkDrawable).setColorFilter(
-                ConfigUtils.getColorFromAttribute(this, R.attr.colorOnSurface),
+                getColorFromAttribute(this, R.attr.colorOnSurface),
                 PorterDuff.Mode.SRC_IN
             );
             actionBar.setHomeAsUpIndicator(checkDrawable);
@@ -928,7 +926,7 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
                     Toast.makeText(ImagePaintActivity.this, R.string.no_faces_detected, Toast.LENGTH_LONG).show();
                 }
 
-                DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_BLUR_FACES, true);
+                DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_BLUR_FACES);
             }
         }.execute(this, null);
     }
@@ -949,26 +947,26 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
                 break;
         }
 
-        ConfigUtils.tintMenuIcon(this, drawParentItem, R.attr.colorOnSurface);
-        ConfigUtils.tintMenuIcon(this, paintItem, R.attr.colorOnSurface);
-        ConfigUtils.tintMenuIcon(this, pencilItem, R.attr.colorOnSurface);
-        ConfigUtils.tintMenuIcon(this, highlighterItem, R.attr.colorOnSurface);
+        tintIcon(drawParentItem, this, R.attr.colorOnSurface);
+        tintIcon(paintItem, this, R.attr.colorOnSurface);
+        tintIcon(pencilItem, this, R.attr.colorOnSurface);
+        tintIcon(highlighterItem, this, R.attr.colorOnSurface);
 
         if (motionView.getSelectedEntity() == null) {
             // no selected entities => draw mode or neutral mode
             if (paintView.getActive()) {
                 switch (this.strokeMode) {
                     case STROKE_MODE_PENCIL:
-                        ConfigUtils.tintMenuIcon(pencilItem, this.penColor);
+                        tintIcon(pencilItem, this.penColor);
                         break;
                     case STROKE_MODE_HIGHLIGHTER:
-                        ConfigUtils.tintMenuIcon(highlighterItem, this.penColor);
+                        tintIcon(highlighterItem, this.penColor);
                         break;
                     default:
-                        ConfigUtils.tintMenuIcon(paintItem, this.penColor);
+                        tintIcon(paintItem, this.penColor);
                         break;
                 }
-                ConfigUtils.tintMenuIcon(drawParentItem, this.penColor);
+                tintIcon(drawParentItem, this.penColor);
             }
         }
         undoItem.setVisible(hasChanges());
@@ -1088,11 +1086,11 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
             if (getToolbar() != null) {
                 getToolbar().postDelayed(() -> {
                     final View v = findViewById(R.id.item_face);
-                    final @ColorInt int textColor = ConfigUtils.getColorFromAttribute(this, R.attr.colorOnPrimary);
+                    final @ColorInt int textColor = getColorFromAttribute(this, R.attr.colorOnPrimary);
                     try {
                         TapTargetView.showFor(this,
                             TapTarget.forView(v, getString(R.string.face_blur_tooltip_title), getString(R.string.face_blur_tooltip_text))
-                                .outerCircleColorInt(ConfigUtils.getColorFromAttribute(this, R.attr.colorPrimary)) // Specify a color for the outer circle
+                                .outerCircleColorInt(getColorFromAttribute(this, R.attr.colorPrimary)) // Specify a color for the outer circle
                                 .outerCircleAlpha(0.96f)            // Specify the alpha amount for the outer circle
                                 .targetCircleColor(android.R.color.white)   // Specify a color for the target circle
                                 .titleTextSize(24)                  // Specify the size (in sp) of the title text
@@ -1340,7 +1338,7 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
 
                     @Override
                     protected void onPostExecute(Boolean success) {
-                        DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_SAVING_IMAGE, true);
+                        DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_SAVING_IMAGE);
 
                         if (success) {
                             finishWithChanges();
@@ -1381,7 +1379,7 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
         View bottomPanel = findViewById(R.id.bottom_panel);
         bottomPanel.setVisibility(View.VISIBLE);
 
-        if (ConfigUtils.isDefaultEmojiStyle()) {
+        if (dependencies.getPreferenceService().useDefaultEmojiStyle()) {
             initializeEmojiView();
         } else {
             findViewById(R.id.emoji_button).setVisibility(View.GONE);
@@ -1406,6 +1404,8 @@ public class ImagePaintActivity extends ThreemaToolbarActivity implements Generi
             this,
             dependencies.getGroupService(),
             dependencies.getContactService(),
+            dependencies.getContactModelRepository(),
+            dependencies.getIdentityProvider(),
             dependencies.getUserService(),
             dependencies.getPreferenceService(),
             groupModel,

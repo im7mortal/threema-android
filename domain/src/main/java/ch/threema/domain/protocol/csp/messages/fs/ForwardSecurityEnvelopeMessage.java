@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.domain.protocol.csp.ProtocolDefines;
 import ch.threema.domain.protocol.csp.messages.AbstractMessage;
+import ch.threema.domain.protocol.csp.messages.ExemptFromBlocking;
 import ch.threema.domain.protocol.csp.messages.protobuf.AbstractProtobufMessage;
 import ch.threema.protobuf.csp.e2e.fs.Version;
 
@@ -74,7 +75,7 @@ public class ForwardSecurityEnvelopeMessage extends AbstractProtobufMessage<Forw
     }
 
     @Override
-    public boolean exemptFromBlocking() {
+    public ExemptFromBlocking exemptFromBlocking() {
         // Note that checking for exemption from blocking should never happen on forward security
         // envelope messages.
         throw new IllegalStateException("Cannot check for exemption from blocking of fs envelopes");

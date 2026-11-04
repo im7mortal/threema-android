@@ -18,20 +18,9 @@ import kotlinx.coroutines.test.runTest
 
 class MasterKeyStorageStateHolderTest {
     @Test
-    fun `cannot access storage data before init`() {
-        val storageStateHolder = MasterKeyStorageStateHolder(
-            crypto = mockk(),
-        )
-
-        assertFailsWith<IllegalStateException> {
-            storageStateHolder.getStorageState()
-        }
-    }
-
-    @Test
     fun `init with unprotected `() {
         val keyState = MasterKeyState.Plain(
-            masterKeyData = MasterKeyData(MasterKeyTestData.MASTER_KEY),
+            masterKeyData = MasterKeyData(MASTER_KEY),
         )
         val storageStateHolder = MasterKeyStorageStateHolder(
             crypto = mockk(),

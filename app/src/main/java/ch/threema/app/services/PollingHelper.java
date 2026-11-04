@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.os.PowerManager;
 import android.text.format.DateUtils;
 
+import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
 import java.util.Timer;
@@ -14,11 +15,12 @@ import java.util.TimerTask;
 
 import androidx.annotation.NonNull;
 import ch.threema.app.BuildConfig;
-import ch.threema.app.ThreemaApplication;
-import ch.threema.app.backuprestore.csv.BackupService;
-import ch.threema.app.backuprestore.csv.RestoreService;
+import ch.threema.app.GlobalAppState;
+import ch.threema.app.connection.ServerConnectionManager;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.receivers.FetchMessagesBroadcastReceiver;
+
+import static ch.threema.android.PendingIntentExtensionsKt.getPendingIntentForBroadcast;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.domain.protocol.connection.ConnectionState;
 import ch.threema.domain.taskmanager.QueueSendCompleteListener;
@@ -42,6 +44,7 @@ public class PollingHelper implements QueueSendCompleteListener {
 
     private final @NonNull Context context;
     private final @NonNull String lifetimeServiceTag;
+    private final @NonNull GlobalAppState globalAppState = KoinJavaComponent.get(GlobalAppState.class);
 
     private boolean connectionAcquired;
     private PowerManager.WakeLock wakeLock;
@@ -71,17 +74,14 @@ public class PollingHelper implements QueueSendCompleteListener {
         }
 
         if (!connectionAcquired) {
-            // Check current backup state. If a backup or restore is running, don't poll.
-            if (RestoreService.isRunning()) {
-                return false;
-            }
-            if (BackupService.isRunning()) {
+            // Don't poll if the app is currently in a special mode
+            if (globalAppState.getSpecialMode() != null) {
                 return false;
             }
 
             // If requested, acquire a wakelock
             if (useWakeLock) {
-                logger.info("Aquiring wakelock");
+                logger.info("Acquiring wakelock");
                 if (wakeLock == null) {
                     PowerManager pm = (PowerManager) context.getApplicationContext().getSystemService(Context.POWER_SERVICE);
                     wakeLock = pm.newWakeLock(
@@ -97,7 +97,8 @@ public class PollingHelper implements QueueSendCompleteListener {
 
             // Determine timeout duration. If we're already connected it can be shorter.
             long timeout = CONNECTION_TIMEOUT;
-            if (serviceManager.getConnection().getConnectionState() == ConnectionState.LOGGED_IN) {
+            ServerConnectionManager serverConnectionManager = KoinJavaComponent.get(ServerConnectionManager.class);
+            if (serverConnectionManager.getConnection().getConnectionState() == ConnectionState.LOGGED_IN) {
                 logger.info("Already connected");
                 timeout = CONNECTION_TIMEOUT_ALREADY_CONNECTED;
             }
@@ -108,8 +109,12 @@ public class PollingHelper implements QueueSendCompleteListener {
 
             if (!lifetimeService.isActive()) {
                 AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
-                PendingIntent pendingIntent = PendingIntent.getBroadcast(this.context, 0,
-                    new Intent(this.context, FetchMessagesBroadcastReceiver.class), IntentDataUtil.PENDING_INTENT_FLAG_MUTABLE);
+                PendingIntent pendingIntent = getPendingIntentForBroadcast(
+                    this.context,
+                    0,
+                    new Intent(this.context, FetchMessagesBroadcastReceiver.class),
+                    IntentDataUtil.PENDING_INTENT_FLAG_MUTABLE
+                );
 
                 // cancel pending alarms
                 alarmManager.cancel(pendingIntent);
@@ -157,10 +162,6 @@ public class PollingHelper implements QueueSendCompleteListener {
             }
         }
         timer.schedule(timerTask, timeout);
-    }
-
-    public synchronized boolean poll() {
-        return poll(true);
     }
 
     @Override

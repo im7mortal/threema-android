@@ -1,6 +1,5 @@
 package ch.threema.app.conversations
 
-import androidx.annotation.StringRes
 import ch.threema.app.groupflows.GroupFlowResult
 import ch.threema.app.usecases.conversations.EmptyOrDeleteConversationsUseCase
 import ch.threema.data.datatypes.ConversationId
@@ -49,8 +48,9 @@ sealed interface ConversationsViewEvent {
 
     data object OnSystemLockWasRemoved : ConversationsViewEvent
 
-    data class OnSupportContactAvailable(val conversationId: ConversationId) : ConversationsViewEvent
-    data class OnSupportContactUnavailable(@StringRes val message: Int) : ConversationsViewEvent
+    data object OnContactSupport : ConversationsViewEvent
+
+    data class OnContactSupportFailed(val message: String) : ConversationsViewEvent
 
     data object OnEmptyingConversation : ConversationsViewEvent
     data class OnEmptyingConversationResult(val result: EmptyOrDeleteConversationsUseCase.Result) : ConversationsViewEvent
@@ -59,6 +59,8 @@ sealed interface ConversationsViewEvent {
     data class OnDeletingConversationResult(val result: EmptyOrDeleteConversationsUseCase.Result) : ConversationsViewEvent
 
     data object UpdateWidgets : ConversationsViewEvent
+
+    data class OpenArchive(val searchQuery: String?) : ConversationsViewEvent
 
     data object InternalError : ConversationsViewEvent
 }

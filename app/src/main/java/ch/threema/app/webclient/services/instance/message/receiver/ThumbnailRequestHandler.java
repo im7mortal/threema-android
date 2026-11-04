@@ -20,8 +20,11 @@ import ch.threema.app.webclient.converter.Receiver;
 import ch.threema.app.webclient.services.instance.MessageDispatcher;
 import ch.threema.app.webclient.services.instance.MessageReceiver;
 import ch.threema.app.webclient.utils.ThumbnailUtils;
+
+import static ch.threema.android.BitmapExtensionsKt.transform;
+import static ch.threema.android.BitmapExtensionsKt.use;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 
 @WorkerThread
 public class ThumbnailRequestHandler extends MessageReceiver {
@@ -57,7 +60,7 @@ public class ThumbnailRequestHandler extends MessageReceiver {
         final int messageId = Integer.valueOf(messageIdStr);
         final String temporaryId = args.get(Protocol.ARGUMENT_TEMPORARY_ID).asStringValue().toString();
 
-        AbstractMessageModel messageModel = null;
+        MessageModel messageModel = null;
         switch (type) {
             case Receiver.Type.GROUP:
                 messageModel = this.messageService.getGroupMessageModel(messageId);
@@ -79,7 +82,7 @@ public class ThumbnailRequestHandler extends MessageReceiver {
         this.respond(messageModel, responseArgs);
     }
 
-    private void respond(AbstractMessageModel messageModel, MsgpackObjectBuilder args) {
+    private void respond(MessageModel messageModel, MsgpackObjectBuilder args) {
         try {
             logger.debug("Sending thumbnail response");
             Bitmap thumbnail = null;
@@ -91,13 +94,15 @@ public class ThumbnailRequestHandler extends MessageReceiver {
 
             // Make sure that the thumbnail is not larger than a certain size
             if (thumbnail != null) {
-                thumbnail = this.resizeThumbnail(thumbnail);
+                thumbnail = transform(thumbnail, this::resizeThumbnail);
             }
 
             // Return null if no avatar is available
             byte[] data = null;
             if (thumbnail != null) {
-                data = BitmapUtil.bitmapToByteArray(thumbnail, Protocol.FORMAT_THUMBNAIL, Protocol.QUALITY_THUMBNAIL);
+                data = use(thumbnail, (Bitmap bitmap) ->
+                    BitmapUtil.bitmapToByteArray(bitmap, Protocol.FORMAT_THUMBNAIL, Protocol.QUALITY_THUMBNAIL)
+                );
             }
             this.send(this.dispatcher, data, args);
         } catch (MessagePackException e) {

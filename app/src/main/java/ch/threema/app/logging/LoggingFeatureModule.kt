@@ -2,14 +2,14 @@ package ch.threema.app.logging
 
 import ch.threema.app.BuildConfig
 import ch.threema.logging.backend.DebugLogFileManager
-import org.koin.core.module.dsl.factoryOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
 
 val loggingFeatureModule = module {
-    factoryOf(::AppVersionLogger)
-    factoryOf(::DebugLogHelper)
-    factoryOf(::ExitReasonLogger)
-    factoryOf(::DebugLogFileManager)
+    factory<AppVersionLogger>()
+    factory<DebugLogHelper>()
+    factory<ExitReasonLogger>()
+    factory<DebugLogFileManager>()
 
     factory {
         AppVersionHistoryManager(

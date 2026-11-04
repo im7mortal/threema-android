@@ -4,6 +4,9 @@ import android.content.Context
 import ch.threema.domain.types.IdentityString
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * add group user state
+ */
 internal class DatabaseUpdateToVersion104(
     private val sqLiteDatabase: SQLiteDatabase,
     private val context: Context,
@@ -61,8 +64,6 @@ internal class DatabaseUpdateToVersion104(
             arrayOf(myIdentity),
         )
     }
-
-    override fun getDescription() = "add group user state"
 
     override val version = 104
 }

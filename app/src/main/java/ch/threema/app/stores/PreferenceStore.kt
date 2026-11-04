@@ -17,6 +17,8 @@ interface PreferenceStore {
      */
     fun save(key: String, value: Array<String>)
 
+    fun save(key: String, value: Set<String>)
+
     fun save(key: String, value: Int)
 
     fun save(key: String, value: Boolean)

@@ -3,6 +3,7 @@ package ch.threema.base.crypto
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.generateRandomBytes
 import ch.threema.common.secureRandom
+import ch.threema.common.toDirectByteBuffer
 import ch.threema.libthreema.ChunkedXSalsa20Poly1305Decryptor
 import ch.threema.libthreema.ChunkedXSalsa20Poly1305Encryptor
 import ch.threema.libthreema.CryptoException
@@ -24,8 +25,8 @@ class NaCl
 constructor(privateKey: ByteArray, publicKey: ByteArray) {
     @JvmField
     val sharedSecret: ByteArray = x25519Hsalsa20DeriveSharedSecret(
-        publicKey = publicKey,
-        secretKey = privateKey,
+        publicKey = publicKey.toDirectByteBuffer(),
+        secretKey = privateKey.toDirectByteBuffer(),
     )
 
     /**
@@ -38,8 +39,8 @@ constructor(privateKey: ByteArray, publicKey: ByteArray) {
     fun encrypt(data: ByteArray, nonce: ByteArray): ByteArray {
         try {
             return xsalsa20Poly1305Encrypt(
-                key = sharedSecret,
-                nonce = nonce,
+                key = sharedSecret.toDirectByteBuffer(),
+                nonce = nonce.toDirectByteBuffer(),
                 data = data,
             )
         } catch (cryptoException: CryptoException) {
@@ -57,7 +58,7 @@ constructor(privateKey: ByteArray, publicKey: ByteArray) {
     @Throws(CryptoException::class)
     fun decrypt(data: ByteArray, nonce: ByteArray): ByteArray {
         try {
-            return xsalsa20Poly1305Decrypt(sharedSecret, nonce, data)
+            return xsalsa20Poly1305Decrypt(sharedSecret.toDirectByteBuffer(), nonce.toDirectByteBuffer(), data)
         } catch (cryptoException: CryptoException) {
             logger.error("Decryption failed", cryptoException)
             throw cryptoException
@@ -88,8 +89,8 @@ constructor(privateKey: ByteArray, publicKey: ByteArray) {
         fun symmetricEncryptData(data: ByteArray, key: ByteArray, nonce: ByteArray): ByteArray {
             try {
                 return xsalsa20Poly1305Encrypt(
-                    key = key,
-                    nonce = nonce,
+                    key = key.toDirectByteBuffer(),
+                    nonce = nonce.toDirectByteBuffer(),
                     data = data,
                 )
             } catch (cryptoException: CryptoException) {
@@ -109,8 +110,8 @@ constructor(privateKey: ByteArray, publicKey: ByteArray) {
         fun symmetricDecryptData(data: ByteArray, key: ByteArray, nonce: ByteArray): ByteArray {
             try {
                 return xsalsa20Poly1305Decrypt(
-                    key = key,
-                    nonce = nonce,
+                    key = key.toDirectByteBuffer(),
+                    nonce = nonce.toDirectByteBuffer(),
                     data = data,
                 )
             } catch (cryptoException: CryptoException) {
@@ -150,8 +151,8 @@ constructor(privateKey: ByteArray, publicKey: ByteArray) {
 
             try {
                 val encryptor = ChunkedXSalsa20Poly1305Encryptor(
-                    key = key,
-                    nonce = nonce,
+                    key = key.toDirectByteBuffer(),
+                    nonce = nonce.toDirectByteBuffer(),
                 )
 
                 var dataChunk: ByteArray
@@ -215,8 +216,8 @@ constructor(privateKey: ByteArray, publicKey: ByteArray) {
 
             val decryptor = try {
                 ChunkedXSalsa20Poly1305Decryptor(
-                    key = key,
-                    nonce = nonce,
+                    key = key.toDirectByteBuffer(),
+                    nonce = nonce.toDirectByteBuffer(),
                 ).also {
                     var dataChunk: ByteArray
                     var chunkStartIndex = BOX_OVERHEAD_BYTES
@@ -238,7 +239,7 @@ constructor(privateKey: ByteArray, publicKey: ByteArray) {
                 throw cryptoException
             }
             try {
-                decryptor.finalizeVerify(tag)
+                decryptor.finalizeVerify(tag.toDirectByteBuffer())
             } catch (cryptoException: CryptoException) {
                 logger.error("Message tag verification failed - this may be due to a wrong key or nonce", cryptoException)
                 throw cryptoException
@@ -312,7 +313,7 @@ constructor(privateKey: ByteArray, publicKey: ByteArray) {
         @Throws(CryptoException::class)
         fun derivePublicKey(privateKey: ByteArray): ByteArray {
             try {
-                return x25519DerivePublicKey(secretKey = privateKey)
+                return x25519DerivePublicKey(secretKey = privateKey.toDirectByteBuffer())
             } catch (cryptoException: CryptoException) {
                 logger.error("Failed to derive public key", cryptoException)
                 throw cryptoException

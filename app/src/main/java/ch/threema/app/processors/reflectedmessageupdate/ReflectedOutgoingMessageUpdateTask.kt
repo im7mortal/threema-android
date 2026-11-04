@@ -10,7 +10,7 @@ import ch.threema.domain.types.IdentityString
 import ch.threema.protobuf.common.GroupIdentity
 import ch.threema.protobuf.d2d.ConversationId
 import ch.threema.protobuf.d2d.OutgoingMessageUpdate
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageState
 import java.time.Instant
 import org.koin.core.component.KoinComponent
@@ -97,7 +97,7 @@ class ReflectedOutgoingMessageUpdateTask(
         // TODO(ANDR-2718)
     }
 
-    private fun updateMessageModelSentState(messageModel: AbstractMessageModel) {
+    private fun updateMessageModelSentState(messageModel: MessageModel) {
         messageService.updateOutgoingMessageState(
             messageModel,
             MessageState.SENT,

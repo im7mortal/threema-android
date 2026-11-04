@@ -9,15 +9,29 @@ import java.util.LinkedList
 /**
  * An in-memory identity store, used for testing.
  */
-class InMemoryNonceStore : NonceStore {
+class InMemoryNonceStore(
+    private val identity: String = DEFAULT_TEST_IDENTITY,
+) : NonceStore {
     private val nonces = HashMap<NonceScope, LinkedList<HashedNonce>>()
 
-    override fun exists(scope: NonceScope, nonce: Nonce): Boolean {
-        return getScopedHashedNonces(scope).any { it.bytes.contentEquals(nonce.hashNonce(HASH_KEY).bytes) }
+    override fun exists(scope: NonceScope, nonce: Nonce) = exists(
+        scope,
+        nonce.hashNonce(identity).bytes,
+    )
+
+    override fun exists(scope: NonceScope, hashedNonce: HashedNonce) = exists(
+        scope = scope,
+        nonceBytes = hashedNonce.bytes,
+    )
+
+    private fun exists(scope: NonceScope, nonceBytes: ByteArray): Boolean {
+        return getScopedHashedNonces(scope).any {
+            it.bytes.contentEquals(nonceBytes)
+        }
     }
 
     override fun store(scope: NonceScope, nonce: Nonce): Boolean {
-        return getScopedHashedNonces(scope).add(nonce.hashNonce(HASH_KEY))
+        return getScopedHashedNonces(scope).add(nonce.hashNonce(identity))
     }
 
     override fun getAllHashedNonces(scope: NonceScope): List<HashedNonce> {
@@ -52,8 +66,11 @@ class InMemoryNonceStore : NonceStore {
         return nonces[scope]!!
     }
 
+    override fun deleteAll() {
+        nonces.clear()
+    }
+
     companion object {
-        // We always hash nonces with 01234567 in tests.
-        private const val HASH_KEY = "01234567"
+        private const val DEFAULT_TEST_IDENTITY = "01234567"
     }
 }

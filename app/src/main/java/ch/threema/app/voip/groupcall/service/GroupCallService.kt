@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
 import android.graphics.Bitmap
 import android.os.Build
@@ -17,10 +16,15 @@ import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
-import androidx.core.content.ContextCompat
+import androidx.core.content.getSystemService
 import androidx.core.content.res.ResourcesCompat
 import ch.threema.android.buildNotification
 import ch.threema.android.buildPerson
+import ch.threema.android.cancelPendingIntentForActivity
+import ch.threema.android.cancelPendingIntentForService
+import ch.threema.android.checkGrantedPermission
+import ch.threema.android.getPendingIntentForActivity
+import ch.threema.android.getPendingIntentForService
 import ch.threema.app.R
 import ch.threema.app.di.injectNonBinding
 import ch.threema.app.managers.ServiceManager
@@ -230,6 +234,7 @@ class GroupCallService : Service(), KoinComponent {
     }
 
     private fun startForeground() {
+        NotificationChannels.createOrMigrateNotificationChannels(this)
         ServiceCompat.startForeground(
             this,
             ONGOING_GROUP_CALL_NOTIFICATION_ID,
@@ -270,35 +275,45 @@ class GroupCallService : Service(), KoinComponent {
             setGroup(NotificationGroups.CALLS)
             setGroupSummary(false)
             setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            setContentIntent(getJoinCallPendingIntent(PendingIntent.FLAG_UPDATE_CURRENT))
-
-            getLeaveCallPendingIntent(PendingIntent.FLAG_UPDATE_CURRENT)
-                ?.let { leaveCallPendingIntent ->
-                    setStyle(
-                        NotificationCompat.CallStyle.forOngoingCall(
-                            callerPerson,
-                            leaveCallPendingIntent,
-                        ),
-                    )
-                }
+            setContentIntent(getJoinCallPendingIntent())
+            setStyle(
+                NotificationCompat.CallStyle.forOngoingCall(
+                    callerPerson,
+                    getLeaveCallPendingIntent(),
+                ),
+            )
         }
     }
 
-    private fun getJoinCallPendingIntent(flags: Int): PendingIntent? {
-        return PendingIntent.getActivity(
-            applicationContext,
-            REQUEST_CODE_JOIN_CALL,
-            GroupCallActivity.createJoinCallIntent(applicationContext, groupId.id),
-            flags or PendingIntent.FLAG_IMMUTABLE,
+    private fun getJoinCallPendingIntent(): PendingIntent =
+        getPendingIntentForActivity(
+            context = applicationContext,
+            requestCode = REQUEST_CODE_JOIN_CALL,
+            intent = GroupCallActivity.createJoinCallIntent(applicationContext, groupId.id),
+            flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+    private fun cancelJoinCallPendingIntent() {
+        cancelPendingIntentForActivity(
+            context = applicationContext,
+            requestCode = REQUEST_CODE_JOIN_CALL,
+            intent = GroupCallActivity.createJoinCallIntent(applicationContext, groupId.id),
         )
     }
 
-    private fun getLeaveCallPendingIntent(flags: Int): PendingIntent? {
-        return PendingIntent.getService(
-            applicationContext,
-            REQUEST_CODE_LEAVE_CALL,
-            getLeaveCallIntent(applicationContext, callId, groupId.localGroupId),
-            flags or PendingIntent.FLAG_IMMUTABLE,
+    private fun getLeaveCallPendingIntent(): PendingIntent =
+        getPendingIntentForService(
+            context = applicationContext,
+            requestCode = REQUEST_CODE_LEAVE_CALL,
+            intent = getLeaveCallIntent(applicationContext, callId, groupId.localGroupId),
+            flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+    private fun cancelLeaveCallPendingIntent() {
+        cancelPendingIntentForService(
+            context = applicationContext,
+            requestCode = REQUEST_CODE_LEAVE_CALL,
+            intent = getLeaveCallIntent(applicationContext, callId, groupId.localGroupId),
         )
     }
 
@@ -361,14 +376,9 @@ class GroupCallService : Service(), KoinComponent {
      */
     @Suppress("DEPRECATION")
     private fun setPSTNCallStateListener() {
-        val telephonyManager = getSystemService(TELEPHONY_SERVICE)
-        if (telephonyManager is TelephonyManager &&
-            (
-                Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-                    ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
-                )
-        ) {
-            telephonyManager.listen(onCallStateListener, PhoneStateListener.LISTEN_CALL_STATE)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || checkGrantedPermission(Manifest.permission.READ_PHONE_STATE)) {
+            val telephonyManager = getSystemService<TelephonyManager>()
+            telephonyManager?.listen(onCallStateListener, PhoneStateListener.LISTEN_CALL_STATE)
         }
     }
 
@@ -423,8 +433,8 @@ class GroupCallService : Service(), KoinComponent {
         audioManager?.stop()
         audioManager = null
         binder = null
-        getJoinCallPendingIntent(PendingIntent.FLAG_NO_CREATE)?.cancel()
-        getLeaveCallPendingIntent(PendingIntent.FLAG_NO_CREATE)?.cancel()
+        cancelJoinCallPendingIntent()
+        cancelLeaveCallPendingIntent()
     }
 
     // wrapper for group id to make it an object and `lateinit` can be used

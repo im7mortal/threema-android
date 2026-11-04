@@ -37,6 +37,7 @@ import ch.threema.data.models.ContactModel;
 import ch.threema.data.models.ContactModelData;
 import ch.threema.data.datatypes.AndroidContactLookupInfo;
 
+import static ch.threema.android.PermissionExtensionsKt.checkGrantedPermission;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.storage.models.ContactModel.DEFAULT_ANDROID_CONTACT_AVATAR_EXPIRY;
 
@@ -124,6 +125,8 @@ public class AndroidContactUtil {
                     return;
                 } catch (Exception e) {
                     logger.error("Exception while writing android defined profile picture", e);
+                } finally {
+                    bitmap.recycle();
                 }
             } else {
                 // delete old avatar
@@ -227,7 +230,7 @@ public class AndroidContactUtil {
      * @return number of raw contacts deleted
      */
     public int deleteThreemaRawContact(@NonNull String identity) {
-        if (!ConfigUtils.isPermissionGranted(ThreemaApplication.getAppContext(), Manifest.permission.WRITE_CONTACTS)) {
+        if (!checkGrantedPermission(ThreemaApplication.getAppContext(), Manifest.permission.WRITE_CONTACTS)) {
             return 0;
         }
 
@@ -259,7 +262,7 @@ public class AndroidContactUtil {
      * @return number of raw contacts deleted
      */
     public int deleteAllThreemaRawContacts() {
-        if (!ConfigUtils.isPermissionGranted(ThreemaApplication.getAppContext(), Manifest.permission.WRITE_CONTACTS)) {
+        if (!checkGrantedPermission(ThreemaApplication.getAppContext(), Manifest.permission.WRITE_CONTACTS)) {
             return 0;
         }
 

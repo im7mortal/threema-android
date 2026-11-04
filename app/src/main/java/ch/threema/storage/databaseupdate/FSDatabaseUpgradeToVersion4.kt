@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * add timestamp of last sent fs message
+ */
 internal class FSDatabaseUpgradeToVersion4(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -10,8 +13,6 @@ internal class FSDatabaseUpgradeToVersion4(
             sqLiteDatabase.rawExecSQL("ALTER TABLE session ADD COLUMN lastOutgoingMessageTimestamp INTEGER DEFAULT 0")
         }
     }
-
-    override fun getDescription() = "add timestamp of last sent fs message"
 
     override val version = VERSION
 

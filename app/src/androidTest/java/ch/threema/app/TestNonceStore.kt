@@ -8,6 +8,8 @@ import ch.threema.base.crypto.NonceStore
 class TestNonceStore : NonceStore {
     override fun exists(scope: NonceScope, nonce: Nonce) = false
 
+    override fun exists(scope: NonceScope, hashedNonce: HashedNonce): Boolean = false
+
     override fun store(scope: NonceScope, nonce: Nonce) = true
 
     override fun getCount(scope: NonceScope) = 0L
@@ -24,4 +26,8 @@ class TestNonceStore : NonceStore {
     }
 
     override fun insertHashedNonces(scope: NonceScope, nonces: List<HashedNonce>) = true
+
+    override fun deleteAll() {
+        // Nothing to do
+    }
 }

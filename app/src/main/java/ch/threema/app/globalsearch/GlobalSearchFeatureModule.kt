@@ -1,8 +1,8 @@
 package ch.threema.app.globalsearch
 
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.viewModel
 
 val globalSearchFeatureModule = module {
-    viewModelOf(::GlobalSearchViewModel)
+    viewModel<GlobalSearchViewModel>()
 }

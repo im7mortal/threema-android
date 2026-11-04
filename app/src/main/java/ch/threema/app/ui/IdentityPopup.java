@@ -1,6 +1,7 @@
 package ch.threema.app.ui;
 
 import static ch.threema.android.ToastKt.showToast;
+import static ch.threema.android.ViewExtensionsKt.invertColors;
 
 import android.app.Activity;
 import android.content.ClipData;
@@ -30,6 +31,7 @@ import org.koin.java.KoinJavaComponent;
 import java.lang.ref.WeakReference;
 
 import ch.threema.android.ToastDuration;
+import ch.threema.app.BuildFlavor;
 import ch.threema.app.R;
 import ch.threema.app.activities.AddContactActivity;
 import ch.threema.app.managers.ServiceManager;
@@ -69,7 +71,7 @@ public class IdentityPopup extends DimmingPopupWindow {
 
         TextView identityLabelTextView = popupLayout.findViewById(R.id.identity_label);
         this.qrCodeView = popupLayout.findViewById(R.id.qr_image);
-        if (ConfigUtils.isOnPremBuild()) {
+        if (BuildFlavor.IS_ON_PREM) {
             popupLayout.findViewById(R.id.share_button).setVisibility(View.GONE);
         } else {
             popupLayout.findViewById(R.id.share_button).setOnClickListener(v -> shareMyId(context));
@@ -189,7 +191,7 @@ public class IdentityPopup extends DimmingPopupWindow {
 
         this.qrCodeView.setImageDrawable(bitmapDrawable);
         if (ConfigUtils.isTheDarkSide(getContext())) {
-            ConfigUtils.invertColors(this.qrCodeView);
+            invertColors(qrCodeView);
         }
 
         if (toolbarView != null) {

@@ -16,6 +16,8 @@ import ch.threema.app.ui.BigFileView
 import ch.threema.app.ui.MediaItem
 import ch.threema.app.utils.BitmapUtil.FLIP_HORIZONTAL
 import ch.threema.app.utils.BitmapUtil.FLIP_VERTICAL
+import ch.threema.app.utils.MediaAdapterManager
+import ch.threema.app.utils.NOTIFY_PREVIEW_ADAPTER
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
 import com.bumptech.glide.Glide
@@ -37,6 +39,7 @@ class BigMediaFragment : Fragment() {
     private lateinit var bigImageView: ImageView
     private var videoEditView: VideoEditView? = null
     private lateinit var bigProgressBar: CircularProgressIndicator
+    private lateinit var mediaAdapterManager: MediaAdapterManager
     private var bottomElemHeight: Int = 0
     private var isVideo = false
     private val timelineDragListener: VideoEditView.OnTimelineDragListener = object :
@@ -47,6 +50,10 @@ class BigMediaFragment : Fragment() {
 
         override fun onTimelineDragStop() {
             viewPager?.isUserInputEnabled = true
+        }
+
+        override fun onTrimFinished() {
+            mediaAdapterManager.updateCurrent(NOTIFY_PREVIEW_ADAPTER)
         }
     }
 
@@ -93,6 +100,10 @@ class BigMediaFragment : Fragment() {
     fun setMediaItem(mediaItem: MediaItem) {
         this.mediaItem = mediaItem
         isVideo = mediaItem.type == MediaItem.TYPE_VIDEO || mediaItem.type == MediaItem.TYPE_VIDEO_CAM
+    }
+
+    fun setMediaAdapterManager(mediaAdapterManager: MediaAdapterManager) {
+        this.mediaAdapterManager = mediaAdapterManager
     }
 
     // Change to drag listener here
@@ -201,10 +212,17 @@ class BigMediaFragment : Fragment() {
 
     companion object {
         @JvmStatic
-        fun newInstance(mediaItem: MediaItem, bottomElemHeight: Int) =
+        fun newInstance(
+            mediaAdapterManager: MediaAdapterManager,
+            mediaItem: MediaItem,
+            bottomElemHeight: Int,
+            viewPager: ViewPager2?,
+        ) =
             BigMediaFragment().apply {
+                setMediaAdapterManager(mediaAdapterManager)
                 setMediaItem(mediaItem)
                 setBottomElemHeight(bottomElemHeight)
+                setViewPager(viewPager)
             }
     }
 }

@@ -11,17 +11,21 @@ import androidx.core.database.getStringOrNull
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteQueryBuilder
 import androidx.sqlite.db.transaction
+import ch.threema.android.firstOrNull
 import ch.threema.android.map
 import ch.threema.app.BuildConfig
 import ch.threema.base.crypto.NaCl
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DatabaseHelpers.makePlaceholders
 import ch.threema.common.isAllZeroes
 import ch.threema.data.IdentityProvider
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.GroupIdentity
+import ch.threema.data.storage.SqliteDatabaseBackend.Companion.MAX_VARIABLE_NUMBER
 import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.ContactSyncState
+import ch.threema.domain.models.GroupId
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.IdentityType
 import ch.threema.domain.models.ReadReceiptPolicy
@@ -34,14 +38,15 @@ import ch.threema.domain.types.GroupDatabaseId
 import ch.threema.domain.types.Identity
 import ch.threema.domain.types.IdentityString
 import ch.threema.storage.DatabaseProvider
-import ch.threema.storage.DatabaseUtil
 import ch.threema.storage.DbAvailabilityStatus
+import ch.threema.storage.bindLongOrNull
+import ch.threema.storage.bindStringOrNull
 import ch.threema.storage.buildContentValues
-import ch.threema.storage.existsByBlob
+import ch.threema.storage.exists
 import ch.threema.storage.models.ContactModel
+import ch.threema.storage.models.GroupMessageModel
 import ch.threema.storage.models.IncomingGroupSyncRequestLogModel
 import ch.threema.storage.models.group.GroupMemberModel
-import ch.threema.storage.models.group.GroupMessageModel
 import ch.threema.storage.models.group.GroupModelOld
 import ch.threema.storage.runQuery
 import ch.threema.storage.runTransaction
@@ -153,55 +158,114 @@ class SqliteDatabaseBackend(
         }
     }
 
-    override fun createContact(dbContact: DbContact) {
-        require(dbContact.identity.length == ProtocolDefines.IDENTITY_LEN) {
-            "Cannot create contact with invalid identity: ${dbContact.identity}"
-        }
-        require(dbContact.publicKey.size == NaCl.PUBLIC_KEY_BYTES) {
-            "Cannot create contact (${dbContact.identity}) with public key of invalid length: ${dbContact.publicKey.size}"
-        }
-        require(!dbContact.publicKey.isAllZeroes()) {
-            "Cannot create contact (${dbContact.identity}) with all zeroes public key"
-        }
-        require(dbContact.identity != identityProvider.getIdentityString()) {
-            "Cannot create contact with the user's identity"
-        }
-        if (doesContactWithPublicKeyExist(dbContact.publicKey)) {
-            throw DatabaseException("Cannot create contact with a public key that already exists")
+    override fun getAllContactIdentities(): Set<IdentityString> {
+        val identities = mutableSetOf<String>()
+
+        val query = "SELECT ${ContactModel.COLUMN_IDENTITY} FROM ${ContactModel.TABLE}"
+        databaseProvider.readableDatabase.rawQuery(query, null).use { cursor ->
+            while (cursor.moveToNext()) {
+                identities.add(cursor.getString(cursor.getColumnIndexOrThrow(ContactModel.COLUMN_IDENTITY)))
+            }
         }
 
-        val contentValuesContact = buildContentValues {
-            put(ContactModel.COLUMN_IDENTITY, dbContact.identity)
-            put(ContactModel.COLUMN_PUBLIC_KEY, dbContact.publicKey)
-            put(ContactModel.COLUMN_CREATED_AT, dbContact.createdAt.toEpochMilli())
-            update(dbContact)
+        return identities
+    }
+
+    override fun contactExists(identity: IdentityString): Boolean =
+        databaseProvider.readableDatabase.exists(
+            table = ContactModel.TABLE,
+            selection = "${ContactModel.COLUMN_IDENTITY} = ?",
+            selectionArgs = arrayOf(identity),
+        )
+
+    override fun countExistingContacts(identities: Set<IdentityString>): UInt {
+        if (identities.isEmpty()) {
+            return 0u
         }
-        databaseProvider.writableDatabase.runTransaction {
-            insert(
-                table = ContactModel.TABLE,
-                conflictAlgorithm = SQLiteDatabase.CONFLICT_ROLLBACK,
-                values = contentValuesContact,
-            )
-            if (BuildConfig.AVAILABILITY_STATUS_ENABLED) {
-                dbContact.availabilityStatusSet
-                    ?.toDatabaseModel(dbContact.identity)
-                    ?.let { dbAvailabilityStatusSet ->
-                        insert(
-                            table = DbAvailabilityStatus.TABLE,
-                            conflictAlgorithm = SQLiteDatabase.CONFLICT_ROLLBACK,
-                            values = dbAvailabilityStatusSet.toContentValues(),
-                        )
-                    }
+
+        return identities.chunked(MAX_VARIABLE_NUMBER).sumOf { chunk ->
+            val placeholders = makePlaceholders(chunk.size)
+            val query = "SELECT COUNT(*) FROM ${ContactModel.TABLE} WHERE ${ContactModel.COLUMN_IDENTITY} IN ($placeholders)"
+            databaseProvider.readableDatabase.rawQuery(query, chunk.toTypedArray()).use { cursor ->
+                if (cursor.moveToFirst()) {
+                    cursor.getInt(0).toUInt()
+                } else {
+                    0u
+                }
             }
         }
     }
 
-    private fun doesContactWithPublicKeyExist(publicKey: ByteArray): Boolean =
-        databaseProvider.readableDatabase.existsByBlob(
-            table = ContactModel.TABLE,
-            selection = "${ContactModel.COLUMN_PUBLIC_KEY} = ?",
-            blob = publicKey,
-        )
+    override fun createContact(vararg dbContacts: DbContact) {
+        if (dbContacts.isEmpty()) {
+            return
+        }
+
+        dbContacts.forEach { dbContact ->
+            require(dbContact.identity.length == ProtocolDefines.IDENTITY_LEN) {
+                "Cannot create contact with invalid identity: ${dbContact.identity}"
+            }
+            require(dbContact.publicKey.size == NaCl.PUBLIC_KEY_BYTES) {
+                "Cannot create contact (${dbContact.identity}) with public key of invalid length: ${dbContact.publicKey.size}"
+            }
+            require(!dbContact.publicKey.isAllZeroes()) {
+                "Cannot create contact (${dbContact.identity}) with all zeroes public key"
+            }
+            require(dbContact.identity != identityProvider.requireIdentityString()) {
+                "Cannot create contact with the user's identity"
+            }
+        }
+        if (databaseProvider.readableDatabase.doesAnyPublicKeyAlreadyExist(dbContacts.map(DbContact::publicKey))) {
+            throw DatabaseException("Cannot create contact with a public key that already exists")
+        }
+
+        databaseProvider.writableDatabase.runTransaction {
+            dbContacts.forEach { dbContact ->
+                val contentValuesContact = buildContentValues {
+                    put(ContactModel.COLUMN_IDENTITY, dbContact.identity)
+                    put(ContactModel.COLUMN_PUBLIC_KEY, dbContact.publicKey)
+                    put(ContactModel.COLUMN_CREATED_AT, dbContact.createdAt.toEpochMilli())
+                    update(dbContact)
+                }
+
+                insert(
+                    table = ContactModel.TABLE,
+                    conflictAlgorithm = SQLiteDatabase.CONFLICT_ROLLBACK,
+                    values = contentValuesContact,
+                )
+                if (BuildConfig.AVAILABILITY_STATUS_ENABLED) {
+                    dbContact.availabilityStatusSet
+                        ?.toDatabaseModel(dbContact.identity)
+                        ?.let { dbAvailabilityStatusSet ->
+                            insert(
+                                table = DbAvailabilityStatus.TABLE,
+                                conflictAlgorithm = SQLiteDatabase.CONFLICT_ROLLBACK,
+                                values = dbAvailabilityStatusSet.toContentValues(),
+                            )
+                        }
+                }
+            }
+        }
+    }
+
+    private fun SQLiteDatabase.doesAnyPublicKeyAlreadyExist(publicKeys: Collection<ByteArray>): Boolean {
+        publicKeys
+            .chunked(MAX_VARIABLE_NUMBER)
+            .forEach { chunk ->
+                val placeholders = makePlaceholders(chunk.size)
+                val sql = "SELECT EXISTS(SELECT 1 FROM ${ContactModel.TABLE} WHERE ${ContactModel.COLUMN_PUBLIC_KEY} IN ($placeholders) LIMIT 1)"
+
+                compileStatement(sql).use { statement ->
+                    chunk.forEachIndexed { index, publicKey ->
+                        statement.bindBlob(index + 1, publicKey)
+                    }
+                    if (statement.simpleQueryForLong() == 1L) {
+                        return true
+                    }
+                }
+            }
+        return false
+    }
 
     override fun getContactByIdentity(identity: IdentityString): DbContact? {
         /*
@@ -218,12 +282,8 @@ class SqliteDatabaseBackend(
         """.trimIndent()
         val bindArgs = arrayOf(identity)
         val cursor = databaseProvider.readableDatabase.query(query, bindArgs)
-        return cursor.use { cursor ->
-            if (cursor.moveToFirst()) {
-                cursor.mapToDbContact()
-            } else {
-                null
-            }
+        return cursor.firstOrNull { cursor ->
+            cursor.mapToDbContact()
         }
     }
 
@@ -231,7 +291,7 @@ class SqliteDatabaseBackend(
         if (identities.isEmpty()) {
             return emptyList()
         }
-        val placeholders = DatabaseUtil.makePlaceholders(identities.size)
+        val placeholders = makePlaceholders(identities.size)
         /*
          * SELECT contacts.*, contact_availability_status.category, contact_availability_status.description
          *  FROM contacts LEFT JOIN contact_availability_status
@@ -253,6 +313,52 @@ class SqliteDatabaseBackend(
             }
             results
         }
+    }
+
+    /**
+     * **Query:**
+     * ```
+     * SELECT COUNT(*)
+     *   FROM contacts
+     *  WHERE identity IN (?, ?, ?, ...)
+     *    AND acquaintanceLevel = ?;
+     * ```
+     */
+    override fun allContactsExistWithAcquaintanceLevel(
+        identities: Set<IdentityString>,
+        acquaintanceLevel: AcquaintanceLevel,
+    ): Boolean {
+        if (identities.isEmpty()) {
+            return true
+        }
+        val acquaintanceLevelRaw = when (acquaintanceLevel) {
+            AcquaintanceLevel.DIRECT -> 0
+            AcquaintanceLevel.GROUP_OR_DELETED -> 1
+        }
+        // -1 because we use 1 placeholder for the acquaintance level
+        val identitiesChunkSize = MAX_VARIABLE_NUMBER - 1
+        identities.chunked(identitiesChunkSize).forEach { identitiesChunk ->
+            val placeholders = makePlaceholders(identitiesChunk.size)
+            val query = """
+                SELECT COUNT(*)
+                FROM ${ContactModel.TABLE}
+                WHERE ${ContactModel.COLUMN_IDENTITY} IN ($placeholders)
+                AND ${ContactModel.COLUMN_ACQUAINTANCE_LEVEL} = ?;
+            """.trimIndent()
+            val bindArgs = identitiesChunk.toTypedArray() + acquaintanceLevelRaw.toString()
+            databaseProvider.readableDatabase.query(query, bindArgs).use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val count = cursor.getLong(0)
+                    if (count < identitiesChunk.size) {
+                        return false
+                    }
+                } else {
+                    // Cursor is empty
+                    return false
+                }
+            }
+        }
+        return true
     }
 
     /**
@@ -279,6 +385,7 @@ class SqliteDatabaseBackend(
         val readReceipts = getInt(getColumnIndexOrThrow(this, ContactModel.COLUMN_READ_RECEIPTS))
         val typingIndicators = getInt(getColumnIndexOrThrow(this, ContactModel.COLUMN_TYPING_INDICATORS))
         val conversationVisibilityRaw = getInt(getColumnIndexOrThrow(this, ContactModel.COLUMN_CONVERSATION_VISIBILITY))
+        val conversationCategory = getInt(getColumnIndexOrThrow(this, ContactModel.COLUMN_CONVERSATION_CATEGORY))
         val androidContactLookupKey = getStringOrNull(getColumnIndexOrThrow(this, ContactModel.COLUMN_ANDROID_CONTACT_LOOKUP_KEY))
         val localAvatarExpires = getInstantOrNull(getColumnIndexOrThrow(this, ContactModel.COLUMN_LOCAL_AVATAR_EXPIRES))
         val isRestored = getBooleanOrNull(getColumnIndexOrThrow(this, ContactModel.COLUMN_IS_RESTORED)) ?: false
@@ -450,6 +557,7 @@ class SqliteDatabaseBackend(
             readReceiptPolicy = readReceiptPolicy,
             typingIndicatorPolicy = typingIndicatorPolicy,
             conversationVisibility = conversationVisibility,
+            conversationCategory = conversationCategory,
             androidContactLookupKey = androidContactLookupKey,
             localAvatarExpires = localAvatarExpires,
             isRestored = isRestored,
@@ -550,7 +658,7 @@ class SqliteDatabaseBackend(
             return
         }
         identities.chunked(MAX_VARIABLE_NUMBER).forEach { chunk ->
-            val placeholders = DatabaseUtil.makePlaceholders(chunk.size)
+            val placeholders = makePlaceholders(chunk.size)
             compileStatement(
                 sql = """
                     DELETE FROM ${DbAvailabilityStatus.TABLE}
@@ -691,6 +799,7 @@ class SqliteDatabaseBackend(
             },
         )
         put(ContactModel.COLUMN_CONVERSATION_VISIBILITY, contact.conversationVisibility.serializedValue)
+        put(ContactModel.COLUMN_CONVERSATION_CATEGORY, contact.conversationCategory)
         put(ContactModel.COLUMN_ANDROID_CONTACT_LOOKUP_KEY, contact.androidContactLookupKey)
         put(ContactModel.COLUMN_LOCAL_AVATAR_EXPIRES, contact.localAvatarExpires?.toEpochMilli())
         put(ContactModel.COLUMN_IS_RESTORED, contact.isRestored)
@@ -722,10 +831,9 @@ class SqliteDatabaseBackend(
         ) > 0
 
     override fun isContactInGroup(identity: IdentityString): Boolean {
-        databaseProvider.readableDatabase.query(
-            DatabaseUtil.IS_GROUP_MEMBER_QUERY,
-            arrayOf(identity),
-        ).use {
+        val query = "SELECT EXISTS(SELECT 1 FROM ${GroupModelOld.TABLE} g INNER JOIN ${GroupMemberModel.TABLE} m " +
+            "ON m.${GroupMemberModel.COLUMN_GROUP_ID} = g.${GroupModelOld.COLUMN_ID} WHERE m.${GroupMemberModel.COLUMN_IDENTITY} = ?)"
+        databaseProvider.readableDatabase.query(query, arrayOf(identity)).use {
             return if (it.moveToFirst()) {
                 it.getInt(0) == 1
             } else {
@@ -739,7 +847,10 @@ class SqliteDatabaseBackend(
      * Create a group.
      *
      * @throws DatabaseException if the constraints fail while inserting the group
+     *
+     * @see createGroups
      */
+    @Throws(DatabaseException::class)
     override fun createGroup(group: DbGroup) {
         val contentValues = buildContentValues {
             put(GroupModelOld.COLUMN_CREATOR_IDENTITY, group.creatorIdentity)
@@ -763,6 +874,110 @@ class SqliteDatabaseBackend(
         }
 
         updateGroupMembers(rowId, group.members)
+    }
+
+    /**
+     * Create multiple new groups at once.
+     *
+     * If *any* of the given [groups] fails to insert, a rollback is performed. Meaning that in this case no group or group member is persisted.
+     *
+     * @return The group identities of all persisted groups
+     *
+     * @throws DatabaseException if any constraint fails while inserting new groups or members
+     *
+     * @see createGroup
+     */
+    @Throws(DatabaseException::class)
+    override fun createGroups(groups: Set<DbGroup>): Set<GroupIdentity> {
+        if (groups.isEmpty()) {
+            return emptySet()
+        }
+        val insertGroupStatement = databaseProvider.writableDatabase.compileStatement(
+            """
+                INSERT INTO ${GroupModelOld.TABLE} (
+                ${GroupModelOld.COLUMN_CREATOR_IDENTITY},
+                ${GroupModelOld.COLUMN_API_GROUP_ID},
+                ${GroupModelOld.COLUMN_CREATED_AT},
+                ${GroupModelOld.COLUMN_NAME},
+                ${GroupModelOld.COLUMN_LAST_UPDATE},
+                ${GroupModelOld.COLUMN_SYNCHRONIZED_AT},
+                ${GroupModelOld.COLUMN_CONVERSATION_VISIBILITY},
+                ${GroupModelOld.COLUMN_CONVERSATION_CATEGORY},
+                ${GroupModelOld.COLUMN_COLOR_INDEX},
+                ${GroupModelOld.COLUMN_GROUP_DESC},
+                ${GroupModelOld.COLUMN_GROUP_DESC_CHANGED_TIMESTAMP},
+                ${GroupModelOld.COLUMN_USER_STATE},
+                ${GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_POLICY},
+                ${GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_EXPIRES_AT},
+                ${GroupModelOld.COLUMN_SPAM_REPORTING_STATE}
+                ) VALUES (${makePlaceholders(15)})
+            """.trimIndent(),
+        )
+        val insertGroupMemberStatement = databaseProvider.writableDatabase.compileStatement(
+            """
+                INSERT INTO ${GroupMemberModel.TABLE} (
+                ${GroupMemberModel.COLUMN_IDENTITY},
+                ${GroupMemberModel.COLUMN_GROUP_ID}
+                ) VALUES (?, ?)
+            """.trimIndent(),
+        )
+        val newGroupIdentities = mutableSetOf<GroupIdentity>()
+        try {
+            databaseProvider.writableDatabase.transaction {
+                for (group in groups) {
+                    val groupRowId = with(insertGroupStatement) {
+                        clearBindings()
+                        bindString(1, group.creatorIdentity)
+                        bindString(2, group.groupId)
+                        bindLong(3, group.createdAt.toEpochMilli())
+                        bindStringOrNull(4, group.name)
+                        bindLongOrNull(5, group.lastUpdate?.toEpochMilli())
+                        bindLongOrNull(6, group.synchronizedAt?.toEpochMilli())
+                        bindLong(7, group.conversationVisibility.serializedValue.toLong())
+                        bindLong(8, group.conversationCategory.toLong())
+                        bindLong(9, group.colorIndex.toLong())
+                        bindStringOrNull(10, group.groupDescription)
+                        bindLongOrNull(11, group.groupDescriptionChangedAt?.toEpochMilli())
+                        bindLong(12, group.userState.value.toLong())
+                        bindLongOrNull(13, group.notificationTriggerPolicyOverridePolicy?.toLong())
+                        bindLongOrNull(14, group.notificationTriggerPolicyOverrideExpiresAt?.toEpochMilli())
+                        bindLong(15, group.spamReportingState.toLong())
+                        executeInsert()
+                            .also { rowId ->
+                                if (rowId < 0) {
+                                    throw SQLiteException("Insert group failed")
+                                }
+                            }
+                    }
+                    for (memberIdentity in group.members) {
+                        with(insertGroupMemberStatement) {
+                            clearBindings()
+                            bindString(1, memberIdentity)
+                            bindLong(2, groupRowId)
+                            executeInsert()
+                                .also {
+                                    if (it < 0) {
+                                        throw SQLiteException("Insert group member failed")
+                                    }
+                                }
+                        }
+                    }
+                    newGroupIdentities.add(
+                        GroupIdentity(
+                            creatorIdentity = group.creatorIdentity,
+                            groupId = GroupId(group.groupId).toLong(),
+                        ),
+                    )
+                }
+            }
+        } catch (e: SQLiteException) {
+            logger.error("Failed to insert group or member", e)
+            throw DatabaseException("Failed to insert group or member", e)
+        } finally {
+            insertGroupStatement.close()
+            insertGroupMemberStatement.close()
+        }
+        return newGroupIdentities
     }
 
     override fun removeGroup(localDbId: Long) {
@@ -815,6 +1030,23 @@ class SqliteDatabaseBackend(
         }
     }
 
+    override fun getAllArchivedGroups(): Collection<DbGroup> {
+        val query = SupportSQLiteQueryBuilder
+            .builder(GroupModelOld.TABLE)
+            .columns(null)
+            .selection(
+                GroupModelOld.COLUMN_CONVERSATION_VISIBILITY + " = ?",
+                arrayOf(ConversationVisibility.ARCHIVED.serializedValue),
+            ).create()
+        databaseProvider.readableDatabase.query(query).use { cursor ->
+            val groups = mutableListOf<DbGroup>()
+            while (cursor.moveToNext()) {
+                groups.add(cursor.getGroup())
+            }
+            return groups
+        }
+    }
+
     override fun getGroupsByCreator(identity: Identity): Collection<DbGroup> =
         databaseProvider.readableDatabase.runQuery(
             table = GroupModelOld.TABLE,
@@ -837,7 +1069,7 @@ class SqliteDatabaseBackend(
         val creatorIdentitySelection = "${GroupModelOld.COLUMN_CREATOR_IDENTITY} = ?"
         val groupIdSelection = "${GroupModelOld.COLUMN_API_GROUP_ID} = ?"
         val creatorIdentitySelectionArg = groupIdentity.creatorIdentity
-        val groupIdSelectionArg = groupIdentity.groupIdHexString
+        val groupIdSelectionArg = groupIdentity.apiGroupIdHexString
         val selection = "$creatorIdentitySelection AND $groupIdSelection"
         val selectionArgs = arrayOf(creatorIdentitySelectionArg, groupIdSelectionArg)
 
@@ -846,13 +1078,95 @@ class SqliteDatabaseBackend(
         }
     }
 
+    /**
+     * **Query:**
+     * ```
+     * SELECT * FROM m_group
+     *  WHERE (apiGroupId, creatorIdentity) IN ((?, ?), ..., (?, ?))
+     * ```
+     */
+    override fun getGroupsByGroupIdentities(groupIdentities: Set<GroupIdentity>): Set<DbGroup> {
+        if (groupIdentities.isEmpty()) {
+            return emptySet()
+        }
+        val groups = mutableSetOf<DbGroup>()
+        // Use half of the max size because the query uses 2 placeholders per group identity
+        val chunkSize = MAX_VARIABLE_NUMBER / 2
+        groupIdentities
+            .chunked(chunkSize)
+            .forEach { groupIdentitiesChunk ->
+                val placeholders = groupIdentitiesChunk.joinToString { "(?, ?)" }
+                val sql = """
+                    SELECT * FROM ${GroupModelOld.TABLE}
+                    WHERE (${GroupModelOld.COLUMN_API_GROUP_ID}, ${GroupModelOld.COLUMN_CREATOR_IDENTITY}) IN ($placeholders)
+                """.trimIndent()
+                val bindArgs = buildList(groupIdentitiesChunk.size * 2) {
+                    groupIdentitiesChunk.forEach { groupIdentity ->
+                        add(groupIdentity.apiGroupIdHexString)
+                        add(groupIdentity.creatorIdentity)
+                    }
+                }.toTypedArray()
+                databaseProvider
+                    .readableDatabase
+                    .rawQuery(sql, bindArgs)
+                    .use { cursor ->
+                        while (cursor.moveToNext()) {
+                            groups.add(cursor.getGroup())
+                        }
+                    }
+            }
+        return groups
+    }
+
+    /**
+     * **Query:**
+     * ```
+     * SELECT COUNT(*)
+     *   FROM m_group
+     *  WHERE (apiGroupId, creatorIdentity) IN ((?, ?), (?, ?), ...)
+     * ```
+     */
+    override fun allGroupsExist(groupIdentities: Set<GroupIdentity>): Boolean {
+        if (groupIdentities.isEmpty()) {
+            return true
+        }
+        // Use half of the max size because the query uses 2 placeholders per group identity
+        val chunkSize = MAX_VARIABLE_NUMBER / 2
+        groupIdentities.chunked(chunkSize).forEach { groupIdentitiesChunk ->
+            val placeholders = groupIdentitiesChunk.joinToString { "(?, ?)" }
+            val sql = """
+                SELECT COUNT(*)
+                FROM ${GroupModelOld.TABLE}
+                WHERE (${GroupModelOld.COLUMN_API_GROUP_ID}, ${GroupModelOld.COLUMN_CREATOR_IDENTITY}) IN ($placeholders)
+            """.trimIndent()
+            val bindArgs = buildList(groupIdentitiesChunk.size * 2) {
+                groupIdentitiesChunk.forEach { groupIdentity ->
+                    add(groupIdentity.apiGroupIdHexString)
+                    add(groupIdentity.creatorIdentity)
+                }
+            }.toTypedArray()
+            databaseProvider.readableDatabase.rawQuery(sql, bindArgs).use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val count = cursor.getLong(0)
+                    if (count < groupIdentitiesChunk.size) {
+                        return false
+                    }
+                } else {
+                    // Cursor is empty
+                    return false
+                }
+            }
+        }
+        return true
+    }
+
     override fun getGroupDatabaseId(groupIdentity: GroupIdentity): Long? {
         val query = SupportSQLiteQueryBuilder.builder(GroupModelOld.TABLE)
             .columns(
                 arrayOf(GroupModelOld.COLUMN_ID),
             ).selection(
                 GroupModelOld.COLUMN_API_GROUP_ID + "=? AND " + GroupModelOld.COLUMN_CREATOR_IDENTITY + "=?",
-                arrayOf<String?>(groupIdentity.groupIdHexString, groupIdentity.creatorIdentity),
+                arrayOf<String?>(groupIdentity.apiGroupIdHexString, groupIdentity.creatorIdentity),
             ).create()
 
         return databaseProvider.readableDatabase.query(query).use { cursor ->
@@ -862,6 +1176,56 @@ class SqliteDatabaseBackend(
                 null
             }
         }
+    }
+
+    /**
+     * **Query:**
+     * ```
+     * SELECT id, apiGroupId, creatorIdentity
+     *   FROM m_group
+     *  WHERE (apiGroupId, creatorIdentity) IN ((?, ?), (?, ?), ...)
+     * ```
+     */
+    override fun getGroupDatabaseIdsByGroupIdentities(groupIdentities: Set<GroupIdentity>): Map<GroupIdentity, GroupDatabaseId> {
+        if (groupIdentities.isEmpty()) {
+            return emptyMap()
+        }
+        // Use half of the max size because the query uses 2 placeholders per group identity
+        val results = mutableMapOf<GroupIdentity, GroupDatabaseId>()
+        val chunkSize = MAX_VARIABLE_NUMBER / 2
+        groupIdentities.chunked(chunkSize).forEach { groupIdentitiesChunk ->
+            val placeholders = groupIdentitiesChunk.joinToString { "(?, ?)" }
+            val sql = """
+                SELECT ${GroupModelOld.COLUMN_ID}, ${GroupModelOld.COLUMN_API_GROUP_ID}, ${GroupModelOld.COLUMN_CREATOR_IDENTITY}
+                FROM ${GroupModelOld.TABLE}
+                WHERE (${GroupModelOld.COLUMN_API_GROUP_ID}, ${GroupModelOld.COLUMN_CREATOR_IDENTITY}) IN ($placeholders)
+            """.trimIndent()
+            val bindArgs = buildList(groupIdentitiesChunk.size * 2) {
+                groupIdentitiesChunk.forEach { groupIdentity ->
+                    add(groupIdentity.apiGroupIdHexString)
+                    add(groupIdentity.creatorIdentity)
+                }
+            }.toTypedArray()
+            databaseProvider.readableDatabase.rawQuery(sql, bindArgs).use { cursor ->
+                while (cursor.moveToNext()) {
+                    val groupDatabaseId = cursor.getLong(
+                        getColumnIndexOrThrow(cursor, GroupModelOld.COLUMN_ID),
+                    )
+                    val groupApiId = cursor.getString(
+                        getColumnIndexOrThrow(cursor, GroupModelOld.COLUMN_API_GROUP_ID),
+                    )
+                    val creatorIdentity = cursor.getString(
+                        getColumnIndexOrThrow(cursor, GroupModelOld.COLUMN_CREATOR_IDENTITY),
+                    )
+                    val groupIdentity = GroupIdentity(
+                        creatorIdentity = creatorIdentity,
+                        groupId = GroupId(groupApiId).toLong(),
+                    )
+                    results[groupIdentity] = groupDatabaseId
+                }
+            }
+        }
+        return results
     }
 
     private fun getGroup(addSelection: (SupportSQLiteQueryBuilder) -> Unit): DbGroup? {
@@ -877,12 +1241,14 @@ class SqliteDatabaseBackend(
                         GroupModelOld.COLUMN_SYNCHRONIZED_AT,
                         GroupModelOld.COLUMN_LAST_UPDATE,
                         GroupModelOld.COLUMN_CONVERSATION_VISIBILITY,
+                        GroupModelOld.COLUMN_CONVERSATION_CATEGORY,
                         GroupModelOld.COLUMN_COLOR_INDEX,
                         GroupModelOld.COLUMN_GROUP_DESC,
                         GroupModelOld.COLUMN_GROUP_DESC_CHANGED_TIMESTAMP,
                         GroupModelOld.COLUMN_USER_STATE,
                         GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_POLICY,
                         GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_EXPIRES_AT,
+                        GroupModelOld.COLUMN_SPAM_REPORTING_STATE,
                     ),
                 )
                 .apply(addSelection)
@@ -914,6 +1280,201 @@ class SqliteDatabaseBackend(
         updateGroupMembers(localGroupDbId, group.members)
     }
 
+    /**
+     * **Query:**
+     * ```
+     * SELECT EXISTS(
+     *  SELECT 1 FROM m_group
+     *   WHERE apiGroupId = ?
+     *     AND creatorIdentity = ?
+     *  LIMIT 1
+     * )
+     * ```
+     */
+    override fun groupExists(groupIdentity: GroupIdentity): Boolean =
+        databaseProvider.readableDatabase.exists(
+            table = GroupModelOld.TABLE,
+            selection = GroupModelOld.COLUMN_API_GROUP_ID + " = ? AND " + GroupModelOld.COLUMN_CREATOR_IDENTITY + " = ?",
+            selectionArgs = arrayOf(groupIdentity.apiGroupIdHexString, groupIdentity.creatorIdentity),
+        )
+
+    override fun anyGroupExists(groupIdentities: Set<GroupIdentity>): Boolean {
+        if (groupIdentities.isEmpty()) {
+            return false
+        }
+        return if (groupIdentities.size > (MAX_VARIABLE_NUMBER / 2)) {
+            anyGroupExistsInternalChunked(groupIdentities)
+        } else {
+            anyGroupExistsInternal(groupIdentities)
+        }
+    }
+
+    /**
+     * Checks if *any* of the given [groupIdentities] exist.
+     *
+     * This query uses 2 placeholders per given [GroupIdentity]. If the number of [groupIdentities] is greater than `MAX_VARIABLE_NUMBER / 2`,
+     * use [anyGroupExistsInternalChunked] instead.
+     *
+     * **Query:**
+     * ```
+     * SELECT EXISTS (
+     *   SELECT 1 FROM m_group
+     *    WHERE (apiGroupId, creatorIdentity) IN ((?, ?), ..., (?, ?))
+     *    LIMIT 1
+     * )
+     * ```
+     */
+    private fun anyGroupExistsInternal(groupIdentities: Set<GroupIdentity>): Boolean {
+        if (groupIdentities.isEmpty()) {
+            return false
+        }
+        val placeholders = groupIdentities.joinToString { "(?, ?)" }
+        val sql = """
+            SELECT EXISTS (
+              SELECT 1 FROM ${GroupModelOld.TABLE}
+              WHERE (${GroupModelOld.COLUMN_API_GROUP_ID}, ${GroupModelOld.COLUMN_CREATOR_IDENTITY}) IN ($placeholders)
+              LIMIT 1
+            )
+        """.trimIndent()
+        val bindingArgs =
+            buildList {
+                groupIdentities.forEach { groupIdentity ->
+                    add(groupIdentity.apiGroupIdHexString)
+                    add(groupIdentity.creatorIdentity)
+                }
+            }.toTypedArray()
+        return databaseProvider
+            .readableDatabase
+            .rawQuery(sql, bindingArgs)
+            .use { cursor ->
+                cursor.moveToFirst() && cursor.getInt(0) == 1
+            }
+    }
+
+    /**
+     * Checks if *any* of the given [groupIdentities] exist.
+     *
+     * The check is performed in chunks to not surpass the max variable count of Sqlite.
+     *
+     * @see MAX_VARIABLE_NUMBER
+     * @see anyGroupExistsInternal
+     */
+    private fun anyGroupExistsInternalChunked(groupIdentities: Set<GroupIdentity>): Boolean {
+        if (groupIdentities.isEmpty()) {
+            return false
+        }
+        // Use half of the max size because the query uses 2 placeholders per group identity
+        val chunkSize = MAX_VARIABLE_NUMBER / 2
+        databaseProvider.readableDatabase.transaction {
+            for (groupIdentitiesChunk in groupIdentities.chunked(chunkSize)) {
+                val anyGroupExists = anyGroupExistsInternal(groupIdentitiesChunk.toSet())
+                if (anyGroupExists) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    /**
+     *  **Query:**
+     *
+     *  ```
+     *  SELECT EXISTS (
+     *   SELECT 1
+     *   FROM group_member gm
+     *   JOIN m_group g ON g.id = gm.groupId
+     *   WHERE gm.identity = ?
+     *     AND g.userState = ?
+     *
+     *   UNION ALL
+     *
+     *   SELECT 1
+     *   FROM m_group
+     *   WHERE creatorIdentity = ?
+     *     AND userState = ?
+     * )
+     * ```
+     */
+    override fun isPartOfAnyGroupWithUserState(contactIdentity: IdentityString, userState: UserState): Boolean {
+        val cursor = databaseProvider.readableDatabase.query(
+            """
+                SELECT EXISTS (
+                  SELECT 1
+                  FROM ${GroupMemberModel.TABLE} gm
+                  JOIN ${GroupModelOld.TABLE} g ON g.${GroupModelOld.COLUMN_ID} = gm.${GroupMemberModel.COLUMN_GROUP_ID}
+                  WHERE gm.${GroupMemberModel.COLUMN_IDENTITY} = ?
+                    AND g.${GroupModelOld.COLUMN_USER_STATE} = ?
+
+                  UNION ALL
+
+                  SELECT 1
+                  FROM ${GroupModelOld.TABLE}
+                  WHERE ${GroupModelOld.COLUMN_CREATOR_IDENTITY} = ?
+                    AND ${GroupModelOld.COLUMN_USER_STATE} = ?
+                )
+            """.trimIndent(),
+            arrayOf<Any>(contactIdentity, userState.value, contactIdentity, userState.value),
+        )
+        return cursor.use {
+            cursor.moveToFirst() && cursor.getInt(0) == 1
+        }
+    }
+
+    /**
+     * **Query:**
+     *
+     * ```
+     * SELECT EXISTS (
+     *   SELECT 1 FROM group_member WHERE identity = ?
+     *   UNION ALL
+     *   SELECT 1 FROM m_group WHERE creatorIdentity = ?
+     * )
+     * ```
+     */
+    override fun isPartOfAnyGroup(contactIdentity: IdentityString): Boolean {
+        val cursor = databaseProvider.readableDatabase.query(
+            """
+                SELECT EXISTS (
+                  SELECT 1 FROM ${GroupMemberModel.TABLE} WHERE ${GroupMemberModel.COLUMN_IDENTITY} = ?
+                  UNION ALL
+                  SELECT 1 FROM ${GroupModelOld.TABLE} WHERE ${GroupModelOld.COLUMN_CREATOR_IDENTITY} = ?
+                )
+            """.trimIndent(),
+            arrayOf(contactIdentity, contactIdentity),
+        )
+        return cursor.use {
+            cursor.moveToFirst() && cursor.getInt(0) == 1
+        }
+    }
+
+    /**
+     * **Query:**
+     *
+     * ```
+     * SELECT apiGroupId, creatorIdentity
+     *   FROM m_group
+     * ```
+     */
+    override fun getAllGroupIdentities(): Set<GroupIdentity> {
+        val groupIdentities = mutableSetOf<GroupIdentity>()
+        val cursor = databaseProvider.readableDatabase.query(
+            "SELECT ${GroupModelOld.COLUMN_API_GROUP_ID}, ${GroupModelOld.COLUMN_CREATOR_IDENTITY} FROM ${GroupModelOld.TABLE}",
+        )
+        cursor.use {
+            while (cursor.moveToNext()) {
+                val groupId = cursor.getString(
+                    getColumnIndexOrThrow(cursor, GroupModelOld.COLUMN_API_GROUP_ID),
+                )
+                val creatorIdentity = cursor.getString(
+                    getColumnIndexOrThrow(cursor, GroupModelOld.COLUMN_CREATOR_IDENTITY),
+                )
+                groupIdentities.add(GroupIdentity(creatorIdentity, GroupId(groupId).toLong()))
+            }
+        }
+        return groupIdentities
+    }
+
     private fun Cursor.getGroup(): DbGroup {
         val localDbId = getLong(getColumnIndexOrThrow(this, GroupModelOld.COLUMN_ID))
         val creatorIdentity =
@@ -937,6 +1498,7 @@ class SqliteDatabaseBackend(
                 ConversationVisibility.NORMAL
             }
         }
+        val conversationCategory = getInt(getColumnIndexOrThrow(this, GroupModelOld.COLUMN_CONVERSATION_CATEGORY))
         val colorIndex = getInt(getColumnIndexOrThrow(this, GroupModelOld.COLUMN_COLOR_INDEX))
         val groupDesc = getStringOrNull(getColumnIndexOrThrow(this, GroupModelOld.COLUMN_GROUP_DESC))
         val groupDescChangedAt = getInstantOrNull(
@@ -956,6 +1518,7 @@ class SqliteDatabaseBackend(
             getIntOrNull(getColumnIndexOrThrow(this, GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_POLICY))
         val notificationTriggerPolicyOverrideExpiresAt =
             getInstantOrNull(getColumnIndexOrThrow(this, GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_EXPIRES_AT))
+        val spamReportingState = getInt(getColumnIndexOrThrow(this, GroupModelOld.COLUMN_SPAM_REPORTING_STATE))
 
         return DbGroup(
             creatorIdentity = creatorIdentity,
@@ -965,6 +1528,7 @@ class SqliteDatabaseBackend(
             synchronizedAt = synchronizedAt,
             lastUpdate = lastUpdate,
             conversationVisibility = conversationVisibility,
+            conversationCategory = conversationCategory,
             colorIndex = colorIndex,
             groupDescription = groupDesc,
             groupDescriptionChangedAt = groupDescChangedAt,
@@ -972,6 +1536,7 @@ class SqliteDatabaseBackend(
             userState = userState,
             notificationTriggerPolicyOverridePolicy = notificationTriggerPolicyOverridePolicy,
             notificationTriggerPolicyOverrideExpiresAt = notificationTriggerPolicyOverrideExpiresAt,
+            spamReportingState = spamReportingState,
         )
     }
 
@@ -981,15 +1546,14 @@ class SqliteDatabaseBackend(
         put(GroupModelOld.COLUMN_LAST_UPDATE, group.lastUpdate?.toEpochMilli())
         put(GroupModelOld.COLUMN_SYNCHRONIZED_AT, group.synchronizedAt?.toEpochMilli())
         put(GroupModelOld.COLUMN_CONVERSATION_VISIBILITY, group.conversationVisibility.serializedValue)
+        put(GroupModelOld.COLUMN_CONVERSATION_CATEGORY, group.conversationCategory)
         put(GroupModelOld.COLUMN_COLOR_INDEX, group.colorIndex)
         put(GroupModelOld.COLUMN_GROUP_DESC, group.groupDescription)
-        put(
-            GroupModelOld.COLUMN_GROUP_DESC_CHANGED_TIMESTAMP,
-            group.groupDescriptionChangedAt?.toEpochMilli(),
-        )
+        put(GroupModelOld.COLUMN_GROUP_DESC_CHANGED_TIMESTAMP, group.groupDescriptionChangedAt?.toEpochMilli())
         put(GroupModelOld.COLUMN_USER_STATE, group.userState.value)
         put(GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_POLICY, group.notificationTriggerPolicyOverridePolicy)
         put(GroupModelOld.COLUMN_NOTIFICATION_TRIGGER_POLICY_OVERRIDE_EXPIRES_AT, group.notificationTriggerPolicyOverrideExpiresAt?.toEpochMilli())
+        put(GroupModelOld.COLUMN_SPAM_REPORTING_STATE, group.spamReportingState)
     }
 
     private fun getLocalGroupDbId(group: DbGroup): Long {
@@ -1041,9 +1605,7 @@ class SqliteDatabaseBackend(
     private fun updateGroupMembers(localDbId: Long, members: Set<String>) {
         // First remove all members that are not part of the group anymore
         val whereGroupId = "${GroupMemberModel.COLUMN_GROUP_ID} = ?"
-        val whereNotMember = "${GroupMemberModel.COLUMN_IDENTITY} NOT IN ( ${
-            members.joinToString(separator = " , ") { "?" }
-        } )"
+        val whereNotMember = "${GroupMemberModel.COLUMN_IDENTITY} NOT IN ( ${makePlaceholders(members.size)} )"
 
         databaseProvider.writableDatabase.delete(
             table = GroupMemberModel.TABLE,
@@ -1069,11 +1631,11 @@ class SqliteDatabaseBackend(
         }
     }
 
-    private companion object {
-        private const val COLUMN_CONTACTS_IDENTITY: String = ContactModel.TABLE + "." + ContactModel.COLUMN_IDENTITY
-        private const val COLUMN_AVAILABILITY_STATUS_IDENTITY: String = DbAvailabilityStatus.TABLE + "." + DbAvailabilityStatus.COLUMN_IDENTITY
-        private const val COLUMN_AVAILABILITY_STATUS_CATEGORY: String = DbAvailabilityStatus.TABLE + "." + DbAvailabilityStatus.COLUMN_CATEGORY
-        private const val COLUMN_AVAILABILITY_STATUS_DESCRIPTION: String = DbAvailabilityStatus.TABLE + "." + DbAvailabilityStatus.COLUMN_DESCRIPTION
+    companion object {
+        private const val COLUMN_CONTACTS_IDENTITY = ContactModel.TABLE + "." + ContactModel.COLUMN_IDENTITY
+        private const val COLUMN_AVAILABILITY_STATUS_IDENTITY = DbAvailabilityStatus.TABLE + "." + DbAvailabilityStatus.COLUMN_IDENTITY
+        private const val COLUMN_AVAILABILITY_STATUS_CATEGORY = DbAvailabilityStatus.TABLE + "." + DbAvailabilityStatus.COLUMN_CATEGORY
+        private const val COLUMN_AVAILABILITY_STATUS_DESCRIPTION = DbAvailabilityStatus.TABLE + "." + DbAvailabilityStatus.COLUMN_DESCRIPTION
 
         /**
          * Sqlite has a max variable number (usually called `SQLITE_MAX_VARIABLE_NUMBER`). This value used to be 999 for historical reasons. In some
@@ -1082,6 +1644,6 @@ class SqliteDatabaseBackend(
          *
          * This value represents what we use as max amount of variables and not what actually is supported.
          */
-        private const val MAX_VARIABLE_NUMBER = 500
+        const val MAX_VARIABLE_NUMBER = 500
     }
 }

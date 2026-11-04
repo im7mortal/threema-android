@@ -5,26 +5,25 @@ import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
-import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import ch.threema.android.buildNotification
+import ch.threema.android.checkGrantedPermission
+import ch.threema.android.getPendingIntentForActivity
 import ch.threema.app.R
 import ch.threema.app.activities.ComposeMessageActivity
 import ch.threema.app.messagereceiver.ContactMessageReceiver
 import ch.threema.app.messagereceiver.GroupMessageReceiver
 import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.preference.service.PreferenceService
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationId
 
 private val logger = getThreemaLogger("ForwardSecurityNotificationManager")
 
 class ForwardSecurityNotificationManager(
     private val context: Context,
-    private val conversationCategoryService: ConversationCategoryService,
     private val preferenceService: PreferenceService,
 ) {
     @SuppressLint("MissingPermission")
@@ -56,16 +55,16 @@ class ForwardSecurityNotificationManager(
 
     private fun hasNotificationPermission() =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ActivityCompat.checkSelfPermission(
-                context,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) == PackageManager.PERMISSION_GRANTED
+            context.checkGrantedPermission(Manifest.permission.POST_NOTIFICATIONS)
         } else {
             true
         }
 
     private fun getNotificationId(conversationId: ConversationId): Int =
-        NotificationIDs.getNotificationIdForConversation(conversationId, offset = 1)
+        NotificationIDs.getNotificationIdForConversation(
+            conversationId = conversationId,
+            offset = NotificationIDs.Offset.FORWARD_SECURITY_NOTIFICATION,
+        )
 
     private fun getIntent(conversationId: ConversationId): PendingIntent {
         val intent = ComposeMessageActivity.createIntent(
@@ -77,24 +76,16 @@ class ForwardSecurityNotificationManager(
             conversationId = conversationId,
             action = NotificationRequestCodes.ConversationNotificationAction.FORWARD_SECURITY,
         )
-        return PendingIntent.getActivity(
-            /* context = */
-            context,
-            /* requestCode = */
-            requestCode,
-            /* intent = */
-            intent,
-            /* flags = */
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        return getPendingIntentForActivity(
+            context = context,
+            requestCode = requestCode,
+            intent = intent,
+            flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
     }
 
-    private fun getNotificationContextText(messageReceiver: MessageReceiver<*>): String {
-        // Do not include name in case of a hidden contact. The intent remains the same, so clicking
-        // the notification will still result in opening the correct chat.
-        return if (conversationCategoryService.isMarkedAsPrivate(messageReceiver.conversationId)) {
-            context.getString(R.string.forward_security_notification_rejected_text_generic)
-        } else {
+    private fun getNotificationContextText(messageReceiver: MessageReceiver<*>): String = when (messageReceiver.conversationCategory) {
+        ConversationCategory.DEFAULT -> {
             when (messageReceiver) {
                 is ContactMessageReceiver -> context.getString(
                     R.string.forward_security_notification_rejected_text_contact,
@@ -107,9 +98,15 @@ class ForwardSecurityNotificationManager(
                 )
 
                 // Note that messages in distribution lists are rejected in the corresponding 1:1
-                // chat and therefore handled via contact message receiver.
+                // conversation and therefore handled via contact message receiver.
                 else -> throw IllegalArgumentException("Cannot show notification for unexpected receiver type: " + messageReceiver.type)
             }
+        }
+
+        ConversationCategory.PROTECTED -> {
+            // Do not include name in case of a protected contact. The intent remains the same, so clicking
+            // the notification will still result in opening the correct conversation.
+            context.getString(R.string.forward_security_notification_rejected_text_generic)
         }
     }
 }

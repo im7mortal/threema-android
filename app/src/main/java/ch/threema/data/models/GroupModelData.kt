@@ -1,5 +1,7 @@
 package ch.threema.data.models
 
+import ch.threema.data.datatypes.ConversationCategory
+import ch.threema.data.datatypes.ConversationSpamReportingState
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverride
@@ -19,6 +21,8 @@ data class GroupModelData(
     @JvmField val lastUpdate: Instant?,
     /** The conversation visibility of this group chat. */
     @JvmField val conversationVisibility: ConversationVisibility,
+    /** Whether the conversation is private or not. */
+    @JvmField val conversationCategory: ConversationCategory,
     /**
      * The precomputed id color if it is already known. If the id color is not set, it will be
      * computed lazily. Access the id color with [idColor].
@@ -34,6 +38,7 @@ data class GroupModelData(
     @JvmField val otherMembers: Set<IdentityString>,
     @JvmField val userState: UserState,
     @JvmField val notificationTriggerPolicyOverride: GroupNotificationTriggerPolicyOverride?,
+    @JvmField val spamReportingState: ConversationSpamReportingState,
 ) {
     init {
         require(groupIdentity.creatorIdentity !in otherMembers) {
@@ -72,6 +77,24 @@ data class GroupModelData(
                 addAll(otherMembers)
             },
         )
+    }
+
+    /**
+     *  Count all group members.
+     *  This includes the user's identity and the creator's identity.
+     */
+    fun countAllMembers(userIdentity: IdentityString): Int {
+        // Count without user and creator
+        var count = otherMembers.size
+        // If the user is a member, add user to count
+        if (isMember) {
+            count++
+        }
+        // If the user is not the creator, add creator to count
+        if (groupIdentity.creatorIdentity != userIdentity) {
+            count++
+        }
+        return count
     }
 
     /**

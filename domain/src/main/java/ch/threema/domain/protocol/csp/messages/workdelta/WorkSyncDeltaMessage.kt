@@ -3,6 +3,7 @@ package ch.threema.domain.protocol.csp.messages.workdelta
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.protocol.csp.messages.AbstractMessage
 import ch.threema.domain.protocol.csp.messages.BadMessageException
+import ch.threema.domain.protocol.csp.messages.ExemptFromBlocking
 import ch.threema.protobuf.csp.e2e.WorkSyncDelta
 import ch.threema.protobuf.csp.e2e.fs.Version
 import com.google.protobuf.InvalidProtocolBufferException
@@ -22,7 +23,7 @@ class WorkSyncDeltaMessage(
 
     override fun allowUserProfileDistribution(): Boolean = false
 
-    override fun exemptFromBlocking(): Boolean = true
+    override fun exemptFromBlocking(): ExemptFromBlocking = ExemptFromBlocking.YES
 
     override fun createImplicitlyDirectContact(): Boolean = false
 

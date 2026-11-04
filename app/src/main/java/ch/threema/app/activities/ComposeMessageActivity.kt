@@ -27,33 +27,36 @@ import ch.threema.app.dialogs.GenericAlertDialog.DialogClickListener
 import ch.threema.app.fragments.composemessage.ComposeMessageFragment
 import ch.threema.app.preference.SettingsActivity
 import ch.threema.app.preference.service.PreferenceService
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.startup.AppStartupAware
 import ch.threema.app.startup.waitUntilReady
+import ch.threema.app.usecases.conversation.GetConversationCategoryUseCase
 import ch.threema.app.utils.ConfigUtils
+import ch.threema.app.utils.ContactLookupUtil
 import ch.threema.app.utils.ShortcutUtil
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationId
 import ch.threema.data.datatypes.DistributionListConversationId
 import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.domain.types.GroupDatabaseId
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.ContactMessageModel
 import ch.threema.storage.models.DistributionListMessageModel
-import ch.threema.storage.models.group.GroupMessageModel
+import ch.threema.storage.models.GroupMessageModel
+import ch.threema.storage.models.MessageModel
 import org.koin.android.ext.android.inject
 
 private val logger = getThreemaLogger("ComposeMessageActivity")
 
-class ComposeMessageActivity : ThreemaToolbarActivity(), DialogClickListener, AppStartupAware {
+class ComposeMessageActivity : ThreemaToolbarActivity(), DialogClickListener, AppStartupAware, BackPressHandler {
     init {
         logScreenVisibility(logger)
     }
 
-    private val conversationCategoryService: ConversationCategoryService by inject()
     private val preferenceService: PreferenceService by inject()
+    private val getConversationCategoryUseCase: GetConversationCategoryUseCase by inject()
 
     private var composeMessageFragment: ComposeMessageFragment? = null
     private var conversationsFragment: ConversationsFragment? = null
@@ -89,19 +92,25 @@ class ComposeMessageActivity : ThreemaToolbarActivity(), DialogClickListener, Ap
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         logger.info("onCreate")
-        window.setAllowEnterTransitionOverlap(true)
-        window.setAllowReturnTransitionOverlap(true)
+        window.allowEnterTransitionOverlap = true
+        window.allowReturnTransitionOverlap = true
         currentIntent = intent
 
         super.onCreate(savedInstanceState)
+        if (isFinishing) {
+            return
+        }
 
         // TODO(ANDR-4389): Improve the waiting mechanism
         waitUntilReady {
             if (supportFragmentManager.isStateSaved) {
                 logger.warn("Fragment state already saved")
             }
-            initActivity(savedInstanceState)
-            handleDeviceInsets()
+            if (initActivity(savedInstanceState)) {
+                handleDeviceInsets()
+            } else {
+                finish()
+            }
         }
     }
 
@@ -115,7 +124,11 @@ class ComposeMessageActivity : ThreemaToolbarActivity(), DialogClickListener, Ap
 
         val conversationId: ConversationId = intent?.extractConversationId()
             ?: run {
-                logger.warn("Can't open conversation, didn't receive conversation id in intent")
+                ContactLookupUtil.getIdentityFromContactViewIntent(this, intent)
+                    ?.let(::ContactConversationId)
+            }
+            ?: run {
+                logger.warn("Can't open conversation, didn't receive conversation id or contact uri in intent")
                 return false
             }
 
@@ -188,8 +201,6 @@ class ComposeMessageActivity : ThreemaToolbarActivity(), DialogClickListener, Ap
         }
     }
 
-    override fun enableOnBackPressedCallback() = true
-
     override fun handleOnBackPressed() {
         logger.info("handleOnBackPressed")
         if (ConfigUtils.isTabletLayout() && conversationsFragment?.onBackPressed() == true) {
@@ -225,7 +236,7 @@ class ComposeMessageActivity : ThreemaToolbarActivity(), DialogClickListener, Ap
     }
 
     private fun checkHiddenConversationLock(conversationId: ConversationId, launcher: ActivityResultLauncher<Unit>): Boolean {
-        if (conversationCategoryService.isMarkedAsPrivate(conversationId)) {
+        if (getConversationCategoryUseCase.call(conversationId) == ConversationCategory.PROTECTED) {
             if (preferenceService.hasLockMechanism()) {
                 launcher.launch()
             } else {
@@ -315,7 +326,7 @@ class ComposeMessageActivity : ThreemaToolbarActivity(), DialogClickListener, Ap
         @Suppress("KotlinConstantConditions")
         fun createIntentJumpToMessage(
             context: Context,
-            message: AbstractMessageModel,
+            message: MessageModel,
             overrideBackToHomeBehavior: Boolean? = null,
         ) =
             if (BuildConfig.NEW_CONVERSATION_SCREEN_ENABLED) {
@@ -338,7 +349,7 @@ class ComposeMessageActivity : ThreemaToolbarActivity(), DialogClickListener, Ap
                                     distributionListId = message.distributionListId,
                                 )
                             }
-                            else -> {
+                            is ContactMessageModel -> {
                                 val identity = message.identity
                                 requireNotNull(identity) { "Message is missing identity" }
                                 ContactConversationId(identity)

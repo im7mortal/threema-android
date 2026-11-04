@@ -31,7 +31,7 @@ import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.models.EmojiReactionData
 import ch.threema.data.repositories.EmojiReactionsRepository.ReactionMessageIdentifier
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetBehavior.BottomSheetCallback
 import com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_COLLAPSED
@@ -57,7 +57,7 @@ class EmojiReactionsOverviewActivity : ThreemaToolbarActivity() {
     private lateinit var viewPager: ViewPager2
     private lateinit var parentLayout: CoordinatorLayout
     private var initialItem: String? = null
-    private var messageModel: AbstractMessageModel? = null
+    private var messageModel: MessageModel? = null
     private val items = mutableListOf<EmojiReactionItems>()
     private var tabLayoutMediator: TabLayoutMediator? = null
     private var emojiReactionsOverviewAdapter: EmojiReactionsOverviewAdapter? = null
@@ -80,7 +80,7 @@ class EmojiReactionsOverviewActivity : ThreemaToolbarActivity() {
             overrideActivityTransition(OVERRIDE_TRANSITION_CLOSE, 0, 0)
         }
 
-        messageModel = IntentDataUtil.getAbstractMessageModel(intent, messageService)
+        messageModel = IntentDataUtil.getMessageModel(intent, messageService)
         messageModel?.let { message ->
 
             val reactionMessageIdentifier: ReactionMessageIdentifier =
@@ -137,7 +137,7 @@ class EmojiReactionsOverviewActivity : ThreemaToolbarActivity() {
     private fun onViewStateChanged(
         emojiReactions: List<EmojiReactionData>,
         emojiReactionsViewModel: EmojiReactionsViewModel,
-        message: AbstractMessageModel,
+        message: MessageModel,
     ) {
         val oldItems = items.toList()
 
@@ -193,7 +193,7 @@ class EmojiReactionsOverviewActivity : ThreemaToolbarActivity() {
      */
     private fun setupViewPagerAdapter(
         emojiReactionsViewModel: EmojiReactionsViewModel,
-        messageModel: AbstractMessageModel,
+        messageModel: MessageModel,
     ) {
         emojiReactionsOverviewAdapter = EmojiReactionsOverviewAdapter(
             this,
@@ -331,7 +331,7 @@ class EmojiReactionsOverviewActivity : ThreemaToolbarActivity() {
 
     private fun recreateViewPager(
         emojiReactionsViewModel: EmojiReactionsViewModel,
-        messageModel: AbstractMessageModel,
+        messageModel: MessageModel,
     ) {
         // Detach existing TabLayoutMediator (if any)
         tabLayoutMediator?.detach()

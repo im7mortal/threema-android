@@ -43,8 +43,8 @@ public class GroupSetProfilePictureMessage extends AbstractGroupMessage {
     }
 
     @Override
-    public boolean exemptFromBlocking() {
-        return true;
+    public ExemptFromBlocking exemptFromBlocking() {
+        return ExemptFromBlocking.YES;
     }
 
     @Override

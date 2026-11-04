@@ -19,11 +19,12 @@ import org.slf4j.Logger;
 import androidx.annotation.NonNull;
 
 import androidx.annotation.Nullable;
+import ch.threema.app.BuildFlavor;
+
 import ch.threema.app.R;
 import ch.threema.app.ui.interop.ButtonPrimaryXml;
 import ch.threema.app.dialogs.WizardDialog;
 import ch.threema.app.threemasafe.ThreemaSafeServerInfo;
-import ch.threema.app.utils.ConfigUtils;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
@@ -76,7 +77,7 @@ public class WizardFragment4 extends WizardFragment implements View.OnClickListe
         emailWarnText.setOnClickListener(this);
         phoneWarnText.setOnClickListener(this);
 
-        if (!ConfigUtils.isWorkBuild()) {
+        if (!BuildFlavor.IS_WORK) {
             rootView.findViewById(R.id.wizard_email_layout).setVisibility(View.GONE);
             rootView.findViewById(R.id.wizard_email_error_layout).setVisibility(View.GONE);
         }

@@ -1,13 +1,14 @@
 package ch.threema.app.workers
 
-import org.koin.core.module.dsl.factoryOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
 
 val workersFeatureModule = module {
-    factoryOf(::WorkerStartupScheduler)
-    factoryOf(AutoDeleteWorker::Scheduler)
-    factoryOf(ContactUpdateWorker::Scheduler)
-    factoryOf(GatewayProfilePicturesWorker::Scheduler)
-    factoryOf(ShareTargetUpdateWorker::Scheduler)
-    factoryOf(WorkSyncWorker::Scheduler)
+    factory<WorkerStartupScheduler>()
+    factory<AutoDeleteWorker.Scheduler>()
+    factory<ContactUpdateWorker.Scheduler>()
+    factory<GatewayProfilePicturesWorker.Scheduler>()
+    factory<ShareTargetUpdateWorker.Scheduler>()
+    factory<WorkSyncWorker.Scheduler>()
+    factory<AppRestartWorker.Scheduler>()
 }

@@ -193,6 +193,16 @@ interface GroupCallManager {
     )
 
     /**
+     * Removes the given [identity] from the group call in [groupModel] if there is currently a
+     * group call running. Note that the group call is left if [identity] is the user's identity.
+     */
+    @AnyThread
+    fun removeGroupCallParticipant(
+        identity: IdentityString,
+        groupModel: GroupModel,
+    )
+
+    /**
      *  Creates a *cold* [Flow] that emits the latest running group calls state.
      *
      *  ##### Direct emit promise

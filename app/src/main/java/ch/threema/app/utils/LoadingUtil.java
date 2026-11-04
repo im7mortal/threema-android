@@ -23,7 +23,7 @@ public class LoadingUtil {
             } catch (Exception x) {
                 logger.error("Exception", x);
             } finally {
-                RuntimeUtil.runOnUiThread(() -> DialogUtil.dismissDialog(fragmentManager, DIALOG_TAG_PROGRESS_LOADINGUTIL, true));
+                RuntimeUtil.runOnUiThread(() -> DialogUtil.dismissDialog(fragmentManager, DIALOG_TAG_PROGRESS_LOADINGUTIL));
             }
 
         });

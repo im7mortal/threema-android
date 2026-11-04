@@ -137,7 +137,7 @@ public class WizardFingerPrintActivity extends ThreemaAppCompatActivity
 
             @Override
             protected void onPostExecute(String errorString) {
-                DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_CREATE_ID, true);
+                DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_CREATE_ID);
 
                 if (isNullOrEmpty(errorString)) {
                     Intent intent = new Intent(WizardFingerPrintActivity.this, WizardBaseActivity.class);

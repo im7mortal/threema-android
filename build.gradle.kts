@@ -2,15 +2,9 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import utils.LocalProperties
 
-
 LocalProperties.init(project.rootProject)
 
 buildscript {
-    repositories {
-        google()
-        mavenCentral()
-        flatDir { dir("app/libs") }
-    }
     dependencies {
         classpath(libs.kotlin.gradle)
         classpath(libs.android.gradle)
@@ -24,49 +18,16 @@ buildscript {
 }
 
 plugins {
-    alias(libs.plugins.jacoco)
-    alias(libs.plugins.sonarqube)
     alias(libs.plugins.ktlint)
     alias(libs.plugins.compose.compiler) apply false
 }
 
 allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven("https://jitpack.io")
-        flatDir { dir("libs") }
-
-        // Huawei
-        exclusiveContent {
-            forRepository {
-                maven("https://developer.huawei.com/repo/")
-            }
-            filter {
-                // Only matching dependencies will be installed from this repository.
-                includeGroup("com.huawei.hms")
-                includeGroup("com.huawei.android.hms")
-                includeGroup("com.huawei.hmf")
-            }
-        }
-    }
-
     group = "ch.threema"
 }
 
 tasks.wrapper {
     distributionType = Wrapper.DistributionType.ALL
-}
-
-sonarqube {
-    properties {
-        property("sonar.projectKey", "android-client")
-        property("sonar.projectName", "Threema for Android")
-    }
-}
-
-jacoco {
-    toolVersion = "0.8.7"
 }
 
 subprojects {
@@ -79,16 +40,6 @@ subprojects {
         }
     }
 
-    configurations.configureEach {
-        resolutionStrategy {
-            eachDependency {
-                if (requested.group == "org.jacoco") {
-                    useVersion("0.8.7")
-                }
-            }
-        }
-    }
-
     ktlint {
         outputToConsole = true
         android = true
@@ -98,29 +49,5 @@ subprojects {
                 entry.file.path.contains("/build/")
             }
         }
-    }
-}
-
-// task to gather code coverage from multiple subprojects
-// NOTE: the `JacocoReport` tasks do *not* depend on the `test` task by default. Meaning you have to ensure
-// that `test` (or other tasks generating code coverage) run before generating the report.
-tasks.register<JacocoReport>("codeCoverageReport") {
-    // If a subproject applies the 'jacoco' plugin, add the result it to the report
-    subprojects {
-        val subproject = this
-        plugins.withType<JacocoPlugin>()
-            .configureEach {
-                tasks
-                    .matching { it.extensions.findByType<JacocoTaskExtension>() != null }
-                    .configureEach {
-                        sourceSets(
-                            subproject.extensions.getByType(SourceSetContainer::class.java).getByName("main"),
-                        )
-                    }
-            }
-    }
-
-    reports {
-        xml.required = true
     }
 }

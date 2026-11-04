@@ -9,7 +9,6 @@ import ch.threema.app.services.UserService
 import ch.threema.base.crypto.SymmetricEncryptionService
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.datatypes.AvailabilityStatus
-import ch.threema.domain.models.AppVersion
 import ch.threema.domain.protocol.ServerAddressProvider
 import ch.threema.domain.protocol.blob.BlobScope
 import ch.threema.domain.protocol.connection.d2m.MultiDevicePropertyProvider
@@ -28,11 +27,10 @@ private val logger = getThreemaLogger("ReflectedUserProfileSyncTask")
 class ReflectedUserProfileSyncTask(
     private val userProfileSync: UserProfileSync,
     private val userService: UserService,
-    private val okHttpClient: OkHttpClient,
+    private val blobDownloadOkHttpClient: OkHttpClient,
     private val serverAddressProvider: ServerAddressProvider,
     private val multiDevicePropertyProvider: MultiDevicePropertyProvider,
     private val symmetricEncryptionService: SymmetricEncryptionService,
-    private val appVersion: AppVersion,
     private val preferenceService: PreferenceService,
     private val profilePictureRecipientsService: ProfilePictureRecipientsService,
 ) {
@@ -128,14 +126,14 @@ class ReflectedUserProfileSyncTask(
         val phoneIdentityLink = userProfile.identityLinks.linksList.firstOrNull { identityLink ->
             identityLink.typeCase == IdentityLink.TypeCase.PHONE_NUMBER
         }
-        userService.persistPhoneIdentityLinkFromSync(phoneIdentityLink?.phoneNumber, TriggerSource.SYNC)
+        userService.persistPhoneIdentityLink(phoneIdentityLink?.phoneNumber)
 
         // Note: We only consider the first provided email link. If there is no email identity link, we remove the locally persisted linked email
         // address.
         val emailIdentityLink = userProfile.identityLinks.linksList.firstOrNull { identityLink ->
             identityLink.typeCase == IdentityLink.TypeCase.EMAIL
         }
-        userService.persistEmailIdentityLinkFromSync(emailIdentityLink?.email, TriggerSource.SYNC)
+        userService.persistEmailIdentityLink(emailIdentityLink?.email)
 
         // Do some sanity checks on provided identity links. This just logs if there are ignored or invalid identity links.
         userProfile.identityLinks.linksList.forEach { identityLink ->
@@ -173,8 +171,7 @@ class ReflectedUserProfileSyncTask(
 
     private fun loadAndPersistUserProfilePicture(profilePicture: DeltaImage) {
         val blobLoadingResult: ReflectedBlobDownloader.BlobLoadingResult = profilePicture.updated.blob.loadAndMarkAsDone(
-            okHttpClient = okHttpClient,
-            version = appVersion,
+            blobDownloadOkHttpClient = blobDownloadOkHttpClient,
             serverAddressProvider = serverAddressProvider,
             multiDevicePropertyProvider = multiDevicePropertyProvider,
             symmetricEncryptionService = symmetricEncryptionService,

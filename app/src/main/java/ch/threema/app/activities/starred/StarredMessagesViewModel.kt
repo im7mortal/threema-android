@@ -14,18 +14,19 @@ import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.framework.BaseViewModel
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.MessageService
 import ch.threema.app.services.poll.PollService
 import ch.threema.app.usecases.GetStarredMessagesUseCase
 import ch.threema.app.usecases.StarredMessageWithMentionInfo
 import ch.threema.app.usecases.avatar.GetAndPrepareAvatarUseCase
+import ch.threema.app.usecases.conversation.GetConversationCategoryUseCase
 import ch.threema.app.usecases.groups.GetGroupDisplayNameUseCase
 import ch.threema.common.DispatcherProvider
 import ch.threema.common.takeUnlessBlank
 import ch.threema.data.IdentityProvider
 import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.datatypes.ContactNameFormat
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationId
 import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.data.repositories.ContactModelRepository
@@ -33,15 +34,17 @@ import ch.threema.data.repositories.GroupModelRepository
 import ch.threema.domain.types.Identity
 import ch.threema.domain.types.MessageUid
 import ch.threema.domain.types.toIdentityOrNull
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.ContactMessageModel
+import ch.threema.storage.models.DistributionListMessageModel
+import ch.threema.storage.models.GroupMessageModel
 import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.DisplayTag.DISPLAY_TAG_NONE
-import ch.threema.storage.models.group.GroupMessageModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 
 class StarredMessagesViewModel(
+    private val getConversationCategoryUseCase: GetConversationCategoryUseCase,
     private val getStarredMessagesUseCase: GetStarredMessagesUseCase,
     private val preferenceService: PreferenceService,
     private val contactService: ContactService,
@@ -49,7 +52,6 @@ class StarredMessagesViewModel(
     private val groupModelRepository: GroupModelRepository,
     private val messageService: MessageService,
     private val pollService: PollService,
-    private val conversationCategoryService: ConversationCategoryService,
     private val dispatcherProvider: DispatcherProvider,
     private val getAndPrepareAvatarUseCase: GetAndPrepareAvatarUseCase,
     private val identityProvider: IdentityProvider,
@@ -100,8 +102,8 @@ class StarredMessagesViewModel(
                 query = currentViewState.query,
                 order = currentViewState.sortOrder,
             ).mapNotNull { starredMessageWithMentionInfo ->
-                when (starredMessageWithMentionInfo.abstractMessageModel) {
-                    is MessageModel -> mapToStarredContactMessageUiModel(
+                when (starredMessageWithMentionInfo.messageModel) {
+                    is ContactMessageModel -> mapToStarredContactMessageUiModel(
                         ownIdentity = ownIdentity,
                         starredMessageWithMentionInfo = starredMessageWithMentionInfo,
                     )
@@ -110,7 +112,7 @@ class StarredMessagesViewModel(
                         starredMessageWithMentionInfo = starredMessageWithMentionInfo,
                         contactNameFormat = contactNameFormat,
                     )
-                    else -> null
+                    is DistributionListMessageModel -> null
                 }
             }.map { starredMessageUiModel ->
                 StarredMessageListItemUiModel(
@@ -131,19 +133,19 @@ class StarredMessagesViewModel(
         ownIdentity: Identity,
         starredMessageWithMentionInfo: StarredMessageWithMentionInfo,
     ): StarredMessageUiModel.StarredContactMessage? {
-        val abstractMessageModel = starredMessageWithMentionInfo.abstractMessageModel
-        val messageUid: MessageUid = abstractMessageModel.uid
+        val messageModel = starredMessageWithMentionInfo.messageModel
+        val messageUid: MessageUid = messageModel.uid
             ?: return null
-        val messageIdentity = abstractMessageModel.identity
+        val messageIdentity = messageModel.identity
             ?.toIdentityOrNull()
             ?: return null
-        val conversationParticipantSender = if (abstractMessageModel.isOutbox) {
+        val conversationParticipantSender = if (messageModel.isOutbox) {
             ConversationParticipant.Me(ownIdentity)
         } else {
             getConversationParticipantContact(identity = messageIdentity)
         }
         conversationParticipantSender ?: return null
-        val conversationParticipantReceiver = if (abstractMessageModel.isOutbox) {
+        val conversationParticipantReceiver = if (messageModel.isOutbox) {
             getConversationParticipantContact(identity = messageIdentity)
         } else {
             ConversationParticipant.Me(ownIdentity)
@@ -151,12 +153,12 @@ class StarredMessagesViewModel(
         conversationParticipantReceiver ?: return null
         val showWorkBadge = contactService.showIdentityTypeBadge(messageIdentity.value)
         val conversationId = ContactConversationId(messageIdentity.value)
-        val isPrivate = conversationCategoryService.isMarkedAsPrivate(conversationId)
+        val isPrivate = getConversationCategoryUseCase.call(conversationId) == ConversationCategory.PROTECTED
 
         return StarredMessageUiModel.StarredContactMessage(
             uid = messageUid,
-            messageModel = abstractMessageModel,
-            messageContent = getMessageContent(abstractMessageModel),
+            messageModel = messageModel,
+            messageContent = getMessageContent(messageModel),
             mentionNames = starredMessageWithMentionInfo.mentionedNames,
             sender = conversationParticipantSender,
             receiver = conversationParticipantReceiver,
@@ -171,7 +173,7 @@ class StarredMessagesViewModel(
         starredMessageWithMentionInfo: StarredMessageWithMentionInfo,
         contactNameFormat: ContactNameFormat,
     ): StarredMessageUiModel.StarredGroupMessage? {
-        val groupMessageModel = starredMessageWithMentionInfo.abstractMessageModel as? GroupMessageModel
+        val groupMessageModel = starredMessageWithMentionInfo.messageModel as? GroupMessageModel
             ?: return null
         val groupModel = groupModelRepository.getByGroupDatabaseId(
             groupDatabaseId = groupMessageModel.groupId.toLong(),
@@ -201,7 +203,7 @@ class StarredMessagesViewModel(
                 groupModel = groupModel,
                 contactNameFormat = contactNameFormat,
             ),
-            isPrivate = conversationCategoryService.isMarkedAsPrivate(conversationId),
+            isPrivate = getConversationCategoryUseCase.call(conversationId) == ConversationCategory.PROTECTED,
         )
     }
 
@@ -218,26 +220,26 @@ class StarredMessagesViewModel(
     /**
      *  Same implementation as [ch.threema.app.globalsearch.GlobalSearchAdapter.setSnippetToTextView]
      */
-    private fun getMessageContent(abstractMessageModel: AbstractMessageModel): ResolvableString? =
-        when (abstractMessageModel.type) {
-            MessageType.TEXT -> abstractMessageModel.body?.takeUnlessBlank()?.toResolvedString()
-            MessageType.FILE -> abstractMessageModel.caption?.takeUnlessBlank()?.toResolvedString()
-            MessageType.POLL -> getPollMessageContent(abstractMessageModel)
-            MessageType.LOCATION -> getLocationMessageContent(abstractMessageModel)
+    private fun getMessageContent(messageModel: MessageModel): ResolvableString? =
+        when (messageModel.type) {
+            MessageType.TEXT -> messageModel.body?.takeUnlessBlank()?.toResolvedString()
+            MessageType.FILE -> messageModel.caption?.takeUnlessBlank()?.toResolvedString()
+            MessageType.POLL -> getPollMessageContent(messageModel)
+            MessageType.LOCATION -> getLocationMessageContent(messageModel)
             else -> null
         }
 
-    private fun getPollMessageContent(abstractMessageModel: AbstractMessageModel): ResolvableString =
-        abstractMessageModel
+    private fun getPollMessageContent(messageModel: MessageModel): ResolvableString =
+        messageModel
             .body
             ?.takeUnlessBlank()
-            ?.let { pollService.get(abstractMessageModel.pollData.pollId) }
+            ?.let { pollService.get(messageModel.pollData.pollId) }
             ?.name
             ?.toResolvedString()
             ?: ResourceIdString(R.string.attach_ballot)
 
-    private fun getLocationMessageContent(abstractMessageModel: AbstractMessageModel): ResolvableString? =
-        abstractMessageModel
+    private fun getLocationMessageContent(messageModel: MessageModel): ResolvableString? =
+        messageModel
             .locationData
             .poi
             ?.getSnippetForSearchOrNull()
@@ -245,7 +247,7 @@ class StarredMessagesViewModel(
 
     fun removeStarsFromSelectedMessages() {
         runAction {
-            val selectedMessageModels: List<AbstractMessageModel> = currentViewState
+            val selectedMessageModels: List<MessageModel> = currentViewState
                 .listItems
                 .filter(StarredMessageListItemUiModel::isSelected)
                 .map { starredMessageListItemUiModel ->
@@ -253,9 +255,9 @@ class StarredMessagesViewModel(
                 }
 
             withContext(dispatcherProvider.io) {
-                selectedMessageModels.forEach { abstractMessageModel ->
-                    abstractMessageModel.displayTags = DISPLAY_TAG_NONE
-                    messageService.save(abstractMessageModel)
+                selectedMessageModels.forEach { messageModel ->
+                    messageModel.displayTags = DISPLAY_TAG_NONE
+                    messageService.save(messageModel)
                 }
             }
 

@@ -9,7 +9,7 @@ import androidx.annotation.NonNull;
 import static ch.threema.storage.databaseupdate.DatabaseUpdateExtensionsKt.fieldExists;
 
 /**
- * add caption field to normal, group and distribution list message models
+ * add quotedMessageId field to normal, group and distribution list message models
  */
 public class DatabaseUpdateToVersion60 implements DatabaseUpdate {
 
@@ -32,11 +32,6 @@ public class DatabaseUpdateToVersion60 implements DatabaseUpdate {
                 sqLiteDatabase.rawExecSQL("ALTER TABLE " + table + " ADD COLUMN quotedMessageId VARCHAR NULL");
             }
         }
-    }
-
-    @Override
-    public String getDescription() {
-        return "add quoted message id";
     }
 
     @Override

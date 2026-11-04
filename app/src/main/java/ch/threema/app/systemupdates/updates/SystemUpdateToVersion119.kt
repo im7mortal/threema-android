@@ -5,6 +5,9 @@ import ch.threema.app.stores.PreferenceStore
 import ch.threema.common.takeUnlessEmpty
 import org.koin.core.component.inject
 
+/**
+ * store oppf url in unencrypted format
+ */
 class SystemUpdateToVersion119 : SystemUpdate {
 
     private val preferenceStore: PreferenceStore by inject()
@@ -20,6 +23,4 @@ class SystemUpdateToVersion119 : SystemUpdate {
     }
 
     override val version = 119
-
-    override fun getDescription() = "store oppf url in unencrypted format"
 }

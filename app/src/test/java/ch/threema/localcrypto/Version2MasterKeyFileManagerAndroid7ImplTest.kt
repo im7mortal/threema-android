@@ -12,6 +12,7 @@ import ch.threema.localcrypto.models.Version2MasterKeyStorageInnerData
 import ch.threema.localcrypto.models.Version2MasterKeyStorageOuterData
 import ch.threema.testhelpers.cryptographicByteArrayOf
 import ch.threema.testhelpers.loadResourceAsBytes
+import io.mockk.mockk
 import java.io.File
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -28,6 +29,7 @@ class Version2MasterKeyFileManagerAndroid7ImplTest {
     fun setUp() {
         file = File.createTempFile("key", ".dat")
         masterKeyFileManager = Version2MasterKeyFileManagerAndroid7Impl(
+            appContext = mockk(),
             legacyKeyFile = file,
             encoder = Version2MasterKeyStorageEncoder(),
             decoder = Version2MasterKeyStorageDecoder(),
@@ -60,6 +62,7 @@ class Version2MasterKeyFileManagerAndroid7ImplTest {
     @Test
     fun `write unprotected key file`() {
         val masterKeyFileManager = Version2MasterKeyFileManagerAndroid7Impl(
+            appContext = mockk(),
             legacyKeyFile = file,
             encoder = Version2MasterKeyStorageEncoder(),
             decoder = Version2MasterKeyStorageDecoder(),
@@ -91,6 +94,7 @@ class Version2MasterKeyFileManagerAndroid7ImplTest {
             ),
         )
         val masterKeyFileManager = Version2MasterKeyFileManagerAndroid7Impl(
+            appContext = mockk(),
             legacyKeyFile = file,
             encoder = Version2MasterKeyStorageEncoder(),
             decoder = Version2MasterKeyStorageDecoder(),
@@ -127,6 +131,7 @@ class Version2MasterKeyFileManagerAndroid7ImplTest {
     @Test
     fun `write passphrase protected key file`() {
         val masterKeyFileManager = Version2MasterKeyFileManagerAndroid7Impl(
+            appContext = mockk(),
             legacyKeyFile = file,
             encoder = Version2MasterKeyStorageEncoder(),
             decoder = Version2MasterKeyStorageDecoder(),
@@ -166,6 +171,7 @@ class Version2MasterKeyFileManagerAndroid7ImplTest {
             ),
         )
         val masterKeyFileManager = Version2MasterKeyFileManagerAndroid7Impl(
+            appContext = mockk(),
             legacyKeyFile = file,
             encoder = Version2MasterKeyStorageEncoder(),
             decoder = Version2MasterKeyStorageDecoder(),
@@ -203,6 +209,7 @@ class Version2MasterKeyFileManagerAndroid7ImplTest {
     @Test
     fun `write remote secret protected key file`() {
         val masterKeyFileManager = Version2MasterKeyFileManagerAndroid7Impl(
+            appContext = mockk(),
             legacyKeyFile = file,
             encoder = Version2MasterKeyStorageEncoder(),
             decoder = Version2MasterKeyStorageDecoder(),
@@ -242,6 +249,7 @@ class Version2MasterKeyFileManagerAndroid7ImplTest {
             ),
         )
         val masterKeyFileManager = Version2MasterKeyFileManagerAndroid7Impl(
+            appContext = mockk(),
             legacyKeyFile = file,
             encoder = Version2MasterKeyStorageEncoder(),
             decoder = Version2MasterKeyStorageDecoder(),

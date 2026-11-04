@@ -6,9 +6,7 @@ import androidx.annotation.WorkerThread
 import ch.threema.app.eventbus.GlobalEventFlows
 import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.messagereceiver.MessageReceiver
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.FileService
-import ch.threema.app.utils.MessageUtil
 import ch.threema.app.utils.executor.HandlerExecutor
 import ch.threema.app.webclient.Protocol
 import ch.threema.app.webclient.converter.Message
@@ -19,7 +17,9 @@ import ch.threema.app.webclient.services.instance.MessageDispatcher
 import ch.threema.app.webclient.services.instance.MessageUpdater
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.DispatcherProvider
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.data.datatypes.ConversationCategory
+import ch.threema.storage.models.MessageModel
+import ch.threema.storage.models.MessageType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -33,7 +33,6 @@ private val logger = getThreemaLogger("MessageUpdateHandler")
 class MessageUpdateHandler @AnyThread constructor(
     private val handler: HandlerExecutor,
     private val dispatcher: MessageDispatcher,
-    private val conversationCategoryService: ConversationCategoryService,
     private val fileService: FileService,
 ) : MessageUpdater(Protocol.SUB_TYPE_MESSAGES), KoinComponent {
     private val globalEventFlows: GlobalEventFlows by inject()
@@ -99,8 +98,8 @@ class MessageUpdateHandler @AnyThread constructor(
         return removed
     }
 
-    private fun sendThumbnail(message: AbstractMessageModel): Boolean {
-        if (!MessageUtil.canHaveThumbnailFile(message)) {
+    private fun sendThumbnail(message: MessageModel): Boolean {
+        if (message.type != MessageType.FILE) {
             // This message type cannot possibly have a thumbnail
             return false
         }
@@ -117,11 +116,11 @@ class MessageUpdateHandler @AnyThread constructor(
         return true
     }
 
-    private fun onNewMessage(newMessage: AbstractMessageModel) {
+    private fun onNewMessage(newMessage: MessageModel) {
         dispatch(listOf(newMessage), Protocol.ARGUMENT_MODE_NEW)
     }
 
-    private fun onMessagesModified(modifiedMessageModels: List<AbstractMessageModel>) {
+    private fun onMessagesModified(modifiedMessageModels: List<MessageModel>) {
         // split deleted messages to dispatch with different mode
         modifiedMessageModels
             .groupBy { message ->
@@ -131,25 +130,25 @@ class MessageUpdateHandler @AnyThread constructor(
                     Protocol.ARGUMENT_MODE_MODIFIED
                 }
             }
-            .forEach { (mode: String, modifiedMessages: List<AbstractMessageModel>) ->
+            .forEach { (mode: String, modifiedMessages: List<MessageModel>) ->
                 dispatch(modifiedMessages, mode)
             }
     }
 
-    private fun onMessageRemoved(removedMessageModel: AbstractMessageModel) {
+    private fun onMessageRemoved(removedMessageModel: MessageModel) {
         dispatch(listOf(removedMessageModel), Protocol.ARGUMENT_MODE_REMOVED)
     }
 
-    private fun dispatch(messages: List<AbstractMessageModel>, @Mode mode: String) {
+    private fun dispatch(messages: List<MessageModel>, @Mode mode: String) {
         handler.post {
             // Group messages by receiver
-            val outbox = mutableMapOf<MessageReceiver<*>, MutableList<AbstractMessageModel>>()
+            val outbox = mutableMapOf<MessageReceiver<*>, MutableList<MessageModel>>()
             for (message in messages) {
                 val receiver = receivers.find { receiver ->
                     receiver.isMessageBelongsToMe(message)
                 }
                 // Skip chat messages in private chats (#WEBC-75)
-                if (receiver != null && !conversationCategoryService.isMarkedAsPrivate(conversationId = receiver.conversationId)) {
+                if (receiver != null && receiver.conversationCategory == ConversationCategory.DEFAULT) {
                     outbox.getOrPut(receiver) { mutableListOf() }.add(message)
                 }
             }
@@ -157,7 +156,7 @@ class MessageUpdateHandler @AnyThread constructor(
         }
     }
 
-    private fun update(outbox: Map<MessageReceiver<*>, List<AbstractMessageModel>>, @Mode mode: String) {
+    private fun update(outbox: Map<MessageReceiver<*>, List<MessageModel>>, @Mode mode: String) {
         outbox.forEach { (receiver, messages) ->
             try {
                 val arguments = Receiver.getArguments(receiver).put(Protocol.ARGUMENT_MODE, mode)

@@ -22,10 +22,10 @@ sealed class AndroidContactReadException : Exception() {
     class MultipleLookupKeysPerContactId : AndroidContactReadException()
 
     /**
-     * There are contact data rows that refer to the same raw contact but have different lookup keys. This indicates that the provided data is corrupt
+     * There are contact data rows that refer to the same raw contact but have different lookup info. This indicates that the provided data is corrupt
      * and cannot be use reliably.
      */
-    class MultipleLookupKeysPerRawContact(override val cause: Throwable? = null) : AndroidContactReadException()
+    class MultipleLookupInfosPerRawContact(override val cause: Throwable? = null) : AndroidContactReadException()
 
     /**
      * There was an unspecified error reading the contacts. See [cause] for more information.

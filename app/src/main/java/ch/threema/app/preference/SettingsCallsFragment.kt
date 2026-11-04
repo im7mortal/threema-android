@@ -1,11 +1,12 @@
 package ch.threema.app.preference
 
 import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
+import androidx.activity.result.launch
 import androidx.preference.CheckBoxPreference
 import androidx.preference.DropDownPreference
+import ch.threema.android.permissions.PhonePermissionsContract
 import ch.threema.app.R
 import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.eventbus.events.ConversationEvent
@@ -39,6 +40,19 @@ class SettingsCallsFragment : ThreemaPreferenceFragment() {
     private var enableCallReject: CheckBoxPreference? = null
     private lateinit var callEnable: CheckBoxPreference
     private lateinit var groupCallsEnable: CheckBoxPreference
+
+    private val phonePermissionsLauncher = registerForActivityResult(PhonePermissionsContract()) { isGranted ->
+        if (isGranted) {
+            this.enableCallReject?.isChecked = true
+        } else if (!shouldShowRequestPermissionRationale(Manifest.permission.READ_PHONE_STATE)) {
+            // TODO(ANDR-5211): Use rationale as intended
+            ConfigUtils.showPermissionRationale(
+                context,
+                fragmentView,
+                R.string.permission_phone_required,
+            )
+        }
+    }
 
     override fun initializePreferences() {
         initCallPrefListeners()
@@ -127,12 +141,9 @@ class SettingsCallsFragment : ThreemaPreferenceFragment() {
         enableCallReject = getPref(R.string.preferences__voip_reject_mobile_calls)
         enableCallReject?.setOnPreferenceChangeListener { _, newValue ->
             val newCheckedValue = newValue == true
-            if (newCheckedValue) {
-                ConfigUtils.requestPhonePermissions(
-                    requireActivity(),
-                    this@SettingsCallsFragment,
-                    PERMISSION_REQUEST_READ_PHONE_STATE,
-                )
+            if (newCheckedValue && !PhonePermissionsContract.arePermissionsGranted(requireContext())) {
+                phonePermissionsLauncher.launch()
+                false
             } else {
                 true
             }
@@ -142,28 +153,5 @@ class SettingsCallsFragment : ThreemaPreferenceFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         this.fragmentView = view
         super.onViewCreated(view, savedInstanceState)
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String?>,
-        grantResults: IntArray,
-    ) {
-        when (requestCode) {
-            PERMISSION_REQUEST_READ_PHONE_STATE -> if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                this.enableCallReject?.isChecked = true
-            } else if (!shouldShowRequestPermissionRationale(Manifest.permission.READ_PHONE_STATE)) {
-                ConfigUtils.showPermissionRationale(
-                    context,
-                    fragmentView,
-                    R.string.permission_phone_required,
-                )
-            }
-        }
-    }
-
-    companion object {
-        private const val PERMISSION_REQUEST_READ_PHONE_STATE = 3
     }
 }

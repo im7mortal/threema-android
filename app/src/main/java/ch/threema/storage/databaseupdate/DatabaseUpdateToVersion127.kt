@@ -3,6 +3,8 @@ package ch.threema.storage.databaseupdate
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
 /**
+ * Add full support for the notification trigger policy.
+ *
  * The notification trigger policy used to be stored as one single long value with the following meaning:
  *
  * - -1: muted forever
@@ -94,8 +96,6 @@ class DatabaseUpdateToVersion127(
             "ALTER TABLE `$GROUP_TABLE_NAME` DROP COLUMN `$GROUP_NOTIFICATION_TRIGGER_POLICY_OVERRIDE`",
         )
     }
-
-    override fun getDescription() = "Add full support for the notification trigger policy"
 
     override val version = 127
 

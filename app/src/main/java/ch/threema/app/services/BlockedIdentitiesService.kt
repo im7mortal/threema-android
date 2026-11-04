@@ -53,8 +53,19 @@ interface BlockedIdentitiesService {
     fun getAllBlockedIdentities(): Set<IdentityString>
 
     /**
+     * Add the blocked [identities] without reflecting.
+     */
+    fun addBlockedIdentitiesWithoutReflection(identities: Set<IdentityString>)
+
+    /**
      * Persist the blocked identities. This replaces all currently blocked identities with
      * [blockedIdentities]. Note that there is no reflection done.
      */
-    fun persistBlockedIdentities(blockedIdentities: Set<IdentityString>)
+    fun replaceBlockedIdentitiesWithoutReflection(blockedIdentities: Set<IdentityString>)
+
+    /**
+     * Persist the given identity as blocked.
+     * Note that there is no reflection done.
+     */
+    fun blockIdentityWithoutReflection(identity: IdentityString)
 }

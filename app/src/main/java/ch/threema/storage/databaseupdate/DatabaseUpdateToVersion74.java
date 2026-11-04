@@ -33,11 +33,6 @@ public class DatabaseUpdateToVersion74 implements DatabaseUpdate {
     }
 
     @Override
-    public String getDescription() {
-        return "forwardSecurity 2";
-    }
-
-    @Override
     public int getVersion() {
         return 74;
     }

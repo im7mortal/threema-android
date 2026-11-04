@@ -15,7 +15,7 @@ import ch.threema.app.ui.listitemholder.ComposeMessageHolder;
 import ch.threema.app.utils.PollUtil;
 import ch.threema.app.utils.LinkifyUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.poll.PollModel;
 import ch.threema.storage.models.data.media.PollDataModel;
@@ -42,11 +42,11 @@ public class PollChatAdapterDecorator extends ChatAdapterDecorator {
     private final PollChatListener listener;
 
     public PollChatAdapterDecorator(
-        AbstractMessageModel messageModel,
-        @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
-        @NonNull LinkifyUtil.LinkifyListener linkifyListener,
-        Helper helper,
-        @NonNull PollChatListener listener
+            MessageModel messageModel,
+            @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
+            @NonNull LinkifyUtil.LinkifyListener linkifyListener,
+            Helper helper,
+            @NonNull PollChatListener listener
     ) {
         super(messageModel, chatAdapterDecoratorListener, linkifyListener, helper);
         this.listener = listener;
@@ -55,7 +55,7 @@ public class PollChatAdapterDecorator extends ChatAdapterDecorator {
     @Override
     protected void configureChatMessage(final ComposeMessageHolder holder, Context context, int position) {
         try {
-            final AbstractMessageModel messageModel = this.getMessageModel();
+            final MessageModel messageModel = this.getMessageModel();
             String explain = "";
 
             PollDataModel pollData = messageModel.getPollData();

@@ -22,7 +22,8 @@ import androidx.annotation.UiThread;
 import androidx.appcompat.widget.AppCompatImageView;
 
 import ch.threema.app.R;
-import ch.threema.app.utils.ConfigUtils;
+
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 public class ControllerView extends MaterialCardView {
@@ -251,7 +252,7 @@ public class ControllerView extends MaterialCardView {
     }
 
     private @ColorInt int getProgressTrackIndicatorColor() {
-        return ConfigUtils.getColorFromAttribute(getContext(), R.attr.colorOnSecondary);
+        return getColorFromAttribute(getContext(), R.attr.colorOnSecondary);
     }
 
     @NonNull

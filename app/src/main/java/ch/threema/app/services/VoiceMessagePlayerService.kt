@@ -1,11 +1,9 @@
 package ch.threema.app.services
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.app.PendingIntent.FLAG_IMMUTABLE
 import android.app.PendingIntent.FLAG_UPDATE_CURRENT
-import android.app.PendingIntent.getActivity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -31,6 +29,8 @@ import androidx.media3.session.MediaSession.Callback
 import androidx.media3.session.MediaSessionService
 import ch.threema.android.ToastDuration
 import ch.threema.android.buildNotification
+import ch.threema.android.checkGrantedPermission
+import ch.threema.android.getPendingIntentForActivity
 import ch.threema.android.isConnectedToHeadsetOrSpeaker
 import ch.threema.android.showToast
 import ch.threema.app.R
@@ -40,7 +40,6 @@ import ch.threema.app.managers.ServiceManager
 import ch.threema.app.notifications.NotificationChannels
 import ch.threema.app.notifications.NotificationIDs.VOICE_MESSAGE_PLAYER_NOTIFICATION_ID
 import ch.threema.app.preference.service.PreferenceService
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.voicemessage.SamsungQuirkRenderersFactory
 import ch.threema.base.utils.getThreemaLogger
 import com.google.common.util.concurrent.Futures
@@ -102,13 +101,6 @@ class VoiceMessagePlayerService :
         if (sessionWasCreated) {
             setListener(MediaSessionServiceListener())
         }
-    }
-
-    override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
-        if (player.playbackState == Player.STATE_ENDED && !startInForegroundRequired) {
-            logger.info("Playback ended.")
-        }
-        super.onUpdateNotification(session, true)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? =
@@ -231,11 +223,15 @@ class VoiceMessagePlayerService :
 
     private fun getSessionActivityPendingIntent(): PendingIntent {
         val intent = packageManager
-            .getLaunchIntentForPackage(packageName)
-            ?.setPackage(null)
-            ?.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-
-        return getActivity(this, 0, intent, FLAG_IMMUTABLE or FLAG_UPDATE_CURRENT)
+            .getLaunchIntentForPackage(packageName)!!
+            .setPackage(null)
+            .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        return getPendingIntentForActivity(
+            context = this,
+            requestCode = 0,
+            intent = intent,
+            flags = FLAG_IMMUTABLE or FLAG_UPDATE_CURRENT,
+        )
     }
 
     private inner class MediaSessionServiceListener : Listener {
@@ -246,12 +242,7 @@ class VoiceMessagePlayerService :
          */
         override fun onForegroundServiceStartNotAllowedException() {
             val context = this@VoiceMessagePlayerService
-            @SuppressLint("MissingPermission")
-            if (ConfigUtils.isPermissionGranted(
-                    this@VoiceMessagePlayerService,
-                    Manifest.permission.POST_NOTIFICATIONS,
-                )
-            ) {
+            if (checkGrantedPermission(Manifest.permission.POST_NOTIFICATIONS)) {
                 val notification = buildNotification(context, NotificationChannels.NOTIFICATION_CHANNEL_ALERT) {
                     setContentIntent(getSessionActivityPendingIntent())
                     setSmallIcon(R.drawable.ic_notification_small)

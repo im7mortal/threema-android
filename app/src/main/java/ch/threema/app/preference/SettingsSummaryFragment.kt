@@ -9,11 +9,13 @@ import androidx.activity.result.launch
 import androidx.annotation.StringRes
 import androidx.core.content.ContextCompat
 import androidx.core.view.children
+import androidx.fragment.app.setFragmentResultListener
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.children
 import ch.threema.android.ToastDuration
+import ch.threema.android.dismissDialog
 import ch.threema.android.getSerializableExtraCompat
 import ch.threema.android.showToast
 import ch.threema.app.BuildConfig
@@ -31,7 +33,7 @@ import ch.threema.app.asynctasks.ContactModified
 import ch.threema.app.asynctasks.ContactResult
 import ch.threema.app.backupcenter.BackupCenterActivity
 import ch.threema.app.di.awaitAppFullyReady
-import ch.threema.app.dialogs.BottomSheetAbstractDialog.BottomSheetDialogCallback
+import ch.threema.app.dialogs.BottomSheetDialog
 import ch.threema.app.dialogs.BottomSheetGridDialog
 import ch.threema.app.dialogs.GenericAlertDialog
 import ch.threema.app.dialogs.GenericProgressDialog
@@ -47,7 +49,6 @@ import ch.threema.app.usecases.CheckBackupsFeatureEnabledUseCase
 import ch.threema.app.usecases.GetBottomSheetAppShareTargetsUseCase
 import ch.threema.app.usecases.GetInviteFriendIntentUseCase
 import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.DialogUtil
 import ch.threema.app.utils.executor.BackgroundExecutor
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.app.webclient.activities.SessionsActivity
@@ -68,7 +69,7 @@ import org.koin.android.ext.android.inject
 
 private val logger = getThreemaLogger("SettingsSummaryFragment")
 
-class SettingsSummaryFragment : ThreemaPreferenceFragment(), GenericAlertDialog.DialogClickListener, BottomSheetDialogCallback {
+class SettingsSummaryFragment : ThreemaPreferenceFragment(), GenericAlertDialog.DialogClickListener {
     init {
         logScreenVisibility(logger)
     }
@@ -93,6 +94,19 @@ class SettingsSummaryFragment : ThreemaPreferenceFragment(), GenericAlertDialog.
     }
 
     private var selectedPrefView: View? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setUpDialogCallbacks()
+    }
+
+    private fun setUpDialogCallbacks() {
+        setFragmentResultListener(DIALOG_TAG_SHARE_WITH) { _, result ->
+            BottomSheetDialog.onItemClicked(result) { tag, _ ->
+                sendInviteToOtherApp(packageName = tag)
+            }
+        }
+    }
 
     override fun initializePreferences() {
         getPrefKeyToSummaryMap().forEach { (prefKey, summary) ->
@@ -169,12 +183,12 @@ class SettingsSummaryFragment : ThreemaPreferenceFragment(), GenericAlertDialog.
     }
 
     private fun setUpCommunityAndSharingSection() {
-        if (ConfigUtils.isOnPremBuild()) {
+        if (BuildFlavor.IS_ON_PREM) {
             getPref<Preference>(getString(R.string.preferences__rate)).isVisible = false
         }
 
         getPref<Preference>(R.string.preferences__invite_a_friend).run {
-            if (ConfigUtils.isWorkBuild()) {
+            if (BuildFlavor.IS_WORK) {
                 isVisible = false
             } else {
                 onClick {
@@ -185,7 +199,7 @@ class SettingsSummaryFragment : ThreemaPreferenceFragment(), GenericAlertDialog.
         }
 
         getPref<Preference>(R.string.preferences__threema_channel).run {
-            if (ConfigUtils.isWorkBuild() || isThreemaChannelAlreadyAdded()) {
+            if (BuildFlavor.IS_WORK || isThreemaChannelAlreadyAdded()) {
                 isVisible = false
             } else {
                 onClick {
@@ -212,7 +226,7 @@ class SettingsSummaryFragment : ThreemaPreferenceFragment(), GenericAlertDialog.
 
     private fun setUpWorkBanner() {
         getPref<Preference>("pref_key_work").run {
-            if (ConfigUtils.isWorkBuild()) {
+            if (BuildFlavor.IS_WORK) {
                 isVisible = false
             } else {
                 onClick {
@@ -224,7 +238,7 @@ class SettingsSummaryFragment : ThreemaPreferenceFragment(), GenericAlertDialog.
 
     private fun setUpReferralBanner() {
         getPref<Preference>(R.string.preferences__referral_banner).run {
-            if (ConfigUtils.isReferralProgramEnabled()) {
+            if (!BuildFlavor.IS_WORK) {
                 isVisible = true
                 onClick {
                     startActivity(ReferralActivity.createIntent(requireContext()))
@@ -294,14 +308,13 @@ class SettingsSummaryFragment : ThreemaPreferenceFragment(), GenericAlertDialog.
                     getBottomSheetAppShareTargetsUseCase.call()
                 }
             } finally {
-                DialogUtil.dismissDialog(parentFragmentManager, DIALOG_TAG_INVITE_A_FRIEND_PROGRESS, true)
+                parentFragmentManager.dismissDialog(DIALOG_TAG_INVITE_A_FRIEND_PROGRESS)
             }
             if (bottomSheetItems.isEmpty()) {
                 return@launch
             }
-            val dialog = BottomSheetGridDialog.newInstance(R.string.invite_via, ArrayList(bottomSheetItems))
-            dialog.setTargetFragment(this@SettingsSummaryFragment, 0)
-            dialog.show(parentFragmentManager, DIALOG_TAG_SHARE_WITH)
+            BottomSheetGridDialog.newInstance(R.string.invite_via, bottomSheetItems, DIALOG_TAG_SHARE_WITH)
+                .show(parentFragmentManager, DIALOG_TAG_SHARE_WITH)
         }
     }
 
@@ -340,7 +353,7 @@ class SettingsSummaryFragment : ThreemaPreferenceFragment(), GenericAlertDialog.
     private fun addThreemaChannel() {
         val threemaChannelContact = PredefinedContact.threemaChannelContact
         if (threemaChannelContact == null) {
-            logger.info("Cannot add threema channel contact in {} build environment", BuildFlavor.current.buildEnvironment.name)
+            logger.info("Cannot add threema channel contact in {} build environment", BuildFlavor.buildEnvironment.name)
             return
         }
         logger.info("Adding Threema channel")
@@ -360,7 +373,7 @@ class SettingsSummaryFragment : ThreemaPreferenceFragment(), GenericAlertDialog.
                 }
 
                 override fun onFinished(result: ContactResult) {
-                    DialogUtil.dismissDialog(parentFragmentManager, DIALOG_TAG_THREEMA_CHANNEL_PROGRESS, true)
+                    parentFragmentManager.dismissDialog(DIALOG_TAG_THREEMA_CHANNEL_PROGRESS)
 
                     if (result is ContactAvailable) {
                         launchThreemaChannelConversation()
@@ -376,12 +389,6 @@ class SettingsSummaryFragment : ThreemaPreferenceFragment(), GenericAlertDialog.
                 }
             },
         )
-    }
-
-    override fun onSelected(tag: String?, data: String?) {
-        if (!tag.isNullOrEmpty()) {
-            sendInviteToOtherApp(packageName = tag)
-        }
     }
 
     private fun sendInviteToOtherApp(packageName: String) {

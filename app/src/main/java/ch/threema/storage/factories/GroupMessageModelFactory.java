@@ -3,54 +3,55 @@ package ch.threema.storage.factories;
 import android.content.ContentValues;
 import android.database.Cursor;
 
+import net.zetetic.database.sqlcipher.SQLiteDatabase;
+
 import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.app.services.MessageService;
 import ch.threema.data.datatypes.ConversationVisibility;
+import ch.threema.data.datatypes.GroupMessageIdentifier;
+import ch.threema.data.storage.SqliteDatabaseBackend;
 import ch.threema.domain.models.MessageId;
 import ch.threema.storage.ChunkedSequence;
 import ch.threema.storage.CursorHelper;
 import ch.threema.storage.DatabaseCreationProvider;
+import ch.threema.storage.DatabaseExtensionsKt;
 import ch.threema.storage.DatabaseProvider;
-import ch.threema.storage.DatabaseUtil;
 import ch.threema.storage.QueryBuilder;
-import ch.threema.storage.models.AbstractMessageModel;
-import ch.threema.storage.models.group.GroupMessageModel;
+import ch.threema.storage.models.MessageModel;
+import ch.threema.storage.models.GroupMessageModel;
 import ch.threema.data.models.GroupModel;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.MessageType;
 import ch.threema.storage.models.group.GroupModelOld;
 import kotlin.ranges.LongProgression;
 
+import static ch.threema.android.CursorExtensionsKt.readCountQueryResult;
+import static ch.threema.common.DatabaseHelpers.makePlaceholders;
 import static ch.threema.common.JsonExtensionsKt.parseJsonObjectAsStringMap;
 import static ch.threema.storage.models.data.DisplayTag.DISPLAY_TAG_STARRED;
 
-public class GroupMessageModelFactory extends AbstractMessageModelFactory {
+public class GroupMessageModelFactory extends MessageModelFactory {
     public GroupMessageModelFactory(DatabaseProvider databaseProvider) {
         super(databaseProvider, GroupMessageModel.TABLE);
     }
 
     public List<GroupMessageModel> getAll() {
-        return convertList(getReadableDatabase().query(this.getTableName(),
-            null,
-            null,
-            null,
-            null,
-            null,
-            null));
+        return convertList(getReadableDatabase().query(this.getTableName(), null, null, null, null, null, null));
     }
 
-    public GroupMessageModel getByApiMessageIdAndIdentity(MessageId apiMessageId, String identity) {
+    public GroupMessageModel getByApiMessageIdAndIdentity(@NonNull MessageId apiMessageId, String identity) {
         return getFirst(
-            GroupMessageModel.COLUMN_API_MESSAGE_ID + "=?" +
-                " AND " + GroupMessageModel.COLUMN_IDENTITY + "=?",
+            GroupMessageModel.COLUMN_API_MESSAGE_ID + "=? AND " + GroupMessageModel.COLUMN_IDENTITY + "=?",
             new String[]{
                 apiMessageId.toString(),
                 identity
@@ -59,12 +60,61 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
 
     public GroupMessageModel getByApiMessageIdAndGroupId(@NonNull MessageId apiMessageId, int groupId) {
         return getFirst(
-            GroupMessageModel.COLUMN_API_MESSAGE_ID + "=?" +
-                " AND " + GroupMessageModel.COLUMN_GROUP_ID + "=?",
+            GroupMessageModel.COLUMN_API_MESSAGE_ID + "=? AND " + GroupMessageModel.COLUMN_GROUP_ID + "=?",
             new String[]{
                 apiMessageId.toString(),
                 String.valueOf(groupId),
             });
+    }
+
+    /**
+     * @return {@code true} if there is at least one outgoing message in this group that is not a status message.
+     */
+    public boolean existsOutgoingContentMessage(final long groupDatabaseId) {
+        if (groupDatabaseId < 0) {
+            return false;
+        }
+        final @Nullable Cursor cursor = getReadableDatabase()
+            .rawQuery(
+                "SELECT EXISTS(SELECT 1 FROM " + GroupMessageModel.TABLE + " WHERE "
+                    + GroupMessageModel.COLUMN_GROUP_ID + " = ? AND "
+                    + GroupMessageModel.COLUMN_OUTBOX + " = 1 AND "
+                    + GroupMessageModel.COLUMN_IS_STATUS_MESSAGE + " = 0 LIMIT 1)",
+                new String[]{
+                    String.valueOf(groupDatabaseId)
+                }
+            );
+        if (cursor == null) {
+            return false;
+        }
+        try (cursor) {
+            return cursor.moveToFirst() && cursor.getInt(0) == 1;
+        }
+    }
+
+    /**
+     * @return The earliest (created-at) incoming message that is not a status message.
+     */
+    @Nullable
+    public GroupMessageModel getEarliestIncomingContentMessage(final long groupDatabaseId) {
+        if (groupDatabaseId < 0) {
+            return null;
+        }
+        final @Nullable Cursor cursor = getReadableDatabase()
+            .rawQuery(
+                "SELECT * FROM " + GroupMessageModel.TABLE + " WHERE "
+                    + GroupMessageModel.COLUMN_GROUP_ID + " = ? AND "
+                    + GroupMessageModel.COLUMN_OUTBOX + " = 0 AND "
+                    + GroupMessageModel.COLUMN_IS_STATUS_MESSAGE + " = 0 "
+                    + "ORDER BY " + GroupMessageModel.COLUMN_CREATED_AT + " ASC LIMIT 1",
+                new String[]{
+                    String.valueOf(groupDatabaseId)
+                }
+            );
+        if (cursor != null && cursor.moveToFirst()) {
+            return convert(cursor);
+        }
+        return null;
     }
 
     public GroupMessageModel getById(int id) {
@@ -88,7 +138,7 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
             getReadableDatabase().query(
                 getTableName(),
                 null,
-                GroupMessageModel.COLUMN_GROUP_ID + "=? AND " + AbstractMessageModel.COLUMN_STATE + "=?",
+                GroupMessageModel.COLUMN_GROUP_ID + "=? AND " + MessageModel.COLUMN_STATE + "=?",
                 new String[]{String.valueOf(group.getDatabaseId()), MessageState.FS_KEY_MISMATCH.toString()},
                 null,
                 null,
@@ -97,7 +147,7 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
         );
     }
 
-    public List<AbstractMessageModel> getMessagesByText(@Nullable String text, boolean includeArchived, boolean starredOnly, boolean sortAscending) {
+    public List<MessageModel> getMessagesByText(@Nullable String text, boolean includeArchived, boolean starredOnly, boolean sortAscending) {
         String displayClause, sortClause;
         if (starredOnly) {
             displayClause = " AND (" + GroupMessageModel.COLUMN_DISPLAY_TAGS + " & " + DISPLAY_TAG_STARRED + ") > 0 ";
@@ -177,11 +227,12 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
     }
 
     /**
-     * Convert a cursor's rows to a list of {@link AbstractMessageModel}s.
+     * Convert a cursor's rows to a list of {@link MessageModel}s.
      * Note that the cursor will be closed after conversion.
      */
-    private List<AbstractMessageModel> convertAbstractList(Cursor cursor) {
-        List<AbstractMessageModel> result = new ArrayList<>();
+    @NonNull
+    private List<MessageModel> convertAbstractList(Cursor cursor) {
+        List<MessageModel> result = new ArrayList<>();
         if (cursor != null) {
             try (cursor) {
                 while (cursor.moveToNext()) {
@@ -196,7 +247,8 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
      * Convert a cursor's rows to a list of {@link GroupMessageModel}s.
      * Note that the cursor will be closed after conversion.
      */
-    private List<GroupMessageModel> convertList(Cursor cursor) {
+    @NonNull
+    private List<GroupMessageModel> convertList(@Nullable Cursor cursor) {
         List<GroupMessageModel> result = new ArrayList<>();
         if (cursor != null) {
             try (cursor) {
@@ -208,7 +260,8 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
         return result;
     }
 
-    private GroupMessageModel convert(Cursor cursor) {
+    @Nullable
+    private GroupMessageModel convert(@Nullable Cursor cursor) {
         if (cursor != null && cursor.getPosition() >= 0) {
             final GroupMessageModel groupMessageModel = new GroupMessageModel();
 
@@ -236,7 +289,7 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
     }
 
     public long countMessages(int groupId) {
-        return DatabaseUtil.count(getReadableDatabase().rawQuery(
+        return readCountQueryResult(getReadableDatabase().rawQuery(
             "SELECT COUNT(*) FROM " + this.getTableName()
                 + " WHERE " + GroupMessageModel.COLUMN_GROUP_ID + "=?",
             new String[]{
@@ -246,7 +299,7 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
     }
 
     public long countUnreadMessages(int groupId) {
-        return DatabaseUtil.count(getReadableDatabase().rawQuery(
+        return readCountQueryResult(getReadableDatabase().rawQuery(
             "SELECT COUNT(*) FROM " + this.getTableName()
                 + " WHERE " + GroupMessageModel.COLUMN_GROUP_ID + "=?"
                 + " AND " + GroupMessageModel.COLUMN_OUTBOX + "=0"
@@ -275,71 +328,90 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
             null));
     }
 
-    public long countByTypes(MessageType[] messageTypes) {
+    public long countByTypes(@NonNull MessageType[] messageTypes) {
         String[] args = new String[messageTypes.length];
         for (int n = 0; n < messageTypes.length; n++) {
             args[n] = String.valueOf(messageTypes[n].serializedValue);
         }
 
-        Cursor c = getReadableDatabase().rawQuery(
+        Cursor cursor = getReadableDatabase().rawQuery(
             "SELECT COUNT(*) FROM " + this.getTableName()
-                + " WHERE " + GroupMessageModel.COLUMN_TYPE + " IN (" + DatabaseUtil.makePlaceholders(args.length) + ")",
+                + " WHERE " + GroupMessageModel.COLUMN_TYPE + " IN (" + makePlaceholders(args.length) + ")",
             args
         );
-        return DatabaseUtil.count(c);
+        return readCountQueryResult(cursor);
     }
 
-    public boolean createOrUpdate(GroupMessageModel groupMessageModel) {
+    /**
+     * Inserts or updates the message model into the database. Note that if the message is inserted,
+     * the id of the message model will be updated.
+     */
+    public void createOrUpdate(@NonNull GroupMessageModel groupMessageModel) {
         boolean insert = true;
         if (groupMessageModel.getId() > 0) {
-            Cursor cursor = getReadableDatabase().query(
-                this.getTableName(),
-                null,
+            insert = !DatabaseExtensionsKt.exists(
+                getReadableDatabase(),
+                getTableName(),
                 GroupMessageModel.COLUMN_ID + "=?",
                 new String[]{
                     String.valueOf(groupMessageModel.getId())
-                },
-                null,
-                null,
-                null
-            );
-
-            if (cursor != null) {
-                try (cursor) {
-                    insert = !cursor.moveToNext();
                 }
-            }
+            );
         }
 
         if (insert) {
-            return create(groupMessageModel);
+            create(groupMessageModel);
         } else {
-            return update(groupMessageModel);
+            update(groupMessageModel);
         }
     }
 
-    public boolean create(GroupMessageModel groupMessageModel) {
+    /**
+     * Inserts the message model into the database. Note that the id of the message model will be updated.
+     */
+    public void create(GroupMessageModel groupMessageModel) {
         ContentValues contentValues = this.buildContentValues(groupMessageModel);
         contentValues.put(GroupMessageModel.COLUMN_GROUP_ID, groupMessageModel.getGroupId());
         addGroupMessageStates(contentValues, groupMessageModel);
         long newId = getWritableDatabase().insertOrThrow(this.getTableName(), null, contentValues);
-        if (newId > 0) {
-            groupMessageModel.setId((int) newId);
-            return true;
-        }
-        return false;
+        groupMessageModel.setId((int) newId);
     }
 
-    public boolean update(GroupMessageModel groupMessageModel) {
+    /**
+     * Inserts the message models into the database. Note that the ids of the message models will be updated.
+     */
+    public void create(@NonNull List<GroupMessageModel> groupMessageModels) {
+        if (groupMessageModels.isEmpty()) {
+            return;
+        }
+        SQLiteDatabase database = getWritableDatabase();
+        database.beginTransaction();
+        try {
+            String tableName = getTableName();
+            for (GroupMessageModel groupMessageModel : groupMessageModels) {
+                ContentValues contentValues = buildContentValues(groupMessageModel);
+                contentValues.put(GroupMessageModel.COLUMN_GROUP_ID, groupMessageModel.getGroupId());
+                addGroupMessageStates(contentValues, groupMessageModel);
+                long id = database.insertOrThrow(tableName, null, contentValues);
+                groupMessageModel.setId((int) id);
+            }
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+    }
+
+    public void update(GroupMessageModel groupMessageModel) {
         ContentValues contentValues = this.buildContentValues(groupMessageModel);
         addGroupMessageStates(contentValues, groupMessageModel);
-        getWritableDatabase().update(this.getTableName(),
+        getWritableDatabase().update(
+            this.getTableName(),
             contentValues,
             GroupMessageModel.COLUMN_ID + "=?",
             new String[]{
                 String.valueOf(groupMessageModel.getId()),
-            });
-        return true;
+            }
+        );
     }
 
     public List<GroupMessageModel> find(int groupId, MessageService.MessageFilter filter) {
@@ -395,33 +467,46 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
         );
     }
 
-    public int delete(GroupMessageModel groupMessageModel) {
-        return getWritableDatabase().delete(this.getTableName(),
+    /**
+     * Read message models from the database into the given list.
+     *
+     * @param messageModels the list where the message models are appended to
+     * @param count         the number of message models that are read
+     * @param offset        the offset where the message models are started to be read
+     */
+    public void loadMessageModelsIntoList(List<GroupMessageModel> messageModels, int count, int offset) {
+        String query = "SELECT * FROM `" + getTableName() + "` LIMIT ? OFFSET ?";
+        String[] queryArgs = new String[]{String.valueOf(count), String.valueOf(offset)};
+        try (Cursor cursor = getReadableDatabase().query(query, queryArgs)) {
+            while (cursor.moveToNext()) {
+                messageModels.add(convert(cursor));
+            }
+        }
+    }
+
+    public int delete(@NonNull GroupMessageModel groupMessageModel) {
+        return getWritableDatabase().delete(
+            this.getTableName(),
             GroupMessageModel.COLUMN_ID + "=?",
             new String[]{
                 String.valueOf(groupMessageModel.getId())
-            });
+            }
+        );
     }
 
     public int deleteByGroupId(long groupId) {
-        return getWritableDatabase().delete(this.getTableName(),
+        return getWritableDatabase().delete(
+            this.getTableName(),
             GroupMessageModel.COLUMN_GROUP_ID + "=?",
             new String[]{
                 String.valueOf(groupId)
-            });
+            }
+        );
     }
 
+    @Nullable
     private GroupMessageModel getFirst(String selection, String[] selectionArgs) {
-        Cursor cursor = getReadableDatabase().query(
-            this.getTableName(),
-            null,
-            selection,
-            selectionArgs,
-            null,
-            null,
-            null
-        );
-
+        Cursor cursor = getReadableDatabase().query(this.getTableName(), null, selection, selectionArgs, null, null, null);
         if (cursor != null) {
             try (cursor) {
                 if (cursor.moveToFirst()) {
@@ -429,7 +514,6 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
                 }
             }
         }
-
         return null;
     }
 
@@ -442,10 +526,58 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
         contentValues.put(GroupMessageModel.COLUMN_GROUP_MESSAGE_STATES, groupMessageStates);
     }
 
+    /**
+     * Returns {@code true} if any of the given messages exist.
+     * <p>
+     * Messages are checked in batches of at most {@link SqliteDatabaseBackend#MAX_VARIABLE_NUMBER} / 2 to stay within SQLite's host-parameter limit.
+     * <p>
+     * Query:
+     * <pre>{@code
+     * SELECT EXISTS (
+     *   SELECT 1 FROM m_group_message
+     *    WHERE (apiMessageId, groupId) IN ((?, ?), (?, ?), ...)
+     *    LIMIT 1
+     * )
+     * }</pre>
+     */
+    public boolean anyExists(@NonNull Set<GroupMessageIdentifier> groupMessageIdentifiers) {
+        if (groupMessageIdentifiers.isEmpty()) {
+            return false;
+        }
+        // Copy to a java.util.List to have the subList function available for chunking
+        final List<GroupMessageIdentifier> messageIdentifiersList = new ArrayList<>(groupMessageIdentifiers);
+        final int chunkSize = SqliteDatabaseBackend.MAX_VARIABLE_NUMBER / 2;
+        for (int start = 0; start < messageIdentifiersList.size(); start += chunkSize) {
+            final List<GroupMessageIdentifier> messageIdentifiersChunk = messageIdentifiersList.subList(
+                start,
+                Math.min(start + chunkSize, messageIdentifiersList.size())
+            );
+            final String placeholders = messageIdentifiersChunk.stream()
+                .map(identifier -> "(?, ?)")
+                .collect(Collectors.joining(", "));
+            final String sql = "SELECT EXISTS(SELECT 1 FROM " + getTableName() + " WHERE ("
+                + GroupMessageModel.COLUMN_API_MESSAGE_ID + ", " + GroupMessageModel.COLUMN_GROUP_ID + ") IN ("
+                + placeholders + ") LIMIT 1)";
+            final List<Object> bindArgs = new ArrayList<>(messageIdentifiersChunk.size() * 2);
+            for (GroupMessageIdentifier messageIdentifier : messageIdentifiersChunk) {
+                bindArgs.add(messageIdentifier.getMessageId().toString());
+                bindArgs.add(messageIdentifier.getGroupDatabaseId());
+            }
+            final Cursor cursor = getReadableDatabase().query(sql, bindArgs.toArray());
+            try (cursor) {
+                final boolean exists = cursor.moveToFirst() && cursor.getInt(0) == 1;
+                if (exists) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     public static class Creator implements DatabaseCreationProvider {
         @Override
         @NonNull
-        public String [] getCreationStatements() {
+        public String[] getCreationStatements() {
             return new String[]{
                 "CREATE TABLE `" + GroupMessageModel.TABLE + "`" +
                     "(" +
@@ -486,9 +618,9 @@ public class GroupMessageModelFactory extends AbstractMessageModelFactory {
                 "CREATE INDEX `groupMessageApiMessageIdIdx` ON `" + GroupMessageModel.TABLE + "` ( `" + GroupMessageModel.COLUMN_API_MESSAGE_ID + "` );",
                 "CREATE INDEX `groupMessageCorrelationIdIdx` ON `" + GroupMessageModel.TABLE + "` ( `" + GroupMessageModel.COLUMN_CORRELATION_ID + "` );",
                 "CREATE INDEX `group_message_state_idx` ON `" + GroupMessageModel.TABLE
-                    + "`(`" + AbstractMessageModel.COLUMN_TYPE
-                    + "`, `" + AbstractMessageModel.COLUMN_STATE
-                    + "`, `" + AbstractMessageModel.COLUMN_OUTBOX
+                    + "`(`" + MessageModel.COLUMN_TYPE
+                    + "`, `" + MessageModel.COLUMN_STATE
+                    + "`, `" + MessageModel.COLUMN_OUTBOX
                     + "`)",
             };
         }

@@ -1,6 +1,5 @@
 package ch.threema.app.conversations
 
-import android.Manifest
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -49,9 +48,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -69,11 +66,11 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.os.bundleOf
 import androidx.fragment.app.setFragmentResultListener
 import ch.threema.android.buildActivityIntent
+import ch.threema.android.buildBundle
+import ch.threema.android.dismissDialog
 import ch.threema.android.getParcelableCompat
-import ch.threema.android.registerPermissionResultContract
 import ch.threema.app.AppConstants
 import ch.threema.app.AppConstants.MAX_PW_LENGTH_BACKUP
 import ch.threema.app.AppConstants.MIN_PW_LENGTH_BACKUP
@@ -94,6 +91,7 @@ import ch.threema.app.compose.common.LocalDayOfYear
 import ch.threema.app.compose.common.buttons.ButtonIconInfo
 import ch.threema.app.compose.common.buttons.ButtonOutlined
 import ch.threema.app.compose.common.buttons.primary.ExtendedFloatingActionButtonPrimary
+import ch.threema.app.compose.common.extensions.debounced
 import ch.threema.app.compose.common.list.swipe.ListItemSwipeFeature
 import ch.threema.app.compose.common.list.swipe.ListItemSwipeFeatureState
 import ch.threema.app.compose.common.rememberRefreshingLocalDayOfYear
@@ -125,15 +123,13 @@ import ch.threema.app.preference.SettingsActivity
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.preference.service.PreferenceService.EmojiStyle
 import ch.threema.app.restrictions.AppRestrictions
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.ConversationService
 import ch.threema.app.services.ConversationTagService
-import ch.threema.app.services.FileService
 import ch.threema.app.services.LockAppService
+import ch.threema.app.support.ContactSupportActivity
 import ch.threema.app.ui.SelectorDialogItem
 import ch.threema.app.usecases.conversations.EmptyOrDeleteConversationsUseCase
 import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.DialogUtil
 import ch.threema.app.utils.EditTextUtil
 import ch.threema.app.utils.FileProviderUtil
 import ch.threema.app.utils.MimeUtil
@@ -146,6 +142,7 @@ import ch.threema.data.IdentityProvider
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.datatypes.ContactNameFormat
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationId
 import ch.threema.data.datatypes.DistributionListConversationId
 import ch.threema.data.datatypes.GroupConversationId
@@ -176,9 +173,7 @@ class ConversationsFragment : MainFragment() {
 
     private val identityProvider: IdentityProvider by inject()
     private val conversationService: ConversationService by inject()
-    private val conversationCategoryService: ConversationCategoryService by inject()
     private val conversationTagService: ConversationTagService by inject()
-    private val fileService: FileService by inject()
     private val preferenceService: PreferenceService by inject()
     private val lockAppService: LockAppService by inject()
     private val appLockUtil: AppLockUtil by inject()
@@ -219,23 +214,14 @@ class ConversationsFragment : MainFragment() {
         }
     }
 
-    private val requestWriteStoragePermissionLauncher = registerPermissionResultContract { isGranted ->
-        if (isGranted) {
-            viewModel.onStoragePermissionGrantedToShareConversation()
-        } else if (shouldShowRequestPermissionRationale(Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-            ConfigUtils.showPermissionRationale(
-                /* context = */
-                context,
-                /* parentLayout = */
-                view,
-                /* stringResource = */
-                R.string.permission_storage_required,
-            )
-        }
-    }
-
     private val shareConversationLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         viewModel.onSharingIntentCompleted()
+    }
+
+    private val contactSupportLauncher = registerForActivityResult(ContactSupportActivity.Contract()) { errorMessage ->
+        if (errorMessage != null) {
+            viewModel.onContactSupportFailed(errorMessage)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -401,6 +387,18 @@ class ConversationsFragment : MainFragment() {
         }
     }
 
+    private fun openArchive(searchQuery: String?) {
+        if (!isAdded) {
+            return
+        }
+        startActivity(
+            ArchiveActivity.createIntent(
+                context = requireContext(),
+                searchQuery = searchQuery,
+            ),
+        )
+    }
+
     private fun openConversation(conversationId: ConversationId) {
         if (!isAdded) {
             return
@@ -437,9 +435,7 @@ class ConversationsFragment : MainFragment() {
             return
         }
 
-        val isPrivate: Boolean = conversationCategoryService.isMarkedAsPrivate(
-            conversationId = conversationModel.id,
-        )
+        val isPrivate = conversationModel.conversationCategory == ConversationCategory.PROTECTED
         val isMarkedAsUnread: Boolean = conversationTagService.isTaggedWith(
             conversationId = conversationModel.id,
             tag = ConversationTag.MARKED_AS_UNREAD,
@@ -535,9 +531,9 @@ class ConversationsFragment : MainFragment() {
             /* requestKey = */
             DIALOG_CONVERSATION_ITEM_ACTIONS,
         )
-        val requestData = bundleOf(
-            DIALOG_BUNDLE_KEY_CONVERSATION_ID to conversationModel.id,
-        )
+        val requestData = buildBundle {
+            putParcelable(DIALOG_BUNDLE_KEY_CONVERSATION_ID, conversationModel.id)
+        }
         selectorDialog.setRequestData(requestData)
         selectorDialog.show(parentFragmentManager)
     }
@@ -616,9 +612,9 @@ class ConversationsFragment : MainFragment() {
                         /* requestKey = */
                         DIALOG_CONFIRM_LEAVE_GROUP,
                     ).setRequestData(
-                        bundleOf(
-                            DIALOG_BUNDLE_KEY_CONVERSATION_ID to groupConversationId,
-                        ),
+                        buildBundle {
+                            putParcelable(DIALOG_BUNDLE_KEY_CONVERSATION_ID, groupConversationId)
+                        },
                     ).show(parentFragmentManager)
                 }
             }
@@ -638,9 +634,9 @@ class ConversationsFragment : MainFragment() {
                         /* requestKey = */
                         DIALOG_CONFIRM_DISSOLVE_GROUP,
                     ).setRequestData(
-                        bundleOf(
-                            DIALOG_BUNDLE_KEY_CONVERSATION_ID to groupConversationId,
-                        ),
+                        buildBundle {
+                            putParcelable(DIALOG_BUNDLE_KEY_CONVERSATION_ID, groupConversationId)
+                        },
                     ).show(parentFragmentManager)
                 }
             }
@@ -660,9 +656,9 @@ class ConversationsFragment : MainFragment() {
                         /* requestKey = */
                         DIALOG_CONFIRM_DELETE_MY_GROUP,
                     ).setRequestData(
-                        bundleOf(
-                            DIALOG_BUNDLE_KEY_CONVERSATION_ID to groupConversationId,
-                        ),
+                        buildBundle {
+                            putParcelable(DIALOG_BUNDLE_KEY_CONVERSATION_ID, groupConversationId)
+                        },
                     ).show(parentFragmentManager)
                 }
             }
@@ -682,9 +678,9 @@ class ConversationsFragment : MainFragment() {
                         /* requestKey = */
                         DIALOG_CONFIRM_DELETE_GROUP,
                     ).setRequestData(
-                        bundleOf(
-                            DIALOG_BUNDLE_KEY_CONVERSATION_ID to groupConversationId,
-                        ),
+                        buildBundle {
+                            putParcelable(DIALOG_BUNDLE_KEY_CONVERSATION_ID, groupConversationId)
+                        },
                     ).show(parentFragmentManager)
                 }
             }
@@ -704,9 +700,9 @@ class ConversationsFragment : MainFragment() {
                         /* requestKey = */
                         DIALOG_CONFIRM_DELETE_GROUP,
                     ).setRequestData(
-                        bundleOf(
-                            DIALOG_BUNDLE_KEY_CONVERSATION_ID to groupConversationId,
-                        ),
+                        buildBundle {
+                            putParcelable(DIALOG_BUNDLE_KEY_CONVERSATION_ID, groupConversationId)
+                        },
                     ).show(parentFragmentManager)
                 }
             }
@@ -723,7 +719,9 @@ class ConversationsFragment : MainFragment() {
 
             TAG_SHARE -> {
                 logger.info("Clicked on button to share conversation")
-                getConversationId()?.let(::onClickShareConversation)
+                getConversationId()?.let { conversationId ->
+                    showShareConversationSetPasswordDialog(conversationId)
+                }
             }
 
             TAG_MARK_READ -> {
@@ -771,14 +769,7 @@ class ConversationsFragment : MainFragment() {
 
     @UiThread
     private fun onConversationFileReadyForSharing(file: File) {
-        DialogUtil.dismissDialog(
-            /* fragmentManager = */
-            parentFragmentManager,
-            /* tag = */
-            DIALOG_TAG_PREPARING_MESSAGES,
-            /* allowStateLoss = */
-            true,
-        )
+        parentFragmentManager.dismissDialog(DIALOG_TAG_PREPARING_MESSAGES)
         val intent: Intent = Intent(Intent.ACTION_SEND).apply {
             setType(MimeUtil.MIME_TYPE_ZIP)
             putExtra(
@@ -807,14 +798,7 @@ class ConversationsFragment : MainFragment() {
 
     @UiThread
     private fun onFailedToCreateConversationFileForSharing() {
-        DialogUtil.dismissDialog(
-            /* fragmentManager = */
-            parentFragmentManager,
-            /* tag = */
-            DIALOG_TAG_PREPARING_MESSAGES,
-            /* allowStateLoss = */
-            true,
-        )
+        parentFragmentManager.dismissDialog(DIALOG_TAG_PREPARING_MESSAGES)
         showSharingConversationFailedDialog()
     }
 
@@ -834,9 +818,9 @@ class ConversationsFragment : MainFragment() {
                 /* requestKey = */
                 DIALOG_LOCK_MECHANISM_REQUIRED_TO_TOGGLE_PRIVATE_MARK,
             ).setRequestData(
-                bundleOf(
-                    DIALOG_BUNDLE_KEY_TARGET_VALUE to targetValueIsMarkedAsPrivate,
-                ),
+                buildBundle {
+                    putBoolean(DIALOG_BUNDLE_KEY_TARGET_VALUE, targetValueIsMarkedAsPrivate)
+                },
             ).show(parentFragmentManager)
     }
 
@@ -856,9 +840,9 @@ class ConversationsFragment : MainFragment() {
                 /* requestKey = */
                 DIALOG_CONFIRM_TO_MARK_AS_PRIVATE,
             ).setRequestData(
-                bundleOf(
-                    DIALOG_BUNDLE_KEY_CONVERSATION_ID to conversationId,
-                ),
+                buildBundle {
+                    putParcelable(DIALOG_BUNDLE_KEY_CONVERSATION_ID, conversationId)
+                },
             ).show(parentFragmentManager)
     }
 
@@ -895,9 +879,9 @@ class ConversationsFragment : MainFragment() {
                 /* requestKey = */
                 DIALOG_SET_PASSWORD_FOR_SHARING,
             ).setRequestData(
-                bundleOf(
-                    DIALOG_BUNDLE_KEY_CONVERSATION_ID to conversationId,
-                ),
+                buildBundle {
+                    putParcelable(DIALOG_BUNDLE_KEY_CONVERSATION_ID, conversationId)
+                },
             ).show(parentFragmentManager)
     }
 
@@ -916,9 +900,9 @@ class ConversationsFragment : MainFragment() {
                 /* requestKey = */
                 DIALOG_CONFIRM_TO_EMPTY_CONVERSATION,
             ).setRequestData(
-                bundleOf(
-                    DIALOG_BUNDLE_KEY_CONVERSATION_ID to conversationId,
-                ),
+                buildBundle {
+                    putParcelable(DIALOG_BUNDLE_KEY_CONVERSATION_ID, conversationId)
+                },
             ).show(parentFragmentManager)
     }
 
@@ -937,9 +921,9 @@ class ConversationsFragment : MainFragment() {
                 /* requestKey = */
                 DIALOG_CONFIRM_DELETE_CONTACT_CONVERSATION,
             ).setRequestData(
-                bundleOf(
-                    DIALOG_BUNDLE_KEY_CONVERSATION_ID to conversationId,
-                ),
+                buildBundle {
+                    putParcelable(DIALOG_BUNDLE_KEY_CONVERSATION_ID, conversationId)
+                },
             ).show(parentFragmentManager)
     }
 
@@ -958,9 +942,9 @@ class ConversationsFragment : MainFragment() {
                 /* requestKey = */
                 DIALOG_CONFIRM_DELETE_DISTRIBUTION_LIST_CONVERSATION,
             ).setRequestData(
-                bundleOf(
-                    DIALOG_BUNDLE_KEY_CONVERSATION_ID to conversationId,
-                ),
+                buildBundle {
+                    putParcelable(DIALOG_BUNDLE_KEY_CONVERSATION_ID, conversationId)
+                },
             ).show(parentFragmentManager)
     }
 
@@ -974,15 +958,6 @@ class ConversationsFragment : MainFragment() {
                 getString(R.string.an_error_occurred),
             )
             .show(parentFragmentManager)
-    }
-
-    private fun requestStoragePermissionToShareConversation() {
-        val permissionWasGrantedInMeantime = ConfigUtils.hasWriteStoragePermission(requireContext())
-        if (permissionWasGrantedInMeantime) {
-            viewModel.onStoragePermissionGrantedToShareConversation()
-            return
-        }
-        requestWriteStoragePermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
     }
 
     private fun onLockMechanismRequiredToHidePrivateConversationsEvent() {
@@ -1038,7 +1013,9 @@ class ConversationsFragment : MainFragment() {
                         contentWindowInsets = contentWindowInsets,
                         floatingActionButton = {
                             ExtendedFloatingActionButtonPrimary(
-                                expanded = lazyListState.isScrollingUp(),
+                                expanded = debounced(!lazyListState.isScrollingWithinBounds) { targetExpanded ->
+                                    if (targetExpanded) FAB_EXPAND_DELAY else Duration.ZERO
+                                },
                                 icon = ButtonIconInfo(
                                     iconRes = R.drawable.ic_chat_bubble,
                                     contentDescription = R.string.title_compose_message,
@@ -1056,7 +1033,7 @@ class ConversationsFragment : MainFragment() {
                                     )
                                 }
 
-                                val emojiStyle: Int = remember {
+                                val emojiStyle: EmojiStyle = remember {
                                     preferenceService.getEmojiStyle()
                                 }
 
@@ -1105,7 +1082,7 @@ class ConversationsFragment : MainFragment() {
                                                     items = itemsState.items,
                                                     contactNameFormat = conversationsViewState.contactNameFormat,
                                                     archivedCount = conversationsViewState.archivedConversationsCount,
-                                                    searchQuery = conversationsViewState.searchQuery,
+                                                    onClickOpenArchive = viewModel::onClickOpenArchive,
                                                 )
                                             }
 
@@ -1125,6 +1102,7 @@ class ConversationsFragment : MainFragment() {
                                                 EmptyContent(
                                                     insetsPadding = insetsPadding,
                                                     conversationsViewState = conversationsViewState,
+                                                    onClickOpenArchive = viewModel::onClickOpenArchive,
                                                 )
                                             }
                                         }
@@ -1144,7 +1122,7 @@ class ConversationsFragment : MainFragment() {
         }
 
     /**
-     *  @param requestShowSnackbar Block receiving [StringRes]
+     *  @param requestShowSnackbar Block receiving [String]
      */
     private fun handleEvent(
         event: ConversationsViewEvent,
@@ -1181,7 +1159,7 @@ class ConversationsFragment : MainFragment() {
             is ConversationsViewEvent.ConfirmationRequiredToDeleteDistributionListConversation ->
                 showConfirmDeleteDistributionListConversationDialog(event.conversationId)
 
-            ConversationsViewEvent.StoragePermissionRequiredToShareConversation -> requestStoragePermissionToShareConversation()
+            ConversationsViewEvent.StoragePermissionRequiredToShareConversation -> viewModel.onShareConversation()
 
             is ConversationsViewEvent.OnShareConversation -> showShareConversationSetPasswordDialog(event.conversationId)
 
@@ -1191,9 +1169,9 @@ class ConversationsFragment : MainFragment() {
 
             ConversationsViewEvent.OnSystemLockWasRemoved -> requestShowSnackbar(getString(R.string.no_lockscreen_set))
 
-            is ConversationsViewEvent.OnSupportContactAvailable -> openConversation(event.conversationId)
+            ConversationsViewEvent.OnContactSupport -> contactSupportLauncher.launch()
 
-            is ConversationsViewEvent.OnSupportContactUnavailable -> requestShowSnackbar(getString(event.message))
+            is ConversationsViewEvent.OnContactSupportFailed -> requestShowSnackbar(event.message)
 
             ConversationsViewEvent.UpdateWidgets -> widgetUpdater.updateWidgets()
 
@@ -1230,6 +1208,8 @@ class ConversationsFragment : MainFragment() {
                 result = event.result,
                 requestShowSnackbar = requestShowSnackbar,
             )
+
+            is ConversationsViewEvent.OpenArchive -> openArchive(event.searchQuery)
         }
     }
 
@@ -1238,11 +1218,11 @@ class ConversationsFragment : MainFragment() {
         insetsPadding: PaddingValues,
         myIdentity: Identity,
         lazyListState: LazyListState,
-        @EmojiStyle emojiStyle: Int,
+        emojiStyle: EmojiStyle,
         items: List<ConversationListItemUiModel>,
         contactNameFormat: ContactNameFormat,
         archivedCount: Long,
-        searchQuery: String?,
+        onClickOpenArchive: () -> Unit,
     ) {
         val localDayOfYear: LocalDayOfYear by rememberRefreshingLocalDayOfYear()
 
@@ -1349,7 +1329,7 @@ class ConversationsFragment : MainFragment() {
                     ArchivedButton(
                         modifier = Modifier.padding(top = GridUnit.x3),
                         archivedCount = archivedCount,
-                        searchQuery = searchQuery,
+                        onClick = onClickOpenArchive,
                     )
                 }
             }
@@ -1360,6 +1340,7 @@ class ConversationsFragment : MainFragment() {
     private fun EmptyContent(
         insetsPadding: PaddingValues,
         conversationsViewState: ConversationsViewState,
+        onClickOpenArchive: () -> Unit,
     ) {
         Column(
             modifier = Modifier
@@ -1395,7 +1376,7 @@ class ConversationsFragment : MainFragment() {
                         .padding(horizontal = GridUnit.x3)
                         .padding(top = GridUnit.x6),
                     archivedCount = conversationsViewState.archivedConversationsCount,
-                    searchQuery = conversationsViewState.searchQuery,
+                    onClick = onClickOpenArchive,
                 )
             }
             SpacerVertical(GridUnit.x15)
@@ -1435,7 +1416,7 @@ class ConversationsFragment : MainFragment() {
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
             )
-            if (!BuildFlavor.current.isOnPrem) {
+            if (!BuildFlavor.IS_ON_PREM) {
                 SpacerVertical(GridUnit.x6)
                 ButtonOutlined(
                     onClick = onClickContactSupport,
@@ -1451,22 +1432,14 @@ class ConversationsFragment : MainFragment() {
     private fun ArchivedButton(
         modifier: Modifier = Modifier,
         archivedCount: Long,
-        searchQuery: String?,
+        onClick: () -> Unit,
     ) {
         val archivedCountInt: Int = remember(archivedCount) {
             archivedCount.toIntCapped()
         }
-
         ButtonOutlined(
             modifier = modifier,
-            onClick = {
-                startActivity(
-                    ArchiveActivity.createIntent(
-                        context = requireActivity(),
-                        searchQuery = searchQuery,
-                    ),
-                )
-            },
+            onClick = onClick,
             text = pluralStringResource(
                 id = R.plurals.num_archived_chats,
                 count = archivedCountInt,
@@ -1540,15 +1513,6 @@ class ConversationsFragment : MainFragment() {
             outState.putString(BUNDLE_SEARCH_QUERY, existingFilterQuery.toString())
         }
         super.onSaveInstanceState(outState)
-    }
-
-    private fun onClickShareConversation(conversationId: ConversationId) {
-        val hasWriteStoragePermission = ConfigUtils.hasWriteStoragePermission(requireContext())
-        if (hasWriteStoragePermission) {
-            showShareConversationSetPasswordDialog(conversationId)
-        } else {
-            viewModel.onMissingPermissionToShareConversation(conversationId)
-        }
     }
 
     private fun setShowOrHidePrivateConversationsMenuItemVisible(isVisible: Boolean) {
@@ -1684,14 +1648,7 @@ class ConversationsFragment : MainFragment() {
 
     @UiThread
     private fun dismissLeavingGroupProgressDialog() {
-        DialogUtil.dismissDialog(
-            /* fragmentManager = */
-            parentFragmentManager,
-            /* tag = */
-            DIALOG_TAG_LEAVING_GROUP,
-            /* allowStateLoss = */
-            true,
-        )
+        parentFragmentManager.dismissDialog(DIALOG_TAG_LEAVING_GROUP)
     }
 
     @UiThread
@@ -1745,14 +1702,7 @@ class ConversationsFragment : MainFragment() {
 
     @UiThread
     private fun dismissDisbandingGroupProgressDialog() {
-        DialogUtil.dismissDialog(
-            /* fragmentManager = */
-            parentFragmentManager,
-            /* tag = */
-            DIALOG_TAG_DISSOLVING_GROUP,
-            /* allowStateLoss = */
-            true,
-        )
+        parentFragmentManager.dismissDialog(DIALOG_TAG_DISSOLVING_GROUP)
     }
 
     @UiThread
@@ -1805,14 +1755,7 @@ class ConversationsFragment : MainFragment() {
 
     @UiThread
     private fun dismissRemovingGroupProgressDialog() {
-        DialogUtil.dismissDialog(
-            /* fragmentManager = */
-            parentFragmentManager,
-            /* tag = */
-            DIALOG_TAG_REMOVING_GROUP,
-            /* allowStateLoss = */
-            true,
-        )
+        parentFragmentManager.dismissDialog(DIALOG_TAG_REMOVING_GROUP)
     }
 
     @UiThread
@@ -1846,14 +1789,7 @@ class ConversationsFragment : MainFragment() {
 
     @UiThread
     private fun dismissEmptyingConversationProgressDialog() {
-        DialogUtil.dismissDialog(
-            /* fragmentManager = */
-            parentFragmentManager,
-            /* tag = */
-            DIALOG_TAG_EMPTYING_CONVERSATION,
-            /* allowStateLoss = */
-            true,
-        )
+        parentFragmentManager.dismissDialog(DIALOG_TAG_EMPTYING_CONVERSATION)
     }
 
     @UiThread
@@ -1894,14 +1830,7 @@ class ConversationsFragment : MainFragment() {
 
     @UiThread
     private fun dismissDeletingConversationProgressDialog() {
-        DialogUtil.dismissDialog(
-            /* fragmentManager = */
-            parentFragmentManager,
-            /* tag = */
-            DIALOG_TAG_DELETING_CONVERSATION,
-            /* allowStateLoss = */
-            true,
-        )
+        parentFragmentManager.dismissDialog(DIALOG_TAG_DELETING_CONVERSATION)
     }
 
     @UiThread
@@ -2038,27 +1967,21 @@ class ConversationsFragment : MainFragment() {
 
         private val DURATION_ARCHIVE_UNDO_SNACKBAR: Duration = 7.seconds
 
+        /**
+         *  The FAB only expands after the scroll state stayed the same for this duration. This prevents the expand
+         *  animation from being started (and interrupted again) when the user only pauses scrolling for a moment.
+         */
+        private val FAB_EXPAND_DELAY: Duration = 1.seconds
+
         private const val BUNDLE_SEARCH_QUERY = "search-query"
     }
 }
 
 /**
- * Returns whether the lazy list is currently scrolling up.
+ *  Returns whether the lazy list is currently being scrolled between its two ends.
+ *
+ *  This is `false` while the list is at rest, and it stays `false` while the user only overscrolls at the very top or at the
+ *  very bottom of the list, as such a gesture cannot move the list contents anymore.
  */
-@Composable
-private fun LazyListState.isScrollingUp(): Boolean {
-    var previousIndex by remember(this) { mutableIntStateOf(firstVisibleItemIndex) }
-    var previousScrollOffset by remember(this) { mutableIntStateOf(firstVisibleItemScrollOffset) }
-    return remember(this) {
-        derivedStateOf {
-            if (previousIndex != firstVisibleItemIndex) {
-                previousIndex > firstVisibleItemIndex
-            } else {
-                previousScrollOffset >= firstVisibleItemScrollOffset
-            }.also {
-                previousIndex = firstVisibleItemIndex
-                previousScrollOffset = firstVisibleItemScrollOffset
-            }
-        }
-    }.value
-}
+private val LazyListState.isScrollingWithinBounds: Boolean
+    get() = isScrollInProgress && canScrollBackward && canScrollForward

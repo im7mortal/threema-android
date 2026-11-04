@@ -14,7 +14,8 @@ import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 import org.koin.java.KoinJavaComponent;
 
-import java.time.Instant;import java.util.Collections;
+import java.time.Instant;
+import java.util.Collections;
 
 import androidx.annotation.NonNull;
 import androidx.preference.PreferenceManager;

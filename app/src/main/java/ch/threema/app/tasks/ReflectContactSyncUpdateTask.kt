@@ -1,14 +1,13 @@
 package ch.threema.app.tasks
 
 import ch.threema.app.services.ApiService
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.FileService
 import ch.threema.base.crypto.NonceFactory
 import ch.threema.base.crypto.SymmetricEncryptionService
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverride
 import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverridePolicy
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.models.ContactModelData
 import ch.threema.data.repositories.ContactModelRepository
@@ -36,7 +35,7 @@ import ch.threema.protobuf.common.unit
 import ch.threema.protobuf.d2d.sync.Contact
 import ch.threema.protobuf.d2d.sync.ContactKt.readReceiptPolicyOverride
 import ch.threema.protobuf.d2d.sync.ContactKt.typingIndicatorPolicyOverride
-import ch.threema.protobuf.d2d.sync.ConversationCategory
+import ch.threema.protobuf.d2d.sync.ConversationCategory as ProtocolsConversationCategory
 import ch.threema.protobuf.d2d.sync.ConversationVisibility as ProtocolsConversationVisibility
 import ch.threema.protobuf.d2d.sync.contact
 import ch.threema.protobuf.toProtobuf
@@ -801,34 +800,34 @@ abstract class ReflectContactSyncUpdateTask(
      */
     class ReflectConversationCategoryUpdate(
         contactIdentity: IdentityString,
-        private val isPrivateChat: Boolean,
+        private val conversationCategory: ConversationCategory,
     ) : ReflectContactSyncUpdateTask(
         contactIdentity,
-    ),
-        KoinComponent {
-        private val conversationCategoryService: ConversationCategoryService by inject()
+    ) {
 
         override val type = "ReflectConversationCategoryUpdate"
 
         override fun isChangeValid(currentData: ContactModelData): Boolean =
-            conversationCategoryService.isMarkedAsPrivate(
-                conversationId = ContactConversationId(contactIdentity),
-            ) == isPrivateChat
+            currentData.conversationCategory == conversationCategory
 
         override fun getContactSync(): Contact = contact {
             identity = contactIdentity
-            conversationCategory = if (isPrivateChat) {
-                ConversationCategory.PROTECTED
-            } else {
-                ConversationCategory.DEFAULT
+            conversationCategory = when (this@ReflectConversationCategoryUpdate.conversationCategory) {
+                ConversationCategory.DEFAULT -> ProtocolsConversationCategory.DEFAULT
+                ConversationCategory.PROTECTED -> ProtocolsConversationCategory.PROTECTED
             }
         }
 
-        override fun serialize(): SerializableTaskData = ReflectContactConversationCategoryUpdateData(
+        override fun serialize(): SerializableTaskData = ReflectContactConversationCategoryUpdateDataV2(
             contactIdentity = contactIdentity,
-            isPrivateChat = isPrivateChat,
+            conversationCategorySerialized = conversationCategory.serializedValue,
         )
 
+        /**
+         * Note that this is only used for backwards compatibility as we used to persist this task data. We still need to be able to restore this task
+         * data as some clients may have persisted it.
+         */
+        @Deprecated("Use ReflectContactConversationCategoryUpdateDataV2 instead")
         @Serializable
         data class ReflectContactConversationCategoryUpdateData(
             private val contactIdentity: IdentityString,
@@ -836,9 +835,28 @@ abstract class ReflectContactSyncUpdateTask(
         ) : SerializableTaskData {
             override fun createTask(): Task<*, TaskCodec> =
                 ReflectConversationCategoryUpdate(
-                    isPrivateChat = isPrivateChat,
                     contactIdentity = contactIdentity,
+                    conversationCategory = if (isPrivateChat) {
+                        ConversationCategory.PROTECTED
+                    } else {
+                        ConversationCategory.DEFAULT
+                    },
                 )
+        }
+
+        @Serializable
+        data class ReflectContactConversationCategoryUpdateDataV2(
+            private val contactIdentity: IdentityString,
+            private val conversationCategorySerialized: Int,
+        ) : SerializableTaskData {
+            override fun createTask(): Task<*, TaskCodec> = ReflectConversationCategoryUpdate(
+                contactIdentity = contactIdentity,
+                conversationCategory = requireConversationCategory(),
+            )
+
+            private fun requireConversationCategory(): ConversationCategory =
+                ConversationCategory.deserialize(conversationCategorySerialized)
+                    ?: error("Could not deserialize conversation category from value $conversationCategorySerialized")
         }
     }
 

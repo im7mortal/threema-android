@@ -33,11 +33,6 @@ public class DatabaseUpdateToVersion35 implements DatabaseUpdate {
     }
 
     @Override
-    public String getDescription() {
-        return "add caption";
-    }
-
-    @Override
     public int getVersion() {
         return 35;
     }

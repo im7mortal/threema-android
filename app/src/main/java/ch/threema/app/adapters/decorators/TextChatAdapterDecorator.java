@@ -20,24 +20,25 @@ import ch.threema.app.utils.LinkifyUtil;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.app.utils.QuoteUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ContactModel;
-import ch.threema.storage.models.group.GroupMessageModel;
+import ch.threema.storage.models.GroupMessageModel;
 
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
+import static ch.threema.storage.models.ModelExtensionsKt.isQuote;
 
 public class TextChatAdapterDecorator extends ChatAdapterDecorator {
 
-    private final int quoteType;
+    private final boolean isQuote;
 
     public TextChatAdapterDecorator(
-        AbstractMessageModel messageModel,
+        @NonNull MessageModel messageModel,
         @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
         @NonNull LinkifyUtil.LinkifyListener linkifyListener,
         Helper helper
     ) {
         super(messageModel, chatAdapterDecoratorListener, linkifyListener, helper);
-        this.quoteType = QuoteUtil.getQuoteType(messageModel);
+        this.isQuote = isQuote(messageModel);
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -51,7 +52,7 @@ public class TextChatAdapterDecorator extends ChatAdapterDecorator {
                 // no action on onClick
             }, holder.messageBlockView);
 
-            if (quoteType != QuoteUtil.QUOTE_TYPE_NONE) {
+            if (isQuote) {
                 QuoteUtil.QuoteContent quoteContent = configureQuote(holder, context, this.getMessageModel());
                 if (quoteContent != null) {
                     messageText = quoteContent.bodyText;
@@ -65,7 +66,7 @@ public class TextChatAdapterDecorator extends ChatAdapterDecorator {
             if (holder.readOnContainer != null) {
                 if (messageText != null && messageText.length() > helper.getMaxBubbleTextLength()) {
                     holder.readOnContainer.setVisibility(View.VISIBLE);
-                    if (quoteType != QuoteUtil.QUOTE_TYPE_NONE) {
+                    if (isQuote) {
                         holder.readOnContainer.setBackgroundResource(
                             this.getMessageModel().isOutbox() ?
                                 R.drawable.bubble_fade_send_selector :
@@ -108,17 +109,11 @@ public class TextChatAdapterDecorator extends ChatAdapterDecorator {
     }
 
     @Nullable
-    private QuoteUtil.QuoteContent configureQuote(final ComposeMessageHolder holder, Context context, final AbstractMessageModel messageModel) {
-        final @Nullable QuoteUtil.QuoteContent content = QuoteUtil.getQuoteContent(
+    private QuoteUtil.QuoteContent configureQuote(final ComposeMessageHolder holder, Context context, final MessageModel messageModel) {
+        final @Nullable QuoteUtil.QuoteContent content = helper.getQuoteUtil().getQuoteContent(
             messageModel,
             this.helper.getMessageReceiver(),
-            false,
-            this.helper.getThumbnailCache(),
-            context,
-            this.helper.getMessageService(),
-            this.helper.getUserService(),
-            this.helper.getFileService(),
-            this.helper.getPreferenceService().getContactNameFormat()
+            this.helper.getThumbnailCache()
         );
 
         if (content == null) {

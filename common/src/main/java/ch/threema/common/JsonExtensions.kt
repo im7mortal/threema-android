@@ -4,14 +4,17 @@ import kotlin.collections.component1
 import kotlin.collections.component2
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonArrayBuilder
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import org.json.JSONArray
 import org.json.JSONObject
@@ -64,10 +67,30 @@ val JsonElement.primitiveOrNull: JsonPrimitive?
 val JsonElement.intOrNull: Int?
     get() = primitiveOrNull?.intOrNull
 
+val JsonElement.longOrNull: Long?
+    get() = primitiveOrNull?.longOrNull
+
 val JsonElement.booleanOrNull: Boolean?
     get() = primitiveOrNull?.booleanOrNull
+
+val JsonElement.stringOrNull: String?
+    get() = primitiveOrNull?.takeIf { it.isString }?.contentOrNull
+
+val JsonElement.string: String
+    get() = stringOrNull ?: error("not a string")
 
 @Deprecated("Use more structured data objects instead of raw maps whenever possible")
 fun parseJsonObjectAsStringMap(jsonObject: String): Map<String, String?> =
     Json.decodeFromString<Map<String, JsonElement?>>(jsonObject)
         .mapValues { (_, value) -> (value as? JsonPrimitive)?.jsonPrimitive?.contentOrNull }
+
+fun List<JsonElement>.toJsonArray(): JsonArray =
+    JsonArray(this)
+
+fun JsonObject.toString(prettyPrintIndent: String): String {
+    val json = Json {
+        this.prettyPrint = true
+        this.prettyPrintIndent = prettyPrintIndent
+    }
+    return json.encodeToString(this)
+}

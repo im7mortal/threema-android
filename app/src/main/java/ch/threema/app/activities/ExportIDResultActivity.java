@@ -47,13 +47,16 @@ import ch.threema.app.ui.QRCodePopup;
 import ch.threema.app.ui.TooltipPopup;
 import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.utils.ConfigUtils;
+
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
+import static ch.threema.android.ViewExtensionsKt.invertColors;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
-public class ExportIDResultActivity extends ThreemaToolbarActivity implements GenericAlertDialog.DialogClickListener, LifecycleOwner {
+public class ExportIDResultActivity extends ThreemaToolbarActivity implements GenericAlertDialog.DialogClickListener, LifecycleOwner, BackPressHandler {
     private static final Logger logger = getThreemaLogger("ExportIDResultActivity");
 
     private static final String DIALOG_TAG_QUIT_CONFIRM = "qconf";
@@ -93,7 +96,7 @@ public class ExportIDResultActivity extends ThreemaToolbarActivity implements Ge
 
         Drawable checkDrawable = AppCompatResources.getDrawable(this, R.drawable.ic_check);
         Objects.requireNonNull(checkDrawable).setColorFilter(
-            ConfigUtils.getColorFromAttribute(this, R.attr.colorOnSurface),
+            getColorFromAttribute(this, R.attr.colorOnSurface),
             PorterDuff.Mode.SRC_IN
         );
         actionBar.setDisplayHomeAsUpEnabled(true);
@@ -139,7 +142,7 @@ public class ExportIDResultActivity extends ThreemaToolbarActivity implements Ge
         scaledQrCode.setDensity(Bitmap.DENSITY_NONE);
         imageView.setImageBitmap(scaledQrCode);
         if (ConfigUtils.isTheDarkSide(this)) {
-            ConfigUtils.invertColors(imageView);
+            invertColors(imageView);
         }
 
         imageView.setOnClickListener(v -> new QRCodePopup(ExportIDResultActivity.this, getWindow().getDecorView(), ExportIDResultActivity.this).show(v, backupData));
@@ -271,12 +274,7 @@ public class ExportIDResultActivity extends ThreemaToolbarActivity implements Ge
     }
 
     @Override
-    protected boolean enableOnBackPressedCallback() {
-        return true;
-    }
-
-    @Override
-    protected void handleOnBackPressed() {
+    public void handleOnBackPressed() {
         done();
     }
 

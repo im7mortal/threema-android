@@ -13,9 +13,6 @@ class TestIdentityProvider(
     override fun getIdentityString(): IdentityString? =
         identity?.value
 
-    companion object {
-        @JvmStatic
-        fun javaCreate(identity: IdentityString?) =
-            TestIdentityProvider(identity?.let(::Identity))
-    }
+    override fun requireIdentityString(): IdentityString =
+        identity?.value ?: error("Identity does not exist")
 }

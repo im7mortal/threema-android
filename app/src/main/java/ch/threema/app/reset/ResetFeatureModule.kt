@@ -1,9 +1,9 @@
 package ch.threema.app.reset
 
-import org.koin.core.module.dsl.factoryOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
 
 val resetFeatureModule = module {
-    factoryOf(::ResetAppTask)
-    factoryOf(::DeleteAllContactsHelper)
+    factory<ResetAppTask>()
+    factory<DeleteAllContactsHelper>()
 }

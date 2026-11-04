@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.List;
 
 import ch.threema.app.R;
+import ch.threema.app.activities.BackPressHandler;
 import ch.threema.app.activities.ThreemaActivity;
 import ch.threema.app.dialogs.SimpleStringAlertDialog;
 import ch.threema.app.ui.EmptyRecyclerView;
@@ -37,7 +38,6 @@ import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.IntentDataUtil;
 
 import static ch.threema.app.startup.AppStartupUtilKt.waitUntilReady;
-import ch.threema.app.utils.NetworkUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.common.models.Coordinates;
 import kotlin.Unit;
@@ -47,7 +47,7 @@ import static ch.threema.app.utils.IntentDataUtil.INTENT_DATA_LOCATION_LAT;
 import static ch.threema.app.utils.IntentDataUtil.INTENT_DATA_LOCATION_LNG;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 
-public class LocationAutocompleteActivity extends ThreemaActivity {
+public class LocationAutocompleteActivity extends ThreemaActivity implements BackPressHandler {
     private static final Logger logger = getThreemaLogger("LocationAutocompleteActivity");
 
     private static final String DIALOG_TAG_NO_CONNECTION = "no_connection";
@@ -132,7 +132,7 @@ public class LocationAutocompleteActivity extends ThreemaActivity {
 
         // Observe the LiveData, passing in this activity as the LifecycleOwner and the observer.
         viewModel.isLoading().observe(this, isLoading -> {
-            if (isLoading != null && isLoading) {
+            if (isLoading) {
                 progressBar.setVisibility(View.VISIBLE);
             } else {
                 progressBar.setVisibility(View.GONE);
@@ -145,7 +145,7 @@ public class LocationAutocompleteActivity extends ThreemaActivity {
             places = newplaces;
             refreshAdapter(places);
 
-            if (!NetworkUtil.isOnline()) {
+            if (viewModel.isOffline()) {
                 SimpleStringAlertDialog.newInstance(R.string.send_location, R.string.internet_connection_required).show(getSupportFragmentManager(), DIALOG_TAG_NO_CONNECTION);
             } else if (places.isEmpty() && (queryText != null && queryText.length() >= QUERY_MIN_LENGTH)) {
                 emptyView.setup(R.string.lp_search_place_no_matches);
@@ -200,12 +200,7 @@ public class LocationAutocompleteActivity extends ThreemaActivity {
     }
 
     @Override
-    protected boolean enableOnBackPressedCallback() {
-        return true;
-    }
-
-    @Override
-    protected void handleOnBackPressed() {
+    public void handleOnBackPressed() {
         // Intercepting back navigation is needed as this activity overrides the finish() method
         this.finish();
     }

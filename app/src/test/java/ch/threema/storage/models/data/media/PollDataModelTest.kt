@@ -13,7 +13,7 @@ class PollDataModelTest {
                 type = PollDataModel.Type.POLL_MODIFIED,
                 pollId = 123,
             )
-                .toString(),
+                .serialize(),
         )
 
         assertEquals(
@@ -22,7 +22,16 @@ class PollDataModelTest {
                 type = PollDataModel.Type.POLL_CREATED,
                 pollId = 456,
             )
-                .toString(),
+                .serialize(),
+        )
+
+        assertEquals(
+            "[3,789]",
+            PollDataModel(
+                type = PollDataModel.Type.POLL_CLOSED,
+                pollId = 789,
+            )
+                .serialize(),
         )
 
         assertEquals(

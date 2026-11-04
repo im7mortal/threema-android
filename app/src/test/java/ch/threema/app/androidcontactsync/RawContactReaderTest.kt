@@ -204,7 +204,7 @@ class RawContactReaderTest {
             lookupInfoReader = mockk(),
             dispatcherProvider = testDispatcherProvider(),
         )
-        assertFailsWith<AndroidContactReadException.MultipleLookupKeysPerRawContact> {
+        assertFailsWith<AndroidContactReadException.MultipleLookupInfosPerRawContact> {
             rawContactReader.readAllRawContacts()
         }
     }

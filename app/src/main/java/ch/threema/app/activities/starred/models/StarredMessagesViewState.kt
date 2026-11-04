@@ -11,6 +11,6 @@ data class StarredMessagesViewState(
     val query: String?,
     @PreferenceService.StarredMessagesSortOrder val sortOrder: Int,
     val contactNameFormat: ContactNameFormat,
-    @EmojiStyle val emojiStyle: Int,
+    val emojiStyle: EmojiStyle,
     val listItems: List<StarredMessageListItemUiModel>,
 )

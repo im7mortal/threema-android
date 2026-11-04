@@ -9,6 +9,7 @@ import androidx.core.content.ContextCompat
 import ch.threema.android.ResolvableString
 import ch.threema.app.R
 import ch.threema.domain.types.Identity
+import ch.threema.domain.types.Mention
 
 @Immutable
 sealed interface MentionFeature {
@@ -19,8 +20,8 @@ sealed interface MentionFeature {
     @Immutable
     data class On(
         val ownIdentity: Identity,
-        val identityDisplayNames: Map<Identity, ResolvableString>,
-        val onClickMention: ((Identity) -> Unit)? = null,
+        val displayNames: Map<Mention, ResolvableString>,
+        val onClickMention: ((Mention) -> Unit)? = null,
         val paddingVertical: TextUnit = 1.sp,
         val cornerRadius: TextUnit = 4.sp,
     ) : MentionFeature {

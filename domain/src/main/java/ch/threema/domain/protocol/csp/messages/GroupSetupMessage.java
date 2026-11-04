@@ -6,7 +6,9 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 
 import androidx.annotation.Nullable;
+
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+
 import ch.threema.domain.protocol.csp.ProtocolDefines;
 import ch.threema.protobuf.csp.e2e.fs.Version;
 
@@ -39,8 +41,8 @@ public class GroupSetupMessage extends AbstractGroupMessage {
     }
 
     @Override
-    public boolean exemptFromBlocking() {
-        return true;
+    public ExemptFromBlocking exemptFromBlocking() {
+        return ExemptFromBlocking.DEDICATED_STEPS;
     }
 
     @Override

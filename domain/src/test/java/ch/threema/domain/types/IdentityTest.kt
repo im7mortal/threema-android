@@ -3,8 +3,10 @@ package ch.threema.domain.types
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class IdentityTest {
     @Test
@@ -58,6 +60,9 @@ class IdentityTest {
         assertIsInvalidIdentity("ABCDEFGh")
         assertIsInvalidIdentity("ÄBCDËFGH")
         assertIsInvalidIdentity("qrstuvwx")
+        assertIsInvalidIdentity("AND*ROID")
+        assertIsInvalidIdentity("@ABCDEFG")
+        assertIsInvalidIdentity("@@@@@@@@")
     }
 
     @Test
@@ -67,6 +72,21 @@ class IdentityTest {
             "01234567".toIdentityOrNull(),
         )
         assertNull("".toIdentityOrNull())
+    }
+
+    @Test
+    fun `test validity of identity strings`() {
+        assertTrue(Identity.isValidIdentity("01234567"))
+        assertTrue(Identity.isValidIdentity("ABCD1234"))
+        assertTrue(Identity.isValidIdentity("*ANDROID"))
+
+        assertFalse(Identity.isValidIdentity(""))
+        assertFalse(Identity.isValidIdentity("ANDROID*"))
+        assertFalse(Identity.isValidIdentity("ABCD12345"))
+        assertFalse(Identity.isValidIdentity("ABCD123"))
+        assertFalse(Identity.isValidIdentity("abcd1234"))
+        assertFalse(Identity.isValidIdentity("ÄBCD1234"))
+        assertFalse(Identity.isValidIdentity("@@@@@@@@"))
     }
 
     private fun assertIsInvalidIdentity(string: String) {

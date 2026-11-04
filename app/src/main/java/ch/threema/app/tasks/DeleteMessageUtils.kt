@@ -6,7 +6,7 @@ import ch.threema.app.utils.MessageUtil
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.models.MessageId
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import java.time.Instant
 
 private val logger = getThreemaLogger("DeleteMessageUtils")
@@ -19,7 +19,7 @@ fun runCommonDeleteMessageReceiveSteps(
     receiver: MessageReceiver<*>,
     messageService: MessageService,
     messageDeletionDisabled: Boolean,
-): AbstractMessageModel? {
+): MessageModel? {
     if (messageDeletionDisabled) {
         logger.info(
             "Delete Message: deletion disabled, preserving message payload and only updating metadata for message {} from {}",
@@ -27,7 +27,6 @@ fun runCommonDeleteMessageReceiveSteps(
             deleteMessageSenderIdentity,
         )
     }
-
     // Lookup the message with `message_id` originally sent by the sender within
     //  the associated conversation and let `message` be the result.
     val apiMessageId = MessageId(messageId).toString()

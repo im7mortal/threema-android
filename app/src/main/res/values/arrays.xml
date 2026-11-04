@@ -65,17 +65,6 @@
         <item>@string/contact_format__last_name_first_name</item>
     </string-array>
 
-    <string-array name="list_theme">
-        <item>@string/list_theme_light</item>
-        <item>@string/list_theme_dark</item>
-        <item>@string/system_default</item>
-    </string-array>
-    <string-array name="list_theme_values">
-        <item>0</item>
-        <item>1</item>
-        <item>2</item>
-    </string-array>
-
     <string-array name="storagemanager_timeout">
         <item>@string/two_years</item>
         <item>@string/one_year</item>
@@ -95,14 +84,6 @@
         <item>@string/one_week</item>
     </string-array>
 
-    <string-array name="list_emoji_style">
-        <item>@string/prefs_default_emojis</item>
-        <item>@string/prefs_android_emojis</item>
-    </string-array>
-    <string-array name="list_emoji_style_values">
-        <item>0</item>
-        <item>1</item>
-    </string-array>
     <string-array name="list_fontstyle">
         <item>@string/fontsize_normal</item>
         <item>@string/fontsize_large</item>
@@ -219,33 +200,6 @@
         <item>@string/reply_on_my_way</item>
         <item>@string/reply_thank_you</item>
         <item>@string/reply_youre_welcome</item>
-    </string-array>
-
-    <string-array name="list_auto_download">
-        <item>@string/media_gallery_pictures</item>
-        <item>@string/media_gallery_audio</item>
-        <item>@string/media_gallery_videos</item>
-        <item>@string/media_files</item>
-    </string-array>
-
-    <!-- values correspond to MessageType ordinal -->
-    <string-array name="list_auto_download_values">
-        <item>1</item> <!-- image -->
-        <item>3</item> <!-- audio -->
-        <item>2</item> <!-- video -->
-        <item>8</item> <!-- files -->
-    </string-array>
-
-    <string-array name="list_auto_download_mobile_default">
-        <item>1</item>
-    </string-array>
-
-    <!-- values correspond to MessageType ordinal -->
-    <string-array name="list_auto_download_wifi_default">
-        <item>1</item>
-        <item>3</item>
-        <item>2</item>
-        <item>8</item>
     </string-array>
 
     <string-array name="threema_safe_error">

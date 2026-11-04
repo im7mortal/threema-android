@@ -1,5 +1,7 @@
 package ch.threema.app.utils;
 
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
+
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -26,7 +28,7 @@ public class RecyclerViewUtil {
         popupView.setGravity(Gravity.CENTER);
         popupView.setIncludeFontPadding(false);
         popupView.setSingleLine(true);
-        popupView.setTextColor(ConfigUtils.getColorFromAttribute(popupView.getContext(), R.attr.colorOnSecondaryContainer));
+        popupView.setTextColor(getColorFromAttribute(popupView.getContext(), R.attr.colorOnSecondaryContainer));
         popupView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
     };
 }

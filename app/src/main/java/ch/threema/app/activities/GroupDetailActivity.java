@@ -12,7 +12,6 @@ import android.text.Editable;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.Toast;
 
@@ -26,7 +25,6 @@ import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
 import java.io.File;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -47,7 +45,6 @@ import androidx.core.app.ActivityOptionsCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
-import androidx.fragment.app.Fragment;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.Observer;
@@ -60,7 +57,6 @@ import ch.threema.app.adapters.GroupDetailAdapter;
 import ch.threema.app.contactdetails.ContactDetailActivity;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.dialogs.GenericAlertDialog;
-import ch.threema.app.dialogs.GroupDescEditDialog;
 import ch.threema.app.dialogs.SelectorDialog;
 import ch.threema.app.dialogs.SimpleStringAlertDialog;
 import ch.threema.app.dialogs.TextEntryDialog;
@@ -102,6 +98,7 @@ import ch.threema.base.utils.CoroutinesExtensionKt;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.data.datatypes.ContactConversationId;
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.data.datatypes.GroupConversationId;
 import ch.threema.data.models.GroupModel;
 import ch.threema.data.models.GroupModelData;
@@ -110,8 +107,6 @@ import ch.threema.storage.models.group.GroupModelOld;
 import kotlin.Unit;
 import kotlinx.coroutines.Deferred;
 
-import static ch.threema.app.adapters.GroupDetailAdapter.GroupDescState.COLLAPSED;
-import static ch.threema.app.adapters.GroupDetailAdapter.GroupDescState.NONE;
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 import static ch.threema.app.groupflows.GroupFlowResultKt.GROUP_FLOWS_LOADING_DIALOG_TIMEOUT_SECONDS;
@@ -120,7 +115,8 @@ import static ch.threema.common.JavaCompat.areEqual;
 public class GroupDetailActivity extends GroupEditActivity implements SelectorDialog.SelectorDialogClickListener,
     GenericAlertDialog.DialogClickListener,
     TextEntryDialog.TextEntryDialogClickListener,
-    GroupDetailAdapter.OnGroupDetailsClickListener {
+    GroupDetailAdapter.OnGroupDetailsClickListener,
+    BackPressHandler {
     private static final Logger logger = getThreemaLogger("GroupDetailActivity");
 
     @NonNull
@@ -140,7 +136,6 @@ public class GroupDetailActivity extends GroupEditActivity implements SelectorDi
     private static final String DIALOG_TAG_CHOOSE_ACTION = "chooseAction";
     private static final String DIALOG_TAG_DELETE_GROUP = "delG";
     private static final String DIALOG_TAG_CLONE_GROUP = "cg";
-    private static final String DIALOG_TAG_CHANGE_GROUP_DESC = "cgDesc";
     private static final String DIALOG_TAG_CLONE_GROUP_CONFIRM = "cgc";
     private static final String RUN_ON_ACTIVE_RELOAD = "reload";
 
@@ -313,15 +308,6 @@ public class GroupDetailActivity extends GroupEditActivity implements SelectorDi
             // new instance
             this.groupDetailViewModel.setGroupParticipants(displayableGroupParticipantList);
             this.groupDetailViewModel.setGroupName(groupModelData.name);
-            String groupDesc = groupModelData.groupDescription;
-            if (groupDesc == null || groupDesc.isEmpty()) {
-                this.groupDetailViewModel.setGroupDesc(null);
-                this.groupDetailViewModel.setGroupDescState(NONE);
-            } else {
-                this.groupDetailViewModel.setGroupDesc(groupDesc);
-                this.groupDetailViewModel.setGroupDescState(COLLAPSED);
-            }
-            this.groupDetailViewModel.setGroupDescTimestamp(groupModelData.groupDescriptionChangedAt);
         }
 
         this.avatarEditView.setHires(true);
@@ -391,16 +377,6 @@ public class GroupDetailActivity extends GroupEditActivity implements SelectorDi
         groupDetailRecyclerView.setLayoutManager(new LinearLayoutManager(this));
 
         setupAdapter();
-
-        Fragment dialogFragment = getSupportFragmentManager().findFragmentByTag(DIALOG_TAG_CHANGE_GROUP_DESC);
-        if (dialogFragment instanceof GroupDescEditDialog) {
-            GroupDescEditDialog dialog = (GroupDescEditDialog) dialogFragment;
-            dialog.setCallback(newGroupDesc -> {
-                hideKeyboard(); // is used for older devices
-                onGroupDescChange(newGroupDesc);
-            });
-        }
-
 
         groupDetailRecyclerView.setAdapter(this.groupDetailAdapter);
 
@@ -474,7 +450,6 @@ public class GroupDetailActivity extends GroupEditActivity implements SelectorDi
         this.groupDetailAdapter = new GroupDetailAdapter(
             this,
             this.groupModel,
-            groupDetailViewModel,
             dependencies.getContactService()
         );
 
@@ -616,9 +591,7 @@ public class GroupDetailActivity extends GroupEditActivity implements SelectorDi
             groupSyncMenu.setVisible(isCreator && isMember && hasOtherMembers);
 
             mediaGalleryMenu.setVisible(
-                !dependencies.getConversationCategoryService().isMarkedAsPrivate(
-                    new GroupConversationId(groupModel.getDatabaseId())
-                )
+                groupModelData != null && groupModelData.conversationCategory == ConversationCategory.DEFAULT
             );
 
             menu.findItem(R.id.action_send_message).setVisible(!hasChanges());
@@ -709,7 +682,8 @@ public class GroupDetailActivity extends GroupEditActivity implements SelectorDi
                     R.string.no)
                 .show(getSupportFragmentManager(), DIALOG_TAG_CLONE_GROUP_CONFIRM);
         } else if (itemId == R.id.menu_gallery) {
-            if (groupId > 0 && !dependencies.getConversationCategoryService().isMarkedAsPrivate(new GroupConversationId(groupModel.getDatabaseId()))) {
+            GroupModelData groupModelData = groupModel.getData();
+            if (groupId > 0 && groupModelData != null && groupModelData.conversationCategory == ConversationCategory.DEFAULT) {
                 Intent mediaGalleryIntent = new Intent(this, MediaGalleryActivity.class);
                 mediaGalleryIntent.putExtra(AppConstants.INTENT_DATA_GROUP_DATABASE_ID, groupId);
                 startActivity(mediaGalleryIntent);
@@ -1312,33 +1286,6 @@ public class GroupDetailActivity extends GroupEditActivity implements SelectorDi
         }
     }
 
-    public void onGroupDescChange(@NonNull String newGroupDesc) {
-        GroupModelData groupModelData = groupModel.getData();
-        if (groupModelData == null) {
-            return;
-        }
-
-        if (newGroupDesc.equals(groupModelData.groupDescription)) {
-            return;
-        }
-        groupDetailViewModel.setGroupDescTimestamp(Instant.now());
-
-
-        // delete group description
-        if (newGroupDesc.isEmpty()) {
-            removeGroupDescription();
-            return;
-        }
-
-        // create or update description
-        groupDetailViewModel.setGroupDesc(newGroupDesc);
-        if (groupDetailViewModel.getGroupDescState() == NONE) {
-            groupDetailViewModel.setGroupDescState(COLLAPSED);
-        }
-        groupDetailAdapter.updateGroupDescriptionLayout();
-    }
-
-
     @Override
     public void onNo(String tag) {
         // do nothing
@@ -1373,11 +1320,6 @@ public class GroupDetailActivity extends GroupEditActivity implements SelectorDi
             default:
                 break;
         }
-    }
-
-    @Override
-    protected boolean enableOnBackPressedCallback() {
-        return true;
     }
 
     @Override
@@ -1505,35 +1447,9 @@ public class GroupDetailActivity extends GroupEditActivity implements SelectorDi
     }
 
     @Override
-    public void onGroupDescriptionEditClick() {
-        logger.info("Edit description button clicked");
-        showGroupDescEditDialog();
-    }
-
-    @Override
     public void onAddMembersClick(View v) {
         logger.info("Add member button clicked");
         addNewMembers();
-    }
-
-    // hide keyboard on older devices after ok clicked when group description changed
-    public void hideKeyboard() {
-        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
-    }
-
-    public void showGroupDescEditDialog() {
-        String groupDescText = groupDetailViewModel.getGroupDesc();
-        GroupDescEditDialog descriptionDialog = GroupDescEditDialog.newGroupDescriptionInstance(R.string.change_group_description, groupDescText, newGroupDesc -> {
-            hideKeyboard(); // is used for older devices
-            onGroupDescChange(newGroupDesc);
-        });
-        descriptionDialog.show(getSupportFragmentManager(), DIALOG_TAG_CHANGE_GROUP_DESC);
-    }
-
-    private void removeGroupDescription() {
-        groupDetailViewModel.setGroupDesc(null);
-        groupDetailViewModel.setGroupDescState(NONE);
-        groupDetailAdapter.updateGroupDescriptionLayout();
     }
 
     private void observeNewGroupModel() {

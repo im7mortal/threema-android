@@ -7,6 +7,9 @@ import ch.threema.data.repositories.GroupModelRepository
 import ch.threema.domain.taskmanager.TaskManager
 import org.koin.core.component.inject
 
+/**
+ * schedule converting group profile pictures to jpeg
+ */
 class SystemUpdateToVersion113 : SystemUpdate {
 
     private val userService: UserService by inject()
@@ -31,6 +34,4 @@ class SystemUpdateToVersion113 : SystemUpdate {
     }
 
     override val version = 113
-
-    override fun getDescription() = "schedule converting group profile pictures to jpeg"
 }

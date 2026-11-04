@@ -1,6 +1,5 @@
 package ch.threema.app.services
 
-import android.annotation.TargetApi
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,23 +13,23 @@ import android.os.IBinder
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
-import androidx.preference.PreferenceManager
+import ch.threema.android.DeviceInfo
 import ch.threema.android.buildNotification
+import ch.threema.android.getPendingIntentForActivity
 import ch.threema.app.R
-import ch.threema.app.activities.DummyActivity
+import ch.threema.app.activities.CloseAppActivity
 import ch.threema.app.activities.ThreemaPushNotificationInfoActivity
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.notifications.NotificationChannels
 import ch.threema.app.notifications.NotificationIDs.THREEMA_PUSH_ACTIVE_NOTIFICATION_ID
-import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.webclient.services.SessionAndroidService
+import ch.threema.app.notifications.NotificationRequestCodes
+import ch.threema.app.preference.service.PreferenceService
 import ch.threema.base.utils.getThreemaLogger
 import org.slf4j.Logger
 
 private val logger = getThreemaLogger("ThreemaPushService")
 
 class ThreemaPushService : Service() {
-    // Threema services
     private var lifetimeService: LifetimeService? = null
 
     @Synchronized
@@ -41,15 +40,14 @@ class ThreemaPushService : Service() {
         // Create intent triggered by notification
         val intent = ThreemaPushNotificationInfoActivity.createIntent(this)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        val contentIntent = PendingIntent.getActivity(
-            this,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        val contentIntent = getPendingIntentForActivity(
+            context = this,
+            requestCode = NotificationRequestCodes.THREEMA_PUSH,
+            intent = intent,
+            flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
         createNotificationChannel()
-
         val notification = buildNotification(this, NotificationChannels.NOTIFICATION_CHANNEL_THREEMA_PUSH) {
             setContentTitle(getString(R.string.threema_push))
             setContentText(getString(R.string.threema_push_notification_text))
@@ -119,11 +117,11 @@ class ThreemaPushService : Service() {
         // Release connection
         lifetimeService?.releaseConnection(LIFETIME_SERVICE_TAG)
 
-        // Remove notificatoin
+        // Remove notification
         removeNotification()
 
         // Stop foreground service
-        stopForeground(true)
+        stopForeground(STOP_FOREGROUND_REMOVE)
         logger.info("stopForeground")
 
         // Done
@@ -146,9 +144,7 @@ class ThreemaPushService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent) {
         logger.info("onTaskRemoved")
-        val intent = Intent(this, DummyActivity::class.java)
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        startActivity(intent)
+        CloseAppActivity.closeApp(this)
     }
 
     /**
@@ -159,9 +155,8 @@ class ThreemaPushService : Service() {
         notificationManagerCompat.cancel(THREEMA_PUSH_ACTIVE_NOTIFICATION_ID)
     }
 
-    @TargetApi(Build.VERSION_CODES.O)
     private fun createNotificationChannel() {
-        if (!ConfigUtils.supportsNotificationChannels()) {
+        if (!DeviceInfo.supportsNotificationChannels()) {
             return
         }
 
@@ -181,49 +176,46 @@ class ThreemaPushService : Service() {
         notificationManager.createNotificationChannel(notificationChannel)
     }
 
+    class Starter(
+        private val appContext: Context,
+        private val preferenceService: PreferenceService,
+    ) {
+        fun startIfNeeded(callerLogger: Logger): Boolean {
+            if (preferenceService.mustUseThreemaPush()) {
+                if (!isRunning) {
+                    val intent = Intent(appContext, ThreemaPushService::class.java)
+                        .setAction(ACTION_START)
+                    callerLogger.info("Starting ThreemaPushService")
+                    try {
+                        ContextCompat.startForegroundService(appContext, intent)
+                        return true
+                    } catch (e: Exception) {
+                        callerLogger.error("Unable to start foreground service", e)
+                    }
+                }
+            }
+            return false
+        }
+
+        fun stop() {
+            appContext.stopService(
+                Intent(appContext, ThreemaPushService::class.java),
+            )
+        }
+    }
+
     companion object {
         private const val LIFETIME_SERVICE_TAG = "threemaPushService"
         private val FG_SERVICE_TYPE =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING else 0
 
         // Intent actions
-        const val ACTION_START = "start"
-        const val ACTION_STOP = "stop"
+        private const val ACTION_START = "start"
+        private const val ACTION_STOP = "stop"
 
         // State variables
         var isRunning = false
             private set
         private var isStopping = false
-
-        /**
-         * Try to start this service. Will start if:
-         *
-         * - Service is enabled in shared preferences
-         * - ServiceManager is available (-> MasterKey must be unlocked or disabled)
-         */
-        @JvmStatic
-        fun tryStart(callerLogger: Logger, appContext: Context): Boolean {
-            // Open shared preferences directly. This can be used in situations where we don't know
-            // whether the MasterKey is unlocked already.
-            val rawSharedPreferences = PreferenceManager.getDefaultSharedPreferences(appContext)
-
-            // Start the Threema Push Service
-            // Note: Not using preferenceService here, because MasterKey
-            //       may not be unlocked.
-            if (ConfigUtils.useThreemaPush(rawSharedPreferences, appContext)) {
-                if (!isRunning) {
-                    val intent = Intent(appContext, ThreemaPushService::class.java)
-                    intent.action = SessionAndroidService.ACTION_START
-                    callerLogger.info("Starting ThreemaPushService")
-                    try {
-                        ContextCompat.startForegroundService(appContext, intent)
-                        return true
-                    } catch (e: Exception) {
-                        logger.error("Unable to start foreground service", e)
-                    }
-                }
-            }
-            return false
-        }
     }
 }

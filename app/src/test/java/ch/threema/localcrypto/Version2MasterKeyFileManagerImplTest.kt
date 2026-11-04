@@ -359,4 +359,24 @@ class Version2MasterKeyFileManagerImplTest {
 
         assertEquals(writtenKey, readKey)
     }
+
+    @Test
+    fun `delete file`() {
+        unencryptedKeyFile.createNewFile()
+        every { keyStoreCryptoMock.deleteAllSecretKeys() } just runs
+        val masterKeyFileManager = Version2MasterKeyFileManagerImpl(
+            appContext = contextMock,
+            keyFile = keyFile,
+            unencryptedKeyFile = unencryptedKeyFile,
+            encoder = mockk(),
+            decoder = mockk(),
+            keyStoreCrypto = keyStoreCryptoMock,
+        )
+
+        masterKeyFileManager.deleteFile()
+
+        assertFalse(keyFile.exists())
+        assertFalse(unencryptedKeyFile.exists())
+        verify { keyStoreCryptoMock.deleteAllSecretKeys() }
+    }
 }

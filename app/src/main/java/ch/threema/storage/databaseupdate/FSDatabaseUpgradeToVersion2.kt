@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * add negotiated version column
+ */
 internal class FSDatabaseUpgradeToVersion2(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -11,8 +14,6 @@ internal class FSDatabaseUpgradeToVersion2(
             sqLiteDatabase.rawExecSQL("ALTER TABLE session ADD COLUMN negotiatedVersion INTEGER DEFAULT 256")
         }
     }
-
-    override fun getDescription() = "add negotiated version column"
 
     override val version = VERSION
 

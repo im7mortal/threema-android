@@ -95,22 +95,11 @@ object TestHelpers {
     @JvmStatic
     val noopNonceFactory: NonceFactory
         get() = NonceFactory(object : NonceStore {
-            override fun exists(scope: NonceScope, nonce: Nonce): Boolean {
-                return false
-            }
-
-            override fun store(scope: NonceScope, nonce: Nonce): Boolean {
-                return true
-            }
-
-            override fun getCount(scope: NonceScope): Long {
-                return 0
-            }
-
-            override fun getAllHashedNonces(scope: NonceScope): List<HashedNonce> {
-                return emptyList()
-            }
-
+            override fun exists(scope: NonceScope, nonce: Nonce) = false
+            override fun exists(scope: NonceScope, hashedNonce: HashedNonce) = false
+            override fun store(scope: NonceScope, nonce: Nonce) = true
+            override fun getCount(scope: NonceScope) = 0L
+            override fun getAllHashedNonces(scope: NonceScope): List<HashedNonce> = emptyList()
             override fun addHashedNoncesChunk(
                 scope: NonceScope,
                 chunkSize: Int,
@@ -119,10 +108,8 @@ object TestHelpers {
             ) {
                 // noop
             }
-
-            override fun insertHashedNonces(scope: NonceScope, nonces: List<HashedNonce>): Boolean {
-                return true
-            }
+            override fun insertHashedNonces(scope: NonceScope, nonces: List<HashedNonce>) = true
+            override fun deleteAll() = Unit
         })
 
     /**

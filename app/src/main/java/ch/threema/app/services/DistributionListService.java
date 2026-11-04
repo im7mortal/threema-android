@@ -1,12 +1,14 @@
 package ch.threema.app.services;
 
 import java.util.List;
+import java.util.Set;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import ch.threema.app.messagereceiver.DistributionListMessageReceiver;
 import ch.threema.base.SessionScoped;
 import ch.threema.base.ThreemaException;
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.data.datatypes.ConversationVisibility;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.DistributionListMemberModel;
@@ -25,16 +27,41 @@ public interface DistributionListService extends AvatarService<Long> {
     @Nullable
     DistributionListModel getById(long id);
 
+    boolean existsById(long id);
+
+    /**
+     * Checks whether any of the provided ids correspond to an existing distribution list.
+     */
+    boolean existsAnyById(@NonNull Set<Long> ids);
+
     @NonNull
     List<DistributionListModel> getByIds(@NonNull List<Long> ids);
+
+    boolean allExist(@NonNull Set<Long> ids);
+
+    @NonNull
+    List<DistributionListModel> getAllArchived();
+
+    @NonNull
+    Set<Long> getAllNonAdHocIds();
 
     DistributionListModel createDistributionList(@Nullable String name, String[] memberIdentities) throws ThreemaException;
 
     DistributionListModel createDistributionList(@Nullable String name, String[] memberIdentities, boolean isHidden) throws ThreemaException;
 
+    /**
+     * Persist the given distribution list model.
+     *
+     * @throws IllegalArgumentException if a distribution list with the given id already exists or the members are empty
+     */
+    void persistDistributionListModel(
+        @NonNull DistributionListModel distributionListModel,
+        @NonNull Set<String> members
+    );
+
     DistributionListModel updateDistributionList(DistributionListModel distributionListModel, String name, String[] memberIdentities) throws ThreemaException;
 
-    boolean addMemberToDistributionList(DistributionListModel distributionListModel, String identity);
+    void addMemberToDistributionList(DistributionListModel distributionListModel, String identity);
 
     boolean remove(DistributionListModel distributionListModel);
 
@@ -93,6 +120,14 @@ public interface DistributionListService extends AvatarService<Long> {
     void setConversationVisibility(
         @NonNull DistributionListModel distributionListModel,
         @NonNull ConversationVisibility conversationVisibility
+    );
+
+    /**
+     * Set the conversation category of the distribution list model
+     */
+    void setConversationCategory(
+        @NonNull DistributionListModel distributionListModel,
+        @NonNull ConversationCategory conversationCategory
     );
 
     /**

@@ -20,8 +20,7 @@
 
         <Preference
             android:key="@string/preferences__pin_lock_code"
-            android:title="@string/prefs_title_pin_code"
-            android:defaultValue="" />
+            android:title="@string/prefs_title_pin_code" />
 
         <CheckBoxPreference
             android:key="@string/preferences__lock_ui_switch"
@@ -57,8 +56,7 @@
             android:key="@string/preferences__masterkey_passphrase"
             android:summary="@string/prefs_masterkey_passphrase"
             android:title="@string/prefs_title_masterkey_change_passphrase"
-            android:dependency="@string/preferences__masterkey_switch"
-            android:defaultValue="" />
+            android:dependency="@string/preferences__masterkey_switch" />
         <CheckBoxPreference
             android:widgetLayout="@layout/preference_switch_layout"
             android:key="@string/preferences__masterkey_notification_newmsg"

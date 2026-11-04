@@ -40,6 +40,11 @@ import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.app.ActivityCompat;
+
+import ch.threema.android.DeviceInfo;
+import ch.threema.android.permissions.CameraPermissionContract;
+import ch.threema.android.permissions.ContactPermissionsContract;
+import ch.threema.android.permissions.RecordAudioPermissionContract;
 import ch.threema.app.AppConstants;
 import ch.threema.app.R;
 import ch.threema.app.actions.LocationMessageSendAction;
@@ -52,6 +57,7 @@ import ch.threema.app.activities.poll.PollWizardActivity;
 import ch.threema.app.camera.QRScannerActivity;
 import ch.threema.app.di.DependencyContainer;
 import ch.threema.app.dialogs.GenericAlertDialog;
+import ch.threema.app.dialogs.SimpleStringAlertDialog;
 import ch.threema.app.eventbus.GlobalEventBuses;
 import ch.threema.app.eventbus.events.ActionEvent;
 import ch.threema.app.fragments.composemessage.ComposeMessageFragment;
@@ -60,6 +66,7 @@ import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.messagereceiver.DistributionListMessageReceiver;
 import ch.threema.app.messagereceiver.GroupMessageReceiver;
 import ch.threema.app.messagereceiver.MessageReceiver;
+import ch.threema.app.qrcodes.ContactUrlUtil;
 import ch.threema.app.ui.InsetSides;
 import ch.threema.app.ui.MediaItem;
 import ch.threema.app.ui.SingleToast;
@@ -75,6 +82,7 @@ import ch.threema.app.utils.RuntimeUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.app.messagereceiver.SendingPermissionValidationResult;
+import kotlin.Unit;
 
 import static ch.threema.app.AppConstants.MAX_BLOB_SIZE;
 import static ch.threema.app.utils.IntentDataUtil.INTENT_DATA_LOCATION_NAME;
@@ -89,12 +97,6 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
 
     private static final int CONTACT_PICKER_INTENT = 33002;
     private static final int LOCATION_PICKER_INTENT = 33003;
-
-    private static final int PERMISSION_REQUEST_ATTACH_CONTACT = 2;
-    private static final int PERMISSION_REQUEST_QR_READER = 3;
-    private static final int PERMISSION_REQUEST_ATTACH_FROM_EXTERNAL_CAMERA = 6;
-
-    private static final int REQUEST_CODE_QR_SCANNER = 26657;
 
     public static final String CONFIRM_TAG_REALLY_SEND_FILE = "reallySendFile";
 
@@ -147,6 +149,36 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
             }
             finish();
         });
+    private final ActivityResultLauncher<Unit> contactPermissionLauncher = registerForActivityResult(new ContactPermissionsContract(), isGranted -> {
+        if (isGranted) {
+            attachContact();
+        } else if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.READ_CONTACTS)) {
+            // TODO(ANDR-5211): Use rationale as intended
+            super.showPermissionRationale(R.string.permission_contacts_required);
+        }
+    });
+    private final ActivityResultLauncher<String> scanQrCodeLauncher = registerForActivityResult(new QRScannerActivity.Contract(), scanResult -> {
+        if (scanResult != null) {
+            globalEventBuses.getActions().emit(new ActionEvent.QrCodeScanned(scanResult));
+            finish();
+        }
+    });
+    private final ActivityResultLauncher<Unit> externalCameraPermissionLauncher = registerForActivityResult(new CameraPermissionContract(), isGranted -> {
+        if (isGranted) {
+            attachFromExternalCamera();
+        } else if (!ActivityCompat.shouldShowRequestPermissionRationale(MediaAttachActivity.this, Manifest.permission.CAMERA)) {
+            // TODO(ANDR-5211): Use rationale as intended
+            showPermissionRationale(R.string.permission_camera_photo_required);
+        }
+    });
+    private final ActivityResultLauncher<Unit> qrCodeCameraPermissionLauncher = registerForActivityResult(new CameraPermissionContract(), isGranted -> {
+        if (isGranted) {
+            scanQrCodeLauncher.launch(null);
+        } else if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA)) {
+            // TODO(ANDR-5211): Use rationale as intended
+            super.showPermissionRationale(R.string.permission_camera_qr_required);
+        }
+    });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -251,7 +283,8 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
         });
 
         // If gl es version 3.0 or newer is not supported, we cannot send a location
-        if (ConfigUtils.getSupportedGlEsVersion(this) < 3.0) {
+        var supportedGlEsVersion = DeviceInfo.getSupportedGlEsVersion(this);
+        if (supportedGlEsVersion != null && supportedGlEsVersion < 3.0) {
             this.attachLocationButton.setVisibility(View.GONE);
         }
 
@@ -322,7 +355,7 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
                 editButton.setClickable(true);
                 editButton.setLabelText(R.string.edit_and_send);
             }
-            selectCounterButton.setText(String.format(LocaleUtil.getCurrentLocale(this), "%d", count));
+            selectCounterButton.setText(String.format(LocaleUtil.getCurrentLocale(), "%d", count));
             selectCounterButton.setContentDescription(getResources().getQuantityString(R.plurals.selection_counter_label, count, count));
 
         } else if (BottomSheetBehavior.from(bottomSheetLayout).getState() == STATE_EXPANDED) {
@@ -381,13 +414,9 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
         } else if (id == R.id.attach_poll) {
             createPoll();
         } else if (id == R.id.attach_qr_code) {
-            if (ConfigUtils.requestCameraPermissions(this, null, PERMISSION_REQUEST_QR_READER)) {
-                attachQR(v);
-            }
+            qrCodeCameraPermissionLauncher.launch(Unit.INSTANCE);
         } else if (id == R.id.attach_contact) {
-            if (ConfigUtils.requestContactPermissions(this, null, PERMISSION_REQUEST_ATTACH_CONTACT)) {
-                attachContact();
-            }
+            contactPermissionLauncher.launch(Unit.INSTANCE);
         } else if (id == R.id.attach_drawing) {
             attachDrawing();
         } else if (id == R.id.edit) {
@@ -410,9 +439,7 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
         } else if (id == R.id.attach_gallery) {
             attachFilesFromGallery();
         } else if (id == R.id.attach_system_camera) {
-            if (ConfigUtils.requestCameraPermissions(this, null, PERMISSION_REQUEST_ATTACH_FROM_EXTERNAL_CAMERA)) {
-                attachFromExternalCamera();
-            }
+            externalCameraPermissionLauncher.launch(Unit.INSTANCE);
         }
     }
 
@@ -433,14 +460,8 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
 
         if (isPermissionGranted) {
             switch (requestCode) {
-                case PERMISSION_REQUEST_ATTACH_CONTACT:
-                    attachContact();
-                    break;
                 case PERMISSION_REQUEST_ATTACH_FILE:
                     attachFile();
-                    break;
-                case PERMISSION_REQUEST_QR_READER:
-                    attachQR(attachQRButton);
                     break;
                 case PERMISSION_REQUEST_ATTACH_FROM_GALLERY:
                     if (dependencies.getPreferenceService().isShowImageAttachPreviewsEnabled()) {
@@ -450,9 +471,6 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
                         attachFilesFromGallery();
                     }
                     break;
-                case PERMISSION_REQUEST_ATTACH_FROM_EXTERNAL_CAMERA:
-                    attachFromExternalCamera();
-                    break;
                 case PERMISSION_REQUEST_ATTACH_STORAGE:
                     finish();
                     startActivity(getIntent());
@@ -460,25 +478,11 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
             }
         } else {
             switch (requestCode) {
-                case PERMISSION_REQUEST_ATTACH_CONTACT:
-                    if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.READ_CONTACTS)) {
-                        super.showPermissionRationale(R.string.permission_contacts_required);
-                    }
-                    break;
-                case PERMISSION_REQUEST_QR_READER:
-                    if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA)) {
-                        super.showPermissionRationale(R.string.permission_camera_qr_required);
-                    }
-                    break;
                 case PERMISSION_REQUEST_ATTACH_FROM_GALLERY:
                 case PERMISSION_REQUEST_ATTACH_FILE:
                     if (!ActivityCompat.shouldShowRequestPermissionRationale(MediaAttachActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE)) {
+                        // TODO(ANDR-5211): Use rationale as intended
                         showPermissionRationale(R.string.permission_storage_required);
-                    }
-                    break;
-                case PERMISSION_REQUEST_ATTACH_FROM_EXTERNAL_CAMERA:
-                    if (!ActivityCompat.shouldShowRequestPermissionRationale(MediaAttachActivity.this, Manifest.permission.CAMERA)) {
-                        showPermissionRationale(R.string.permission_camera_photo_required);
                     }
                     break;
                 case PERMISSION_REQUEST_ATTACH_STORAGE:
@@ -503,13 +507,6 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
         super.onActivityResult(requestCode, resultCode, intent);
         if (resultCode == Activity.RESULT_OK) {
             switch (requestCode) {
-                case REQUEST_CODE_QR_SCANNER:
-                    final @Nullable String scanResult = QRScannerActivity.extractResult(intent);
-                    if (scanResult != null) {
-                        globalEventBuses.getActions().emit(new ActionEvent.QrCodeScanned(scanResult));
-                        finish();
-                    }
-                    break;
                 case LOCATION_PICKER_INTENT:
                     Location location = IntentDataUtil.getLocation(intent);
                     String poiName = intent.getStringExtra(INTENT_DATA_LOCATION_NAME);
@@ -643,14 +640,6 @@ public class MediaAttachActivity extends MediaSelectionBaseActivity implements V
         } catch (ActivityNotFoundException e) {
             SingleToast.getInstance().showShortText(getString(R.string.no_activity_for_mime_type));
         }
-    }
-
-    private void attachQR(@NonNull View view) {
-        var intent = QRScannerActivity.createIntent(this);
-        view.postDelayed(
-            () -> startActivityForResult(intent, REQUEST_CODE_QR_SCANNER),
-            200
-        );
     }
 
     private void attachDrawing() {

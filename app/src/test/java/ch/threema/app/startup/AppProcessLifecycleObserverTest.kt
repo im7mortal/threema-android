@@ -1,7 +1,6 @@
 package ch.threema.app.startup
 
 import androidx.lifecycle.LifecycleOwner
-import ch.threema.app.AppConstants
 import ch.threema.app.services.LifetimeService
 import ch.threema.app.test.mockAppNotReady
 import ch.threema.app.test.mockAppReady
@@ -12,16 +11,17 @@ import io.mockk.verify
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertFalse
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.koin.core.context.startKoin
-import org.koin.test.ClosingKoinTest
+import org.koin.test.AutoCloseKoinTest
 import org.koin.test.mock.declare
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class AppProcessLifecycleObserverTest : ClosingKoinTest {
+class AppProcessLifecycleObserverTest : AutoCloseKoinTest() {
 
     @BeforeTest
     fun setUp() {
@@ -29,7 +29,7 @@ class AppProcessLifecycleObserverTest : ClosingKoinTest {
     }
 
     @Test
-    fun `service manager is available immediately`() = runTest {
+    fun `session scope is available immediately`() = runTest {
         // Arrange
         val (lifetimeServiceMock, connectionStateTracker) = createMocks()
         val lifecycleOwnerMock = mockk<LifecycleOwner>()
@@ -38,7 +38,6 @@ class AppProcessLifecycleObserverTest : ClosingKoinTest {
 
         // Act
         val appProcessLifecycleObserver = AppProcessLifecycleObserver(
-            globalAppState = mockk(relaxed = true),
             reloadAppRestrictions = {},
             dispatcherProvider = testDispatcherProvider(),
         )
@@ -55,18 +54,18 @@ class AppProcessLifecycleObserverTest : ClosingKoinTest {
         appProcessLifecycleObserver.onDestroy(lifecycleOwnerMock)
 
         // Assert
-        verify(exactly = 2) { lifetimeServiceMock.acquireConnection(AppConstants.ACTIVITY_CONNECTION_TAG) }
+        verify(exactly = 2) { lifetimeServiceMock.acquireConnection(AppProcessLifecycleObserver.APP_PROCESS_SOURCE_TAG) }
         verify(exactly = 2) {
             lifetimeServiceMock.releaseConnectionLinger(
-                AppConstants.ACTIVITY_CONNECTION_TAG,
-                AppConstants.ACTIVITY_CONNECTION_LIFETIME,
+                sourceTag = AppProcessLifecycleObserver.APP_PROCESS_SOURCE_TAG,
+                timeoutMs = 1.minutes.inWholeMilliseconds,
             )
         }
         assertFalse(connectionStateTracker.isAcquired)
     }
 
     @Test
-    fun `service manager is not yet available`() = runTest {
+    fun `session scope is not yet available`() = runTest {
         // Arrange
         val (lifetimeServiceMock, connectionStateTracker) = createMocks()
         val lifecycleOwnerMock = mockk<LifecycleOwner>()
@@ -74,7 +73,6 @@ class AppProcessLifecycleObserverTest : ClosingKoinTest {
 
         // Act
         val appProcessLifecycleObserver = AppProcessLifecycleObserver(
-            globalAppState = mockk(relaxed = true),
             reloadAppRestrictions = {},
             dispatcherProvider = testDispatcherProvider(),
         )
@@ -90,11 +88,11 @@ class AppProcessLifecycleObserverTest : ClosingKoinTest {
         appProcessLifecycleObserver.onDestroy(lifecycleOwnerMock)
 
         // Assert
-        verify(exactly = 0) { lifetimeServiceMock.acquireConnection(AppConstants.ACTIVITY_CONNECTION_TAG) }
+        verify(exactly = 0) { lifetimeServiceMock.acquireConnection(AppProcessLifecycleObserver.APP_PROCESS_SOURCE_TAG) }
         verify(exactly = 0) {
             lifetimeServiceMock.releaseConnectionLinger(
-                AppConstants.ACTIVITY_CONNECTION_TAG,
-                AppConstants.ACTIVITY_CONNECTION_LIFETIME,
+                sourceTag = AppProcessLifecycleObserver.APP_PROCESS_SOURCE_TAG,
+                timeoutMs = 1.minutes.inWholeMilliseconds,
             )
         }
         assertFalse(connectionStateTracker.isAcquired)
@@ -109,7 +107,6 @@ class AppProcessLifecycleObserverTest : ClosingKoinTest {
 
         // Act
         val appProcessLifecycleObserver = AppProcessLifecycleObserver(
-            globalAppState = mockk(relaxed = true),
             reloadAppRestrictions = {},
             dispatcherProvider = testDispatcherProvider(),
         )
@@ -132,13 +129,13 @@ class AppProcessLifecycleObserverTest : ClosingKoinTest {
         val connectionStateTracker = MutableConnectionStateTracker(false)
 
         val lifetimeServiceMock = mockk<LifetimeService> {
-            every { acquireConnection(AppConstants.ACTIVITY_CONNECTION_TAG) } answers {
+            every { acquireConnection(AppProcessLifecycleObserver.APP_PROCESS_SOURCE_TAG) } answers {
                 connectionStateTracker.isAcquired = true
             }
             every {
                 releaseConnectionLinger(
-                    AppConstants.ACTIVITY_CONNECTION_TAG,
-                    AppConstants.ACTIVITY_CONNECTION_LIFETIME,
+                    sourceTag = AppProcessLifecycleObserver.APP_PROCESS_SOURCE_TAG,
+                    timeoutMs = 1.minutes.inWholeMilliseconds,
                 )
             } answers {
                 connectionStateTracker.isAcquired = false

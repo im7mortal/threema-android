@@ -9,8 +9,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.sp
+import ch.threema.app.BuildFlavor
 import ch.threema.app.compose.theme.ThreemaThemePreview
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.ContactUtil
 import ch.threema.domain.models.VerificationLevel
 import ch.threema.domain.models.WorkVerificationLevel
@@ -74,7 +74,7 @@ private fun Preview_VerificationLevelDisplay_FullyVerified() {
 @Composable
 @PreviewLightDark
 private fun Preview_VerificationLevelDisplay_Work() {
-    if (ConfigUtils.isWorkBuild()) {
+    if (BuildFlavor.IS_WORK) {
         ThreemaThemePreview {
             Surface {
                 VerificationLevelDisplay(
@@ -91,7 +91,7 @@ private fun Preview_VerificationLevelDisplay_Work() {
 @Composable
 @PreviewLightDark
 private fun Preview_VerificationLevelDisplay_WorkServer() {
-    if (ConfigUtils.isWorkBuild()) {
+    if (BuildFlavor.IS_WORK) {
         ThreemaThemePreview {
             Surface {
                 VerificationLevelDisplay(

@@ -9,13 +9,12 @@ import ch.threema.app.services.MessageService.FILTER_GROUPS
 import ch.threema.app.services.MessageService.FILTER_INCLUDE_ARCHIVED
 import ch.threema.app.services.MessageService.FILTER_STARRED_ONLY
 import ch.threema.app.usecases.contacts.WatchAllMentionNamesUseCase
-import ch.threema.app.utils.QuoteUtil
 import ch.threema.common.DispatcherProvider
 import ch.threema.common.takeUnlessBlank
 import ch.threema.data.datatypes.ContactNameFormat
 import ch.threema.data.datatypes.MentionNameData
-import ch.threema.domain.types.Identity
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.domain.types.Mention
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageType
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -32,7 +31,7 @@ class GetStarredMessagesUseCase(
         @PreferenceService.StarredMessagesSortOrder order: Int,
     ): List<StarredMessageWithMentionInfo> {
         return withContext(dispatcherProvider.io) {
-            val abstractMessageModels = getFilteredAndOrderedMessageModels(
+            val messageModels = getFilteredAndOrderedMessageModels(
                 query = query?.takeUnlessBlank(),
                 order = order,
             )
@@ -42,9 +41,9 @@ class GetStarredMessagesUseCase(
 
             val contactNameFormat: ContactNameFormat = preferenceService.getContactNameFormat()
 
-            abstractMessageModels.map { abstractMessageModel ->
+            messageModels.map { messageModel ->
                 mapToStarredMessageWithMentionInfo(
-                    abstractMessageModel = abstractMessageModel,
+                    messageModel = messageModel,
                     mentionNameData = mentionNameData,
                     contactNameFormat = contactNameFormat,
                 )
@@ -55,7 +54,7 @@ class GetStarredMessagesUseCase(
     private fun getFilteredAndOrderedMessageModels(
         query: String?,
         @PreferenceService.StarredMessagesSortOrder order: Int,
-    ): List<AbstractMessageModel> =
+    ): List<MessageModel> =
         messageService.getMessagesForText(
             /* queryString = */
             query,
@@ -66,51 +65,35 @@ class GetStarredMessagesUseCase(
         )
 
     private fun mapToStarredMessageWithMentionInfo(
-        abstractMessageModel: AbstractMessageModel,
+        messageModel: MessageModel,
         mentionNameData: List<MentionNameData>,
         contactNameFormat: ContactNameFormat,
     ): StarredMessageWithMentionInfo {
         val messageContentThatCouldContainMentions = getMessageContentThatCouldContainMentions(
-            abstractMessageModel = abstractMessageModel,
-            contactNameFormat = contactNameFormat,
+            messageModel = messageModel,
         )
-        val mentionNames: Map<Identity, ResolvableString> = ConversationTextAnalyzer.findResolvableMentionNames(
+        val mentionNames: Map<Mention, ResolvableString> = ConversationTextAnalyzer.findResolvableMentionNames(
             input = messageContentThatCouldContainMentions,
             mentionNameData = mentionNameData,
             contactNameFormat = contactNameFormat,
         )
         return StarredMessageWithMentionInfo(
-            abstractMessageModel = abstractMessageModel,
+            messageModel = messageModel,
             mentionedNames = mentionNames,
         )
     }
 
-    @Suppress("DEPRECATION")
     private fun getMessageContentThatCouldContainMentions(
-        abstractMessageModel: AbstractMessageModel,
-        contactNameFormat: ContactNameFormat,
+        messageModel: MessageModel,
     ): String =
-        when (abstractMessageModel.type) {
-            MessageType.TEXT -> QuoteUtil.getMessageBody(
-                /* messageType = */
-                abstractMessageModel.type,
-                /* messageBody = */
-                abstractMessageModel.body,
-                /* messageCaption = */
-                abstractMessageModel.caption,
-                /* isOutbox = */
-                abstractMessageModel.isOutbox,
-                /* substituteAndTruncate = */
-                false,
-                /* contactNameFormat = */
-                contactNameFormat,
-            )
-            MessageType.FILE -> abstractMessageModel.caption
+        when (messageModel.type) {
+            MessageType.TEXT -> messageModel.body
+            MessageType.FILE -> messageModel.caption
             else -> null
         } ?: ""
 }
 
 data class StarredMessageWithMentionInfo(
-    val abstractMessageModel: AbstractMessageModel,
-    val mentionedNames: Map<Identity, ResolvableString>,
+    val messageModel: MessageModel,
+    val mentionedNames: Map<Mention, ResolvableString>,
 )

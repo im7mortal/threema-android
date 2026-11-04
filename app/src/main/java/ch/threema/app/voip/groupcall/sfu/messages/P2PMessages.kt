@@ -91,7 +91,8 @@ sealed interface Handshake {
                 return Auth(
                     auth.pck.toByteArray(),
                     auth.pcck.toByteArray(),
-                    auth.mediaKeysList.map { P2PMessageContent.MediaKey.fromProtobuf(it) },
+                    // TODO(ANDR-5288): Migrate away from deprecated API
+                    auth.deprecatedEarlyMediaKeysList.map { P2PMessageContent.MediaKey.fromProtobuf(it) },
                 )
             }
         }
@@ -108,7 +109,8 @@ sealed interface Handshake {
             val auth = ParticipantToParticipant.Handshake.Auth.newBuilder()
                 .setPck(ByteString.copyFrom(pck))
                 .setPcck(ByteString.copyFrom(pcck))
-                .addAllMediaKeys(protoMediaKeys)
+                // TODO(ANDR-5288): Migrate away from deprecated API
+                .addAllDeprecatedEarlyMediaKeys(protoMediaKeys)
                 .build()
 
             return ParticipantToParticipant.Handshake.AuthEnvelope.newBuilder()

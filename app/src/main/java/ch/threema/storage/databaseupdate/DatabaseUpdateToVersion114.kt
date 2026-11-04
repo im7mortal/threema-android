@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * remove data related to group join/invite
+ */
 class DatabaseUpdateToVersion114(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -17,6 +20,4 @@ class DatabaseUpdateToVersion114(
     }
 
     override val version = 114
-
-    override fun getDescription() = "remove data related to group join/invite"
 }

@@ -13,14 +13,15 @@ import com.bumptech.glide.load.Options
 import com.bumptech.glide.load.model.ModelLoader
 import com.bumptech.glide.signature.ObjectKey
 import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 class IdentityAvatarLoader(
     private val context: Context,
 ) : ModelLoader<AvatarCacheServiceImpl.IdentityAvatarConfig, Bitmap>, KoinComponent {
     private val userService: UserService? by injectNullableNonBinding()
     private val contactService: ContactService? by injectNullableNonBinding()
-    private val preferenceService: PreferenceService? by injectNullableNonBinding()
-    private val fileService: FileService? by injectNullableNonBinding()
+    private val preferenceService: PreferenceService by inject()
+    private val fileService: FileService by inject()
     private val contactModelRepository: ContactModelRepository? by injectNullableNonBinding()
 
     override fun buildLoadData(
@@ -36,8 +37,8 @@ class IdentityAvatarLoader(
                 userService = userService ?: return null,
                 contactService = contactService ?: return null,
                 contactModelRepository = contactModelRepository ?: return null,
-                preferenceService = preferenceService ?: return null,
-                fileService = fileService ?: return null,
+                preferenceService = preferenceService,
+                fileService = fileService,
                 identityAvatarConfig = config,
             ),
         )

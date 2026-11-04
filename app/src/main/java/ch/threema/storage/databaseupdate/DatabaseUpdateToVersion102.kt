@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * made column `text` nullable in tables `contact_edit_history_entries` and `group_edit_history_entries`
+ */
 internal class DatabaseUpdateToVersion102(private val sqLiteDatabase: SQLiteDatabase) :
     DatabaseUpdate {
     override fun run() {
@@ -73,8 +76,6 @@ internal class DatabaseUpdateToVersion102(private val sqLiteDatabase: SQLiteData
         sqLiteDatabase.execSQL("DROP TABLE `group_edit_history_entries`")
         sqLiteDatabase.execSQL("ALTER TABLE `group_edit_history_entries_new` RENAME TO `group_edit_history_entries`")
     }
-
-    override fun getDescription() = "made column `text` nullable in tables `contact_edit_history_entries` and `group_edit_history_entries`"
 
     override val version = 102
 }

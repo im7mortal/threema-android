@@ -10,6 +10,7 @@ import androidx.core.graphics.applyCanvas
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.IconCompat
 import androidx.core.graphics.scale
+import ch.threema.android.use
 
 object AdaptiveIconUtil {
 
@@ -32,18 +33,16 @@ object AdaptiveIconUtil {
 
         val options = BitmapFactory.Options()
         options.inPreferredConfig = Bitmap.Config.ARGB_8888
-        val scaledBitmap = bitmap.scale(innerSize, innerSize, false)
         val paddedBitmap = createBitmap(outerSize, outerSize)
-        try {
-            paddedBitmap.applyCanvas {
-                drawColor(Color.TRANSPARENT)
-                val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-                drawBitmap(scaledBitmap, offset, offset, paint)
+        bitmap.scale(innerSize, innerSize, false)
+            .use { scaledBitmap ->
+                paddedBitmap.applyCanvas {
+                    drawColor(Color.TRANSPARENT)
+                    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+                    drawBitmap(scaledBitmap, offset, offset, paint)
+                }
+                return IconCompat.createWithAdaptiveBitmap(paddedBitmap)
             }
-            return IconCompat.createWithAdaptiveBitmap(paddedBitmap)
-        } finally {
-            scaledBitmap.recycle()
-        }
     }
 
     /**

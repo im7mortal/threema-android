@@ -118,7 +118,7 @@ public class MessageRequestHandler extends MessageReceiver {
             }
 
             if (messages != null) {
-                messages.removeIf(message -> message.isDeleted() && message.getBody() == null && message.getCaption() == null);
+                messages.removeIf(AbstractMessageModel::isDeleted);
             }
 
             // Convert and send messages

@@ -109,8 +109,6 @@ internal class DatabaseUpdateToVersion126(
         sqLiteDatabase.execSQL("ALTER TABLE `$tableName` DROP COLUMN `$COLUMN_IS_ARCHIVED`")
     }
 
-    override fun getDescription() = "Move conversation visibility into models"
-
     override val version = 126
 
     companion object {

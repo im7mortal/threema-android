@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "ch.threema.android"
-    compileSdk = 36
+    compileSdk = 37
     defaultConfig {
         minSdk = 24
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -33,6 +33,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.android)
     implementation(libs.androidx.work.runtime)
     implementation(libs.androidx.lifecycle.runtime.android)
+    implementation(libs.androidx.documentfile)
     compileOnly(libs.compose.annotation)
 
     testImplementation(libs.junit)
@@ -41,17 +42,6 @@ dependencies {
     testImplementation(libs.kotlin.test)
     testImplementation(libs.turbine)
     testImplementation(project(":test-helpers"))
-}
-
-sonarqube {
-    properties {
-        property("sonar.projectKey", "android-client")
-        property("sonar.projectName", "Threema for Android")
-        property("sonar.sources", "src/main/")
-        property("sonar.tests", "src/test/")
-        property("sonar.sourceEncoding", "UTF-8")
-        property("sonar.verbose", "true")
-    }
 }
 
 tasks.withType<Test> {

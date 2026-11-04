@@ -1,6 +1,6 @@
 package ch.threema.app.voicemessage
 
-import android.Manifest.permission
+import android.Manifest
 import android.animation.LayoutTransition
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
@@ -9,7 +9,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
 import android.graphics.PorterDuff
 import android.media.AudioManager
 import android.media.AudioManager.OnAudioFocusChangeListener
@@ -32,27 +31,32 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import ch.threema.android.ToastDuration
+import ch.threema.android.checkGrantedPermission
+import ch.threema.android.getColorFromAttribute
+import ch.threema.android.permissions.BluetoothPermissionContract
 import ch.threema.android.showToast
 import ch.threema.app.R
+import ch.threema.app.activities.BackPressHandler
 import ch.threema.app.activities.ThreemaAppCompatActivity
-import ch.threema.app.di.DIJavaCompat.isSessionScopeReady
+import ch.threema.app.di.isSessionScopeReady
 import ch.threema.app.dialogs.GenericAlertDialog
 import ch.threema.app.dialogs.GenericAlertDialog.DialogClickListener
+import ch.threema.app.dialogs.SimpleStringAlertDialog
 import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ActivityService
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.IntentDataUtil
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.toHMMSS
 import ch.threema.common.toIntCapped
 import com.google.android.material.button.MaterialButton
-import kotlin.jvm.Throws
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
@@ -61,7 +65,7 @@ import org.koin.core.parameter.parametersOf
 
 private val logger = getThreemaLogger("VoiceRecorderActivity")
 
-class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeListener {
+class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeListener, BackPressHandler {
 
     init {
         logScreenVisibility(logger)
@@ -118,6 +122,10 @@ class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeList
         }
     }
 
+    private val bluetoothPermissionLauncher = registerForActivityResult(BluetoothPermissionContract()) {
+        postPermissionOnCreate()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -141,20 +149,18 @@ class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeList
 
         wasRecreated = savedInstanceState != null
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (
-                !ConfigUtils.requestBluetoothConnectPermissions(
-                    this,
-                    null,
-                    PERMISSION_REQUEST_CODE_BLUETOOTH_CONNECT,
-                    ActivityCompat.shouldShowRequestPermissionRationale(this, permission.BLUETOOTH_CONNECT),
-                )
-            ) {
-                return
-            }
+        if (
+            !BluetoothPermissionContract.isPermissionGranted(this) &&
+            ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.BLUETOOTH_CONNECT)
+        ) {
+            SimpleStringAlertDialog.newInstance(R.string.voip_bluetooth, R.string.permission_bluetooth_connect_required)
+                .setOnDismissRunnable {
+                    bluetoothPermissionLauncher.launch(Unit)
+                }
+                .show(supportFragmentManager)
+        } else {
+            bluetoothPermissionLauncher.launch(Unit)
         }
-
-        postPermissionOnCreate(wasRecreated = wasRecreated)
     }
 
     @Throws(IllegalStateException::class)
@@ -166,7 +172,7 @@ class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeList
         return messageReceiver
     }
 
-    private fun postPermissionOnCreate(wasRecreated: Boolean) {
+    private fun postPermissionOnCreate() {
         findViewById<LinearLayout>(R.id.button_layout).apply {
             layoutTransition.enableTransitionType(LayoutTransition.APPEARING or LayoutTransition.DISAPPEARING)
         }
@@ -175,11 +181,11 @@ class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeList
 
         sendButton = findViewById(R.id.send_button)
         sendButton.setOnClickListener {
-            viewModel.send()
+            viewModel.onClickSend()
         }
 
         findViewById<ImageView>(R.id.discard_button).setOnClickListener {
-            viewModel.discard()
+            viewModel.onClickDiscard()
         }
 
         playButton = findViewById(R.id.play_button)
@@ -200,13 +206,13 @@ class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeList
                 }
 
                 override fun onStartTrackingTouch(seekBar: SeekBar) {
-                    viewModel.pausePlayback()
+                    viewModel.onClickPausePlayback()
                 }
 
                 override fun onStopTrackingTouch(seekBar: SeekBar) {
                     if (seekingTo >= 0) {
-                        viewModel.seekPlaybackTo(seekingTo.milliseconds)
-                        viewModel.resumePlayback()
+                        viewModel.onSeekPlaybackTo(seekingTo.milliseconds)
+                        viewModel.onClickResumePlayback()
                     }
                 }
             },
@@ -235,7 +241,7 @@ class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeList
                     viewModel.events.collect(::onViewModelEvent)
                 }
                 launch {
-                    viewModel.state.collect(::onStateChanged)
+                    viewModel.viewState.filterNotNull().collect(::onStateChanged)
                 }
             }
         }
@@ -245,7 +251,7 @@ class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeList
                 tryStartBluetoothScoConnection()
             }
             requestAudioFocus()
-            viewModel.startRecording()
+            viewModel.onRequestRecordingStart()
         }
     }
 
@@ -270,7 +276,6 @@ class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeList
             }
             VoiceRecorderViewModelEvent.RecorderError -> {
                 showToast(R.string.recording_canceled, ToastDuration.LONG)
-                viewModel.stopRecording()
                 finish()
             }
             is VoiceRecorderViewModelEvent.PlaybackFinished -> {
@@ -292,27 +297,27 @@ class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeList
     }
 
     private val onClickPauseRecording = View.OnClickListener {
-        viewModel.pauseRecording()
+        viewModel.onClickPause()
     }
 
     private val onClickResumeRecording = View.OnClickListener {
-        viewModel.resumeRecording()
+        viewModel.onClickResumeRecording()
     }
 
     private val onClickStopRecording = View.OnClickListener {
-        viewModel.stopRecording()
+        viewModel.onClickStopRecording()
     }
 
     private val onClickPlay = View.OnClickListener {
         if (viewModel.mediaPlayer != null) {
-            viewModel.resumePlayback()
+            viewModel.onClickResumePlayback()
         } else {
-            viewModel.startPlayback()
+            viewModel.onClickStartPlayback()
         }
     }
 
     private val onClickPausePlayback = View.OnClickListener {
-        viewModel.pausePlayback()
+        viewModel.onClickPausePlayback()
     }
 
     @SuppressLint("SetTextI18n")
@@ -349,7 +354,7 @@ class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeList
         // The blinking indicator that blinks while recording or playback is active
         if (mediaState is MediaState.Playback) {
             recordingOrPlayingIndicator.setColorFilter(
-                ConfigUtils.getColorFromAttribute(this, R.attr.colorOnSurface),
+                getColorFromAttribute(R.attr.colorOnSurface),
                 PorterDuff.Mode.SRC_IN,
             )
             recordingOrPlayingIndicator.setImageResource(R.drawable.ic_play)
@@ -409,8 +414,8 @@ class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeList
 
         when (mediaState) {
             is MediaState.Record -> timerText.text = mediaState.duration.toHMMSS()
-            is MediaState.FinishedRecording -> timerText.text = "00:00"
-            is MediaState.Playback -> {}
+            is MediaState.FinishedRecording -> timerText.text = Duration.ZERO.toHMMSS()
+            is MediaState.Playback -> Unit
         }
 
         bluetoothToggle.setImageResource(
@@ -439,11 +444,11 @@ class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeList
             setCallback(
                 object : DialogClickListener {
                     override fun onYes(tag: String?, data: Any?) {
-                        viewModel.send()
+                        viewModel.onClickSend()
                     }
 
                     override fun onNo(tag: String?, data: Any?) {
-                        viewModel.stopRecording()
+                        viewModel.onClickStopRecording()
                         finish()
                     }
                 },
@@ -465,7 +470,7 @@ class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeList
             false,
         ).apply {
             setCallback { _, _ ->
-                viewModel.discard(force = true)
+                viewModel.onClickDiscard(force = true)
             }
         }.show(supportFragmentManager)
     }
@@ -485,9 +490,7 @@ class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeList
     }
 
     private fun checkIsBluetoothEnabled(): Boolean {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-            ActivityCompat.checkSelfPermission(this, permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED
-        ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !checkGrantedPermission(Manifest.permission.BLUETOOTH_CONNECT)) {
             return false
         }
 
@@ -517,8 +520,6 @@ class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeList
         logger.debug("stopBlinking")
         blinkingJob?.cancel()
     }
-
-    override fun enableOnBackPressedCallback() = true
 
     override fun handleOnBackPressed() {
         showDiscardConfirmationDialog()
@@ -617,19 +618,5 @@ class VoiceRecorderActivity : ThreemaAppCompatActivity(), OnAudioFocusChangeList
     override fun finish() {
         super.finish()
         overridePendingTransition(R.anim.fast_fade_in, R.anim.fast_fade_out)
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSION_REQUEST_CODE_BLUETOOTH_CONNECT) {
-            postPermissionOnCreate(wasRecreated = wasRecreated)
-        }
-    }
-
-    companion object {
-
-        const val VOICE_MESSAGE_FILE_EXTENSION = ".aac"
-
-        private const val PERMISSION_REQUEST_CODE_BLUETOOTH_CONNECT = 45454
     }
 }

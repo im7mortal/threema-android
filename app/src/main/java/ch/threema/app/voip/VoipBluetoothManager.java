@@ -40,10 +40,11 @@ import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import ch.threema.app.ThreemaApplication;
 import ch.threema.app.preference.service.PreferenceService;
-import ch.threema.app.voip.services.VoipCallService;
 import ch.threema.app.voip.services.VoipStateService;
 import ch.threema.app.voip.util.AppRTCUtils;
 import ch.threema.app.voip.util.VoipUtil;
+
+import static ch.threema.android.PermissionExtensionsKt.checkGrantedPermission;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static android.bluetooth.BluetoothDevice.BOND_BONDED;
@@ -282,7 +283,7 @@ public class VoipBluetoothManager {
                         if (voipStateService.getCallState().isCalling()) {
                             if (preferenceService.shouldAbortCallOnBluetoothDisconnect()) {
                                 logger.info("Ending call because of disconnected bluetooth headset.");
-                                VoipUtil.sendVoipCommand(ThreemaApplication.getAppContext(), VoipCallService.class, VoipCallService.ACTION_HANGUP);
+                                VoipUtil.sendOneToOneCallHangupCommand(ThreemaApplication.getAppContext());
                             } else {
                                 logger.info("Continuing call because of setting.");
                             }
@@ -304,10 +305,7 @@ public class VoipBluetoothManager {
             // On versions prior to S, devices already have this permission by default
             boolean hasBluetoothConnectPermission =
                 Build.VERSION.SDK_INT < Build.VERSION_CODES.S
-                    || ContextCompat.checkSelfPermission(
-                    ThreemaApplication.getAppContext(),
-                    Manifest.permission.BLUETOOTH_CONNECT
-                ) == PackageManager.PERMISSION_GRANTED;
+                    || checkGrantedPermission(ThreemaApplication.getAppContext(), Manifest.permission.BLUETOOTH_CONNECT);
 
             if (device != null && hasBluetoothConnectPermission) {
                 return device.getName();

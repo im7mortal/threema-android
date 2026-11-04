@@ -30,7 +30,7 @@ class RawContactTest {
             phoneNumber = PhoneNumber("+41 327 634 321"),
         )
 
-        assertFailsWith<RawContact.Builder.RawContactBuildException> {
+        assertFailsWith<RawContact.Builder.RawContactBuildException.WrongRawContactId> {
             rawContactBuilder.addContactDataRow(
                 contactDataRow = contactDataRowOfDifferentRawContact,
             )
@@ -54,7 +54,7 @@ class RawContactTest {
             phoneNumber = PhoneNumber("+41 327 634 321"),
         )
 
-        assertFailsWith<RawContact.Builder.RawContactBuildException> {
+        assertFailsWith<RawContact.Builder.RawContactBuildException.MismatchedLookupInfo> {
             rawContactBuilder.addContactDataRow(
                 contactDataRow = contactDataRowOfDifferentRawContact,
             )
@@ -78,7 +78,7 @@ class RawContactTest {
             phoneNumber = PhoneNumber("+41 327 634 321"),
         )
 
-        assertFailsWith<RawContact.Builder.RawContactBuildException> {
+        assertFailsWith<RawContact.Builder.RawContactBuildException.MismatchedLookupInfo> {
             rawContactBuilder.addContactDataRow(
                 contactDataRow = contactDataRowOfDifferentRawContact,
             )

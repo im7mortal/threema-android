@@ -1,5 +1,11 @@
 package ch.threema.app.compose.theme.color
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.colorResource
+import ch.threema.app.R
+
 /**
  *  Grey shades across for *every* flavor
  */
@@ -15,4 +21,19 @@ object BrandGreyColors {
     const val SHADE_700 = 0xFF444442
     const val SHADE_800 = 0xFF2C2C2B
     const val SHADE_900 = 0xFF151513
+
+    val dynamicGrey300: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = colorResource(R.color.dynamic_grey_300)
+
+    val dynamicGrey400: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = colorResource(R.color.dynamic_grey_400)
+
+    val dynamicGrey700: Color
+        @Composable
+        @ReadOnlyComposable
+        get() = colorResource(R.color.dynamic_grey_700)
 }

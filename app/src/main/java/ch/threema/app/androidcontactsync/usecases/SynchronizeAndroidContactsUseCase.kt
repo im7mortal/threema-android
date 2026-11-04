@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Context
 import androidx.annotation.RequiresPermission
 import androidx.annotation.WorkerThread
+import ch.threema.android.checkGrantedPermission
+import ch.threema.app.androidcontactsync.read.AndroidContactReadException
 import ch.threema.app.androidcontactsync.read.AndroidContactReader
 import ch.threema.app.androidcontactsync.synchronization.AndroidContactMatcher
 import ch.threema.app.androidcontactsync.synchronization.ThreemaRawContactManager
@@ -19,13 +21,13 @@ import ch.threema.app.services.ContactService
 import ch.threema.app.services.ExcludedSyncIdentitiesService
 import ch.threema.app.services.UserService
 import ch.threema.app.utils.AndroidContactUtil
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.TimeProvider
 import ch.threema.common.minus
 import ch.threema.data.IdentityProvider
 import ch.threema.data.datatypes.AndroidContactLookupInfo
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.models.ContactModel
 import ch.threema.data.models.ContactModelData
@@ -82,8 +84,28 @@ class SynchronizeAndroidContactsUseCase(
             synchronizeAndroidContacts()
         } catch (e: CancellationException) {
             throw e
+        } catch (e: InterruptedException) {
+            // The executing thread was interrupted, e.g. because the surrounding sync was canceled.
+            // This is not an error and must not be reported. The interruption is treated as handled: the sync
+            // completes gracefully via onFinished, so the interrupt flag is intentionally left cleared (it was
+            // cleared when the exception was thrown). Restoring it would leak interrupt state to the caller and
+            // could fail unrelated work later scheduled on the same (possibly pooled) thread.
+            logger.warn("Android contact synchronization was interrupted", e)
         } catch (e: IOException) {
             logger.error("Could not synchronize android contacts due to network problems", e)
+            ListenerManager.synchronizeContactsListeners.handle { it.onError() }
+        } catch (e: AndroidContactReadException) {
+            when (e) {
+                is AndroidContactReadException.MultipleLookupInfosPerRawContact,
+                is AndroidContactReadException.MultipleLookupKeysPerContactId,
+                -> {
+                    // Inconsistent contact data is expected to occur (e.g. while other apps are synchronizing contacts) and is usually transient, so
+                    // we do not report it.
+                    logger.warn("Could not synchronize android contacts due to inconsistent contact data", e)
+                }
+
+                else -> logger.logAndReportError("Could not synchronize android contacts", e)
+            }
             ListenerManager.synchronizeContactsListeners.handle { it.onError() }
         } catch (e: Exception) {
             logger.logAndReportError("Could not synchronize android contacts", e)
@@ -96,7 +118,7 @@ class SynchronizeAndroidContactsUseCase(
     private suspend fun synchronizeAndroidContacts() {
         logger.info("Synchronizing android contacts")
 
-        if (!ConfigUtils.isPermissionGranted(appContext, Manifest.permission.WRITE_CONTACTS)) {
+        if (!appContext.checkGrantedPermission(Manifest.permission.WRITE_CONTACTS)) {
             logger.warn("No contacts permission. Aborting.")
             return
         }
@@ -248,6 +270,7 @@ class SynchronizeAndroidContactsUseCase(
             notificationTriggerPolicyOverride = null,
             availabilityStatus = AvailabilityStatus.None,
             workLastFullSyncAt = null,
+            conversationCategory = ConversationCategory.DEFAULT,
         )
 
         return try {

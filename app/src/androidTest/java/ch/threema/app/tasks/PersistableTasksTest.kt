@@ -839,12 +839,50 @@ class PersistableTasksTest {
     }
 
     @Test
+    fun testReflectContactConversationCategoryUpdateV2Default() {
+        assertValidEncoding(
+            expectedTaskClass = ReflectContactSyncUpdateTask.ReflectConversationCategoryUpdate::class,
+            encodedTask = "{\"type\":\"ch.threema.app.tasks.ReflectContactSyncUpdateTask.ReflectConversationCategoryUpdate" +
+                ".ReflectContactConversationCategoryUpdateDataV2\",\"contactIdentity\":\"01234567\",\"conversationCategorySerialized\":0}",
+        )
+    }
+
+    @Test
+    fun testReflectContactConversationCategoryUpdateV2Protected() {
+        assertValidEncoding(
+            expectedTaskClass = ReflectContactSyncUpdateTask.ReflectConversationCategoryUpdate::class,
+            encodedTask = "{\"type\":\"ch.threema.app.tasks.ReflectContactSyncUpdateTask.ReflectConversationCategoryUpdate" +
+                ".ReflectContactConversationCategoryUpdateDataV2\",\"contactIdentity\":\"01234567\",\"conversationCategorySerialized\":1}",
+        )
+    }
+
+    @Test
     fun testReflectGroupConversationCategoryUpdate() {
         assertValidEncoding(
             expectedTaskClass = ReflectGroupSyncUpdateTask.ReflectGroupConversationCategoryUpdateTask::class,
             encodedTask = "{\"type\":\"ch.threema.app.tasks.ReflectGroupSyncUpdateTask.ReflectGroupConversationCategoryUpdateTask" +
                 ".ReflectGroupConversationCategoryData\",\"groupIdentity\":{\"creatorIdentity\":\"01234567\",\"groupId\":6361180283070237492}" +
                 "\"isPrivateChat\":true}",
+        )
+    }
+
+    @Test
+    fun testReflectGroupConversationCategoryUpdateV2Default() {
+        assertValidEncoding(
+            expectedTaskClass = ReflectGroupSyncUpdateTask.ReflectGroupConversationCategoryUpdateTask::class,
+            encodedTask = "{\"type\":\"ch.threema.app.tasks.ReflectGroupSyncUpdateTask.ReflectGroupConversationCategoryUpdateTask" +
+                ".ReflectGroupConversationCategoryDataV2\",\"groupIdentity\":{\"creatorIdentity\":\"01234567\",\"groupId\":6361180283070237492}" +
+                "\"conversationCategorySerialized\":0}",
+        )
+    }
+
+    @Test
+    fun testReflectGroupConversationCategoryUpdateV2Protected() {
+        assertValidEncoding(
+            expectedTaskClass = ReflectGroupSyncUpdateTask.ReflectGroupConversationCategoryUpdateTask::class,
+            encodedTask = "{\"type\":\"ch.threema.app.tasks.ReflectGroupSyncUpdateTask.ReflectGroupConversationCategoryUpdateTask" +
+                ".ReflectGroupConversationCategoryDataV2\",\"groupIdentity\":{\"creatorIdentity\":\"01234567\",\"groupId\":6361180283070237492}" +
+                "\"conversationCategorySerialized\":1}",
         )
     }
 
@@ -993,6 +1031,20 @@ class PersistableTasksTest {
         assertValidEncoding(
             expectedTaskClass = SyncPredefinedContactsTask::class,
             encodedTask = "{\"type\":\"ch.threema.app.tasks.SyncPredefinedContactsTask.SyncPredefinedContactsTaskData\"}",
+        )
+    }
+
+    @Test
+    fun testReflectReportGroupTask() {
+        assertValidEncoding(
+            expectedTaskClass = ReflectReportGroupTask::class,
+            encodedTask = """{"type":"ch.threema.app.tasks.ReflectReportGroupTask.ReportGroupTaskData",""" +
+                """"groupIdentity":{"creatorIdentity":"01234567","groupId":42},"reportGroupIntent":0}""",
+        )
+        assertValidEncoding(
+            expectedTaskClass = ReflectReportGroupTask::class,
+            encodedTask = """{"type":"ch.threema.app.tasks.ReflectReportGroupTask.ReportGroupTaskData",""" +
+                """"groupIdentity":{"creatorIdentity":"01234567","groupId":42},"reportGroupIntent":1}""",
         )
     }
 

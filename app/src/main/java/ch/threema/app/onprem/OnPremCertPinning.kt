@@ -14,16 +14,18 @@ import javax.net.ssl.SSLSocketFactory
 import javax.net.ssl.X509TrustManager
 import okhttp3.OkHttpClient
 import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("OnPremCertPinning")
 
-object OnPremCertPinning : KoinComponent {
+class OnPremCertPinning(
+    getOnPremConfigFetcherProvider: () -> OnPremConfigFetcherProvider,
+    getOnPremConfigStore: () -> OnPremConfigStore,
+) : KoinComponent {
 
     // The OnPremConfigFetcherProvider depends on OkHttpClient, so to avoid cyclic dependencies in Koin,
     // it needs to be injected lazily here.
-    private val onPremConfigFetcherProvider: OnPremConfigFetcherProvider by inject()
-    private val onPremConfigStore: OnPremConfigStore by inject()
+    private val onPremConfigFetcherProvider: OnPremConfigFetcherProvider by lazy(getOnPremConfigFetcherProvider)
+    private val onPremConfigStore: OnPremConfigStore by lazy(getOnPremConfigStore)
 
     /**
      * Creates an OkHttpClient which enforces certificate pinning based on the config in the OPPF.
@@ -100,6 +102,9 @@ object OnPremCertPinning : KoinComponent {
                         } catch (e: ThreemaException) {
                             logger.error("Failed to fetch OPPF from fallback URL", e)
                             throw sslHandshakeException
+                        } catch (e: IllegalStateException) {
+                            logger.error("Failed to fetch OPPF from fallback URL", e)
+                            throw sslHandshakeException
                         }
                     },
                 ),
@@ -112,19 +117,8 @@ object OnPremCertPinning : KoinComponent {
     ): OnPremConfigDomains? {
         val onPremConfigFetcher = try {
             onPremConfigFetcherProvider.getOnPremConfigFetcher()
-        } catch (e: ThreemaException) {
-            throw IOException(e)
         } catch (e: IllegalStateException) {
-            if (e.message == "No OPPF URL found in preferences") {
-                // TODO(ANDR-4428): The OPPF URL used to be stored in encrypted format. If Remote Secrets is enabled, we can't access encrypted data,
-                //  meaning that if the OPPF URL has not yet been migrated to the unencrypted storage (see SystemUpdateToVersion119), we won't be able
-                //  to fetch the OPPF here. To recover from this, we fall back to using the stored OPPF.
-                //  This workaround can eventually be removed, when we expect there to be no more users with RS enabled who have not gone
-                //  through SystemUpdateToVersion119.
-                logger.warn("OPPF URL not available, falling back to stored config")
-                return onPremConfigStore.get()?.domains
-            }
-            throw e
+            throw IOException(e)
         }
         val config = try {
             getOnPremConfig(onPremConfigFetcher)

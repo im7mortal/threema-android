@@ -1,5 +1,7 @@
 package ch.threema.app.logging
 
+import ch.threema.app.BuildConfig
+import ch.threema.app.files.AppDirectoryProvider
 import ch.threema.common.TimeProvider
 import ch.threema.common.minus
 import ch.threema.logging.backend.DebugLogFileManager
@@ -15,10 +17,10 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlinx.coroutines.test.runTest
 import org.koin.core.context.startKoin
-import org.koin.test.ClosingKoinTest
+import org.koin.test.AutoCloseKoinTest
 import org.koin.test.mock.declare
 
-class DebugLogFileCleanupWorkerTest : ClosingKoinTest {
+class DebugLogFileCleanupWorkerTest : AutoCloseKoinTest() {
 
     @BeforeTest
     fun setUp() {
@@ -26,17 +28,19 @@ class DebugLogFileCleanupWorkerTest : ClosingKoinTest {
     }
 
     @Test
-    fun `log files older than 60 days are deleted, newer ones are kept`() = runTest {
-        val oldLogFile1 = mockFile(age = 63.days)
-        val oldLogFile2 = mockFile(age = 62.days)
-        val oldLogFile3 = mockFile(age = 61.days)
-        val oldFallbackLogFile1 = mockFile(age = 63.days)
-        val oldFallbackLogFile2 = mockFile(age = 62.days)
-        val oldFallbackLogFile3 = mockFile(age = 61.days)
-        val newLogFile1 = mockFile(age = 60.days)
-        val newLogFile2 = mockFile(age = 59.days)
-        val newFallbackLogFile1 = mockFile(age = 60.days)
-        val newFallbackLogFile2 = mockFile(age = 59.days)
+    fun `log files older than 10 days are deleted, newer ones are kept`() = runTest {
+        val oldLogFile1 = mockFile(age = 13.days)
+        val oldLogFile2 = mockFile(age = 12.days)
+        val oldLogFile3 = mockFile(age = 11.days)
+        val oldFallbackLogFile1 = mockFile(age = 13.days)
+        val oldFallbackLogFile2 = mockFile(age = 12.days)
+        val oldFallbackLogFile3 = mockFile(age = 11.days)
+        val newLogFile1 = mockFile(age = 10.days)
+        val newLogFile2 = mockFile(age = 9.days)
+        val newFallbackLogFile1 = mockFile(age = 10.days)
+        val newFallbackLogFile2 = mockFile(age = 9.days)
+        val oldTombstoneFile1 = mockFile(age = 5.days)
+        val newTombstoneFile1 = mockFile(age = 1.days)
 
         val debugLogFileManagerMock = mockk<DebugLogFileManager> {
             every { getLogFiles() } returns listOf(
@@ -54,9 +58,18 @@ class DebugLogFileCleanupWorkerTest : ClosingKoinTest {
                 newFallbackLogFile2,
             )
         }
+        val appDirectoryProviderMock = mockk<AppDirectoryProvider> {
+            every { tombstonesDirectory } returns mockk {
+                every { listFiles() } returns arrayOf(
+                    oldTombstoneFile1,
+                    newTombstoneFile1,
+                )
+            }
+        }
         val testTimeProvider = TestTimeProvider(now)
         declare { debugLogFileManagerMock }
         declare<TimeProvider> { testTimeProvider }
+        declare<AppDirectoryProvider> { appDirectoryProviderMock }
         val worker = DebugLogFileCleanupWorker(mockk(), mockk())
 
         worker.doWork()
@@ -71,6 +84,10 @@ class DebugLogFileCleanupWorkerTest : ClosingKoinTest {
         verify(exactly = 0) { newLogFile2.delete() }
         verify(exactly = 0) { newFallbackLogFile1.delete() }
         verify(exactly = 0) { newFallbackLogFile2.delete() }
+        if (BuildConfig.LOG_TOMBSTONES_FOR_NATIVE_CRASHES) {
+            verify(exactly = 1) { oldTombstoneFile1.delete() }
+            verify(exactly = 0) { newTombstoneFile1.delete() }
+        }
     }
 
     private fun mockFile(age: Duration): File {

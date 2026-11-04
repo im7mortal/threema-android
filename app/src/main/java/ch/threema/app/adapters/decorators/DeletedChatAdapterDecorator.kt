@@ -4,10 +4,10 @@ import android.content.Context
 import ch.threema.app.ui.listitemholder.ComposeMessageHolder
 import ch.threema.app.utils.LinkifyUtil
 import ch.threema.app.utils.MessageUtil
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 
 class DeletedChatAdapterDecorator(
-    messageModel: AbstractMessageModel,
+    messageModel: MessageModel,
     chatAdapterDecoratorListener: ChatAdapterDecoratorListener,
     linkifyListener: LinkifyUtil.LinkifyListener,
     helper: Helper,

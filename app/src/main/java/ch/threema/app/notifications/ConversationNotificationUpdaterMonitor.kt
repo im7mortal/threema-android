@@ -1,11 +1,13 @@
 package ch.threema.app.notifications
 
+import ch.threema.app.BuildConfig
 import ch.threema.app.di.injectNullableNonBinding
 import ch.threema.app.eventbus.GlobalEventFlows
 import ch.threema.app.eventbus.events.ConversationEvent
 import ch.threema.app.eventbus.events.GroupEvent
 import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.monitors.Monitor
+import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ConversationService
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.LockAppService
@@ -15,9 +17,13 @@ import ch.threema.data.datatypes.ConversationId
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.datatypes.localGroupId
 import ch.threema.domain.protocol.csp.messages.file.FileData.RENDERING_MEDIA
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.ContactMessageModel
+import ch.threema.storage.models.DistributionListMessageModel
+import ch.threema.storage.models.GroupMessageModel
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.MessageContentsType
+import ch.threema.storage.models.getConversationId
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
@@ -27,6 +33,7 @@ class ConversationNotificationUpdaterMonitor(
     private val conversationNotificationConverter: ConversationNotificationConverter,
     private val identityProvider: IdentityProvider,
     private val lockAppService: LockAppService,
+    private val preferenceService: PreferenceService,
 ) : Monitor("ConversationNotificationUpdaterMonitor"), KoinComponent {
     private val notificationService: NotificationService? by injectNullableNonBinding()
     private val conversationService: ConversationService? by injectNullableNonBinding()
@@ -50,11 +57,18 @@ class ConversationNotificationUpdaterMonitor(
             globalEventFlows.messages.collect { event ->
                 when (event) {
                     is MessageEvent.NewMessage -> onNewMessage(event.message)
-                    is MessageEvent.MessageDeletedForAll -> showConversationNotification(event.message, updateExisting = true)
-                    is MessageEvent.MessageEdited -> showConversationNotification(event.message, updateExisting = true)
+                    is MessageEvent.MessageDeletedForAll -> {
+                        showConversationNotification(event.message, updateExisting = true)
+                        cancelEmojiReactionNotification(event.message)
+                    }
+                    is MessageEvent.MessageEdited -> {
+                        showConversationNotification(event.message, updateExisting = true)
+                        if (shouldShowEmojiReactionNotification(event.message)) {
+                            showEmojiReactionNotification(event.message)
+                        }
+                    }
                     is MessageEvent.MessagesUpdated -> onModifiedMessages(event.messages)
-                    is MessageEvent.MessageRemovedLocally,
-                    -> Unit
+                    is MessageEvent.MessageRemovedLocally -> cancelEmojiReactionNotification(event.message)
                 }
             }
         }
@@ -83,10 +97,10 @@ class ConversationNotificationUpdaterMonitor(
     }
 
     private fun cancelNotification(conversationId: ConversationId) {
-        notificationService?.cancel(conversationId)
+        notificationService?.cancelAllConversationNotifications(conversationId)
     }
 
-    private fun onNewMessage(message: AbstractMessageModel) {
+    private fun onNewMessage(message: MessageModel) {
         if (message.isStatusMessage) {
             return
         }
@@ -97,27 +111,86 @@ class ConversationNotificationUpdaterMonitor(
         }
     }
 
-    private fun onModifiedMessages(messages: List<AbstractMessageModel>) {
+    @Suppress("SimplifyBooleanWithConstants")
+    private fun onModifiedMessages(messages: List<MessageModel>) {
+        val shouldShowEmojiReactionNotificationsInContactConversations = preferenceService
+            .shouldShowEmojiReactionNotificationsInContactConversations()
+        val shouldShowEmojiReactionNotificationsInGroupConversations = preferenceService
+            .shouldShowEmojiReactionNotificationsInGroupConversations()
         messages.forEach { message ->
             if (message.isImageOrVideoMessage()) {
                 showConversationNotification(message, updateExisting = true)
             }
+            if (BuildConfig.EMOJI_REACTION_NOTIFICATIONS_ENABLED && message.isOutbox && !message.isStatusMessage) {
+                when (message) {
+                    is ContactMessageModel -> {
+                        if (shouldShowEmojiReactionNotificationsInContactConversations) {
+                            showEmojiReactionNotification(message)
+                        }
+                    }
+                    is GroupMessageModel -> {
+                        if (shouldShowEmojiReactionNotificationsInGroupConversations) {
+                            showEmojiReactionNotification(message)
+                        }
+                    }
+                    is DistributionListMessageModel -> Unit
+                }
+            }
         }
     }
 
-    private fun AbstractMessageModel.isImageOrVideoMessage(): Boolean =
+    private fun MessageModel.isImageOrVideoMessage(): Boolean =
         type == MessageType.FILE &&
             fileData.renderingType == RENDERING_MEDIA &&
             (messageContentsType == MessageContentsType.IMAGE || messageContentsType == MessageContentsType.VIDEO)
 
-    private fun showConversationNotification(message: AbstractMessageModel, updateExisting: Boolean) {
-        if (message.isOutbox || message.isStatusMessage || message.isRead || message.type == MessageType.GROUP_CALL_STATUS) {
+    private fun showConversationNotification(message: MessageModel, updateExisting: Boolean) {
+        if (message.isOutbox || message.isStatusMessage || message.isRead) {
             return
         }
-
         notificationService?.showConversationNotification(
-            conversationNotificationConverter.convert(message) ?: return,
+            conversationNotificationConverter.convertMessageNotification(message) ?: return,
             updateExisting,
+        )
+    }
+
+    private fun showEmojiReactionNotification(message: MessageModel) {
+        val conversationReactionNotification = conversationNotificationConverter
+            .convertReactionNotification(
+                targetMessage = message,
+            )
+            ?: return
+        if (conversationReactionNotification.anyEmojiReactionExists) {
+            notificationService?.showEmojiReactionNotification(conversationReactionNotification)
+        }
+    }
+
+    private fun shouldShowEmojiReactionNotification(message: MessageModel): Boolean {
+        if (!BuildConfig.EMOJI_REACTION_NOTIFICATIONS_ENABLED) {
+            return false
+        }
+        if (!message.isOutbox || message.isStatusMessage) {
+            return false
+        }
+        return when (message) {
+            is ContactMessageModel -> preferenceService.shouldShowEmojiReactionNotificationsInContactConversations()
+            is GroupMessageModel -> preferenceService.shouldShowEmojiReactionNotificationsInGroupConversations()
+            is DistributionListMessageModel -> false
+        }
+    }
+
+    private fun cancelEmojiReactionNotification(message: MessageModel) {
+        if (!BuildConfig.EMOJI_REACTION_NOTIFICATIONS_ENABLED) {
+            return
+        }
+        if (!message.isOutbox || message.isStatusMessage) {
+            return
+        }
+        val messageUid = message.uid
+            ?: return
+        notificationService?.cancelEmojiReactionNotification(
+            conversationId = message.getConversationId(),
+            messageUid = messageUid,
         )
     }
 

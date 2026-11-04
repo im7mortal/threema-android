@@ -2,12 +2,6 @@ package ch.threema.app.conversations
 
 import android.content.Context
 import androidx.lifecycle.viewModelScope
-import ch.threema.app.BuildFlavor
-import ch.threema.app.asynctasks.AddOrUpdateSupportContactBackgroundTask
-import ch.threema.app.asynctasks.ContactAvailable
-import ch.threema.app.asynctasks.ContactResult
-import ch.threema.app.asynctasks.Failed
-import ch.threema.app.backuprestore.ExportConversationService
 import ch.threema.app.compose.conversation.models.ConversationListItemUiModel
 import ch.threema.app.compose.conversation.models.ConversationUiModel
 import ch.threema.app.eventbus.GlobalEventBuses
@@ -26,9 +20,6 @@ import ch.threema.app.messagereceiver.DistributionListMessageReceiver
 import ch.threema.app.messagereceiver.GroupMessageReceiver
 import ch.threema.app.messagereceiver.MessageReceiver
 import ch.threema.app.preference.service.PreferenceService
-import ch.threema.app.protocolsteps.ValidContactsLookupSteps
-import ch.threema.app.restrictions.AppRestrictions
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.ConversationService
 import ch.threema.app.services.DistributionListService
 import ch.threema.app.services.GroupFlowDispatcher
@@ -37,24 +28,27 @@ import ch.threema.app.services.notification.NotificationService
 import ch.threema.app.usecases.avatar.GetAndPrepareAvatarUseCase
 import ch.threema.app.usecases.contacts.WatchContactNameFormatSettingUseCase
 import ch.threema.app.usecases.conversation.ExportConversationToFileUseCase
+import ch.threema.app.usecases.conversation.SetConversationCategoryUseCase
+import ch.threema.app.usecases.conversations.CountArchivedConversationsUseCase
 import ch.threema.app.usecases.conversations.EmptyOrDeleteConversationsUseCase
 import ch.threema.app.usecases.conversations.WatchUnarchivedConversationListItemsUseCase
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.base.utils.onCompleted
 import ch.threema.common.DispatcherProvider
+import ch.threema.common.combine
+import ch.threema.common.debounceAfterFirst
 import ch.threema.common.stateFlowOf
 import ch.threema.common.takeUnlessEmpty
 import ch.threema.data.IdentityProvider
 import ch.threema.data.datatypes.AvailabilityStatus
-import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.datatypes.ContactNameFormat
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationId
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.models.ContactModel
 import ch.threema.data.models.GroupModel
 import ch.threema.data.models.GroupModelData
-import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.data.repositories.GroupModelRepository
 import ch.threema.domain.taskmanager.TriggerSource
 import ch.threema.domain.types.GroupDatabaseId
@@ -62,25 +56,30 @@ import ch.threema.domain.types.Identity
 import ch.threema.storage.models.ConversationModel
 import ch.threema.storage.models.ConversationTag
 import java.io.File
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.koin.core.annotation.InjectedParam
 import org.slf4j.Logger
 
 private val logger: Logger = getThreemaLogger("ConversationsViewModel")
@@ -93,15 +92,10 @@ class ConversationsViewModel(
     private val applicationContext: Context,
     private val dispatcherProvider: DispatcherProvider,
     private val conversationService: ConversationService,
-    private val conversationCategoryService: ConversationCategoryService,
     private val preferenceService: PreferenceService,
     private val messageService: MessageService,
     private val notificationService: NotificationService,
-    private val exportConversationService: ExportConversationService,
     private val distributionListService: DistributionListService,
-    private val validContactsLookupSteps: ValidContactsLookupSteps,
-    private val appRestrictions: AppRestrictions,
-    private val contactModelRepository: ContactModelRepository,
     private val groupModelRepository: GroupModelRepository,
     private val groupFlowDispatcher: GroupFlowDispatcher,
     private val identityProvider: IdentityProvider,
@@ -112,11 +106,13 @@ class ConversationsViewModel(
     private val watchConversationListItemsUseCase: WatchUnarchivedConversationListItemsUseCase,
     private val watchContactNameFormatSettingUseCase: WatchContactNameFormatSettingUseCase,
     private val emptyOrDeleteConversationsUseCase: EmptyOrDeleteConversationsUseCase,
-    isMultiPaneEnabled: Boolean,
-    initiallyOpenedConversation: ConversationId?,
+    private val countArchivedConversationsUseCase: CountArchivedConversationsUseCase,
+    private val setConversationCategoryUseCase: SetConversationCategoryUseCase,
+    @InjectedParam isMultiPaneEnabled: Boolean,
+    @InjectedParam initiallyOpenedConversation: ConversationId?,
 ) : BaseViewModel<ConversationsViewState, ConversationsViewEvent>() {
 
-    private lateinit var watchConversationListItemsFlow: Flow<Result<List<ConversationUiModel>>>
+    private var exportJob: Job? = null
 
     private val highlightedConversationFlow: StateFlow<ConversationId?> =
         if (isMultiPaneEnabled) {
@@ -132,63 +128,24 @@ class ConversationsViewModel(
             stateFlowOf(null)
         }
 
-    // We have to remember the unfiltered models
-    @Volatile
-    private var latestConversationUiModelsResult: Result<List<ConversationUiModel>>? = null
-
-    private var addOrUpdateSupportContactJob: Job? = null
+    // Not part of the state because the search-bar is an old stateful XML component
+    private val searchQuery = MutableStateFlow<String?>(null)
 
     override suspend fun initialize(): ConversationsViewState {
-        watchConversationListItemsFlow = watchConversationListItemsUseCase
-            .call()
-            .map { conversationUiModels ->
-                Result.success(conversationUiModels)
-            }
-            .catch { throwable ->
-                logger.error("Failed to load conversation ui models", throwable)
-                emit(Result.failure(throwable))
-            }
-        produceOngoingState()
+        runWhenActive {
+            produceOngoingState()
+        }
         return produceInitialState()
     }
 
     private suspend fun produceInitialState(): ConversationsViewState = withContext(dispatcherProvider.io) {
         val hidePrivateConversations: Boolean = preferenceService.arePrivateChatsHidden()
-        val initialItemsState: ItemsState = produceInitialItemsState(hidePrivateConversations)
-        val archivedConversationsCount: Long = conversationService.countArchived(
-            /* searchQuery = */
-            null,
-            /* excludePrivateConversations = */
-            hidePrivateConversations,
-        )
-        val contactNameFormatOrDefault =
-            runCatching {
-                preferenceService.getContactNameFormat()
-            }.getOrElse { throwable ->
-                logger.error("Failed to read contact name format setting from preferences", throwable)
-                ContactNameFormat.DEFAULT
-            }
-
-        ConversationsViewState(
-            itemsState = initialItemsState,
-            searchQuery = null,
-            hidePrivateConversations = hidePrivateConversations,
-            hasPrivateConversations = conversationCategoryService.hasAnyPrivateMarks(),
-            archivedConversationsCount = archivedConversationsCount,
-            contactNameFormat = contactNameFormatOrDefault,
-            availabilityStatus = getAvailabilityStatusOrNone(),
-            pendingAction = null,
-        )
-    }
-
-    private suspend fun produceInitialItemsState(hidePrivateConversations: Boolean): ItemsState {
-        val conversationUiModelsResult: Result<List<ConversationUiModel>> = watchConversationListItemsFlow.first()
-        latestConversationUiModelsResult = conversationUiModelsResult
-        return conversationUiModelsResult
+        val itemsState: ItemsState = watchConversationUiModelsResult()
+            .first()
             .fold(
                 onSuccess = { conversationUiModels ->
                     ItemsState.Loaded(
-                        items = filterConversationUiModelsBySearchQuery(
+                        items = filterConversationUiModels(
                             conversationUiModels = conversationUiModels,
                             hidePrivateConversations = hidePrivateConversations,
                             searchQuery = null,
@@ -199,25 +156,44 @@ class ConversationsViewModel(
                     ItemsState.Failed
                 },
             )
+        val archivedConversationsCount: Long = countArchivedConversationsUseCase.call(
+            excludePrivate = hidePrivateConversations,
+        )
+        val contactNameFormatOrDefault =
+            runCatching {
+                preferenceService.getContactNameFormat()
+            }.getOrElse { throwable ->
+                logger.error("Failed to read contact name format setting from preferences", throwable)
+                ContactNameFormat.DEFAULT
+            }
+        ConversationsViewState(
+            itemsState = itemsState,
+            hidePrivateConversations = hidePrivateConversations,
+            hasPrivateConversations = conversationService.hasAnyPrivateConversations(false),
+            archivedConversationsCount = archivedConversationsCount,
+            contactNameFormat = contactNameFormatOrDefault,
+            availabilityStatus = getAvailabilityStatusOrNone(),
+            pendingAction = null,
+        )
     }
 
-    private fun produceOngoingState() = runAction {
+    private suspend fun produceOngoingState() {
         combine(
-            flow = watchConversationListItemsFlow,
+            flow = watchConversationUiModelsResult(),
             flow2 = preferenceService.watchArePrivateChatsHidden(),
             flow3 = highlightedConversationFlow,
             flow4 = watchContactNameFormatSettingUseCase.call(),
             flow5 = watchAvailabilityStatusOrNone(),
-        ) { conversationUiModelsResult, hidePrivateConversations, openedConversationId, contactNameFormat, availabilityStatus ->
-            latestConversationUiModelsResult = conversationUiModelsResult
+            flow6 = watchSearchQueryDebounced(),
+        ) { conversationUiModelsResult, hidePrivateConversations, openedConversationId, contactNameFormat, availabilityStatus, searchQuery: String? ->
             val updatedItemsState = conversationUiModelsResult
                 .fold(
                     onSuccess = { conversationUiModels ->
                         ItemsState.Loaded(
-                            items = filterConversationUiModelsBySearchQuery(
+                            items = filterConversationUiModels(
                                 conversationUiModels = conversationUiModels,
                                 hidePrivateConversations = hidePrivateConversations,
-                                searchQuery = currentViewState.searchQuery,
+                                searchQuery = searchQuery,
                             ).map { conversationUiModel ->
                                 ConversationListItemUiModel(
                                     model = conversationUiModel,
@@ -230,26 +206,49 @@ class ConversationsViewModel(
                         ItemsState.Failed
                     },
                 )
-            val archivedConversationsCount: Long = conversationService.countArchived(
-                /* searchQuery = */
-                currentViewState.searchQuery,
-                /* excludePrivateConversations = */
-                hidePrivateConversations,
+            OngoingConversationsViewState(
+                itemsState = updatedItemsState,
+                hidePrivateConversations = hidePrivateConversations,
+                hasPrivateConversations = conversationService.hasAnyPrivateConversations(false),
+                contactNameFormat = contactNameFormat,
+                availabilityStatus = availabilityStatus,
+                searchQuery = searchQuery,
             )
-            updateViewState {
-                copy(
-                    itemsState = updatedItemsState,
-                    hidePrivateConversations = hidePrivateConversations,
-                    hasPrivateConversations = conversationCategoryService.hasAnyPrivateMarks(),
-                    archivedConversationsCount = archivedConversationsCount,
-                    contactNameFormat = contactNameFormat,
-                    availabilityStatus = availabilityStatus,
-                )
-            }
         }
-            .flowOn(dispatcherProvider.io)
-            .launchIn(viewModelScope)
+            .flowOn(dispatcherProvider.worker)
+            .collectLatest { ongoingConversationsViewState ->
+                updateViewState {
+                    copy(
+                        itemsState = ongoingConversationsViewState.itemsState,
+                        hidePrivateConversations = ongoingConversationsViewState.hidePrivateConversations,
+                        hasPrivateConversations = ongoingConversationsViewState.hasPrivateConversations,
+                        contactNameFormat = ongoingConversationsViewState.contactNameFormat,
+                        availabilityStatus = ongoingConversationsViewState.availabilityStatus,
+                    )
+                }
+                val archivedConversationsCount: Long = countArchivedConversationsUseCase.call(
+                    filterQuery = ongoingConversationsViewState.searchQuery,
+                    excludePrivate = ongoingConversationsViewState.hidePrivateConversations,
+                )
+                currentCoroutineContext().ensureActive()
+                updateViewState {
+                    copy(
+                        archivedConversationsCount = archivedConversationsCount,
+                    )
+                }
+            }
     }
+
+    private fun watchConversationUiModelsResult(): Flow<Result<List<ConversationUiModel>>> =
+        watchConversationListItemsUseCase
+            .call()
+            .map { conversationUiModels ->
+                Result.success(conversationUiModels)
+            }
+            .catch { throwable ->
+                logger.error("Failed to load conversation ui models", throwable)
+                emit(Result.failure(throwable))
+            }
 
     private fun getAvailabilityStatusOrNone(): AvailabilityStatus =
         runCatching {
@@ -271,6 +270,15 @@ class ConversationsViewModel(
                 initialValue = getAvailabilityStatusOrNone(),
             )
 
+    /**
+     *  The initial value of [searchQuery] will be emitted directly.
+     *  All following values will be debounced.
+     */
+    @OptIn(FlowPreview::class)
+    private fun watchSearchQueryDebounced() =
+        searchQuery
+            .debounceAfterFirst(300.milliseconds)
+
     fun onLongClickConversationItem(conversationId: ConversationId) = runAction {
         val conversationModel: ConversationModel? = conversationService.get(conversationId)
         if (conversationModel != null) {
@@ -281,63 +289,18 @@ class ConversationsViewModel(
         }
     }
 
-    fun onSearchQueryChange(searchQuery: String?) = runAction {
-        val latestConversationUiModels: List<ConversationUiModel> = latestConversationUiModelsResult?.getOrNull()
-            ?: return@runAction
-        val didSearchQueryChangeEffectively = didSearchQueryChangeEffectively(
-            currentQuery = currentViewState.searchQuery,
-            updatedQuery = searchQuery,
-        )
-        if (!didSearchQueryChangeEffectively) {
-            // Skip unnecessary search filtering and view state update
-            return@runAction
-        }
-        val updatedItems: List<ConversationListItemUiModel> =
-            filterConversationUiModelsBySearchQuery(
-                conversationUiModels = latestConversationUiModels,
-                hidePrivateConversations = currentViewState.hidePrivateConversations,
-                searchQuery = searchQuery,
-            ).map { conversationUiModel ->
-                ConversationListItemUiModel(
-                    model = conversationUiModel,
-                    isHighlighted = conversationUiModel.conversationId == highlightedConversationFlow.value,
-                )
-            }
-        val archivedConversationsCount = withContext(dispatcherProvider.io) {
-            conversationService.countArchived(
-                /* searchQuery = */
-                searchQuery,
-                /* excludePrivateConversations = */
-                currentViewState.hidePrivateConversations,
-            )
-        }
-        updateViewState {
-            copy(
-                itemsState = ItemsState.Loaded(
-                    items = updatedItems,
-                ),
-                searchQuery = searchQuery,
-                archivedConversationsCount = archivedConversationsCount,
-            )
-        }
+    fun onClickOpenArchive() = runAction {
+        emitEvent(ConversationsViewEvent.OpenArchive(searchQuery.value))
     }
 
-    /**
-     *  Determine if the change to the query value **could** have an effective impact on the result list after search. A query change from `null` to
-     *  an `empty string`, or vice versa, will have no effect on the searching logic.
-     *
-     *  @see ConversationUiModel.matchesSearchQuery
-     */
-    private fun didSearchQueryChangeEffectively(currentQuery: String?, updatedQuery: String?): Boolean {
-        val current = currentQuery?.takeUnlessEmpty()
-        val updated = updatedQuery?.takeUnlessEmpty()
-        return current != updated
+    fun onSearchQueryChange(searchQuery: String?) {
+        this.searchQuery.value = searchQuery?.takeUnlessEmpty()
     }
 
     /**
      *  Takes a list of all conversation models and returns a list of conversation models that should be effectively presented to the user.
      */
-    private fun filterConversationUiModelsBySearchQuery(
+    private fun filterConversationUiModels(
         conversationUiModels: List<ConversationUiModel>,
         hidePrivateConversations: Boolean,
         searchQuery: String?,
@@ -388,7 +351,7 @@ class ConversationsViewModel(
             return@runAction
         }
 
-        if (conversationCategoryService.isMarkedAsPrivate(conversationId)) {
+        if (conversationModel.conversationCategory == ConversationCategory.PROTECTED) {
             logger.warn("Could not mark the conversation as private because it is already private")
             emitEvent(ConversationsViewEvent.InternalError)
             return@runAction
@@ -429,16 +392,15 @@ class ConversationsViewModel(
             emitEvent(ConversationsViewEvent.InternalError)
             return@runAction
         }
-        val success = conversationCategoryService.setPrivateMark(conversationModel.id)
-        if (success) {
-            emitEvent(ConversationsViewEvent.ConversationMarkAsPrivateSuccess)
-            fireReceiverUpdate(conversationModel.messageReceiver)
-            if (preferenceService.arePrivateChatsHidden()) {
-                firePrivateReceiverUpdate()
-            }
-        } else {
-            logger.warn("Could not effectively mark the conversation as private because it is already private")
-            emitEvent(ConversationsViewEvent.InternalError)
+        setConversationCategoryUseCase.call(
+            conversationId = conversationModel.id,
+            conversationCategory = ConversationCategory.PROTECTED,
+            triggerSource = TriggerSource.LOCAL,
+        )
+        emitEvent(ConversationsViewEvent.ConversationMarkAsPrivateSuccess)
+        fireReceiverUpdate(conversationModel.messageReceiver)
+        if (preferenceService.arePrivateChatsHidden()) {
+            firePrivateReceiverUpdate()
         }
     }
 
@@ -463,7 +425,7 @@ class ConversationsViewModel(
             return@runAction
         }
 
-        if (!conversationCategoryService.isMarkedAsPrivate(conversationId)) {
+        if (conversationModel.conversationCategory != ConversationCategory.PROTECTED) {
             logger.warn("Could not unmark the conversation as private because it is not private")
             emitEvent(ConversationsViewEvent.InternalError)
             return@runAction
@@ -498,14 +460,13 @@ class ConversationsViewModel(
         if (!preferenceService.hasLockMechanism()) {
             return@runAction
         }
-        val success = conversationCategoryService.removePrivateMark(conversationModel.id)
-        if (success) {
-            emitEvent(ConversationsViewEvent.ConversationUnmarkAsPrivateSuccess)
-            fireReceiverUpdate(conversationModel.messageReceiver)
-        } else {
-            logger.warn("Could not effectively unmark the conversation as private because it is not private")
-            emitEvent(ConversationsViewEvent.InternalError)
-        }
+        setConversationCategoryUseCase.call(
+            conversationId = conversationModel.id,
+            conversationCategory = ConversationCategory.DEFAULT,
+            triggerSource = TriggerSource.LOCAL,
+        )
+        emitEvent(ConversationsViewEvent.ConversationUnmarkAsPrivateSuccess)
+        fireReceiverUpdate(conversationModel.messageReceiver)
     }
 
     fun onClickHideOrShowPrivateConversations() = runAction {
@@ -635,7 +596,7 @@ class ConversationsViewModel(
             emitEvent(ConversationsViewEvent.InternalError)
             return@runAction
         }
-        conversationService.untag(conversationModel, ConversationTag.MARKED_AS_UNREAD, TriggerSource.LOCAL)
+        conversationService.untag(conversationModel, ConversationTag.MARKED_AS_UNREAD)
         withContext(dispatcherProvider.io) {
             messageService.markConversationAsRead(conversationModel.messageReceiver, notificationService)
         }
@@ -648,7 +609,7 @@ class ConversationsViewModel(
             emitEvent(ConversationsViewEvent.InternalError)
             return@runAction
         }
-        conversationService.tag(conversationModel, ConversationTag.MARKED_AS_UNREAD, TriggerSource.LOCAL)
+        conversationService.tag(conversationModel, ConversationTag.MARKED_AS_UNREAD)
     }
 
     fun onClickEmptyConversation(conversationId: ConversationId) = runAction {
@@ -732,7 +693,7 @@ class ConversationsViewModel(
                 // fire an update for every secret receiver (to update webclient data)
                 conversationService.getAll(false)
                     .filter { conversationModel ->
-                        conversationCategoryService.isMarkedAsPrivate(conversationModel.id)
+                        conversationModel.conversationCategory == ConversationCategory.PROTECTED
                     }
                     .forEach { conversationModel ->
                         fireReceiverUpdate(conversationModel.messageReceiver)
@@ -752,7 +713,7 @@ class ConversationsViewModel(
         )
     }
 
-    fun onStoragePermissionGrantedToShareConversation() = runAction {
+    fun onShareConversation() = runAction {
         val conversationId = (currentViewState.pendingAction as? ConversationsViewPendingAction.ShareConversation)?.conversationId
         if (conversationId == null) {
             logger.error("Failed to share the conversation because there was no pending action for it")
@@ -772,33 +733,33 @@ class ConversationsViewModel(
             emitEvent(ConversationsViewEvent.InternalError)
             return@runAction
         }
-        val exportResult: ExportConversationToFileUseCase.Result = exportConversationToFileUseCase.call(
-            conversationModel = conversationModel,
-            password = password,
-            includeMedia = includeMedia,
-        )
-        val event: ConversationsViewEvent? = when (exportResult) {
-            is ExportConversationToFileUseCase.Result.Success -> {
-                updateViewState {
-                    copy(
-                        pendingAction = ConversationsViewPendingAction.DeleteSharedConversationFile(exportResult.file),
-                    )
+
+        exportJob?.cancel()
+        exportJob = launchAction {
+            val exportResult: ExportConversationToFileUseCase.Result = exportConversationToFileUseCase.call(
+                conversationModel = conversationModel,
+                password = password,
+                includeMedia = includeMedia,
+            )
+
+            when (exportResult) {
+                is ExportConversationToFileUseCase.Result.Success -> {
+                    updateViewState {
+                        copy(
+                            pendingAction = ConversationsViewPendingAction.DeleteSharedConversationFile(exportResult.file),
+                        )
+                    }
+                    emitEvent(ConversationsViewEvent.OnConversationFileReadyForSharing(exportResult.file))
                 }
-                ConversationsViewEvent.OnConversationFileReadyForSharing(exportResult.file)
+                ExportConversationToFileUseCase.Result.Failure -> {
+                    emitEvent(ConversationsViewEvent.OnFailedToCreateConversationFileForSharing)
+                }
             }
-            ExportConversationToFileUseCase.Result.Failure -> {
-                logger.error("Failed to share conversation messages file")
-                ConversationsViewEvent.OnFailedToCreateConversationFileForSharing
-            }
-            ExportConversationToFileUseCase.Result.Cancelled -> null
-        }
-        if (event != null) {
-            emitEvent(event)
         }
     }
 
     fun onClickCancelSharing() {
-        exportConversationService.cancel()
+        exportJob?.cancel()
     }
 
     /**
@@ -995,32 +956,20 @@ class ConversationsViewModel(
         }
     }
 
-    fun onClickContactSupport() {
-        if (addOrUpdateSupportContactJob?.isActive == true || BuildFlavor.current.isOnPrem) {
-            return
-        }
-        addOrUpdateSupportContactJob = launchAction {
-            // Failed case needs to be checked first, as the result can be both Failed and ContactAvailable at the same time
-            // See the definition of `LocalPublicKeyMismatch`
-            val event = when (val contactResult: ContactResult = addOrUpdateSupportContact()) {
-                is Failed -> ConversationsViewEvent.OnSupportContactUnavailable(contactResult.message)
-                is ContactAvailable -> ConversationsViewEvent.OnSupportContactAvailable(
-                    conversationId = ContactConversationId(
-                        identity = contactResult.contactModel.identity,
-                    ),
-                )
-            }
-            emitEvent(event)
-        }
+    fun onClickContactSupport() = runAction {
+        emitEvent(ConversationsViewEvent.OnContactSupport)
     }
 
-    private suspend fun addOrUpdateSupportContact(): ContactResult {
-        return withContext(dispatcherProvider.worker) {
-            AddOrUpdateSupportContactBackgroundTask(
-                validContactsLookupSteps = validContactsLookupSteps,
-                contactModelRepository = contactModelRepository,
-                appRestrictions = appRestrictions,
-            ).runSynchronously()
-        }
+    fun onContactSupportFailed(message: String) = runAction {
+        emitEvent(ConversationsViewEvent.OnContactSupportFailed(message))
     }
 }
+
+private data class OngoingConversationsViewState(
+    val itemsState: ItemsState,
+    val hidePrivateConversations: Boolean,
+    val hasPrivateConversations: Boolean,
+    val contactNameFormat: ContactNameFormat,
+    val availabilityStatus: AvailabilityStatus,
+    val searchQuery: String?,
+)

@@ -5,6 +5,9 @@ import java.io.File
 import kotlin.getValue
 import org.koin.core.component.inject
 
+/**
+ * delete v1 error records
+ */
 class SystemUpdateToVersion126 : SystemUpdate {
     private val appContext: Context by inject()
 
@@ -22,6 +25,4 @@ class SystemUpdateToVersion126 : SystemUpdate {
     }
 
     override val version = 126
-
-    override fun getDescription() = "delete v1 error records"
 }

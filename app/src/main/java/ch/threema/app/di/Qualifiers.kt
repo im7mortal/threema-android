@@ -9,4 +9,14 @@ object Qualifiers {
      * Otherwise, use the default client, i.e., without specifying a qualifier.
      */
     val okHttpBase = named("ok-http-base")
+
+    /**
+     * Qualifier for the OkHttpClient which can be used to upload to the blob server.
+     */
+    val okHttpBlobUpload = named("blob-upload")
+
+    /**
+     * Qualifier for the OkHttpClient which can be used to download from the blob server.
+     */
+    val okHttpBlobDownload = named("blob-download")
 }

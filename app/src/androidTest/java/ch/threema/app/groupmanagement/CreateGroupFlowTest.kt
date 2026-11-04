@@ -12,6 +12,7 @@ import ch.threema.app.testutils.TestHelpers.TestContact
 import ch.threema.app.testutils.clearDatabaseAndCaches
 import ch.threema.common.minus
 import ch.threema.data.datatypes.AvailabilityStatus
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.models.ContactModelData
 import ch.threema.data.models.GroupModel
@@ -73,6 +74,7 @@ class CreateGroupFlowTest : GroupFlowTest(), KoinComponent {
         readReceiptPolicy = ReadReceiptPolicy.DEFAULT,
         typingIndicatorPolicy = TypingIndicatorPolicy.DEFAULT,
         conversationVisibility = ConversationVisibility.NORMAL,
+        conversationCategory = ConversationCategory.DEFAULT,
         profilePictureBlobId = null,
         androidContactLookupInfo = null,
         localAvatarExpires = null,
@@ -98,8 +100,7 @@ class CreateGroupFlowTest : GroupFlowTest(), KoinComponent {
 
         assert(myContact.identity == TestHelpers.ensureIdentity(serviceManager))
 
-        // Note that we use from sync to prevent any reflection. This is only acceptable in tests.
-        serviceManager.modelRepositories.contacts.createFromSync(initialContactModelData)
+        serviceManager.modelRepositories.contacts.persistNewContact(initialContactModelData)
     }
 
     @Test

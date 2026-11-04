@@ -1,8 +1,10 @@
 package ch.threema.data.models
 
+import androidx.compose.runtime.Immutable
 import ch.threema.data.storage.DbEditHistoryEntry
 import java.time.Instant
 
+@Immutable
 data class EditHistoryEntryData(
     /** unique id. */
     @JvmField val uid: Int,
@@ -10,21 +12,13 @@ data class EditHistoryEntryData(
     @JvmField val messageUid: String,
     /** The former text of the edited message. */
     @JvmField val text: String?,
-    /** Timestamp when the message was edited and hence the entry created. */
-    @JvmField val editedAt: Instant,
-) {
-    fun uid() = uid
-
-    fun messageUid() = messageUid
-
-    fun text() = text
-
-    fun editedAt() = editedAt
-}
+    /** Timestamp when the former text of the message was created. */
+    @JvmField val createdAt: Instant,
+)
 
 fun DbEditHistoryEntry.toDataType() = EditHistoryEntryData(
     uid = this.uid,
     messageUid = this.messageUid,
     text = this.text,
-    editedAt = this.editedAt,
+    createdAt = this.createdAt,
 )

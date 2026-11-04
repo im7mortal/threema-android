@@ -6,7 +6,7 @@
 # Arguments:
 #
 # - `JAVA_VERSION`: Set this to the desired Java version (e.g. 21)
-# - `SDK_VERSION`: Set this to the desired Android SDK version (e.g. `36`)
+# - `SDK_VERSION`: Set this to the desired Android SDK version (e.g. `37.0`)
 # - `NDK_VERSION`: Set this to the desired Android NDK version (e.g. `25.2.9519653`)
 # - `BUILD_TOOLS_VERSION`: Set this to the desired build tools version (e.g. `35.0.0`)
 # - `RUST_VERSION`: Set this to the desired Rust version (e.g. `1.80`)
@@ -15,7 +15,7 @@ FROM docker.io/debian:trixie-slim
 
 # Arguments
 ARG JAVA_VERSION=21
-ARG SDK_VERSION=36
+ARG SDK_VERSION=37.0
 ARG BUILD_TOOLS_VERSION=35.0.0
 ARG NDK_VERSION=28.2.13676358
 ARG RUST_VERSION
@@ -27,17 +27,17 @@ RUN apt-get update -q \
     build-essential file "openjdk-${JAVA_VERSION}-jdk" git wget unzip rsync vim-nox cpu-checker curl python3 protobuf-compiler \
  && rm -rf /var/lib/apt/lists/*
 
-# Download Android command line tools
+# Download Android command line tools (see https://developer.android.com/studio#command-line-tools-only)
 RUN mkdir -p /opt/android/cmdline-tools \
  && cd /opt/android/cmdline-tools \
- && wget https://dl.google.com/android/repository/commandlinetools-linux-6609375_latest.zip \
- && unzip commandlinetools-linux-6609375_latest.zip \
- && rm commandlinetools-linux-6609375_latest.zip
+ && wget https://dl.google.com/android/repository/commandlinetools-linux-15859902_latest.zip \
+ && unzip commandlinetools-linux-15859902_latest.zip \
+ && rm commandlinetools-linux-15859902_latest.zip
 ENV ANDROID_SDK_ROOT=/opt/android
 
 # Install Android SDK
-RUN yes Y | /opt/android/cmdline-tools/tools/bin/sdkmanager --licenses
-RUN /opt/android/cmdline-tools/tools/bin/sdkmanager --install \
+RUN yes Y | /opt/android/cmdline-tools/cmdline-tools/bin/sdkmanager --licenses
+RUN /opt/android/cmdline-tools/cmdline-tools/bin/sdkmanager --install \
     "platform-tools" \
     "platforms;android-${SDK_VERSION}" \
     "ndk;${NDK_VERSION}" \
@@ -68,7 +68,7 @@ RUN rustup target add x86_64-linux-android \
 RUN chmod a+w $CARGO_HOME
 
 # Set env variables
-ENV PATH="$ANDROID_SDK_ROOT/cmdline-tools/tools/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
+ENV PATH="$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
 
 # Create users with typical UIDs to avoid problems with Docker when remapping the UID
 RUN chmod a+w /home && for newuid in $(seq 1000 1010); do useradd -M -d /home  -u $newuid -s /bin/bash "user$newuid"; done

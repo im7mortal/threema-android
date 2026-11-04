@@ -4,12 +4,13 @@ import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.eventbus.events.ActionEvent
 import ch.threema.app.framework.BaseViewModel
 import ch.threema.app.preference.service.PreferenceService
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.notification.NotificationService
 import ch.threema.app.usecases.avatar.GetAndPrepareAvatarUseCase
+import ch.threema.app.usecases.conversation.GetConversationCategoryUseCase
 import ch.threema.app.usecases.conversation.MarkConversationAsReadUseCase
 import ch.threema.app.usecases.conversation.ReportConversationShortcutUsedUseCase
 import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationId
 import ch.threema.data.datatypes.DistributionListConversationId
 import ch.threema.data.datatypes.GroupConversationId
@@ -19,13 +20,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import org.koin.core.annotation.InjectedParam
 
 class ConversationViewModel(
-    conversationId: ConversationId,
-    private val hasInitialFocus: Boolean,
-    private val initialText: String,
+    private val getConversationCategoryUseCase: GetConversationCategoryUseCase,
     private val globalEventBuses: GlobalEventBuses,
-    private val conversationCategoryService: ConversationCategoryService,
     private val preferenceService: PreferenceService,
     private val notificationService: NotificationService,
     private val getAndPrepareAvatarUseCase: GetAndPrepareAvatarUseCase,
@@ -34,6 +33,9 @@ class ConversationViewModel(
     private val watchConversationGroupReceiverStateUseCase: WatchConversationGroupReceiverStateUseCase,
     private val watchConversationDistributionListReceiverStateUseCase: WatchConversationDistributionListReceiverStateUseCase,
     private val reportConversationShortcutUsedUseCase: ReportConversationShortcutUsedUseCase,
+    @InjectedParam conversationId: ConversationId,
+    @InjectedParam private val hasInitialFocus: Boolean,
+    @InjectedParam private val initialText: String,
 ) : BaseViewModel<ConversationScreenState, ConversationScreenEvent>() {
 
     private val conversationId: MutableStateFlow<ConversationId> = MutableStateFlow(conversationId)
@@ -158,17 +160,12 @@ class ConversationViewModel(
         }
 
     private fun getSecureConversationState(conversationId: ConversationId): SecureConversationState =
-        conversationCategoryService
-            .isMarkedAsPrivate(conversationId)
-            .let { isPrivate ->
-                if (isPrivate) {
-                    SecureConversationState.Private.locked(
-                        appLockConfigured = preferenceService.hasLockMechanism(),
-                    )
-                } else {
-                    SecureConversationState.NotPrivate
-                }
-            }
+        when (getConversationCategoryUseCase.call(conversationId)) {
+            ConversationCategory.DEFAULT -> SecureConversationState.NotPrivate
+            ConversationCategory.PROTECTED -> SecureConversationState.Private.locked(
+                appLockConfigured = preferenceService.hasLockMechanism(),
+            )
+        }
 
     private fun emitGlobalEventConversationOpened(conversationId: ConversationId) {
         globalEventBuses.actions.emit(

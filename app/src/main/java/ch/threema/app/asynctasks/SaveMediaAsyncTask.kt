@@ -4,6 +4,7 @@ import android.view.View
 import androidx.annotation.MainThread
 import androidx.fragment.app.FragmentActivity
 import ch.threema.android.LifecycleAwareAsyncTask
+import ch.threema.android.dismissDialog
 import ch.threema.android.showToast
 import ch.threema.app.R
 import ch.threema.app.dialogs.CancelableHorizontalProgressDialog
@@ -11,7 +12,7 @@ import ch.threema.app.dialogs.SimpleStringAlertDialog
 import ch.threema.app.services.FileService
 import ch.threema.app.utils.DialogUtil
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import com.google.android.material.snackbar.Snackbar
 import java.lang.ref.WeakReference
 
@@ -22,7 +23,7 @@ class SaveMediaAsyncTask(
     private val fileService: FileService,
     activity: FragmentActivity,
     feedbackView: View?,
-    selectedMessages: List<AbstractMessageModel>,
+    selectedMessages: List<MessageModel>,
     val quiet: Boolean,
 ) : LifecycleAwareAsyncTask<Unit, Int>() {
 
@@ -76,7 +77,7 @@ class SaveMediaAsyncTask(
 
     override fun onPostExecute(result: Int) {
         val activity = activityWeakReference.get() ?: return
-        DialogUtil.dismissDialog(activity.supportFragmentManager, DIALOG_TAG_SAVING_MEDIA, true)
+        activity.supportFragmentManager.dismissDialog(DIALOG_TAG_SAVING_MEDIA)
         val feedbackView = feedbackViewWeakReference.get()
         val message = activity.resources.getQuantityString(R.plurals.file_saved, result, result)
         if (feedbackView != null) {

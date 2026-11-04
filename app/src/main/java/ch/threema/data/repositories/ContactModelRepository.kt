@@ -89,7 +89,7 @@ class ContactModelRepository(
         requireValidContact(contactModelData)
 
         val createContactLocally: suspend () -> ContactModel = {
-            createContactLocally(contactModelData)
+            persistNewContact(contactModelData)
         }
 
         return if (multiDeviceManager.isMultiDeviceActive) {
@@ -124,7 +124,7 @@ class ContactModelRepository(
         requireValidContact(contactModelData)
 
         val createContactLocally: suspend () -> ContactModel = {
-            createContactLocally(contactModelData)
+            persistNewContact(contactModelData)
         }
 
         return if (multiDeviceManager.isMultiDeviceActive) {
@@ -155,7 +155,7 @@ class ContactModelRepository(
         if (contactModelData.acquaintanceLevel == AcquaintanceLevel.DIRECT) {
             throw UnexpectedContactException("A contact with acquaintance level group was expected")
         }
-        createContactLocally(contactModelData)
+        persistNewContact(contactModelData)
     }
 
     /**
@@ -163,53 +163,67 @@ class ContactModelRepository(
      *
      * @throws ContactStoreException if the contact could not be stored in the database
      */
-    @Synchronized
-    fun createFromSync(contactModelData: ContactModelData): ContactModel {
-        try {
-            databaseBackend.createContact(ContactModelDataFactory.toDbType(contactModelData))
-        } catch (e: SQLiteException) {
-            throw ContactStoreException(e)
-        } catch (e: DatabaseException) {
-            throw ContactStoreException(e)
-        } catch (e: IllegalArgumentException) {
-            throw InvalidContactException(e = e)
-        }
-
-        globalEventBuses.contacts.emit(ContactEvent.NewContact(Identity(contactModelData.identity)))
-
-        return getByIdentity(contactModelData.identity)
-            ?: throw IllegalStateException("Contact must exist at this point")
-    }
+    @Throws(ContactStoreException::class)
+    fun createFromSync(contactModelData: ContactModelData): ContactModel =
+        persistNewContact(contactModelData)
 
     /**
-     * Creates the contact with the given data locally. After adding the contact, the listeners are
-     * fired.
+     * Persist a new contact. Note that this does not reflect the contact and should therefore be used with care.
      *
-     * @throws InvalidContactException if the provided contact data is invalid
-     * @throws ContactStoreException if inserting the contact into the database failed
+     * @throws ContactStoreException if the contact could not be stored in the database
      */
-    private fun createContactLocally(contactModelData: ContactModelData): ContactModel {
+    @Throws(ContactStoreException::class)
+    fun persistNewContact(contactModelData: ContactModelData): ContactModel {
         val contactModel = synchronized(this) {
             try {
                 databaseBackend.createContact(ContactModelDataFactory.toDbType(contactModelData))
-            } catch (exception: SQLiteException) {
-                // Note that in case the insertion fails, this is most likely because the identity
-                // already exists.
-                throw ContactStoreException(exception)
+            } catch (e: SQLiteException) {
+                throw ContactStoreException(e)
             } catch (e: DatabaseException) {
                 throw ContactStoreException(e)
-            } catch (exception: IllegalArgumentException) {
-                // In this case the identity or public key of the contact is invalid.
-                throw InvalidContactException(e = exception)
+            } catch (e: IllegalArgumentException) {
+                throw InvalidContactException(e = e)
             }
 
+            // We call the getter here to populate the cache and to validate that the contact was stored
             getByIdentity(contactModelData.identity)
-                ?: throw IllegalStateException("Contact must exist at this point")
+                ?: error("Contact must exist at this point")
         }
 
         globalEventBuses.contacts.emit(ContactEvent.NewContact(Identity(contactModelData.identity)))
 
         return contactModel
+    }
+
+    /**
+     * Persist new contacts. Note that this does not reflect the contacts and should therefore be used with care.
+     *
+     * Note that contacts are written in a transaction to the database meaning if one contact fails to be added, none of them will be added.
+     *
+     * @throws ContactStoreException if the contacts could not be stored in the database
+     */
+    @Throws(ContactStoreException::class)
+    fun persistNewContacts(contactModelData: Set<ContactModelData>) {
+        val identities = contactModelData
+            .map(ContactModelData::identity)
+        synchronized(this) {
+            try {
+                databaseBackend.createContact(*contactModelData.map(ContactModelDataFactory::toDbType).toTypedArray())
+            } catch (e: SQLiteException) {
+                throw ContactStoreException(e)
+            } catch (e: DatabaseException) {
+                throw ContactStoreException(e)
+            } catch (e: IllegalArgumentException) {
+                throw InvalidContactException(e = e)
+            }
+
+            // We call the getter here to populate the cache
+            getByIdentities(identities.toSet())
+        }
+
+        identities.forEach { identity ->
+            globalEventBuses.contacts.emit(ContactEvent.NewContact(Identity(identity)))
+        }
     }
 
     @Throws(InvalidContactException::class)
@@ -254,11 +268,11 @@ class ContactModelRepository(
     @Synchronized
     fun getByIdentities(identities: Set<IdentityString>): List<ContactModel> {
         // Store results in a map to preserve the input order
-        val resultsMap: MutableMap<IdentityString, ContactModel?> = identities.associateWith { null }.toMutableMap()
+        val resultsMap: MutableMap<IdentityString, ContactModel?> = identities.associateWithTo(mutableMapOf()) { null }
         val cacheMisses = mutableSetOf<IdentityString>()
         // Try to find all in cache
         for (identity in identities) {
-            val cachedContactModel: ContactModel? = cache.get(identity)
+            val cachedContactModel: ContactModel? = cache[identity]
             if (cachedContactModel != null) {
                 resultsMap[identity] = cachedContactModel
             } else {
@@ -280,6 +294,38 @@ class ContactModelRepository(
     }
 
     /**
+     *  Returns `true` if all [identities] exist and have the given [acquaintanceLevel].
+     */
+    @Synchronized
+    fun allExistWithAcquaintanceLevel(identities: Set<IdentityString>, acquaintanceLevel: AcquaintanceLevel): Boolean {
+        if (identities.isEmpty()) {
+            return true
+        }
+        // Try to find all in cache
+        val cacheMisses = buildSet {
+            for (identity in identities) {
+                val cachedContactModelData = cache[identity]?.data
+                if (cachedContactModelData == null) {
+                    add(identity)
+                    continue
+                }
+                if (cachedContactModelData.acquaintanceLevel != acquaintanceLevel) {
+                    return false
+                }
+            }
+        }
+        // Happy case: All models found in cache
+        if (cacheMisses.isEmpty()) {
+            return true
+        }
+        // Check all missing identities in database
+        return databaseBackend.allContactsExistWithAcquaintanceLevel(
+            identities = cacheMisses,
+            acquaintanceLevel = acquaintanceLevel,
+        )
+    }
+
+    /**
      * Returns all contact models by loading them from the database.
      */
     @Synchronized
@@ -289,9 +335,35 @@ class ContactModelRepository(
         }
     }
 
+    /**
+     * Get all contact's identities. Note that this includes all contacts.
+     */
+    @Synchronized
+    fun getAllContactIdentities(): Set<IdentityString> =
+        databaseBackend.getAllContactIdentities()
+
     @Synchronized
     fun existsByIdentity(identity: IdentityString): Boolean =
-        (cache.get(identity) ?: databaseBackend.getContactByIdentity(identity)) != null
+        cache.exists(identity) || databaseBackend.contactExists(identity)
+
+    @Synchronized
+    fun existsByIdentity(identity: Identity): Boolean =
+        existsByIdentity(identity.value)
+
+    @Synchronized
+    fun countExisting(identities: Set<IdentityString>): UInt {
+        var count = 0U
+        val cacheMisses = buildSet {
+            identities.forEach { identity ->
+                if (cache.exists(identity)) {
+                    count++
+                } else {
+                    add(identity)
+                }
+            }
+        }
+        return databaseBackend.countExistingContacts(cacheMisses) + count
+    }
 
     /**
      *  Note that this function does **not emit** any [ContactEvent.ContactUpdated] events.

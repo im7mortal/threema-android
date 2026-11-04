@@ -8,10 +8,10 @@ import java.net.URL;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
+import ch.threema.app.BuildFlavor;
 import ch.threema.app.multidevice.MultiDeviceManager;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.base.ThreemaException;
-import ch.threema.domain.models.AppVersion;
 import ch.threema.domain.protocol.ServerAddressProvider;
 import ch.threema.domain.protocol.api.APIConnector;
 import ch.threema.domain.protocol.blob.BlobLoader;
@@ -25,27 +25,27 @@ import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 public class ApiServiceImpl implements ApiService {
     private static final Logger logger = getThreemaLogger("ApiServiceImpl");
 
-    private final AppVersion appVersion;
     private final APIConnector apiConnector;
     private final TokenStoreInterface authTokenStore;
     private final ServerAddressProvider serverAddressProvider;
     private final MultiDeviceManager multiDeviceManager;
-    private final OkHttpClient baseOkHttpClient;
+    private final OkHttpClient blobDownloadOkHttpClient;
+    private final OkHttpClient blobUploadOkHttpClient;
 
     public ApiServiceImpl(
-        AppVersion appVersion,
         APIConnector apiConnector,
         TokenStoreInterface authTokenStore,
         ServerAddressProvider serverAddressProvider,
         MultiDeviceManager multiDeviceManager,
-        OkHttpClient baseOkHttpClient
+        OkHttpClient blobDownloadOkHttpClient,
+        OkHttpClient blobUploadOkHttpClient
     ) {
-        this.appVersion = appVersion;
         this.apiConnector = apiConnector;
         this.authTokenStore = authTokenStore;
         this.serverAddressProvider = serverAddressProvider;
         this.multiDeviceManager = multiDeviceManager;
-        this.baseOkHttpClient = baseOkHttpClient;
+        this.blobDownloadOkHttpClient = blobDownloadOkHttpClient;
+        this.blobUploadOkHttpClient = blobUploadOkHttpClient;
     }
 
     @NonNull
@@ -54,14 +54,12 @@ public class ApiServiceImpl implements ApiService {
         @NonNull byte[] blobData,
         boolean shouldPersist,
         @NonNull BlobScope blobScope
-    ) throws ThreemaException {
+    ) {
         final BlobUploader blobUploader;
         if (multiDeviceManager.isMultiDeviceActive()) {
             blobUploader = BlobUploader.mirror(
-                baseOkHttpClient,
-                getAuthToken(),
+                blobUploadOkHttpClient,
                 blobData,
-                appVersion,
                 serverAddressProvider,
                 null,
                 shouldPersist,
@@ -70,10 +68,8 @@ public class ApiServiceImpl implements ApiService {
             );
         } else {
             blobUploader = BlobUploader.usual(
-                baseOkHttpClient,
-                getAuthToken(),
+                blobUploadOkHttpClient,
                 blobData,
-                appVersion,
                 serverAddressProvider,
                 null,
                 shouldPersist
@@ -88,18 +84,16 @@ public class ApiServiceImpl implements ApiService {
         BlobLoader loader;
         if (multiDeviceManager.isMultiDeviceActive()) {
             loader = BlobLoader.mirror(
-                baseOkHttpClient,
+                blobDownloadOkHttpClient,
                 blobId,
-                appVersion,
                 serverAddressProvider,
                 null,
                 multiDeviceManager.getPropertiesProvider()
             );
         } else {
             loader = BlobLoader.usual(
-                baseOkHttpClient,
+                blobDownloadOkHttpClient,
                 blobId,
-                appVersion,
                 serverAddressProvider,
                 null
             );
@@ -110,7 +104,7 @@ public class ApiServiceImpl implements ApiService {
     @Override
     @Nullable
     public String getAuthToken() throws ThreemaException {
-        if (!ConfigUtils.isOnPremBuild()) {
+        if (!BuildFlavor.IS_ON_PREM) {
             return null;
         }
         try {

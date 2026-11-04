@@ -8,6 +8,7 @@ import androidx.annotation.Nullable;
 
 /**
  * Handling NULL Values and Support Date (as Long) fields
+ * TODO(ANDR-5101): This whole class needs to be refactored or potentially even removed
  */
 public class CursorHelper implements AutoCloseable {
     private final Cursor cursor;
@@ -20,47 +21,14 @@ public class CursorHelper implements AutoCloseable {
         boolean next(CursorHelper cursorFactory);
     }
 
-    public interface CallbackInstance<T> {
-        T next(CursorHelper cursorHelper);
-    }
-
-
     public CursorHelper(Cursor cursor, ColumnIndexCache columnIndexCache) {
         this.cursor = cursor;
         this.columnIndexCache = columnIndexCache;
     }
 
-    public CursorHelper first(Callback callback) {
-        if (callback != null && this.cursor != null) {
-            if (this.cursor.moveToFirst()) {
-                callback.next(this);
-            }
-        }
-        return this;
-    }
-
     public CursorHelper current(Callback callback) {
         if (callback != null && this.cursor != null) {
             callback.next(this);
-        }
-        return this;
-    }
-
-
-    public <T> T current(CallbackInstance<T> callback) {
-        if (callback != null && this.cursor != null) {
-            return callback.next(this);
-        }
-        return null;
-    }
-
-    public CursorHelper each(Callback callback) {
-        if (callback != null && this.cursor != null) {
-            while (cursor.moveToNext()) {
-                if (!callback.next(this)) {
-                    break;
-                }
-            }
         }
         return this;
     }

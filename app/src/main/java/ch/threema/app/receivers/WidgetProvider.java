@@ -16,6 +16,7 @@ import ch.threema.app.home.HomeActivity;
 import ch.threema.app.activities.RecipientListBaseActivity;
 import ch.threema.app.widget.WidgetService;
 
+import static ch.threema.android.PendingIntentExtensionsKt.getPendingIntentForActivity;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static ch.threema.app.utils.IntentDataUtil.PENDING_INTENT_FLAG_MUTABLE;
@@ -35,10 +36,10 @@ public class WidgetProvider extends AppWidgetProvider {
             logger.info("Updating widget with id {}", appWidgetId);
 
             Intent intent = new Intent(context, RecipientListBaseActivity.class);
-            PendingIntent pendingIntent = PendingIntent.getActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+            PendingIntent pendingIntent = getPendingIntentForActivity(context, 0, intent, PendingIntent.FLAG_IMMUTABLE);
 
             Intent titleIntent = HomeActivity.createIntent(context);
-            PendingIntent titlePendingIntent = PendingIntent.getActivity(context, 0, titleIntent, PendingIntent.FLAG_IMMUTABLE);
+            PendingIntent titlePendingIntent = getPendingIntentForActivity(context, 0, titleIntent, PendingIntent.FLAG_IMMUTABLE);
 
             // Get the layout for the App Widget and attach an on-click listener
             // to the button
@@ -65,7 +66,7 @@ public class WidgetProvider extends AppWidgetProvider {
             itemIntent.setAction(ACTION_OPEN);
             itemIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
             itemIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-            PendingIntent itemPendingIntent = PendingIntent.getActivity(
+            PendingIntent itemPendingIntent = getPendingIntentForActivity(
                 context,
                 0,
                 itemIntent,

@@ -9,21 +9,26 @@ import androidx.annotation.NonNull;
 import ch.threema.app.activities.MediaViewerActivity;
 import ch.threema.app.activities.ThreemaActivity;
 import ch.threema.app.messagereceiver.MessageReceiver;
-import ch.threema.app.services.FileService;
 import ch.threema.app.services.MessageService;
 import ch.threema.app.utils.FileProviderUtil;
 import ch.threema.app.utils.FileUtil;
 import ch.threema.app.utils.IntentDataUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.data.media.FileDataModel;
 import ch.threema.storage.models.data.media.MediaMessageDataInterface;
 
 public class FileMessagePlayer extends MessagePlayer {
     private final MessageService messageService;
 
-    protected FileMessagePlayer(Context context, MessageService messageService, FileService fileService, MessageReceiver messageReceiver, AbstractMessageModel messageModel) {
-        super(context, messageService, fileService, messageReceiver, messageModel);
+    protected FileMessagePlayer(
+        @NonNull Context context,
+        @NonNull MessageService messageService,
+        @NonNull MessageFileDecryptionHelper messageFileDecryptionHelper,
+        @NonNull MessageReceiver<?> messageReceiver,
+        @NonNull MessageModel messageModel
+    ) {
+        super(context, messageService, messageFileDecryptionHelper, messageReceiver, messageModel);
         this.messageService = messageService;
     }
 
@@ -33,8 +38,8 @@ public class FileMessagePlayer extends MessagePlayer {
     }
 
     @Override
-    protected AbstractMessageModel setData(MediaMessageDataInterface data) {
-        AbstractMessageModel messageModel = this.getMessageModel();
+    protected MessageModel setData(MediaMessageDataInterface data) {
+        MessageModel messageModel = this.getMessageModel();
         messageModel.setFileData((FileDataModel) data);
         return messageModel;
     }
@@ -75,29 +80,5 @@ public class FileMessagePlayer extends MessagePlayer {
                 }
             });
         }
-    }
-
-    @Override
-    protected void makePause(int source) {
-        //not implemented
-    }
-
-    @Override
-    protected void makeResume(int source) {
-        //not implemented
-    }
-
-    @Override
-    public void seekTo(int pos) {
-    }
-
-    @Override
-    public int getDuration() {
-        return 0;
-    }
-
-    @Override
-    public int getPosition() {
-        return 0;
     }
 }

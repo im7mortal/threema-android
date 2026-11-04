@@ -178,7 +178,7 @@ public class WizardSafeSearchPhoneDialog extends DialogFragment implements Selec
             final WizardSafeSearchPhoneDialog dialog = dialogReference.get();
             if (dialog == null || dialog.isRemoving() || dialog.isDetached()) return;
 
-            DialogUtil.dismissDialog(dialog.getFragmentManager(), DIALOG_TAG_PROGRESS, true);
+            DialogUtil.dismissDialog(dialog.getFragmentManager(), DIALOG_TAG_PROGRESS);
             if (ids != null) {
                 ArrayList<SelectorDialogItem> selectorItems = new ArrayList<>();
                 for (String id : ids) {

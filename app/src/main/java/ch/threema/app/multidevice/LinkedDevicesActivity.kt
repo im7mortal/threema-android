@@ -3,7 +3,6 @@ package ch.threema.app.multidevice
 import android.Manifest
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.os.Bundle
 import android.text.method.LinkMovementMethod
@@ -16,6 +15,7 @@ import android.widget.TextView
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.launch
+import androidx.activity.result.registerForActivityResult
 import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
@@ -25,6 +25,8 @@ import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import ch.threema.android.buildActivityIntent
+import ch.threema.android.getColorFromAttribute
+import ch.threema.android.permissions.CameraPermissionContract
 import ch.threema.app.BuildFlavor
 import ch.threema.app.R
 import ch.threema.app.activities.ThreemaToolbarActivity
@@ -78,6 +80,18 @@ class LinkedDevicesActivity : ThreemaToolbarActivity() {
             initiateLinking()
         }
     }
+    private val cameraPermissionLauncher = registerForActivityResult(CameraPermissionContract()) { isGranted ->
+        if (isGranted) {
+            startLinkingWizard()
+        } else if (!shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
+            // TODO(ANDR-5211): Use rationale as intended
+            ConfigUtils.showPermissionRationale(
+                this,
+                findViewById(R.id.parent_layout),
+                R.string.permission_camera_qr_required,
+            )
+        }
+    }
 
     override fun getLayoutResource(): Int = R.layout.activity_linked_devices
 
@@ -112,7 +126,7 @@ class LinkedDevicesActivity : ThreemaToolbarActivity() {
 
         devicesListRefreshLayout = findViewById(R.id.devices_list_refresh)
         devicesListRefreshLayout.setColorSchemeColors(
-            ConfigUtils.getColorFromAttribute(this, R.attr.colorPrimary),
+            getColorFromAttribute(R.attr.colorPrimary),
         )
         deviceListContainer = findViewById(R.id.device_list_container)
         emptyHintContainer = findViewById(R.id.empty_text_container)
@@ -149,25 +163,6 @@ class LinkedDevicesActivity : ThreemaToolbarActivity() {
         viewModel.updateLinkDeviceButtonEnabled()
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray,
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSION_REQUEST_CAMERA) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startLinkingWizard()
-            } else if (!this.shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
-                ConfigUtils.showPermissionRationale(
-                    this,
-                    findViewById(R.id.parent_layout),
-                    R.string.permission_camera_qr_required,
-                )
-            }
-        }
-    }
-
     private fun initDevicesList() {
         val layoutManager = LinearLayoutManager(this)
         val devicesListRv: EmptyRecyclerView = findViewById(R.id.devices_list)
@@ -175,7 +170,7 @@ class LinkedDevicesActivity : ThreemaToolbarActivity() {
         devicesListRv.layoutManager = layoutManager
         devicesListRv.itemAnimator = DefaultItemAnimator()
 
-        val desktopClientFlavour = BuildFlavor.current.desktopClientFlavor
+        val desktopClientFlavour = BuildFlavor.desktopClientFlavor
         emptyHintTextView.text = getString(R.string.md_linked_devices_empty)
             .linkifyWeb(
                 url = getString(desktopClientFlavour.downloadLink),
@@ -196,9 +191,7 @@ class LinkedDevicesActivity : ThreemaToolbarActivity() {
 
     private fun initiateLinking() {
         logger.debug("Initiate linking")
-        if (ConfigUtils.requestCameraPermissions(this, null, PERMISSION_REQUEST_CAMERA)) {
-            startLinkingWizard()
-        }
+        cameraPermissionLauncher.launch()
     }
 
     private fun startLinkingWizard() {
@@ -259,7 +252,7 @@ class LinkedDevicesActivity : ThreemaToolbarActivity() {
         val platformIconImageView = dropDeviceDialogView.findViewById<ImageView>(R.id.platform_icon_Iv)
         platformIconImageView.setImageResource(deviceInfo.getPlatformDrawable())
         platformIconImageView.imageTintList = ColorStateList.valueOf(
-            ConfigUtils.getColorFromAttribute(this, deviceInfo.getListItemStrokeColor()),
+            getColorFromAttribute(deviceInfo.getListItemStrokeColor()),
         )
 
         val deviceLabelTextView = dropDeviceDialogView.findViewById<TextView>(R.id.device_label_Tv)

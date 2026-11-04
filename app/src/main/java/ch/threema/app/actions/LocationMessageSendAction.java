@@ -12,7 +12,7 @@ import ch.threema.app.messagereceiver.MessageReceiver;
 import ch.threema.app.services.MessageService;
 import ch.threema.app.utils.MessageUtil;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 
 public class LocationMessageSendAction extends SendAction {
     private static final Logger logger = getThreemaLogger("LocationMessageSendAction");
@@ -111,11 +111,11 @@ public class LocationMessageSendAction extends SendAction {
                 messageReceiver,
                 new MessageService.CompletionHandler() {
                     @Override
-                    public void sendComplete(AbstractMessageModel messageModel) {
+                    public void sendComplete(MessageModel messageModel) {
                     }
 
                     @Override
-                    public void sendQueued(AbstractMessageModel messageModel) {
+                    public void sendQueued(MessageModel messageModel) {
                         actionHandler.onCompleted();
                     }
 

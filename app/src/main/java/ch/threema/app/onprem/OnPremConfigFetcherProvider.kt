@@ -1,5 +1,6 @@
 package ch.threema.app.onprem
 
+import ch.threema.app.BuildConfig
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.common.TimeProvider
 import ch.threema.domain.onprem.OnPremConfigFetcher
@@ -29,7 +30,6 @@ class OnPremConfigFetcherProvider(
     fun getOnPremConfigFetcher(): OnPremConfigFetcher {
         val oppfUrl = preferenceService.getOppfUrl()
             ?: error("No OPPF URL found in preferences")
-        // TODO(ANDR-4428): This error should no longer happen once [SystemUpdateToVersion119] has succeeded
 
         val serverConfigParameters = OnPremServerConfigParameters(
             oppfUrl = oppfUrl,
@@ -58,6 +58,7 @@ class OnPremConfigFetcherProvider(
             onPremConfigStore = onPremConfigStore,
             serverParameters = serverConfigParameters,
             timeProvider = timeProvider,
+            appIdentifier = BuildConfig.ONPREM_APP_IDENTIFIER,
         )
         this.configFetcher = configFetcher
         this.previousServerConfigParameters = serverConfigParameters

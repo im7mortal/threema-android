@@ -11,9 +11,12 @@ import android.util.AttributeSet;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
+import org.koin.java.KoinJavaComponent;
+
 import ch.threema.android.textwatchers.SimpleTextWatcher;
+import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.ui.ThreemaEditText;
-import ch.threema.app.utils.ConfigUtils;
 
 public class EmojiEditText extends ThreemaEditText {
 
@@ -41,7 +44,8 @@ public class EmojiEditText extends ThreemaEditText {
         this.currentText = "";
         this.maxByteSize = 0;
 
-        if (ConfigUtils.isDefaultEmojiStyle()) {
+        PreferenceService preferenceService = KoinJavaComponent.get(PreferenceService.class);
+        if (preferenceService.useDefaultEmojiStyle()) {
             setFilters(appendEmojiFilter(this.getFilters()));
         }
     }

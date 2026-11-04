@@ -29,12 +29,12 @@ class RatingServiceTest {
                 request.respondWith("")
             },
             serverAddressProvider = mockServerAddressProvider(),
+            appVersion = "1.2.3",
         )
 
         ratingService.sendRating(
             rating = 4,
             text = "Hello world",
-            version = "1.2.3",
         )
     }
 
@@ -46,13 +46,13 @@ class RatingServiceTest {
                 throw IOException()
             },
             serverAddressProvider = mockServerAddressProvider(),
+            appVersion = "1.2.3",
         )
 
         assertFailsWith<ThreemaException> {
             ratingService.sendRating(
                 rating = 4,
                 text = "Hello world",
-                version = "1.2.3",
             )
         }
     }
@@ -65,13 +65,13 @@ class RatingServiceTest {
                 request.respondWith(code = 500)
             },
             serverAddressProvider = mockServerAddressProvider(),
+            appVersion = "1.2.3",
         )
 
         assertFailsWith<ThreemaException> {
             ratingService.sendRating(
                 rating = 4,
                 text = "Hello world",
-                version = "1.2.3",
             )
         }
     }

@@ -5,7 +5,7 @@ import android.graphics.Bitmap
 import ch.threema.app.services.avatarcache.AvatarCacheServiceImpl.DistributionListAvatarConfig
 import ch.threema.app.services.avatarcache.AvatarCacheServiceImpl.GroupAvatarConfig
 import ch.threema.app.services.avatarcache.AvatarCacheServiceImpl.IdentityAvatarConfig
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import com.bumptech.glide.Glide
 import com.bumptech.glide.GlideBuilder
 import com.bumptech.glide.Registry
@@ -25,7 +25,7 @@ class ThreemaGlideModule : AppGlideModule() {
             prepend(IdentityAvatarConfig::class.java, Bitmap::class.java, IdentityAvatarModelLoaderFactory(context))
             prepend(GroupAvatarConfig::class.java, Bitmap::class.java, GroupAvatarModelLoaderFactory(context))
             prepend(DistributionListAvatarConfig::class.java, Bitmap::class.java, DistributionListAvatarModelLoaderFactory(context))
-            prepend(AbstractMessageModel::class.java, Bitmap::class.java, ThumbnailLoaderFactory())
+            prepend(MessageModel::class.java, Bitmap::class.java, ThumbnailLoaderFactory())
         }
     }
 }

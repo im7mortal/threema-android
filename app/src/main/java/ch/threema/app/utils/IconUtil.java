@@ -24,6 +24,9 @@ import java.io.IOException;
 
 import ch.threema.app.R;
 import ch.threema.app.ui.MediaItem;
+
+import static ch.threema.android.BitmapExtensionsKt.transform;
+import static ch.threema.android.UriExtensionsKt.isContentUri;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import static android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC;
@@ -109,7 +112,7 @@ public class IconUtil {
 
                 // get id from document provider
                 docId = DocumentsContract.getDocumentId(uri);
-            } else if (ContentResolver.SCHEME_CONTENT.equalsIgnoreCase(uri.getScheme())) {
+            } else if (isContentUri(uri)) {
                 docId = uri.getLastPathSegment();
             }
 
@@ -196,7 +199,7 @@ public class IconUtil {
                     logger.error("Failed to get first frame for video thumbnail");
                     return null;
                 }
-                return BitmapUtil.resizeBitmapExactlyToMaxWidth(firstFrame, THUMBNAIL_SIZE_PX);
+                return transform(firstFrame, b -> BitmapUtil.resizeBitmapExactlyToMaxWidth(b, THUMBNAIL_SIZE_PX));
             }
         } catch (Exception e) {
             //do not show the exception!
@@ -226,7 +229,7 @@ public class IconUtil {
                 return null;
             }
             // getScaledFrameAtTime() returns unfiltered bitmaps that look bad at low resolutions
-            return BitmapUtil.resizeBitmapExactlyToMaxWidth(firstFrame, THUMBNAIL_SIZE_PX);
+            return transform(firstFrame, b -> BitmapUtil.resizeBitmapExactlyToMaxWidth(b, THUMBNAIL_SIZE_PX));
         } catch (Exception e) {
             // do not show the exception!
             logger.error("Exception", e);

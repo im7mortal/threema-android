@@ -64,7 +64,6 @@ import ch.threema.app.compose.common.text.conversation.MentionFeature
 import ch.threema.app.compose.preview.PreviewData
 import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.dimens.GridUnit
-import ch.threema.app.preference.service.PreferenceService.Companion.EMOJI_STYLE_ANDROID
 import ch.threema.app.preference.service.PreferenceService.EmojiStyle
 import ch.threema.app.usecases.groups.GroupDisplayName
 import ch.threema.app.utils.IconUtil
@@ -78,7 +77,7 @@ import ch.threema.data.datatypes.ContactNameFormat
 import ch.threema.data.datatypes.ConversationId
 import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.domain.types.Identity
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.ContactMessageModel
 import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.data.MessageContentsType
@@ -92,16 +91,16 @@ fun StarredMessageListItem(
     modifier: Modifier = Modifier,
     localDayOfYear: LocalDayOfYear,
     avatarBitmapProvider: suspend (ConversationId) -> ImmutableBitmap?,
-    messageMediaPreviewProvider: suspend (AbstractMessageModel) -> ImmutableBitmap?,
+    messageMediaPreviewProvider: suspend (MessageModel) -> ImmutableBitmap?,
     ownIdentity: Identity,
-    @EmojiStyle emojiStyle: Int,
+    emojiStyle: EmojiStyle,
     contactNameFormat: ContactNameFormat,
     starredMessageUiModel: StarredMessageUiModel,
     isSelected: Boolean,
     highlightedMessageContent: String?,
-    onClickMessageBubble: (AbstractMessageModel) -> Unit,
-    onLongClickMessageBubble: (AbstractMessageModel) -> Unit,
-    onClickNavigateToMessage: (AbstractMessageModel) -> Unit,
+    onClickMessageBubble: (MessageModel) -> Unit,
+    onLongClickMessageBubble: (MessageModel) -> Unit,
+    onClickNavigateToMessage: (MessageModel) -> Unit,
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
@@ -193,15 +192,15 @@ private fun AvatarContent(
 private fun RowScope.MessageBubble(
     modifier: Modifier = Modifier,
     starredMessageUiModel: StarredMessageUiModel,
-    messageMediaPreviewProvider: suspend (AbstractMessageModel) -> ImmutableBitmap?,
+    messageMediaPreviewProvider: suspend (MessageModel) -> ImmutableBitmap?,
     ownIdentity: Identity,
     contactNameFormat: ContactNameFormat,
-    @EmojiStyle emojiStyle: Int,
+    emojiStyle: EmojiStyle,
     localDayOfYear: LocalDayOfYear,
     isSelected: Boolean,
     highlightedMessageContent: String?,
-    onClick: (AbstractMessageModel) -> Unit,
-    onLongClick: (AbstractMessageModel) -> Unit,
+    onClick: (MessageModel) -> Unit,
+    onLongClick: (MessageModel) -> Unit,
 ) {
     Row(
         modifier = modifier
@@ -253,11 +252,11 @@ private fun RowScope.MessageBubble(
 private fun RowScope.MessageBubbleContent(
     modifier: Modifier = Modifier,
     starredMessageUiModel: StarredMessageUiModel,
-    messageMediaPreviewProvider: suspend (AbstractMessageModel) -> ImmutableBitmap?,
+    messageMediaPreviewProvider: suspend (MessageModel) -> ImmutableBitmap?,
     isSelected: Boolean,
     ownIdentity: Identity,
     contactNameFormat: ContactNameFormat,
-    @EmojiStyle emojiStyle: Int,
+    emojiStyle: EmojiStyle,
     localDayOfYear: LocalDayOfYear,
     highlightedMessageContent: String?,
 ) {
@@ -283,7 +282,7 @@ private fun RowScope.MessageBubbleContent(
                 textStyle = MaterialTheme.typography.bodyMedium,
                 mentionFeature = MentionFeature.On(
                     ownIdentity = ownIdentity,
-                    identityDisplayNames = starredMessageUiModel.mentionNames,
+                    displayNames = starredMessageUiModel.mentionNames,
                 ),
                 highlightFeature = HighlightFeature.On(
                     highlightedContent = highlightedMessageContent,
@@ -371,8 +370,8 @@ private fun MessageBubbleContentPrivate() {
 @Composable
 private fun MessageMediaPreview(
     modifier: Modifier = Modifier,
-    messageModel: AbstractMessageModel,
-    messageMediaPreviewProvider: suspend (AbstractMessageModel) -> ImmutableBitmap?,
+    messageModel: MessageModel,
+    messageMediaPreviewProvider: suspend (MessageModel) -> ImmutableBitmap?,
     contentDescription: String?,
     isSelected: Boolean,
 ) {
@@ -445,7 +444,7 @@ private fun getOnMessageMediaBoxColor(context: Context, isSelected: Boolean): Co
 }
 
 @DrawableRes
-private fun getMessageTypeIndicatorIcon(messageModel: AbstractMessageModel): Int {
+private fun getMessageTypeIndicatorIcon(messageModel: MessageModel): Int {
     return if (messageModel.messageContentsType == MessageContentsType.VOICE_MESSAGE) {
         R.drawable.ic_microphone_outline
     } else if (messageModel.type == MessageType.FILE) {
@@ -486,7 +485,7 @@ private fun getTitle(
             }
         }
         is StarredMessageUiModel.StarredGroupMessage -> {
-            val resolvedGroupName = starredMessageUiModel.groupDisplayName?.resolve(context) ?: ""
+            val resolvedGroupName = starredMessageUiModel.groupDisplayName?.get(context) ?: ""
             "$senderDisplayName $FLOW_CHARACTER $resolvedGroupName"
         }
     }
@@ -569,7 +568,7 @@ private class PreviewProviderStarredContactMessage : PreviewParameterProvider<St
             conversationId = ContactConversationId(
                 identity = receiver.identity.value,
             ),
-            messageModel = MessageModel().apply {
+            messageModel = ContactMessageModel().apply {
                 this.isOutbox = true
                 this.body = messageBody
                 this.type = messageType
@@ -604,7 +603,7 @@ private class PreviewProviderStarredContactMessage : PreviewParameterProvider<St
             conversationId = ContactConversationId(
                 identity = sender.identity.value,
             ),
-            messageModel = MessageModel().apply {
+            messageModel = ContactMessageModel().apply {
                 this.isOutbox = false
                 this.body = messageBody
                 this.type = messageType
@@ -700,7 +699,7 @@ private class PreviewProviderStarredGroupMessage : PreviewParameterProvider<Star
             conversationId = GroupConversationId(
                 groupDatabaseId = 0L,
             ),
-            messageModel = MessageModel().apply {
+            messageModel = ContactMessageModel().apply {
                 this.isOutbox = true
                 this.body = messageBody
                 this.type = messageType
@@ -739,7 +738,7 @@ private class PreviewProviderStarredGroupMessage : PreviewParameterProvider<Star
             conversationId = GroupConversationId(
                 groupDatabaseId = 0L,
             ),
-            messageModel = MessageModel().apply {
+            messageModel = ContactMessageModel().apply {
                 this.isOutbox = false
                 this.body = messageBody
                 this.type = messageType
@@ -858,7 +857,7 @@ private fun Preview(starredMessageUiModel: StarredMessageUiModel) {
                 avatarBitmapProvider = { null },
                 messageMediaPreviewProvider = { null },
                 ownIdentity = PreviewData.IDENTITY_ME,
-                emojiStyle = EMOJI_STYLE_ANDROID,
+                emojiStyle = EmojiStyle.ANDROID,
                 contactNameFormat = ContactNameFormat.DEFAULT,
                 starredMessageUiModel = starredMessageUiModel,
                 isSelected = false,
@@ -884,7 +883,7 @@ private fun PreviewSelected(starredMessageUiModel: StarredMessageUiModel) {
                 avatarBitmapProvider = { null },
                 messageMediaPreviewProvider = { null },
                 ownIdentity = PreviewData.IDENTITY_ME,
-                emojiStyle = EMOJI_STYLE_ANDROID,
+                emojiStyle = EmojiStyle.ANDROID,
                 contactNameFormat = ContactNameFormat.DEFAULT,
                 starredMessageUiModel = starredMessageUiModel,
                 isSelected = true,

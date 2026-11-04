@@ -16,13 +16,26 @@ class EditHistoryListModel(
     multiDeviceManager = multiDeviceManager,
     taskManager = taskManager,
 ) {
+
+    /**
+     * Adds the given [entry] to the list of edit entries.
+     *
+     * @throws ModelDeletedException if model is deleted
+     */
+    @Synchronized
     fun addEntry(entry: EditHistoryEntryData) {
-        if (mutableData.value?.none { it == entry } == true) {
-            mutableData.value = mutableData.value?.toMutableList()?.apply { add(0, entry) }
+        val currentEntries = ensureNotDeleted("addEntry")
+        if (!currentEntries.contains(entry)) {
+            mutableData.value = listOf(entry) + currentEntries
         }
     }
 
-    fun clear() {
-        mutableData.value = emptyList()
+    /**
+     * @throws ModelDeletedException if model is deleted
+     */
+    @Synchronized
+    fun delete() {
+        ensureNotDeleted("delete")
+        mutableData.value = null
     }
 }

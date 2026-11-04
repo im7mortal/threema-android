@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * correct starred status message to not-starred
+ */
 internal class DatabaseUpdateToVersion103(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -28,8 +31,6 @@ internal class DatabaseUpdateToVersion103(
             """,
         )
     }
-
-    override fun getDescription() = "correct starred status message to not-starred"
 
     override val version = 103
 }

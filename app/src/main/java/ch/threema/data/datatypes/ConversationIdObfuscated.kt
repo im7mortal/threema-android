@@ -2,6 +2,7 @@ package ch.threema.data.datatypes
 
 import ch.threema.common.Base32
 import ch.threema.common.sha256
+import ch.threema.domain.libthreema.LibthreemaAware
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -12,13 +13,14 @@ import java.util.concurrent.ConcurrentHashMap
  *
  *  @property value hashed conversation-id string (base-32)
  *
- *  @see ch.threema.app.services.WallpaperService
+ *  @see ch.threema.app.files.WallpaperFileHandleProvider
  *  @see ch.threema.app.drafts.DraftManager
  *  @see ch.threema.app.services.RingtoneService
  */
 data class ConversationIdObfuscated(
     @JvmField val value: String,
 ) {
+    @LibthreemaAware
     companion object {
 
         private val cache = ConcurrentHashMap<String, String>()

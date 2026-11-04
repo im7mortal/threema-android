@@ -2,6 +2,8 @@ package ch.threema.data.models
 
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.toLong
+import ch.threema.data.datatypes.ConversationCategory
+import ch.threema.data.datatypes.ConversationSpamReportingState
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverride
 import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverridePolicy
@@ -16,12 +18,13 @@ internal object GroupModelDataFactory :
     ModelDataFactory<GroupModelData, DbGroup> {
     override fun toDbType(value: GroupModelData): DbGroup = DbGroup(
         creatorIdentity = value.groupIdentity.creatorIdentity,
-        groupId = value.groupIdentity.groupIdHexString,
+        groupId = value.groupIdentity.apiGroupIdHexString,
         name = value.name,
         createdAt = value.createdAt,
         synchronizedAt = value.synchronizedAt,
         lastUpdate = value.lastUpdate,
         conversationVisibility = value.conversationVisibility,
+        conversationCategory = value.conversationCategory.serializedValue,
         colorIndex = value.idColor.colorIndex,
         groupDescription = value.groupDescription,
         groupDescriptionChangedAt = value.groupDescriptionChangedAt,
@@ -29,6 +32,7 @@ internal object GroupModelDataFactory :
         userState = value.userState,
         notificationTriggerPolicyOverridePolicy = value.notificationTriggerPolicyOverride?.policy?.serializedValue,
         notificationTriggerPolicyOverrideExpiresAt = value.notificationTriggerPolicyOverride?.expiresAt,
+        spamReportingState = value.spamReportingState.serializedValue,
     )
 
     override fun toDataType(value: DbGroup): GroupModelData = GroupModelData(
@@ -38,12 +42,14 @@ internal object GroupModelDataFactory :
         synchronizedAt = value.synchronizedAt,
         lastUpdate = value.lastUpdate,
         conversationVisibility = value.conversationVisibility,
+        conversationCategory = value.getConversationCategory(),
         precomputedIdColor = IdColor(value.colorIndex),
         groupDescription = value.groupDescription,
         groupDescriptionChangedAt = value.groupDescriptionChangedAt,
         otherMembers = value.members,
         userState = value.userState,
         notificationTriggerPolicyOverride = value.getNotificationTriggerPolicyOverride(),
+        spamReportingState = value.getSpamReportingState(),
     )
 
     private fun groupIdDbToData(littleEndianHexGroupId: String): Long =
@@ -67,4 +73,18 @@ internal object GroupModelDataFactory :
             expiresAt = notificationTriggerPolicyOverrideExpiresAt,
         )
     }
+
+    private fun DbGroup.getConversationCategory(): ConversationCategory =
+        ConversationCategory.deserialize(conversationCategory)
+            ?: run {
+                logger.logAndReportError(
+                    "Could not deserialize conversation category value {}",
+                    conversationCategory,
+                )
+                ConversationCategory.DEFAULT
+            }
+
+    private fun DbGroup.getSpamReportingState(): ConversationSpamReportingState =
+        ConversationSpamReportingState.fromSerializedValue(spamReportingState)
+            ?: ConversationSpamReportingState.OPEN
 }

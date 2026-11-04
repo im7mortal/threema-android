@@ -9,6 +9,8 @@ import ch.threema.app.R
 import ch.threema.app.di.injectNullableNonBinding
 import ch.threema.app.services.license.LicenseService
 import ch.threema.app.services.license.LicenseServiceUser
+import ch.threema.app.work.LegacyWorkPropertiesUpdater
+import ch.threema.app.work.MdmSource
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.takeUnlessEmpty
 import ch.threema.domain.models.UserCredentials
@@ -24,9 +26,9 @@ class AppRestrictionServiceImpl(
     private val mdmSettingsStore: MdmSettingsStore,
     private val applyAppRestrictionsWorkerScheduler: ApplyAppRestrictionsWorker.Scheduler,
     private val getExternalMdmParameters: () -> Bundle,
-    private val workInfoUpdater: WorkInfoUpdater,
 ) : AppRestrictionService, KoinComponent {
     private val licenseService: LicenseService<*>? by injectNullableNonBinding()
+    private val legacyWorkPropertiesUpdater: LegacyWorkPropertiesUpdater? by injectNullableNonBinding()
 
     override var appRestrictions: Bundle? = null
         private set
@@ -98,16 +100,11 @@ class AppRestrictionServiceImpl(
             },
         )
 
-    override val mdmSource: String?
-        get() = buildString {
-            if (hasThreemaMDMRestrictions()) {
-                append("m")
-            }
-            if (hasExternalMDMRestrictions) {
-                append("e")
-            }
-        }
-            .takeUnlessEmpty()
+    override val mdmSource: MdmSource
+        get() = MdmSource(
+            hasThreemaMdmRestrictions = hasThreemaMDMRestrictions(),
+            hasExternalMdmRestrictions = hasExternalMDMRestrictions,
+        )
 
     /**
      * Determine if this app is under control of Threema MDM and has at least one parameter set
@@ -177,7 +174,7 @@ class AppRestrictionServiceImpl(
         if (mergedCredentials != null && mergedCredentials != currentCredentials) {
             logger.info("Update changed work credentials")
             licenseService.saveCredentials(mergedCredentials)
-            workInfoUpdater.updateWorkInfo(licenseService)
+            legacyWorkPropertiesUpdater?.runAsynchronously()
         }
     }
 

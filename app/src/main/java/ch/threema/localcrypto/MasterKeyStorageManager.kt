@@ -42,4 +42,10 @@ class MasterKeyStorageManager(
         version2KeyFileManager.writeKeyFile(storageStateConverter.toStorageData(data))
         version1KeyFileManager.deleteFile()
     }
+
+    @Throws(IOException::class)
+    fun deleteKey() {
+        version1KeyFileManager.deleteFile()
+        version2KeyFileManager.deleteFile()
+    }
 }

@@ -9,22 +9,35 @@ import android.system.OsConstants
 import androidx.annotation.RequiresApi
 import androidx.core.content.edit
 import androidx.core.content.getSystemService
+import ch.threema.app.BuildConfig
+import ch.threema.app.R
+import ch.threema.app.files.AppDirectoryProvider
 import ch.threema.base.utils.getThreemaLogger
+import ch.threema.common.DispatcherProvider
 import ch.threema.common.TimeProvider
+import ch.threema.common.copyTo
+import ch.threema.logging.BaseErrorRecordStore
 import java.io.BufferedReader
+import java.io.File
 import java.io.IOException
 import java.io.InputStreamReader
 import java.text.SimpleDateFormat
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.withContext
 
 private val logger = getThreemaLogger("ExitReasonLogger")
 
 class ExitReasonLogger(
     private val appContext: Context,
     private val sharedPreferences: SharedPreferences,
+    private val errorRecordStore: BaseErrorRecordStore,
     private val timeProvider: TimeProvider,
+    private val appDirectoryProvider: AppDirectoryProvider,
+    private val dispatcherProvider: DispatcherProvider,
 ) {
-    fun logExitReason() {
+    suspend fun logExitReason() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
             return
         }
@@ -47,17 +60,14 @@ class ExitReasonLogger(
                         exitInfo.description,
                         exitInfo.getStatusText(),
                     )
-                    if (exitInfo.reason == ApplicationExitInfo.REASON_ANR) {
-                        try {
-                            exitInfo.traceInputStream?.use { traceInputStream ->
-                                val logMessage = BufferedReader(InputStreamReader(traceInputStream)).use { reader ->
-                                    reader.readText()
-                                }
-                                logger.info(logMessage)
-                            }
-                        } catch (e: IOException) {
-                            logger.error("Error getting ANR trace", e)
+                    when (exitInfo.reason) {
+                        ApplicationExitInfo.REASON_ANR -> {
+                            logAnrDetails(exitInfo)
                         }
+                        ApplicationExitInfo.REASON_CRASH_NATIVE -> {
+                            writeNativeCrashTombstoneFile(exitInfo)
+                        }
+                        else -> Unit
                     }
                 }
             }
@@ -68,6 +78,58 @@ class ExitReasonLogger(
         } catch (e: IllegalArgumentException) {
             logger.error("Unable to get reason of last exit", e)
         }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.R)
+    private fun logAnrDetails(exitInfo: ApplicationExitInfo) {
+        try {
+            exitInfo.traceInputStream?.use { traceInputStream ->
+                BufferedReader(InputStreamReader(traceInputStream)).use { reader ->
+                    logger.info(reader.readText())
+                }
+            }
+        } catch (e: IOException) {
+            logger.error("Error getting ANR trace", e)
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.R)
+    private suspend fun writeNativeCrashTombstoneFile(exitInfo: ApplicationExitInfo) {
+        if (!BuildConfig.LOG_TOMBSTONES_FOR_NATIVE_CRASHES) {
+            return
+        }
+        if (!sharedPreferences.getBoolean(appContext.getString(R.string.preferences__store_tombstones), false)) {
+            return
+        }
+
+        val tombstoneFile = File(appDirectoryProvider.tombstonesDirectory, generateTombstoneFileName())
+        withContext(dispatcherProvider.io) {
+            try {
+                exitInfo.traceInputStream?.use { traceInputStream ->
+                    traceInputStream.copyTo(tombstoneFile)
+                    logger.info("Stored native crash {}", tombstoneFile.name)
+                }
+            } catch (e: IOException) {
+                logger.error("Error writing native crash tombstone file", e)
+                return@withContext
+            }
+
+            if (BuildConfig.ERROR_REPORTING_SUPPORTED) {
+                try {
+                    errorRecordStore.storeHandledError(
+                        message = "Native crash",
+                        attachments = listOf(tombstoneFile),
+                    )
+                } catch (e: IOException) {
+                    logger.error("Failed to store error report for native crash", e)
+                }
+            }
+        }
+    }
+
+    private fun generateTombstoneFileName(): String {
+        val formatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
+        return "tombstone-${formatter.format(timeProvider.get().atZone(ZoneId.systemDefault()))}"
     }
 
     companion object {

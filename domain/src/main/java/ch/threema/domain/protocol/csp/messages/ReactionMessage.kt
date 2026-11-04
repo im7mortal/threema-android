@@ -17,7 +17,7 @@ class ReactionMessage(payloadData: ReactionMessageData) :
 
     override fun allowUserProfileDistribution() = true
 
-    override fun exemptFromBlocking() = false
+    override fun exemptFromBlocking() = ExemptFromBlocking.NO
 
     override fun createImplicitlyDirectContact() = false
 

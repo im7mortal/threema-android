@@ -1,31 +1,31 @@
 package ch.threema.app.compose.common.interop
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy.DisposeOnDetachedFromWindow
 import androidx.core.view.isVisible
 import ch.threema.app.R
 import ch.threema.app.compose.message.MessageBubble
 import ch.threema.app.compose.theme.ThreemaTheme
+import ch.threema.app.compose.theme.dimens.GridUnit
 import ch.threema.app.dialogs.loadingtimeout.LoadingWithTimeoutDialogScreen
 import ch.threema.app.messagedetails.toUiModel
+import ch.threema.app.ui.spamgroups.SpamGroupBanner
 import ch.threema.app.utils.LinkifyUtil
 import ch.threema.app.webclient.activities.MultiDeviceBanner
-import ch.threema.data.datatypes.ContactNameFormat
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import kotlin.time.Duration.Companion.seconds
 
 object ComposeJavaBridge {
 
     fun setEditModeMessageBubble(
         composeView: ComposeView,
-        model: AbstractMessageModel,
-        contactNameFormat: ContactNameFormat,
+        model: MessageModel,
         linkifyListener: LinkifyUtil.LinkifyListener,
     ) {
-        val messageBubbleUiState = model.toUiModel(
-            contactNameFormat = contactNameFormat,
-        )
+        val messageBubbleUiState = model.toUiModel()
         composeView.setContent {
             ThreemaTheme {
                 MessageBubble(
@@ -37,6 +37,26 @@ object ComposeJavaBridge {
         }
     }
 
+    @JvmStatic
+    fun setBannerSpamGroup(
+        composeView: ComposeView,
+        onClickNotSpam: () -> Unit,
+        onClickReportSpam: () -> Unit,
+    ) {
+        composeView.setContent {
+            ThreemaTheme {
+                SpamGroupBanner(
+                    modifier = Modifier.padding(
+                        horizontal = GridUnit.x1,
+                    ),
+                    onClickNotSpam = onClickNotSpam,
+                    onClickReportSpam = onClickReportSpam,
+                )
+            }
+        }
+    }
+
+    @JvmStatic
     fun setMultiDeviceBanner(
         composeView: ComposeView,
         onClick: () -> Unit,

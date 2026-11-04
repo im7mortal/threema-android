@@ -13,7 +13,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,7 +32,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -55,7 +53,7 @@ import ch.threema.app.availabilitystatus.containerColor
 import ch.threema.app.availabilitystatus.displayNameRes
 import ch.threema.app.availabilitystatus.iconColor
 import ch.threema.app.availabilitystatus.iconRes
-import ch.threema.app.compose.common.buttons.ButtonOutlined
+import ch.threema.app.compose.common.buttons.ButtonOutlinedDense
 import ch.threema.app.compose.common.buttons.primary.ButtonPrimaryRounded
 import ch.threema.app.compose.common.spacer.SpacerHorizontal
 import ch.threema.app.compose.common.spacer.SpacerVertical
@@ -309,7 +307,7 @@ fun SetStatusBottomSheetContent(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ButtonOutlined(
+            ButtonOutlinedDense(
                 text = stringResource(R.string.cancel),
                 onClick = onClickCancel,
                 maxLines = 1,
@@ -337,13 +335,10 @@ fun StatusOptionItem(
     enabled: Boolean,
     onClick: (clickedStatus: AvailabilityStatus) -> Unit,
 ) {
-    val isDarkTheme: Boolean = isSystemInDarkTheme()
-    val backgroundColor = remember(isSelected, isDarkTheme) {
-        if (isSelected) {
-            Color(if (isDarkTheme) BrandGreyColors.SHADE_700 else BrandGreyColors.SHADE_300)
-        } else {
-            Color.Transparent
-        }
+    val backgroundColor = if (isSelected) {
+        BrandGreyColors.dynamicGrey300
+    } else {
+        Color.Transparent
     }
 
     Row(

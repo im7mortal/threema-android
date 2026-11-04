@@ -53,6 +53,12 @@ sealed class SynchronizedSetting<T>(
         persist(value)
     }
 
+    @Synchronized
+    fun persist(value: T) {
+        preferenceStore.setValue(preferenceKey, value)
+        stateFlow.tryEmit(value)
+    }
+
     /**
      * Reload the value from the preference store.
      *
@@ -61,11 +67,6 @@ sealed class SynchronizedSetting<T>(
     @JvmName("reload")
     internal fun reload() {
         stateFlow.tryEmit(preferenceStore.getValue(preferenceKey))
-    }
-
-    private fun persist(value: T) {
-        preferenceStore.setValue(preferenceKey, value)
-        stateFlow.tryEmit(value)
     }
 
     fun asStateFlow(): StateFlow<T> = stateFlow

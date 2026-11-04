@@ -1,6 +1,9 @@
 package ch.threema.app.voip.services;
 
 import static android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
+import static ch.threema.android.PendingIntentExtensionsKt.getPendingIntentForActivity;
+import static ch.threema.android.PendingIntentExtensionsKt.getPendingIntentForService;
+import static ch.threema.android.PermissionExtensionsKt.checkGrantedPermission;
 import static ch.threema.app.notifications.NotificationIDs.IN_CALL_NOTIFICATION_ID;
 import static ch.threema.base.HasDevFeaturesKt.HAS_DEV_FEATURES;
 import static ch.threema.app.voip.services.VideoContext.CAMERA_BACK;
@@ -15,7 +18,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
 import android.media.AudioManager;
@@ -38,7 +40,6 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.app.Person;
 import androidx.core.app.ServiceCompat;
-import androidx.core.content.ContextCompat;
 import androidx.core.util.Pair;
 import androidx.lifecycle.LifecycleService;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
@@ -587,6 +588,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
         return callStartedRealtimeMs;
     }
 
+    @Nullable
     public static String getOtherPartysIdentity() {
         return contactModel != null ? contactModel.getIdentity() : null;
     }
@@ -709,7 +711,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
 
         telephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
         if (telephonyManager != null) {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || checkGrantedPermission(this, Manifest.permission.READ_PHONE_STATE)) {
                 telephonyManager.listen(hangUpRtcOnDeviceCallAnswered, PhoneStateListener.LISTEN_CALL_STATE);
             }
         }
@@ -985,7 +987,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
         boolean launchVideo = false;
         if (isInitiator) {
             if (intent.getBooleanExtra(VoipCallService.EXTRA_LAUNCH_VIDEO, false)) {
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                if (checkGrantedPermission(this, Manifest.permission.CAMERA)) {
                     launchVideo = true;
                     intent.putExtra(VoipCallService.EXTRA_LAUNCH_VIDEO, false);
                 }
@@ -2158,7 +2160,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
         // Prepare hangup action
         final Intent hangupIntent = new Intent(this, VoipCallService.class);
         hangupIntent.setAction(ACTION_HANGUP);
-        final PendingIntent hangupPendingIntent = PendingIntent.getService(
+        final PendingIntent hangupPendingIntent = getPendingIntentForService(
             this,
             NotificationRequestCodes.CALL_HANG_UP,
             hangupIntent,
@@ -2178,7 +2180,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
             .setImportant(true)
             .build();
 
-        final PendingIntent openPendingIntent = PendingIntent.getActivity(
+        final PendingIntent openPendingIntent = getPendingIntentForActivity(
             this,
             NotificationRequestCodes.getRequestCodeForConversationNotification(
                 new ContactConversationId(identity),
@@ -2210,6 +2212,7 @@ public class VoipCallService extends LifecycleService implements PeerConnectionC
 
         // Launch notification
         this.foregroundStarted = true;
+        NotificationChannels.createOrMigrateNotificationChannels(this);
         ServiceCompat.startForeground(
             this,
             IN_CALL_NOTIFICATION_ID,

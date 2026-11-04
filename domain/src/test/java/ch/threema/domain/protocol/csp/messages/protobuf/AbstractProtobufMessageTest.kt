@@ -1,5 +1,6 @@
 package ch.threema.domain.protocol.csp.messages.protobuf
 
+import ch.threema.domain.protocol.csp.messages.ExemptFromBlocking
 import io.mockk.every
 import io.mockk.mockk
 import kotlin.test.Test
@@ -19,7 +20,7 @@ class AbstractProtobufMessageTest {
 
             override fun allowUserProfileDistribution() = false
 
-            override fun exemptFromBlocking() = false
+            override fun exemptFromBlocking() = ExemptFromBlocking.NO
 
             override fun createImplicitlyDirectContact() = false
 

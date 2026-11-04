@@ -5,6 +5,9 @@ import java.time.Instant
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
+/**
+ * store debug log enable timestamp
+ */
 class SystemUpdateToVersion123 : SystemUpdate, KoinComponent {
 
     private val preferenceStore: PreferenceStore by inject()
@@ -18,6 +21,4 @@ class SystemUpdateToVersion123 : SystemUpdate, KoinComponent {
     }
 
     override val version = 123
-
-    override fun getDescription() = "store debug log enable timestamp"
 }

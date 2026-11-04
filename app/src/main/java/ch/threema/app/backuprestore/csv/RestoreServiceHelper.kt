@@ -29,7 +29,10 @@ class RestoreServiceHelper(
 
     private suspend fun execute() {
         try {
-            resetAppTask.execute(clearAllAppUserData = false)
+            // We don't do a full reset here to avoid clearing the notification which contains information
+            // for the user about the failed restore operation.
+            resetAppTask.execute(mode = ResetAppTask.Mode.PARTIAL)
+            exitProcess(0)
         } catch (e: Exception) {
             logger.error("Failed to reset app", e)
             appContext.showToast(R.string.an_error_occurred, ToastDuration.LONG)

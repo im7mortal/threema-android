@@ -52,4 +52,10 @@
             <pin digest="SHA-256">bmsGGaIGEs1HWAUIE082NSPYTURvChScDmE7PjL+5RQ=</pin>
         </pin-set>
     </domain-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">test.threema.com</domain>
+        <pin-set>
+            <pin digest="SHA-256">ynaQ50/SML3hijdXhd0scOahg+4LWleO+/jEnxaYpWg=</pin>
+        </pin-set>
+    </domain-config>
 </network-security-config>

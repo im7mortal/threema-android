@@ -36,7 +36,7 @@ import static ch.threema.app.startup.AppStartupUtilKt.finishAndRestartLaterIfNot
 import static ch.threema.app.utils.ActiveScreenLoggerKt.logScreenVisibility;
 import static ch.threema.common.LazyKt.lazy;
 
-public class AppLinksActivity extends ThreemaToolbarActivity {
+public class AppLinksActivity extends ThreemaToolbarActivity implements AppLockExempt {
     private final static Logger logger = getThreemaLogger("AppLinksActivity");
 
     @NonNull
@@ -74,12 +74,6 @@ public class AppLinksActivity extends ThreemaToolbarActivity {
     public int getLayoutResource() {
         // invisible activity
         return 0;
-    }
-
-    @Override
-    protected boolean isPinLockable() {
-        // we handle pin locking ourselves
-        return false;
     }
 
     private void checkLock() {

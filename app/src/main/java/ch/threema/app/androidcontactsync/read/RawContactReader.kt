@@ -112,7 +112,10 @@ class RawContactReader(
                     .toSet()
             }
         } catch (e: RawContact.Builder.RawContactBuildException) {
-            throw AndroidContactReadException.MultipleLookupKeysPerRawContact(e)
+            throw when (e) {
+                is RawContact.Builder.RawContactBuildException.MismatchedLookupInfo -> AndroidContactReadException.MultipleLookupInfosPerRawContact(e)
+                is RawContact.Builder.RawContactBuildException.WrongRawContactId -> AndroidContactReadException.Other(cause = e)
+            }
         } catch (e: CursorCreateException) {
             throw AndroidContactReadException.Other(cause = e)
         } catch (e: SecurityException) {

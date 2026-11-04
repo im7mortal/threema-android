@@ -52,8 +52,8 @@ public class GroupDeliveryReceiptMessage extends AbstractGroupMessage {
     }
 
     @Override
-    public boolean exemptFromBlocking() {
-        return false;
+    public ExemptFromBlocking exemptFromBlocking() {
+        return ExemptFromBlocking.NO;
     }
 
     @Override

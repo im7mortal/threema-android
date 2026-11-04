@@ -1,6 +1,7 @@
 package ch.threema.app.activities;
 
 import static ch.threema.android.ToastKt.showToast;
+import static ch.threema.android.UriExtensionsKt.isFileUri;
 import static ch.threema.app.adapters.SendMediaPreviewAdapter.VIEW_TYPE_NORMAL;
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
 import static ch.threema.app.preference.service.PreferenceService.IMAGE_SCALE_SEND_AS_FILE;
@@ -45,6 +46,7 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultLauncher;
 import androidx.annotation.IdRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -79,6 +81,7 @@ import java.util.Objects;
 import ch.threema.android.ActivityExtensionsKt;
 import ch.threema.android.LifecycleAwareAsyncTask;
 import ch.threema.android.ToastDuration;
+import ch.threema.android.permissions.CameraPermissionContract;
 import ch.threema.app.AppConstants;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
@@ -122,13 +125,16 @@ import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 
 import ch.threema.app.messagereceiver.SendingPermissionValidationResult;
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.data.models.GroupModel;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
+import kotlin.Unit;
 
 public class SendMediaActivity extends ThreemaToolbarActivity implements
     GenericAlertDialog.DialogClickListener,
     ThreemaToolbarActivity.OnSoftKeyboardChangedListener,
-    MediaAdapterListener {
+    MediaAdapterListener,
+    BackPressHandler {
     private static final Logger logger = getThreemaLogger("SendMediaActivity");
 
     {
@@ -205,6 +211,17 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
         }
     };
 
+    private final ActivityResultLauncher<Unit> cameraPermissionLauncher = registerForActivityResult(new CameraPermissionContract(), isGranted -> {
+        if (isGranted) {
+            launchCamera();
+        } else {
+            if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA)) {
+                // TODO(ANDR-5211): Use rationale as intended
+                ConfigUtils.showPermissionRationale(this, activityParentLayout, R.string.permission_camera_photo_required);
+            }
+        }
+    });
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         foregroundContainer = null;
@@ -242,7 +259,7 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
         this.lastMediaFilter = IntentDataUtil.getLastMediaFilterFromIntent(intent);
 
         if (this.pickFromCamera && savedInstanceState == null) {
-            launchCamera();
+            cameraPermissionLauncher.launch(Unit.INSTANCE);
         }
 
         final List<MediaItem> initialItems;
@@ -269,7 +286,7 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
                     showToast(getApplicationContext(), errorStringRes);
                 }
             }
-            if (allReceiverChatsAreHidden && !dependencies.getConversationCategoryService().isMarkedAsPrivate(messageReceiver.getConversationId())) {
+            if (allReceiverChatsAreHidden && messageReceiver.getConversationCategory() == ConversationCategory.DEFAULT) {
                 allReceiverChatsAreHidden = false;
             }
         }
@@ -323,6 +340,8 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
                     this,
                     dependencies.getGroupService(),
                     dependencies.getContactService(),
+                    dependencies.getContactModelRepository(),
+                    dependencies.getIdentityProvider(),
                     dependencies.getUserService(),
                     dependencies.getPreferenceService(),
                     groupModel,
@@ -340,7 +359,9 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
         TextView recipientText = findViewById(R.id.recipient_text);
 
         this.cameraButton = findViewById(R.id.camera_button);
-        this.cameraButton.setOnClickListener(v -> launchCamera());
+        this.cameraButton.setOnClickListener(v -> {
+            cameraPermissionLauncher.launch(Unit.INSTANCE);
+        });
 
         this.recyclerView = findViewById(R.id.item_list);
         this.recyclerView.setLayoutManager(new LinearLayoutManager(this, RecyclerView.HORIZONTAL, false));
@@ -363,7 +384,7 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
 
         EmojiButton emojiButton = findViewById(R.id.emoji_button);
 
-        if (ConfigUtils.isDefaultEmojiStyle()) {
+        if (dependencies.getPreferenceService().useDefaultEmojiStyle()) {
             emojiButton.setOnClickListener(v -> showEmojiPicker());
 
             this.emojiPicker = (EmojiPicker) ((ViewStub) findViewById(R.id.emoji_stub)).inflate();
@@ -478,7 +499,7 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
             }
         });
 
-        if (dependencies.getPreferenceService().getEmojiStyle() != PreferenceService.EMOJI_STYLE_ANDROID) {
+        if (dependencies.getPreferenceService().useDefaultEmojiStyle()) {
             addOnSoftKeyboardChangedListener(this);
         }
 
@@ -694,14 +715,8 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
         }
     }
 
-    private void launchCamera() {
-        if (ConfigUtils.requestCameraPermissions(this, null, PERMISSION_REQUEST_CAMERA)) {
-            reallyLaunchCamera();
-        }
-    }
-
     @SuppressLint("UnsupportedChromeOsCameraSystemFeature")
-    private void reallyLaunchCamera() {
+    private void launchCamera() {
         File cameraFile;
         File videoFile;
         try {
@@ -1068,7 +1083,7 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
             item.setMimeType(MimeUtil.MIME_TYPE_IMAGE_JPEG);
         }
 
-        if (ContentResolver.SCHEME_FILE.equalsIgnoreCase(imageUri.getScheme())) {
+        if (isFileUri(imageUri)) {
             item.setDeleteAfterUse(true);
         }
 
@@ -1208,12 +1223,7 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
     }
 
     @Override
-    protected boolean enableOnBackPressedCallback() {
-        return true;
-    }
-
-    @Override
-    protected void handleOnBackPressed() {
+    public void handleOnBackPressed() {
         if (emojiPicker != null && emojiPicker.isShown()) {
             emojiPicker.hide();
             addAllInsetsToBottomControlsContainer();
@@ -1286,20 +1296,6 @@ public class SendMediaActivity extends ThreemaToolbarActivity implements
             outState.putParcelable(STATE_TEMP_FILE, Uri.fromFile(this.tempFile));
         }
         super.onSaveInstanceState(outState);
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == PERMISSION_REQUEST_CAMERA) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                reallyLaunchCamera();
-            } else {
-                if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.CAMERA)) {
-                    ConfigUtils.showPermissionRationale(this, activityParentLayout, R.string.permission_camera_photo_required);
-                }
-            }
-        }
     }
 
     @Override

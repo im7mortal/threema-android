@@ -1,6 +1,7 @@
 package ch.threema.app.connection
 
 import android.os.PowerManager
+import ch.threema.android.acquire
 import ch.threema.app.BuildConfig
 import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.services.ServerAddressProviderService
@@ -22,14 +23,14 @@ import ch.threema.domain.protocol.connection.util.ConnectionLoggingUtil
 import ch.threema.domain.stores.IdentityStore
 import ch.threema.domain.taskmanager.IncomingMessageProcessor
 import ch.threema.domain.taskmanager.TaskManager
-import java.util.Locale
 import java.util.function.Supplier
+import kotlin.time.Duration
 import okhttp3.OkHttpClient
 
 class WakeLockConnectionLockProvider(private val powerManager: PowerManager) : ConnectionLockProvider {
     private var nextLockNumber = 1
 
-    override fun acquire(timeoutMillis: Long, tag: ConnectionLockProvider.ConnectionLogTag): ConnectionLock {
+    override fun acquire(timeout: Duration, tag: ConnectionLockProvider.ConnectionLogTag): ConnectionLock {
         val lockNumber = nextLockNumber++
         val logger = getThreemaLogger("ConnectionLock.$tag")
         val wakeLock = powerManager.newWakeLock(
@@ -37,12 +38,8 @@ class WakeLockConnectionLockProvider(private val powerManager: PowerManager) : C
             "${BuildConfig.APPLICATION_ID}:ConnectionLock.$tag",
         )
 
-        logger.info(
-            "Acquiring lock #{} with {}s timeout",
-            lockNumber,
-            String.format(Locale.US, "%.2f", timeoutMillis.toFloat() / 1000f),
-        )
-        wakeLock.acquire(timeoutMillis)
+        logger.info("Acquiring lock #{} with {} timeout", lockNumber, timeout)
+        wakeLock.acquire(timeout)
 
         return object : ConnectionLock {
             override fun release() {

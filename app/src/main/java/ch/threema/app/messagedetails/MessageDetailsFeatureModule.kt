@@ -1,17 +1,8 @@
 package ch.threema.app.messagedetails
 
-import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.viewModel
 
 val messageDetailsFeatureModule = module {
-    viewModel { parameters ->
-        MessageDetailsViewModel(
-            messageService = get(),
-            globalEventFlows = get(),
-            emojiReactionsRepository = get(),
-            preferenceService = get(),
-            messageId = parameters[0],
-            messageType = parameters[1],
-        )
-    }
+    viewModel<MessageDetailsViewModel>()
 }

@@ -2,8 +2,8 @@ package ch.threema.app.usecases
 
 import android.content.Context
 import android.content.Intent
+import ch.threema.android.checkPermissionInManifest
 import ch.threema.app.R
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.MimeUtil
 import ch.threema.data.IdentityProvider
 
@@ -19,7 +19,7 @@ class GetInviteFriendIntentUseCase(
             .setType(MimeUtil.MIME_TYPE_TEXT)
             .setPackage(targetPackageName)
 
-        val myIdentity = identityProvider.getIdentityString()!!
+        val myIdentity = identityProvider.requireIdentityString()
 
         if (isShortMessage) {
             val messageBody = appContext.getString(R.string.invite_sms_body, appContext.getString(R.string.app_name), myIdentity)
@@ -37,6 +37,6 @@ class GetInviteFriendIntentUseCase(
         if (packageName.contains("twitter")) {
             true
         } else {
-            ConfigUtils.checkManifestPermission(appContext, packageName, "android.permission.SEND_SMS")
+            checkPermissionInManifest(appContext, packageName, "android.permission.SEND_SMS")
         }
 }

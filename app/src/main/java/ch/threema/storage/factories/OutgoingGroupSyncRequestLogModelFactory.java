@@ -22,7 +22,7 @@ public class OutgoingGroupSyncRequestLogModelFactory extends ModelFactory {
 
     @Nullable
     public OutgoingGroupSyncRequestLogModel get(@NonNull GroupIdentity groupIdentity) {
-        return get(groupIdentity.getGroupIdHexString(), groupIdentity.getCreatorIdentity());
+        return get(groupIdentity.getApiGroupIdHexString(), groupIdentity.getCreatorIdentity());
     }
 
     @Nullable
@@ -81,7 +81,7 @@ public class OutgoingGroupSyncRequestLogModelFactory extends ModelFactory {
 
     private ContentValues buildValues(@NonNull GroupIdentity groupIdentity, @Nullable Instant lastRequest) {
         ContentValues contentValues = new ContentValues();
-        contentValues.put(OutgoingGroupSyncRequestLogModel.COLUMN_API_GROUP_ID, groupIdentity.getGroupIdHexString());
+        contentValues.put(OutgoingGroupSyncRequestLogModel.COLUMN_API_GROUP_ID, groupIdentity.getApiGroupIdHexString());
         contentValues.put(OutgoingGroupSyncRequestLogModel.COLUMN_CREATOR_IDENTITY, groupIdentity.getCreatorIdentity());
         contentValues.put(OutgoingGroupSyncRequestLogModel.COLUMN_LAST_REQUEST, lastRequest != null
             ? lastRequest.toEpochMilli()

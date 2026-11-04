@@ -12,6 +12,7 @@ import ch.threema.android.buildPeriodicWorkRequest
 import ch.threema.android.setBackoffCriteria
 import ch.threema.android.setInitialDelay
 import ch.threema.android.setInputData
+import ch.threema.app.GlobalAppState
 import ch.threema.app.di.awaitAppFullyReadyWithTimeout
 import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.eventbus.events.ConversationEvent
@@ -54,14 +55,17 @@ class AutoDeleteWorker(
     private val fileService: FileService by inject()
     private val pollService: PollService by inject()
     private val globalEventBuses: GlobalEventBuses by inject()
+    private val globalAppState: GlobalAppState by inject()
 
     override suspend fun doWork(): Result {
         logger.info("Start auto delete work")
+        if (globalAppState.specialMode != null) {
+            return Result.retry()
+        }
         if (preferenceService.isMessageDeletionDisabled()) {
             logger.info("Auto delete disabled by lab preference, skipping cleanup work")
             return Result.success()
         }
-
         awaitAppFullyReadyWithTimeout(20.seconds)
             ?: return Result.retry()
 
@@ -69,8 +73,8 @@ class AutoDeleteWorker(
             EXTRA_GRACE_DAYS,
             ProtocolDefines.AUTO_DELETE_KEEP_MESSAGES_DAYS_OFF_VALUE,
         )
+
         if (graceDays <= ProtocolDefines.AUTO_DELETE_KEEP_MESSAGES_DAYS_OFF_VALUE) {
-            logger.info("Stopping auto delete with graceDays = {}", graceDays)
             return Result.success()
         }
 

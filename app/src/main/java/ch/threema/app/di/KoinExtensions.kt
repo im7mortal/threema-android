@@ -1,6 +1,7 @@
 package ch.threema.app.di
 
 import android.content.ComponentCallbacks
+import ch.threema.app.di.modules.SessionScopeUnavailableException
 import ch.threema.app.startup.AppStartupMonitor
 import ch.threema.app.startup.models.AppSystem
 import kotlin.reflect.KProperty
@@ -12,8 +13,10 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.KoinScopeComponent
 import org.koin.core.component.get
 import org.koin.core.component.inject
+import org.koin.core.error.InstanceCreationException
 import org.koin.core.parameter.ParametersDefinition
 import org.koin.core.qualifier.Qualifier
+import org.koin.dsl.module
 
 /**
  * Returns true if the session scope is ready, meaning that the master key is unlocked and components that depend on it (directly or indirectly)
@@ -72,14 +75,27 @@ suspend inline fun KoinComponent.awaitAppFullyReadyWithTimeout(timeout: Duration
         awaitAppFullyReady()
     }
 
+/**
+ * Get an instance of [T] from Koin if available, or null instead.
+ * This includes support for the session-scope, i.e., if [T] is bound to the session-scope but the session-scope
+ * is not currently available, this will return null.
+ */
 inline fun <reified T : Any> KoinComponent.getOrNull(
     qualifier: Qualifier? = null,
     noinline parameters: ParametersDefinition? = null,
 ): T? =
-    if (this is KoinScopeComponent) {
-        scope.getOrNull(qualifier, parameters)
-    } else {
-        getKoin().getOrNull(qualifier, parameters)
+    try {
+        if (this is KoinScopeComponent) {
+            scope.getOrNull(qualifier, parameters)
+        } else {
+            getKoin().getOrNull(qualifier, parameters)
+        }
+    } catch (e: InstanceCreationException) {
+        if (e.cause is SessionScopeUnavailableException) {
+            null
+        } else {
+            throw e
+        }
     }
 
 /**
@@ -96,7 +112,7 @@ inline fun <reified T : Any> KoinComponent.injectNonBinding(
 }
 
 /**
- * Same as [injectNonBinding], but allows nullable types. This makes it possible to accessing session-scoped components in a safe way, as
+ * Same as [injectNonBinding], but allows nullable types. This makes it possible to access session-scoped components in a safe way, as
  * null is returned if the session-scope is not active.
  */
 inline fun <reified T : Any> KoinComponent.injectNullableNonBinding(
@@ -108,4 +124,8 @@ inline fun <reified T : Any> KoinComponent.injectNullableNonBinding(
 
 class Delegate<T>(val getValue: () -> T) {
     operator fun getValue(thisRef: Any?, property: KProperty<*>): T = getValue()
+}
+
+fun emptyModule() = module {
+    // intentionally left empty
 }

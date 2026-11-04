@@ -13,6 +13,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import ch.threema.android.buildActivityIntent
+import ch.threema.app.GlobalAppState
 import ch.threema.app.R
 import ch.threema.app.backuprestore.csv.BackupService
 import ch.threema.app.backuprestore.csv.RestoreService
@@ -38,6 +39,7 @@ class BackupRestoreProgressActivity : AppCompatActivity() {
     }
 
     private val notificationService: NotificationService by inject()
+    private val globalAppState: GlobalAppState by inject()
 
     private lateinit var titleTextView: TextView
     private lateinit var infoTextView: TextView
@@ -89,18 +91,23 @@ class BackupRestoreProgressActivity : AppCompatActivity() {
 
         closeButton.setOnClickListener { finish() }
 
-        if (BackupService.isRunning()) {
-            titleTextView.text = getString(R.string.backup_data_title)
-            infoTextView.text = getString(R.string.backup_in_progress)
-            backupRestoreProgress.isIndeterminate = true
-            progressType = ProgressType.BACKUP
-        } else if (RestoreService.isRunning()) {
-            titleTextView.text = getString(R.string.restore)
-            infoTextView.text = getString(R.string.restoring_backup)
-            backupRestoreProgress.isIndeterminate = true
-            progressType = ProgressType.RESTORE
-        } else {
-            finish()
+        when (globalAppState.specialMode) {
+            GlobalAppState.SpecialMode.BACKUP_CREATE -> {
+                titleTextView.text = getString(R.string.backup_data_title)
+                infoTextView.text = getString(R.string.backup_in_progress)
+                backupRestoreProgress.isIndeterminate = true
+                progressType = ProgressType.BACKUP
+            }
+            GlobalAppState.SpecialMode.BACKUP_RESTORE -> {
+                titleTextView.text = getString(R.string.restore)
+                infoTextView.text = getString(R.string.restoring_backup)
+                backupRestoreProgress.isIndeterminate = true
+                progressType = ProgressType.RESTORE
+            }
+            else -> {
+                finish()
+                return
+            }
         }
 
         handleDeviceInsets()
@@ -137,10 +144,8 @@ class BackupRestoreProgressActivity : AppCompatActivity() {
         }
     }
 
-    private fun hasFinished() = when (progressType) {
-        ProgressType.BACKUP -> !BackupService.isRunning()
-        ProgressType.RESTORE -> !RestoreService.isRunning()
-    }
+    private fun hasFinished() =
+        globalAppState.specialMode == null
 
     private fun onProgressUpdate(
         progress: Int,

@@ -17,7 +17,6 @@ import ch.threema.app.drafts.MessageDraft
 import ch.threema.app.messagereceiver.ContactMessageReceiver
 import ch.threema.app.messagereceiver.GroupMessageReceiver
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.app.services.DistributionListService
 import ch.threema.app.services.GroupService
 import ch.threema.app.services.RingtoneService
@@ -29,13 +28,13 @@ import ch.threema.app.usecases.contacts.WatchContactNameFormatSettingUseCase
 import ch.threema.app.usecases.groups.WatchGroupCallsUseCase
 import ch.threema.app.utils.MessageUtil
 import ch.threema.app.utils.NameUtil
-import ch.threema.app.utils.QuoteUtil
 import ch.threema.app.utils.StateBitmapUtil
 import ch.threema.common.TimeProvider
 import ch.threema.common.combine
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.datatypes.ContactNameFormat
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationId
 import ch.threema.data.datatypes.ConversationIdObfuscated
 import ch.threema.data.datatypes.ConversationVisibility
@@ -45,10 +44,11 @@ import ch.threema.data.datatypes.MentionNameData
 import ch.threema.data.datatypes.localGroupId
 import ch.threema.domain.types.Identity
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.domain.types.Mention
 import ch.threema.storage.models.ContactModel
 import ch.threema.storage.models.ConversationModel
 import ch.threema.storage.models.DistributionListModel
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageState
 import ch.threema.storage.models.MessageType
 import ch.threema.storage.models.ReceiverModel
@@ -66,7 +66,6 @@ abstract class WatchConversationListItemsUseCase(
     private val watchAllMentionNamesUseCase: WatchAllMentionNamesUseCase,
     private val watchAllContactAvailabilityStatusesUseCase: WatchAllContactAvailabilityStatusesUseCase,
     private val draftManager: DraftManager,
-    private val conversationCategoryService: ConversationCategoryService,
     private val contactService: ContactService,
     private val groupService: GroupService,
     private val distributionListService: DistributionListService,
@@ -119,7 +118,10 @@ abstract class WatchConversationListItemsUseCase(
             ->
             val privateConversationIds: Set<ConversationId> = conversationModels
                 .mapNotNull { conversationModel ->
-                    if (getIsPrivate(conversationModel)) conversationModel.id else null
+                    when (conversationModel.conversationCategory) {
+                        ConversationCategory.DEFAULT -> null
+                        ConversationCategory.PROTECTED -> conversationModel.id
+                    }
                 }
                 .toSet()
             val now = timeProvider.get()
@@ -310,14 +312,7 @@ abstract class WatchConversationListItemsUseCase(
         @Suppress("DEPRECATION")
         val messageContentThatCouldContainMentions: String =
             when (messageModel.type) {
-                MessageType.TEXT -> QuoteUtil.getMessageBody(
-                    messageModel.type,
-                    messageModel.body,
-                    messageModel.caption,
-                    messageModel.isOutbox,
-                    false,
-                    contactNameFormat,
-                )
+                MessageType.TEXT -> messageModel.body
                 MessageType.FILE -> messageModel.caption
                 else -> null
             } ?: ""
@@ -348,7 +343,7 @@ abstract class WatchConversationListItemsUseCase(
         return drafts[conversationModel.id.obfuscated]
             ?.text
             ?.let { draft ->
-                val mentionNames: Map<Identity, ResolvableString> = ConversationTextAnalyzer.findResolvableMentionNames(
+                val mentionNames: Map<Mention, ResolvableString> = ConversationTextAnalyzer.findResolvableMentionNames(
                     input = draft,
                     mentionNameData = mentionNameData,
                     contactNameFormat = contactNameFormat,
@@ -378,7 +373,7 @@ abstract class WatchConversationListItemsUseCase(
         require(conversationModel.isContactConversation) {
             "Must be a contact conversation"
         }
-        val latestMessageModel: AbstractMessageModel = conversationModel.latestMessage
+        val latestMessageModel: MessageModel = conversationModel.latestMessage
             ?: return null
         if (latestMessageModel.type == MessageType.VOIP_STATUS) {
             // TODO(ANDR-4549): Correct the content description used for this icon
@@ -488,12 +483,6 @@ abstract class WatchConversationListItemsUseCase(
         }
     }
 
-    private fun getIsPrivate(conversationModel: ConversationModel): Boolean {
-        return conversationCategoryService.isMarkedAsPrivate(
-            conversationId = conversationModel.id,
-        )
-    }
-
     private fun getGroupCallState(groupModel: GroupModelOld, groupCalls: Set<GroupCallUiModel>): GroupCallUiModel? {
         return groupCalls.firstOrNull { groupCallUiModel ->
             groupCallUiModel.groupId == groupModel.localGroupId
@@ -526,7 +515,7 @@ abstract class WatchConversationListItemsUseCase(
         drafts: Map<ConversationIdObfuscated, MessageDraft>,
     ): ResolvableString? {
         val hasOwnDraft: Boolean = drafts.contains(conversationModel.id.obfuscated)
-        val latestMessage: AbstractMessageModel? = conversationModel.latestMessage
+        val latestMessage: MessageModel? = conversationModel.latestMessage
 
         if (
             !conversationModel.isGroupConversation ||

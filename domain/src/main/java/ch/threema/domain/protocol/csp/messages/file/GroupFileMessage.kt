@@ -5,6 +5,7 @@ import ch.threema.domain.models.GroupId
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.protocol.csp.messages.AbstractGroupMessage
 import ch.threema.domain.protocol.csp.messages.BadMessageException
+import ch.threema.domain.protocol.csp.messages.ExemptFromBlocking
 import ch.threema.domain.protocol.csp.messages.file.GroupFileMessage.Companion.fromByteArray
 import ch.threema.domain.protocol.csp.messages.file.GroupFileMessage.Companion.fromReflected
 import ch.threema.protobuf.csp.e2e.fs.Version
@@ -24,7 +25,7 @@ class GroupFileMessage : AbstractGroupMessage(), FileMessageInterface {
 
     override fun allowUserProfileDistribution(): Boolean = true
 
-    override fun exemptFromBlocking(): Boolean = false
+    override fun exemptFromBlocking(): ExemptFromBlocking = ExemptFromBlocking.NO
 
     override fun createImplicitlyDirectContact(): Boolean = false
 

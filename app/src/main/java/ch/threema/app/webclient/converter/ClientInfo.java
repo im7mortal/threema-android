@@ -12,7 +12,7 @@ import org.slf4j.Logger;
 
 import ch.threema.app.AppConstants;
 import ch.threema.app.BuildConfig;
-import ch.threema.app.ThreemaApplication;
+import ch.threema.app.BuildFlavor;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.preference.service.SynchronizedSettingsService;
 import ch.threema.app.push.PushService;
@@ -111,7 +111,7 @@ public class ClientInfo extends Converter {
         }
 
         // Work stuff
-        data.put(IS_WORK, ConfigUtils.isWorkBuild());
+        data.put(IS_WORK, BuildFlavor.IS_WORK);
 
         // Configuration
         final MsgpackObjectBuilder config = new MsgpackObjectBuilder();
@@ -121,7 +121,7 @@ public class ClientInfo extends Converter {
         if (synchronizedSettingsService.isForceTURN()) {
             config.put(VOIP_FORCE_TURN, true);
         }
-        if (!ConfigUtils.isBiggerSingleEmojis(appContext)) {
+        if (!preferenceService.isBiggerSingleEmojis()) {
             config.put(LARGE_SINGLE_EMOJI, false);
         }
         config.put(SHOW_INACTIVE_IDS, preferenceService.showInactiveContacts());

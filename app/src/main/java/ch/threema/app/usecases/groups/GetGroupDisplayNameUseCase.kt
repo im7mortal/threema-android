@@ -10,6 +10,7 @@ import ch.threema.data.datatypes.ContactNameFormat
 import ch.threema.data.models.ContactModel
 import ch.threema.data.models.GroupModel
 import ch.threema.data.repositories.ContactModelRepository
+import kotlin.collections.joinToString
 
 class GetGroupDisplayNameUseCase(val contactModelRepository: ContactModelRepository) {
 
@@ -24,8 +25,8 @@ class GetGroupDisplayNameUseCase(val contactModelRepository: ContactModelReposit
      */
     fun call(groupModel: GroupModel, contactNameFormat: ContactNameFormat): GroupDisplayName {
         val groupModelData = groupModel.data
-            ?: return GroupDisplayName.Unknown(groupIdHexString = groupModel.groupIdentity.groupIdHexString)
-        if (groupModelData.name != null && groupModelData.name.isNotBlank()) {
+            ?: return GroupDisplayName.Unknown(groupIdHexString = groupModel.groupIdentity.apiGroupIdHexString)
+        if (!groupModelData.name.isNullOrBlank()) {
             return GroupDisplayName.Defined(groupModelData.name)
         }
         val memberDisplayNames: MutableList<ResolvableString> = mutableListOf()
@@ -38,7 +39,7 @@ class GetGroupDisplayNameUseCase(val contactModelRepository: ContactModelReposit
             getOtherMembersDisplayNames(groupModel, contactNameFormat),
         )
         if (memberDisplayNames.isEmpty()) {
-            return GroupDisplayName.Unknown(groupIdHexString = groupModel.groupIdentity.groupIdHexString)
+            return GroupDisplayName.Unknown(groupIdHexString = groupModel.groupIdentity.apiGroupIdHexString)
         }
         return GroupDisplayName.AllMembers(memberDisplayNames = memberDisplayNames)
     }
@@ -59,16 +60,14 @@ class GetGroupDisplayNameUseCase(val contactModelRepository: ContactModelReposit
             .sortedBy(ResolvedString::string)
 }
 
-sealed interface GroupDisplayName {
-
-    fun resolve(context: Context): String
+sealed interface GroupDisplayName : ResolvableString {
 
     /**
      *  The group name could not be determined
      */
     data class Unknown(val groupIdHexString: String) : GroupDisplayName {
 
-        override fun resolve(context: Context): String = groupIdHexString
+        override fun get(context: Context): String = groupIdHexString
     }
 
     /**
@@ -78,7 +77,7 @@ sealed interface GroupDisplayName {
      */
     data class Defined(val name: String) : GroupDisplayName {
 
-        override fun resolve(context: Context): String = name
+        override fun get(context: Context): String = name
     }
 
     /**
@@ -89,7 +88,7 @@ sealed interface GroupDisplayName {
      */
     data class AllMembers(val memberDisplayNames: List<ResolvableString>) : GroupDisplayName {
 
-        override fun resolve(context: Context): String =
+        override fun get(context: Context): String =
             memberDisplayNames.joinToString { resolvableString ->
                 resolvableString.get(context)
             }

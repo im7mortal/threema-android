@@ -15,7 +15,7 @@ import ch.threema.app.utils.LinkifyUtil;
 import ch.threema.app.utils.MessageUtil;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.app.utils.ViewUtil;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.data.status.VoipStatusDataModel;
 
@@ -29,11 +29,11 @@ public class VoipStatusDataChatAdapterDecorator extends ChatAdapterDecorator {
     private final VoipStatusDataChatListener listener;
 
     public VoipStatusDataChatAdapterDecorator(
-        AbstractMessageModel messageModel,
-        @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
-        @NonNull LinkifyUtil.LinkifyListener linkifyListener,
-        Helper helper,
-        @NonNull VoipStatusDataChatListener listener
+            MessageModel messageModel,
+            @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
+            @NonNull LinkifyUtil.LinkifyListener linkifyListener,
+            Helper helper,
+            @NonNull VoipStatusDataChatListener listener
     ) {
         super(messageModel, chatAdapterDecoratorListener, linkifyListener, helper);
         this.listener = listener;

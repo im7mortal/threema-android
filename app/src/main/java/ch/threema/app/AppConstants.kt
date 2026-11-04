@@ -25,7 +25,6 @@ object AppConstants {
     const val ECHO_USER_IDENTITY = "ECHOECHO"
     const val PHONE_LINKED_PLACEHOLDER = "***"
     const val EMAIL_LINKED_PLACEHOLDER = "***@***"
-    const val ACTIVITY_CONNECTION_TAG = "threemaApplication"
 
     const val MAX_BLOB_SIZE_MB = 100
     const val MAX_BLOB_SIZE = MAX_BLOB_SIZE_MB * 1024 * 1024
@@ -33,6 +32,4 @@ object AppConstants {
     const val MAX_PIN_LENGTH = 8
     const val MIN_PW_LENGTH_BACKUP = 8
     const val MAX_PW_LENGTH_BACKUP = 256
-
-    const val ACTIVITY_CONNECTION_LIFETIME = 60_000L
 }

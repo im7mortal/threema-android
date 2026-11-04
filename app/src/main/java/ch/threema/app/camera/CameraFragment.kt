@@ -7,7 +7,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
-import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Color
 import android.hardware.display.DisplayManager
@@ -19,6 +18,7 @@ import android.util.Size
 import android.view.*
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.activity.result.launch
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraInfo
 import androidx.camera.core.CameraInfoUnavailableException
@@ -42,7 +42,6 @@ import androidx.camera.video.VideoRecordEvent
 import androidx.camera.video.VideoRecordEvent.Finalize
 import androidx.camera.view.PreviewView
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import androidx.core.graphics.drawable.toDrawable
@@ -54,6 +53,9 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.asFlow
 import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import ch.threema.android.checkGrantedPermission
+import ch.threema.android.permissions.CameraPermissionContract
+import ch.threema.android.permissions.RecordAudioPermissionContract
 import ch.threema.android.postDelayed
 import ch.threema.android.showToast
 import ch.threema.app.AppConstants
@@ -63,7 +65,6 @@ import ch.threema.app.camera.CameraActivity.KEY_EVENT_EXTRA
 import ch.threema.app.camera.ShutterButtonView.ShutterButtonListener
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.ui.LessObnoxiousMediaActionSound
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.LocaleUtil
 import ch.threema.app.utils.RuntimeUtil
 import ch.threema.app.utils.logScreenVisibility
@@ -202,15 +203,24 @@ class CameraFragment : Fragment() {
         }
     }
 
+    private val recordAudioPermissionLauncher = registerForActivityResult(RecordAudioPermissionContract()) { isGranted ->
+        if (isGranted) {
+            restart()
+        }
+    }
+    private val cameraPermissionLauncher = registerForActivityResult(CameraPermissionContract()) { isGranted ->
+        if (!isGranted) {
+            requireActivity().finish()
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         // Make sure that all permissions are still present, since the
         // user could have removed them while the app was in paused state.
-        ConfigUtils.requestCameraPermissions(
-            requireActivity(),
-            this@CameraFragment,
-            PERMISSION_REQUEST_CODE_CAMERA,
-        )
+        if (!CameraPermissionContract.isPermissionGranted(requireContext())) {
+            cameraPermissionLauncher.launch()
+        }
     }
 
     override fun onDestroyView() {
@@ -333,12 +343,15 @@ class CameraFragment : Fragment() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
 
-        // Rebind the camera with the updated display metrics
-        try {
-            bindCameraUseCases()
+        // Defer rebinding until after the view has been re-measured with the new configuration
+        view?.post { rebindCameraAfterConfigChange() }
+    }
 
-            // Enable or disable switching between cameras
-            updateCameraSwitchButton()
+    private fun rebindCameraAfterConfigChange() {
+        try {
+            if (bindCameraUseCases()) {
+                updateCameraSwitchButton()
+            }
         } catch (exc: Exception) {
             logger.error("Use case binding failed", exc)
             activity?.finish()
@@ -424,17 +437,23 @@ class CameraFragment : Fragment() {
         val cameraProvider = cameraProvider
             ?: error("Camera initialization failed.")
 
-        val previewHeight = (previewView!!.measuredWidth / targetAspectRatio.toFloat()).toInt()
+        val previewWidth = previewView!!.measuredWidth
+        if (previewWidth <= 0) {
+            logger.warn("Preview view not yet measured, skipping camera binding")
+            return false
+        }
+
+        val previewHeight = (previewWidth / targetAspectRatio.toFloat()).toInt()
 
         // Preview
         preview = Preview.Builder()
             .setTargetName("Preview")
-            .setTargetResolution(Size(previewView!!.measuredWidth, previewHeight))
+            .setTargetResolution(Size(previewWidth, previewHeight))
             .setTargetRotation(rotation)
             .build()
         logger.debug(
             "Preview size: {} * {} isDisplayPortrait {}",
-            previewView!!.measuredWidth,
+            previewWidth,
             previewHeight,
             isDisplayPortrait,
         )
@@ -531,7 +550,7 @@ class CameraFragment : Fragment() {
         cameraProvider.unbindAll()
         try {
             camera = cameraProvider.bindToLifecycle(viewLifecycleOwner, cameraSelector, preview, imageCapture)
-        } catch (e: IllegalArgumentException) {
+        } catch (e: Exception) {
             logger.error("Unable to resolve camera", e)
             return false
         }
@@ -661,15 +680,11 @@ class CameraFragment : Fragment() {
             private var initialZoomLevelReached = false
 
             override fun onRecordStart() {
-                if (ConfigUtils.requestAudioPermissions(
-                        requireActivity(),
-                        this@CameraFragment,
-                        PERMISSION_REQUEST_CODE_AUDIO,
-                    )
-                ) {
+                if (RecordAudioPermissionContract.isPermissionGranted(requireContext())) {
                     preStartVideoRecording()
                 } else {
                     shutterButton.reset()
+                    recordAudioPermissionLauncher.launch(Unit)
                 }
             }
 
@@ -775,9 +790,10 @@ class CameraFragment : Fragment() {
                 }
 
                 // Re-bind use cases to update selected camera
-                bindCameraUseCases()
-                restoreFlashMode()
-                updateFlashButton()
+                if (bindCameraUseCases()) {
+                    restoreFlashMode()
+                    updateFlashButton()
+                }
             }
         }
     }
@@ -883,9 +899,7 @@ class CameraFragment : Fragment() {
             context,
             FileOutputOptions.Builder(File(cameraCallback?.videoFilePath!!)).build(),
         )
-        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
-            == PackageManager.PERMISSION_GRANTED
-        ) {
+        if (context.checkGrantedPermission(Manifest.permission.RECORD_AUDIO)) {
             pendingRecording?.withAudioEnabled()
         }
 
@@ -940,24 +954,6 @@ class CameraFragment : Fragment() {
         requireActivity().recreate()
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray,
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            when (requestCode) {
-                PERMISSION_REQUEST_CODE_AUDIO -> restart()
-            }
-        } else {
-            when (requestCode) {
-                PERMISSION_REQUEST_CODE_CAMERA -> requireActivity().finish()
-            }
-        }
-    }
-
     internal interface CameraCallback {
         fun onImageReady()
         fun onVideoReady()
@@ -973,8 +969,6 @@ class CameraFragment : Fragment() {
     companion object {
         private val ASPECT_RATIO_16_9 = Rational(16, 9)
         private val ASPECT_RATIO_9_16 = Rational(9, 16)
-        private const val PERMISSION_REQUEST_CODE_AUDIO = 869
-        private const val PERMISSION_REQUEST_CODE_CAMERA = 868
         private const val RECORDING_MODE_IMAGE = 0
         private const val RECORDING_MODE_VIDEO = 1
     }

@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * Create table for storing server messages
+ */
 internal class DatabaseUpdateToVersion81(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -12,8 +15,6 @@ internal class DatabaseUpdateToVersion81(
                 "`type` INTEGER)",
         )
     }
-
-    override fun getDescription() = "store system messages"
 
     override val version = 81
 }

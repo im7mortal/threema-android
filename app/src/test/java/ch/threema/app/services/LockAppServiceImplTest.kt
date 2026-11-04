@@ -13,7 +13,6 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TestTimeSource
 import kotlinx.coroutines.test.runTest
-import testdata.TestData
 
 class LockAppServiceImplTest {
 
@@ -24,7 +23,7 @@ class LockAppServiceImplTest {
             preferencesService = mockk {
                 every { isAppLockEnabled() } returns false
             },
-            identityProvider = mockk { every { getIdentity() } returns TestData.Identities.ME },
+            identityProvider = mockk { every { hasIdentity() } returns true },
         )
             .let { lockAppService ->
                 assertFalse(lockAppService.isLocked)
@@ -36,7 +35,7 @@ class LockAppServiceImplTest {
             preferencesService = mockk {
                 every { isAppLockEnabled() } returns true
             },
-            identityProvider = mockk { every { getIdentity() } returns TestData.Identities.ME },
+            identityProvider = mockk { every { hasIdentity() } returns true },
         )
             .let { lockAppService ->
                 assertTrue(lockAppService.isLocked)
@@ -49,7 +48,7 @@ class LockAppServiceImplTest {
         LockAppServiceImpl(
             lockAppTimer = mockk(),
             preferencesService = mockk { every { isAppLockEnabled() } returns false },
-            identityProvider = mockk { every { getIdentity() } returns null },
+            identityProvider = mockk { every { hasIdentity() } returns false },
         )
             .let { lockAppService ->
                 assertFalse(lockAppService.isLockingEnabled)
@@ -58,7 +57,7 @@ class LockAppServiceImplTest {
         LockAppServiceImpl(
             lockAppTimer = mockk(),
             preferencesService = mockk { every { isAppLockEnabled() } returns true },
-            identityProvider = mockk { every { getIdentity() } returns null },
+            identityProvider = mockk { every { hasIdentity() } returns false },
         )
             .let { lockAppService ->
                 assertFalse(lockAppService.isLockingEnabled)
@@ -67,7 +66,7 @@ class LockAppServiceImplTest {
         LockAppServiceImpl(
             lockAppTimer = mockk(),
             preferencesService = mockk { every { isAppLockEnabled() } returns false },
-            identityProvider = mockk { every { getIdentity() } returns TestData.Identities.ME },
+            identityProvider = mockk { every { hasIdentity() } returns true },
         )
             .let { lockAppService ->
                 assertFalse(lockAppService.isLockingEnabled)
@@ -76,7 +75,7 @@ class LockAppServiceImplTest {
         LockAppServiceImpl(
             lockAppTimer = mockk(),
             preferencesService = mockk { every { isAppLockEnabled() } returns true },
-            identityProvider = mockk { every { getIdentity() } returns TestData.Identities.ME },
+            identityProvider = mockk { every { hasIdentity() } returns true },
         )
             .let { lockAppService ->
                 assertTrue(lockAppService.isLockingEnabled)
@@ -103,7 +102,7 @@ class LockAppServiceImplTest {
                 every { getLockMechanism() } answers { lockMechanism }
                 every { isPinCodeCorrect(any()) } answers { firstArg<String>() == correctPin }
             },
-            identityProvider = mockk { every { getIdentity() } returns TestData.Identities.ME },
+            identityProvider = mockk { every { hasIdentity() } returns true },
         )
 
         lockAppService.watchLockState().test {

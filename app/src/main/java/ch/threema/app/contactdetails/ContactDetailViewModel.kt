@@ -6,10 +6,11 @@ import ch.threema.data.models.ContactModel
 import ch.threema.data.models.ContactModelData
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.domain.types.IdentityString
+import org.koin.core.annotation.InjectedParam
 
 class ContactDetailViewModel(
     contactModelRepository: ContactModelRepository,
-    identity: IdentityString,
+    @InjectedParam identity: IdentityString,
 ) : ViewModel() {
 
     val contactModel: ContactModel = contactModelRepository.getByIdentity(identity)

@@ -1,6 +1,5 @@
 package ch.threema.app.passphrase
 
-import android.content.Context
 import ch.threema.app.monitors.Monitor
 import ch.threema.app.services.PassphraseService
 import ch.threema.localcrypto.MasterKeyManager
@@ -10,8 +9,8 @@ import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.flow.map
 
 class PassphraseStateMonitor(
-    private val appContext: Context,
     private val masterKeyManager: MasterKeyManager,
+    private val passphraseServiceStarter: PassphraseService.Starter,
 ) : Monitor("PassphraseStateMonitor") {
     override suspend fun run() {
         masterKeyManager.passphraseLockState
@@ -27,9 +26,9 @@ class PassphraseStateMonitor(
             .dropWhile { isUnlocked -> !isUnlocked }
             .collect { serviceNeeded ->
                 if (serviceNeeded) {
-                    PassphraseService.start(appContext)
+                    passphraseServiceStarter.startIfNeeded()
                 } else {
-                    PassphraseService.stop(appContext)
+                    passphraseServiceStarter.stop()
                 }
             }
     }

@@ -1,26 +1,17 @@
 package ch.threema.app.threemasafe
 
-import ch.threema.app.BuildConfig
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.preference.service.SynchronizedSettingsService
 import ch.threema.app.services.ApiService
 import ch.threema.app.services.BlockedIdentitiesService
 import ch.threema.app.services.ContactService
-import ch.threema.app.services.DistributionListService
 import ch.threema.app.services.ExcludedSyncIdentitiesService
-import ch.threema.app.services.GroupService
-import ch.threema.base.utils.JSONUtil
 import ch.threema.common.emptyByteArray
 import ch.threema.common.toHexString
 import ch.threema.data.ModelTypeCache
 import ch.threema.data.repositories.ContactModelRepository
-import ch.threema.domain.models.AcquaintanceLevel
-import ch.threema.domain.models.GroupId
+import ch.threema.data.repositories.GroupModelRepository
 import ch.threema.domain.stores.IdentityStore
-import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.ContactModel
-import ch.threema.storage.models.DistributionListModel
-import ch.threema.storage.models.group.GroupModelOld
 import ch.threema.testhelpers.TestDispatcherProvider
 import ch.threema.testhelpers.mockOkHttpClient
 import ch.threema.testhelpers.nonSecureRandomArray
@@ -33,20 +24,13 @@ import java.util.Locale
 import java.util.TimeZone
 import kotlin.test.BeforeTest
 import kotlin.test.Test
-import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
-import org.json.JSONArray
-import org.json.JSONObject
 
 class ThreemaSafeServiceTest {
     private val preferenceServiceMock: PreferenceService = mockk(relaxed = true)
     private val synchronizedSettingsServiceMock: SynchronizedSettingsService = mockk(relaxed = true)
     private val contactServiceMock: ContactService = mockk(relaxed = true)
-    private val groupServiceMock: GroupService = mockk(relaxed = true)
-    private val distributionListServiceMock: DistributionListService = mockk(relaxed = true)
     private val identityStoreMock: IdentityStore = mockk()
     private val apiService: ApiService = mockk()
     private val blockedIdentitiesServiceMock: BlockedIdentitiesService = mockk()
@@ -59,6 +43,16 @@ class ThreemaSafeServiceTest {
         multiDeviceManager = mockk(),
         taskManager = mockk(),
         nonceFactory = mockk(),
+        globalEventBuses = mockk(),
+        globalEventFlows = mockk(),
+        dispatcherProvider = TestDispatcherProvider(),
+    )
+    private val groupModelRepository = GroupModelRepository(
+        cache = ModelTypeCache(),
+        databaseBackend = mockk(),
+        identityProvider = mockk(),
+        multiDeviceManager = mockk(),
+        taskManager = mockk(),
         globalEventBuses = mockk(),
         globalEventFlows = mockk(),
         dispatcherProvider = TestDispatcherProvider(),
@@ -80,13 +74,7 @@ class ThreemaSafeServiceTest {
         mockk(relaxed = true),
         /* contactService = */
         contactServiceMock,
-        /* groupService = */
-        groupServiceMock,
-        /* distributionListService = */
-        distributionListServiceMock,
         /* localeService = */
-        mockk(),
-        /* fileService = */
         mockk(),
         /* blockedIdentitiesService = */
         blockedIdentitiesServiceMock,
@@ -94,7 +82,9 @@ class ThreemaSafeServiceTest {
         excludedSyncIdentitiesServiceMock,
         /* profilePictureRecipientsService = */
         mockk(),
-        /* databaseService = */
+        /* distributionListModelFactory = */
+        mockk(),
+        /* distributionListMemberModelFactory */
         mockk(),
         /* identityStore = */
         identityStoreMock,
@@ -102,19 +92,17 @@ class ThreemaSafeServiceTest {
         apiService,
         /* apiConnector = */
         mockk(),
-        /* conversationCategoryService = */
-        mockk(relaxed = true),
-        /* serverAddressProvider = */
-        mockk(),
-        /* encryptedPreferenceStore = */
-        mockk(),
         /* contactModelRepository = */
         contactModelRepository,
-        /* okHttpClient */
+        /* groupModelRepository = */
+        groupModelRepository,
+        /* okHttpClient = */
         mockOkHttpClient { mockk() },
-        /* appRestrictions */
+        /* appRestrictions = */
         mockk(),
-        /* validContactsLookupSteps */
+        /* validContactsLookupSteps = */
+        mockk(),
+        /* threemaSafeBackupCreator = */
         mockk(),
     )
 
@@ -124,7 +112,7 @@ class ThreemaSafeServiceTest {
         every { identityStoreMock.getPrivateKey() } returns TEST_PRIVATE_KEY_BYTES
         every { identityStoreMock.getIdentityString() } returns "01234567"
         every { blockedIdentitiesServiceMock.getAllBlockedIdentities() } returns emptySet()
-        every { excludedSyncIdentitiesServiceMock.getExcludedIdentities() } returns emptySet()
+        every { excludedSyncIdentitiesServiceMock.getAllExcludedIdentities() } returns emptySet()
 
         every { threemaSafeServiceImpl.threemaSafeBackupId } answers { callOriginal() }
         every { threemaSafeServiceImpl.threemaSafeEncryptionKey } answers { callOriginal() }
@@ -212,242 +200,6 @@ class ThreemaSafeServiceTest {
         )
     }
 
-    @Test
-    fun testSafeJsonContainsInfoValues() {
-        val infoJson: JSONObject = requireParsedThreemaSafeJson().getJSONObject("info")
-        assertEquals(
-            expected = 1,
-            actual = infoJson.getInt("version").toLong(),
-        )
-        assertEquals(
-            expected = BuildConfig.VERSION_NAME + "A/de_CH",
-            actual = infoJson.getString("device"),
-        )
-    }
-
-    @Test
-    fun testSafeJsonContainsUserValues() {
-        val userJson: JSONObject = requireParsedThreemaSafeJson().getJSONObject("user")
-        assertEquals(
-            expected = TEST_PRIVATE_KEY_BASE64,
-            actual = userJson.getString("privatekey"),
-        )
-        assertEquals(
-            expected = 0,
-            actual = userJson.getJSONArray("links").length(),
-        )
-    }
-
-    @Test
-    fun testSafeJsonContainsContactValues() {
-        // arrange
-        every { contactServiceMock.all } returns listOf(
-            ContactModel.create("HELLO123", nonSecureRandomArray(32)).setLastUpdate(null),
-            ContactModel.create("HELLO234", nonSecureRandomArray(32)).setLastUpdate(testDate1),
-            ContactModel.create("HELLO345", nonSecureRandomArray(32)).setLastUpdate(testDate2),
-        )
-
-        // act
-        val contactsJson: JSONArray = requireParsedThreemaSafeJson().getJSONArray("contacts")
-
-        // assert
-        assertEquals(expected = 3, actual = contactsJson.length())
-        contactsJson.getJSONObject(0).let { contact1 ->
-            assertEquals(expected = "HELLO123", actual = contact1.getString("identity"))
-            assertFalse(contact1.has("lastUpdate"))
-        }
-        contactsJson.getJSONObject(1).let { contact2 ->
-            assertEquals(expected = "HELLO234", actual = contact2.getString("identity"))
-            assertEquals(testDate1Timestamp, contact2.getLong("lastUpdate"))
-        }
-        contactsJson.getJSONObject(2).let { contact3 ->
-            assertEquals(expected = "HELLO345", actual = contact3.getString("identity"))
-            assertEquals(testDate2Timestamp, contact3.getLong("lastUpdate"))
-        }
-    }
-
-    @Test
-    fun testSafeJsonDoesNotContainRemovedContacts() {
-        // arrange
-        // Contact 1 - not removed, in no common group
-        val contact1 = ContactModel.create("CONTACT1", nonSecureRandomArray(32)).apply {
-            setAcquaintanceLevel(AcquaintanceLevel.DIRECT)
-        }
-
-        // Contact 2 - not removed, in a common group
-        val contact2 = ContactModel.create("CONTACT2", nonSecureRandomArray(32)).apply {
-            setAcquaintanceLevel(AcquaintanceLevel.DIRECT)
-        }
-
-        // Contact 3 - removed, in a common group
-        val contact3 = ContactModel.create("CONTACT3", nonSecureRandomArray(32)).apply {
-            setAcquaintanceLevel(AcquaintanceLevel.GROUP_OR_DELETED)
-        }
-
-        // Contact 4 - removed, in no common group
-        val contact4 = ContactModel.create("CONTACT4", nonSecureRandomArray(32)).apply {
-            setAcquaintanceLevel(AcquaintanceLevel.GROUP_OR_DELETED)
-        }
-
-        // Contact 5 - removed, in no common group
-        val contact5 = ContactModel.create("CONTACT5", nonSecureRandomArray(32)).apply {
-            setAcquaintanceLevel(AcquaintanceLevel.GROUP_OR_DELETED)
-        }
-
-        every { contactServiceMock.removedContacts } returns setOf("CONTACT4", "CONTACT5")
-        every { contactServiceMock.all } returns listOf(contact1, contact2, contact3, contact4, contact5)
-
-        // act
-        val contactsJson: JSONArray = requireParsedThreemaSafeJson().getJSONArray("contacts")
-
-        // assert
-        assertEquals(expected = 3, actual = contactsJson.length(), message = contactsJson.toString())
-        assertEquals(expected = "CONTACT1", actual = contactsJson.getJSONObject(0).getString("identity"))
-        assertEquals(expected = "CONTACT2", actual = contactsJson.getJSONObject(1).getString("identity"))
-        assertEquals(expected = "CONTACT3", actual = contactsJson.getJSONObject(2).getString("identity"))
-    }
-
-    @Test
-    fun testSafeJsonContainsGroupValues() {
-        // arrange
-        val groupModel1: GroupModelOld = GroupModelOld().setApiGroupId(GroupId(1L)).setCreatorIdentity("GROUPER1").setLastUpdate(null)
-        val groupModel2: GroupModelOld = GroupModelOld().setApiGroupId(GroupId(2L)).setCreatorIdentity("GROUPER2").setLastUpdate(testDate1)
-        val groupModel3: GroupModelOld = GroupModelOld().setApiGroupId(GroupId(3L)).setCreatorIdentity("GROUPER3").setLastUpdate(testDate2)
-
-        every { groupServiceMock.getAll(any()) } returns listOf(groupModel1, groupModel2, groupModel3)
-
-        every { groupServiceMock.getGroupMemberIdentities(groupModel1) } returns arrayOf("GROUPER1", "MEMBER01")
-        every { groupServiceMock.getGroupMemberIdentities(groupModel2) } returns arrayOf("GROUPER2")
-        every { groupServiceMock.getGroupMemberIdentities(groupModel3) } returns arrayOf("GROUPER3", "MEMBER01", "MEMBER02")
-
-        // act
-        val groups: JSONArray = requireParsedThreemaSafeJson().getJSONArray("groups")
-
-        // assert
-        assertEquals(expected = 3, actual = groups.length())
-        groups.getJSONObject(0).let { group1 ->
-            assertEquals(expected = "0100000000000000", actual = group1.getString("id"))
-            assertEquals(expected = "GROUPER1", actual = group1.getString("creator"))
-            assertEquals(expected = 0L, actual = group1.getLong("lastUpdate"))
-        }
-        groups.getJSONObject(1).let { group2 ->
-            assertEquals(expected = "0200000000000000", actual = group2.getString("id"))
-            assertEquals(expected = "GROUPER2", actual = group2.getString("creator"))
-            assertEquals(expected = testDate1Timestamp, actual = group2.getLong("lastUpdate"))
-        }
-        groups.getJSONObject(2).let { group3 ->
-            assertEquals(expected = "0300000000000000", actual = group3.getString("id"))
-            assertEquals(expected = "GROUPER3", actual = group3.getString("creator"))
-            assertEquals(expected = testDate2Timestamp, actual = group3.getLong("lastUpdate"))
-        }
-    }
-
-    @Test
-    fun testSafeJsonContainsDistributionListValues() {
-        // arrange
-        val distributionListModel1: DistributionListModel = DistributionListModel().setId(1L).setLastUpdate(null)
-        val distributionListModel2: DistributionListModel = DistributionListModel().setId(2L).setLastUpdate(testDate1)
-        val distributionListModel3: DistributionListModel = DistributionListModel().setId(3L).setLastUpdate(testDate2)
-
-        every { distributionListServiceMock.getAll(any()) } returns listOf(distributionListModel1, distributionListModel2, distributionListModel3)
-        every { distributionListServiceMock.getDistributionListIdentities(distributionListModel1) } returns arrayOf("MEMBER11")
-        every { distributionListServiceMock.getDistributionListIdentities(distributionListModel2) } returns arrayOf("MEMBER21")
-        every { distributionListServiceMock.getDistributionListIdentities(distributionListModel3) } returns arrayOf(
-            "MEMBER31",
-            "MEMBER32",
-            "MEMBER33",
-        )
-
-        // act
-        val distributionLists: JSONArray = requireParsedThreemaSafeJson().getJSONArray("distributionlists")
-
-        // assert
-        assertEquals(
-            expected = 3,
-            actual = distributionLists.length().toLong(),
-        )
-        distributionLists.getJSONObject(0).let { distributionList1 ->
-            assertEquals(
-                expected = "0100000000000000",
-                actual = distributionList1.getString("id"),
-            )
-            assertContentEquals(
-                expected = arrayOf("MEMBER11"),
-                actual = JSONUtil.getStringArray(distributionList1.getJSONArray("members")),
-            )
-            assertEquals(
-                expected = 0L,
-                actual = distributionList1.getLong("lastUpdate"),
-            )
-        }
-        distributionLists.getJSONObject(1).let { distributionList2 ->
-            assertEquals(
-                expected = "0200000000000000",
-                actual = distributionList2.getString("id"),
-            )
-            assertContentEquals(
-                expected = arrayOf("MEMBER21"),
-                actual = JSONUtil.getStringArray(distributionList2.getJSONArray("members")),
-            )
-            assertEquals(
-                expected = testDate1Timestamp,
-                actual = distributionList2.getLong("lastUpdate"),
-            )
-        }
-        distributionLists.getJSONObject(2).let { distributionList3 ->
-            assertEquals(
-                expected = "0300000000000000",
-                actual = distributionList3.getString("id"),
-            )
-            assertContentEquals(
-                expected = arrayOf("MEMBER31", "MEMBER32", "MEMBER33"),
-                actual = JSONUtil.getStringArray(distributionList3.getJSONArray("members")),
-            )
-            assertEquals(
-                expected = testDate2Timestamp,
-                actual = distributionList3.getLong("lastUpdate"),
-            )
-        }
-    }
-
-    @Test
-    fun testSafeJsonSettingsContainBlockedContacts() {
-        // arrange
-        val blockedIdentities: Set<IdentityString> = setOf("NONONONO", "BLOCKED0")
-        every { blockedIdentitiesServiceMock.getAllBlockedIdentities() } returns blockedIdentities
-
-        // act
-        val settingsJson: JSONObject = requireParsedThreemaSafeJson().getJSONObject("settings")
-        val identitiesJson: JSONArray = settingsJson.getJSONArray("blockedContacts")
-        val actualBlockedIdentities: Set<IdentityString> = setOf(*JSONUtil.getStringArray(identitiesJson))
-
-        // assert
-        assertTrue(blockedIdentities.containsAll(actualBlockedIdentities))
-        assertEquals(
-            expected = blockedIdentities.size,
-            actual = actualBlockedIdentities.size,
-        )
-    }
-
-    @Test
-    fun testSafeJsonSettingsContainsSyncExcludedIds() {
-        // arrange
-        val syncExcludedIds = setOf("ECHOECHO", "OCHEOCHE")
-        every { excludedSyncIdentitiesServiceMock.getExcludedIdentities() } returns syncExcludedIds
-
-        // act
-        val settings: JSONObject = requireParsedThreemaSafeJson().getJSONObject("settings")
-        val identities: JSONArray = settings.getJSONArray("syncExcludedIds")
-
-        // assert
-        assertContentEquals(
-            expected = syncExcludedIds.toTypedArray(),
-            actual = JSONUtil.getStringArray(identities),
-        )
-    }
-
-    private fun requireParsedThreemaSafeJson(): JSONObject = JSONObject(threemaSafeServiceImpl.safeJson!!)
-
     companion object {
         // Test vector: Password "shootdeathstar" and salt "ECHOECHO" should result in this master key
         private const val MASTER_KEY_HEX: String =
@@ -460,6 +212,5 @@ class ThreemaSafeServiceTest {
             1, 2, 3, 4, 5, 6, 7, 8,
             100, 101, 102, 103, 104, 105, 106, 107,
         )
-        private const val TEST_PRIVATE_KEY_BASE64: String = "AQIDBAUGBwhkZWZnaGlqawECAwQFBgcIZGVmZ2hpams="
     }
 }

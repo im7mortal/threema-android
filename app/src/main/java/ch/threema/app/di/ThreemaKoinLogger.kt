@@ -1,6 +1,7 @@
 package ch.threema.app.di
 
 import android.annotation.SuppressLint
+import ch.threema.app.di.modules.SessionScopeUnavailableException
 import ch.threema.base.utils.getThreemaLogger
 import org.koin.core.logger.Level
 import org.koin.core.logger.Logger as KoinLogger
@@ -13,8 +14,16 @@ object ThreemaKoinLogger : KoinLogger() {
         when (level) {
             Level.DEBUG -> logger.debug(msg)
             Level.INFO -> logger.info(msg)
-            Level.WARNING -> logger.warn(msg)
-            Level.ERROR -> logger.error(msg)
+            Level.WARNING -> {
+                if (!msg.contains("override index 'androidx.lifecycle.ViewModel::_root_'")) {
+                    logger.warn(msg)
+                }
+            }
+            Level.ERROR -> {
+                if (SessionScopeUnavailableException::class.simpleName?.let { it in msg } != true) {
+                    logger.error(msg)
+                }
+            }
             Level.NONE -> Unit
         }
     }

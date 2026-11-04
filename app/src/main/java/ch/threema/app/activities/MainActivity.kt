@@ -1,8 +1,11 @@
 package ch.threema.app.activities
 
 import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import ch.threema.android.context
 import ch.threema.app.R
 import ch.threema.app.home.HomeActivity
@@ -15,7 +18,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 
-class MainActivity : ThreemaAppCompatActivity() {
+class MainActivity : AppCompatActivity() {
 
     private val appStartupMonitor: AppStartupMonitor by inject()
     private val masterKeyManager: MasterKeyManager by inject()
@@ -28,8 +31,13 @@ class MainActivity : ThreemaAppCompatActivity() {
         }
         super.onCreate(savedInstanceState)
         lifecycleScope.launch {
-            brieflyAwaitServiceManagerIfNeeded()
-            continueToHomeActivity()
+            // Only proceed while the activity is visible. If the user leaves the app while we are still waiting, starting [HomeActivity] from the
+            // background would be rejected by the system and crash the app. When the user comes back, the wait resumes and completes immediately if
+            // the service manager is ready by then.
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                brieflyAwaitServiceManagerIfNeeded()
+                continueToHomeActivity()
+            }
         }
     }
 

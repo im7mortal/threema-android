@@ -66,6 +66,15 @@ class PreferencesStoreImplTest {
     }
 
     @Test
+    fun saveAndRestoreStringSet() {
+        assertNull(store.getStringSet("foo"))
+
+        store.save("foo", setOf("Hello", "Wörld"))
+
+        assertEquals(setOf("Hello", "Wörld"), store.getStringSet("foo"))
+    }
+
+    @Test
     fun saveAndRestoreInt() {
         assertEquals(-1, store.getInt("foo", defaultValue = -1))
 
@@ -146,6 +155,7 @@ class PreferencesStoreImplTest {
     @Test
     fun defaultValues() {
         assertNull(store.getString("foo"))
+        assertNull(store.getStringSet("foo"))
         assertEquals(0f, store.getFloat("foo"))
         assertEquals(0L, store.getLong("foo"))
         assertEquals(0, store.getInt("foo"))

@@ -16,12 +16,14 @@ import androidx.preference.MultiSelectListPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.TwoStatePreference
+import ch.threema.android.DeviceInfo
+import ch.threema.app.BuildConfig
+import ch.threema.app.BuildFlavor
 import ch.threema.app.R
 import ch.threema.app.dialogs.RingtoneSelectorDialog
 import ch.threema.app.dialogs.RingtoneSelectorDialog.RingtoneSelectorDialogClickListener
 import ch.threema.app.notifications.NotificationChannels
 import ch.threema.app.restrictions.AppRestrictions
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.RingtoneUtil
 import ch.threema.app.utils.contracts.PickRingtoneContract
 import ch.threema.app.utils.contracts.launch
@@ -80,12 +82,15 @@ class SettingsNotificationsFragment : ThreemaPreferenceFragment(), RingtoneSelec
         initWorkingTimePrefs()
         setVisibilityOfVersionDependentPreferences()
 
+        getPref<PreferenceCategory>(R.string.preferences__emoji_reaction_notifications).isVisible =
+            BuildConfig.EMOJI_REACTION_NOTIFICATIONS_ENABLED
+
         voipRingtonePreference = getPref(R.string.preferences__voip_ringtone)
         voipRingtonePreference.updateRingtoneSummary(R.string.preferences__voip_ringtone)
         groupCallsRingtonePreference = getPref(R.string.preferences__group_calls_ringtone)
         groupCallsRingtonePreference.updateRingtoneSummary(R.string.preferences__group_calls_ringtone)
 
-        if (ConfigUtils.supportsNotificationChannels()) {
+        if (DeviceInfo.supportsNotificationChannels()) {
             getPref<Preference>(R.string.preferences__chat_notification_settings).onClick {
                 launchSystemNotificationSettings(NotificationChannels.NOTIFICATION_CHANNEL_CHATS_DEFAULT)
             }
@@ -159,7 +164,7 @@ class SettingsNotificationsFragment : ThreemaPreferenceFragment(), RingtoneSelec
         }
 
         if (appRestrictions.isMessagePreviewDisabledOrNull() != null) {
-            with(getPref<CheckBoxPreference>(getString(R.string.preferences__notification_preview))) {
+            with(getPref<CheckBoxPreference>(R.string.preferences__notification_preview)) {
                 isEnabled = false
                 isSelectable = false
             }
@@ -167,7 +172,7 @@ class SettingsNotificationsFragment : ThreemaPreferenceFragment(), RingtoneSelec
     }
 
     private fun setVisibilityOfVersionDependentPreferences() {
-        if (ConfigUtils.supportsNotificationChannels()) {
+        if (DeviceInfo.supportsNotificationChannels()) {
             getPref<Preference>(R.string.preferences__single_chat_notifications_legacy).isVisible = false
             getPref<Preference>(R.string.preferences__group_chat_notifications_legacy).isVisible = false
             getPref<Preference>(R.string.preferences__voip_call_notifications_legacy).isVisible = false
@@ -179,7 +184,7 @@ class SettingsNotificationsFragment : ThreemaPreferenceFragment(), RingtoneSelec
     }
 
     private fun initWorkingTimePrefs() {
-        if (!ConfigUtils.isWorkBuild()) {
+        if (!BuildFlavor.IS_WORK) {
             getPref<PreferenceCategory>(R.string.preferences__work_life_balance).isVisible = false
             return
         }

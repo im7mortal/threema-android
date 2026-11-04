@@ -8,6 +8,8 @@ import ch.threema.app.services.GroupService
 import ch.threema.app.tasks.ReflectGroupSyncUpdateTask
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.IdentityProvider
+import ch.threema.data.datatypes.ConversationCategory
+import ch.threema.data.datatypes.ConversationSpamReportingState
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverride
@@ -43,7 +45,7 @@ class GroupModel(
 ) {
     private val databaseId: Long? by lazy { databaseBackend.getGroupDatabaseId(groupIdentity) }
 
-    private val myIdentity by lazy { identityProvider.getIdentityString()!! }
+    private val myIdentity by lazy { identityProvider.requireIdentityString() }
 
     /**
      *  We have to make the bridge over to the old GroupService in order
@@ -359,6 +361,59 @@ class GroupModel(
                 deprecatedGroupService?.removeFromCache(groupIdentity)
                 globalEventBuses.groups.emit(GroupEvent.GroupUpdated(groupIdentity))
             },
+        )
+    }
+
+    /**
+     * Set the conversation category.
+     */
+    fun setConversationCategoryFromLocalOrRemote(conversationCategory: ConversationCategory) {
+        this.updateFields(
+            methodName = "setConversationCategoryFromLocalOrRemote",
+            detectChanges = { originalData -> originalData.conversationCategory != conversationCategory },
+            updateData = { originalData -> originalData.copy(conversationCategory = conversationCategory) },
+            updateDatabase = ::updateDatabase,
+            onUpdated = {
+                deprecatedGroupService?.removeFromCache(groupIdentity)
+                globalEventBuses.groups.emit(GroupEvent.GroupUpdated(groupIdentity))
+            },
+            reflectUpdateTask = ReflectGroupSyncUpdateTask.ReflectGroupConversationCategoryUpdateTask(
+                conversationCategory = conversationCategory,
+                groupIdentity = groupIdentity,
+            ),
+        )
+    }
+
+    /**
+     * Set the conversation category from sync.
+     */
+    fun setConversationCategoryFromSync(conversationCategory: ConversationCategory) {
+        this.updateFields(
+            methodName = "setConversationCategoryFromSync",
+            detectChanges = { originalData -> originalData.conversationCategory != conversationCategory },
+            updateData = { originalData -> originalData.copy(conversationCategory = conversationCategory) },
+            updateDatabase = ::updateDatabase,
+            onUpdated = {
+                deprecatedGroupService?.removeFromCache(groupIdentity)
+                globalEventBuses.groups.emit(GroupEvent.GroupUpdated(groupIdentity))
+            },
+        )
+    }
+
+    /**
+     * Persist the group spam reporting state.
+     * Note that this change is not reflected and must therefore only be used in cases where the reflection already is done.
+     */
+    fun persistSpamReportingState(spamReportingState: ConversationSpamReportingState) {
+        this.updateFields(
+            methodName = "persistSpamReportingState",
+            detectChanges = { originalDate -> originalDate.spamReportingState != spamReportingState },
+            updateData = { originalDate -> originalDate.copy(spamReportingState = spamReportingState) },
+            updateDatabase = ::updateDatabase,
+            onUpdated = {
+                globalEventBuses.groups.emit(GroupEvent.GroupUpdated(groupIdentity))
+            },
+            reflectUpdateTask = null,
         )
     }
 

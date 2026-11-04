@@ -12,7 +12,6 @@
     <string name="preferences__group_notification_sound" translatable="false">pref_group_notification_sound</string>
     <string name="preferences__group_vibrate" translatable="false">pref_group_vibrate</string>
     <string name="preferences__wallpaper" translatable="false">pref_key_wallpaper</string>
-    <string name="preferences__wallpaper_switch" translatable="false">pref_key_wallpaper_switch</string>
     <string name="preferences__enter_to_send" translatable="false">pref_key_enter_to_send</string>
     <string name="preferences__image_size" translatable="false">pref_key_image_size</string>
     <string name="preferences__inapp_sounds" translatable="false">pref_key_inapp_sounds</string>
@@ -23,6 +22,7 @@
     <string name="preferences__serial_number" translatable="false">pref_serial_number</string>
     <string name="preferences__threema_push_switch" translatable="false">pref_key_polling_switch</string>
     <string name="preferences__debug_log_switch" translatable="false">pref_key_debug_log_switch</string>
+    <string name="preferences__store_tombstones" translatable="false">pref_key_store_tombstones</string>
     <string name="preferences__debug_log_enable_time" translatable="false">pref_key_debug_log_enable_time</string>
     <string name="preferences__reset_push" translatable="false">pref_key_resetpush</string>
     <string name="preferences__recent_emojis" translatable="false">pref_key_recent_emojis2</string>
@@ -131,6 +131,7 @@
     <string name="preferences__voip_call_notifications_legacy" translatable="false">pref_voip_call_notifications</string>
     <!-- only used on Android 7 -->
     <string name="preferences__group_call_notifications_legacy" translatable="false">pref_group_call_notifications</string>
+    <string name="preferences__emoji_reaction_notifications" translatable="false">pref_emoji_reaction_notifications</string>
     <string name="preferences__work_life_balance" translatable="false">pref_work_life_balance</string>
     <string name="preferences__auto_download_wifi" translatable="false">pref_auto_download_wifi</string>
     <string name="preferences__auto_download_mobile" translatable="false">pref_auto_download_mobile</string>
@@ -223,6 +224,8 @@
     <string name="preferences__group_calls_ringtone" translatable="false">pref_gc_ringtone</string>
     <string name="preferences__group_calls_vibration" translatable="false">pref_gc_vibration</string>
     <string name="preferences__group_calls_use_system_ringtone" translatable="false">pref_gc_use_system_ringtone</string>
+    <string name="preferences__emoji_reaction_contact_notifications" translatable="false">pref_emoji_reaction_contact_notifications</string>
+    <string name="preferences__emoji_reaction_group_notifications" translatable="false">pref_emoji_reaction_group_notifications</string>
     <string name="preferences__device_cookie" translatable="false">device_cookie</string>
     <string name="preferences__dynamic_color" translatable="false">pref_dynamic_color</string>
     <string name="preferences__backup_warning_dismissed_time" translatable="false">pref_backup_warning_dismissed_time</string>
@@ -252,4 +255,7 @@
     <string name="preferences__problem_dismissed_prefix" translatable="false">pref_problem_dismissed_</string>
     <string name="preferences__referral_banner" translatable="false">pref_key_referral_banner</string>
     <string name="preferences__backup_center" translatable="false">pref_key_backup_center</string>
+    <string name="preferences__local_backup_password" translatable="false">pref_local_backup_password</string>
+    <string name="preferences__last_local_backup_info" translatable="false">pref_last_local_backup_info</string>
+    <string name="preferences__local_backup_location" translatable="false">pref_local_backup_location</string>
 </resources>

@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * create table for persisting app tasks
+ */
 class DatabaseUpdateToVersion113(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -14,6 +17,4 @@ class DatabaseUpdateToVersion113(
     }
 
     override val version = 113
-
-    override fun getDescription() = "create table for persisting app tasks"
 }

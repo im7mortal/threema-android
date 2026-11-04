@@ -18,6 +18,7 @@ import androidx.work.WorkerParameters
 import ch.threema.android.buildOneTimeWorkRequest
 import ch.threema.android.setBackoffCriteria
 import ch.threema.android.setConstraints
+import ch.threema.app.GlobalAppState
 import ch.threema.app.R
 import ch.threema.app.di.awaitAppFullyReadyWithTimeout
 import ch.threema.app.multidevice.MultiDeviceManager
@@ -34,6 +35,7 @@ import ch.threema.app.services.ContactService.ProfilePictureSharePolicy
 import ch.threema.app.services.LifetimeService
 import ch.threema.app.services.UserService
 import ch.threema.app.tasks.TaskCreator
+import ch.threema.app.utils.AppRestarter
 import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.workers.AutoDeleteWorker
 import ch.threema.base.utils.getThreemaLogger
@@ -76,13 +78,17 @@ class ApplyAppRestrictionsWorker(
     private val appRestrictions: AppRestrictions by inject()
     private val appRestrictionProvider: AppRestrictionProvider by inject()
     private val autoDeleteWorkerScheduler: AutoDeleteWorker.Scheduler by inject()
+    private val appRestarter: AppRestarter by inject()
+    private val globalAppState: GlobalAppState by inject()
 
     override suspend fun doWork(): Result {
+        if (globalAppState.specialMode != null) {
+            return Result.retry()
+        }
         awaitAppFullyReadyWithTimeout(timeout = 20.seconds)
-            ?: run {
-                logger.error("Could not apply app restrictions because the service manager is not available")
-                return Result.retry()
-            }
+            ?: return Result.retry()
+
+        logger.info("Applying app restrictions")
 
         val sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context)
         if (sharedPreferences == null) {
@@ -116,7 +122,7 @@ class ApplyAppRestrictionsWorker(
         )
 
         if (masterKeyManager.shouldUpdateRemoteSecretProtectionState(RemoteSecretCheckType.APP_RUNTIME)) {
-            ConfigUtils.scheduleAppRestart(context)
+            appRestarter.scheduleAppRestart()
         }
 
         return Result.success()

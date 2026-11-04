@@ -14,12 +14,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
@@ -40,14 +38,13 @@ import ch.threema.app.activities.ThreemaComposeActivity
 import ch.threema.app.compose.common.ScreenContentContainer
 import ch.threema.app.compose.common.appbars.AppBar
 import ch.threema.app.compose.common.appbars.NavigationIcon
-import ch.threema.app.compose.common.buttons.ButtonIconInfo
-import ch.threema.app.compose.common.buttons.ButtonOutlined
-import ch.threema.app.compose.common.buttons.primary.ButtonPrimaryRounded
+import ch.threema.app.compose.common.buttons.primary.ButtonPrimary
 import ch.threema.app.compose.common.extensions.format
 import ch.threema.app.compose.common.extensions.withSpacing
 import ch.threema.app.compose.common.loading.FullScreenLoadingIndicator
 import ch.threema.app.compose.common.spacer.SpacerRemainingVertical
 import ch.threema.app.compose.common.spacer.SpacerVertical
+import ch.threema.app.compose.common.surface.RoundedCornerSurface
 import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.common.time.rememberDateTimeFormatter
 import ch.threema.app.compose.preview.PreviewData.INSTANT_1
@@ -55,15 +52,23 @@ import ch.threema.app.compose.preview.PreviewThreemaAll
 import ch.threema.app.compose.theme.ThreemaPreviewWrapper
 import ch.threema.app.compose.theme.ThreemaTheme
 import ch.threema.app.compose.theme.dimens.GridUnit
+import ch.threema.app.framework.EventHandler
 import ch.threema.app.framework.WithViewState
 import ch.threema.app.restrictions.AppRestrictions
+import ch.threema.app.utils.logScreenVisibility
+import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.kiloBytes
 import java.time.format.FormatStyle
 import kotlin.getValue
 import org.koin.android.ext.android.inject
 import org.koin.androidx.compose.koinViewModel
 
+private val logger = getThreemaLogger("LocalDataBackupActivity")
+
 class LocalDataBackupActivity : ThreemaComposeActivity() {
+    init {
+        logScreenVisibility(logger)
+    }
 
     private val appRestrictions: AppRestrictions by inject()
 
@@ -78,24 +83,26 @@ class LocalDataBackupActivity : ThreemaComposeActivity() {
 
         setContent {
             val viewModel = koinViewModel<LocalDataBackupViewModel>()
+            EventHandler(viewModel, ::handleViewModelEvent)
             ThreemaTheme {
                 LocalDataBackupScreen(
                     viewModel,
                     onClickBack = {
                         finish()
                     },
-                    onClickShareBackup = {
-                        // TODO(ANDR-4877): Implement
-                        showNotImplementedToast()
-                    },
-                    onClickRecoveryKey = {
-                        // TODO(ANDR-4877): Implement
-                        showNotImplementedToast()
-                    },
                     onClickCreateBackup = {
                         startActivity(CreateLocalDataBackupActivity.createIntent(this))
                     },
                 )
+            }
+        }
+    }
+
+    private fun handleViewModelEvent(event: LocalDataBackupViewModelEvent) {
+        when (event) {
+            LocalDataBackupViewModelEvent.ProceedToBackupCreation -> {
+                finish()
+                startActivity(CreateLocalDataBackupActivity.createIntent(this))
             }
         }
     }
@@ -113,16 +120,12 @@ class LocalDataBackupActivity : ThreemaComposeActivity() {
 private fun LocalDataBackupScreen(
     viewModel: LocalDataBackupViewModel,
     onClickBack: () -> Unit,
-    onClickShareBackup: () -> Unit,
-    onClickRecoveryKey: () -> Unit,
     onClickCreateBackup: () -> Unit,
 ) {
     WithViewState(viewModel) { state ->
         LocalDataBackupScreenContent(
             state = state,
             onClickBack = onClickBack,
-            onClickShareBackup = onClickShareBackup,
-            onClickRecoveryKey = onClickRecoveryKey,
             onClickCreateBackup = onClickCreateBackup,
         )
     }
@@ -133,8 +136,6 @@ private fun LocalDataBackupScreen(
 private fun LocalDataBackupScreenContent(
     state: LocalDataBackupViewState?,
     onClickBack: () -> Unit,
-    onClickShareBackup: () -> Unit,
-    onClickRecoveryKey: () -> Unit,
     onClickCreateBackup: () -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
@@ -169,31 +170,10 @@ private fun LocalDataBackupScreenContent(
                 modifier = horizontalPaddingModifier,
                 lastBackupData = state.lastBackupData,
             )
-            SpacerVertical(GridUnit.x5)
-
-            ButtonOutlined(
-                modifier = horizontalPaddingModifier.fillMaxWidth(),
-                text = stringResource(R.string.local_data_backup_share_backup_button),
-                leadingIcon = ButtonIconInfo(
-                    iconRes = R.drawable.ic_share_outline,
-                ),
-                onClick = onClickShareBackup,
-            )
-
-            SpacerVertical(GridUnit.x1)
-
-            ButtonOutlined(
-                modifier = horizontalPaddingModifier.fillMaxWidth(),
-                text = stringResource(R.string.local_data_backup_recovery_key_button),
-                leadingIcon = ButtonIconInfo(
-                    iconRes = R.drawable.ic_key_vertical,
-                ),
-                onClick = onClickRecoveryKey,
-            )
 
             SpacerRemainingVertical(minHeight = GridUnit.x1)
 
-            ButtonPrimaryRounded(
+            ButtonPrimary(
                 modifier = horizontalPaddingModifier
                     .fillMaxWidth(),
                 onClick = onClickCreateBackup,
@@ -208,10 +188,8 @@ private fun LastBackupDetails(
     modifier: Modifier,
     lastBackupData: LocalDataBackupViewState.LastBackupData,
 ) {
-    Surface(
+    RoundedCornerSurface(
         modifier = modifier,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        shape = RoundedCornerShape(size = GridUnit.x1_5),
     ) {
         Column(
             modifier = Modifier.padding(GridUnit.x2),
@@ -230,7 +208,7 @@ private fun LastBackupDetails(
                 LabeledRow(
                     label = stringResource(R.string.local_data_backup_date_and_time),
                 ) {
-                    val formatter = rememberDateTimeFormatter(FormatStyle.MEDIUM)
+                    val formatter = rememberDateTimeFormatter(FormatStyle.SHORT)
                     val formattedTime = formatter.format(lastBackupData.time)
                     Text(formattedTime)
                 }
@@ -315,8 +293,6 @@ private fun LocalDataBackupScreenContent_Screen() {
             ),
         ),
         onClickBack = {},
-        onClickShareBackup = {},
-        onClickRecoveryKey = {},
         onClickCreateBackup = {},
     )
 }

@@ -1,8 +1,8 @@
 package ch.threema.app.utils
 
-import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import ch.threema.android.isContentUri
 import ch.threema.base.utils.getThreemaLogger
 import java.io.FileInputStream
 import java.io.FileNotFoundException
@@ -17,14 +17,14 @@ fun getFromUri(context: Context, uri: Uri?): InputStream {
         throw FileNotFoundException()
     }
 
-    if (ContentResolver.SCHEME_CONTENT.equals(uri.scheme, ignoreCase = true)) {
+    if (uri.isContentUri()) {
         try {
             context.contentResolver.openInputStream(uri)
                 ?.let { inputStream ->
                     return inputStream
                 }
         } catch (_: FileNotFoundException) {
-            logger.info("Unable to get an InputStream for this file using ContentResolver: $uri")
+            logger.warn("Unable to get an InputStream for this file using ContentResolver: $uri")
         } catch (e: SecurityException) {
             throw IOException(e)
         }

@@ -4,11 +4,11 @@ import android.content.Context
 import ch.threema.app.R
 import ch.threema.app.ui.listitemholder.ComposeMessageHolder
 import ch.threema.app.utils.LinkifyUtil
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.data.status.ForwardSecurityStatusDataModel.ForwardSecurityStatusType
 
 class ForwardSecurityStatusChatAdapterDecorator(
-    messageModel: AbstractMessageModel?,
+    messageModel: MessageModel?,
     chatAdapterDecoratorListener: ChatAdapterDecoratorListener,
     linkifyListener: LinkifyUtil.LinkifyListener,
     helper: Helper?,

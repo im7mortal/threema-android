@@ -5,8 +5,8 @@ import ch.threema.android.ResolvedString
 import ch.threema.android.ResourceIdString
 import ch.threema.app.R
 import ch.threema.app.compose.conversation.models.ConversationUiModel
-import ch.threema.app.services.ContactService
 import ch.threema.domain.types.Identity
+import ch.threema.domain.types.Mention
 import ch.threema.storage.models.MessageType
 import java.time.Instant
 
@@ -33,11 +33,11 @@ object PreviewData {
             "Lorem ipsum dolor sit amet."
 
     val mentionNames = mapOf(
-        Identity(ContactService.ALL_USERS_PLACEHOLDER_ID) to ResourceIdString(R.string.all),
-        IDENTITY_ME to ResourceIdString(R.string.me_myself_and_i),
-        IDENTITY_OTHER_1 to ResolvedString("Roberto Diaz"),
-        IDENTITY_OTHER_2 to ResolvedString("Lisa Goldman"),
-        IDENTITY_BROADCAST to ResolvedString("Broadcast"),
+        Mention.AllUsers to ResourceIdString(R.string.all),
+        Mention.Identity(IDENTITY_ME) to ResourceIdString(R.string.me_myself_and_i),
+        Mention.Identity(IDENTITY_OTHER_1) to ResolvedString("Roberto Diaz"),
+        Mention.Identity(IDENTITY_OTHER_2) to ResolvedString("Lisa Goldman"),
+        Mention.Identity(IDENTITY_BROADCAST) to ResolvedString("Broadcast"),
     )
 
     val INSTANT_1 = Instant.ofEpochMilli(1_766_682_905_000L)
@@ -48,7 +48,7 @@ object PreviewData {
             body: String?,
             postedAt: Instant = Instant.now(),
             modifiedAt: Instant = Instant.now(),
-            mentionNames: Map<Identity, ResolvableString> = PreviewData.mentionNames,
+            mentionNames: Map<Mention, ResolvableString> = PreviewData.mentionNames,
         ) = ConversationUiModel.LatestMessageData(
             type = MessageType.TEXT,
             body = body,
@@ -64,7 +64,7 @@ object PreviewData {
             caption: String?,
             postedAt: Instant = Instant.now(),
             modifiedAt: Instant = Instant.now(),
-            mentionNames: Map<Identity, ResolvableString> = PreviewData.mentionNames,
+            mentionNames: Map<Mention, ResolvableString> = PreviewData.mentionNames,
         ) = ConversationUiModel.LatestMessageData(
             type = MessageType.FILE,
             body = "[\"\",\"\",\"application/octet-stream\",1,\"filename.bin\",0,true,\"$caption\",null,{}]",

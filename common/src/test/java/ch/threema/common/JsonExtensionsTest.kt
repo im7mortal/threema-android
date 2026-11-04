@@ -5,6 +5,9 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import org.json.JSONArray
 import org.json.JSONException
@@ -92,6 +95,37 @@ class JsonExtensionsTest {
         assertEquals(
             mapOf("a" to "A", "b" to "123", "c" to null, "d" to null, "e" to "false", "f" to null, "g" to "G"),
             parseJsonObjectAsStringMap(input),
+        )
+    }
+
+    @Test
+    fun `json element as string`() {
+        assertEquals("this is a string", Json.decodeFromString<JsonElement>("\"this is a string\"").stringOrNull)
+        assertEquals("42", Json.decodeFromString<JsonElement>("\"42\"").stringOrNull)
+        assertEquals("null", Json.decodeFromString<JsonElement>("\"null\"").stringOrNull)
+        assertEquals(null, Json.decodeFromString<JsonElement>("null").stringOrNull)
+        assertEquals(null, Json.decodeFromString<JsonElement>("42").stringOrNull)
+        assertEquals(null, Json.decodeFromString<JsonElement>("false").stringOrNull)
+    }
+
+    @Test
+    fun `pretty print json`() {
+        val input = Json.decodeFromString<JsonObject>("""{"a":"b","c":1.2,"d":[true,false],"e":{"f":"g"}}""")
+        assertEquals(
+            """
+                {
+                  "a": "b",
+                  "c": 1.2,
+                  "d": [
+                    true,
+                    false
+                  ],
+                  "e": {
+                    "f": "g"
+                  }
+                }
+            """.trimIndent(),
+            input.toString(prettyPrintIndent = "  "),
         )
     }
 }

@@ -36,7 +36,6 @@ import ch.threema.app.compose.common.text.conversation.EmojiSettings
 import ch.threema.app.compose.common.text.conversation.MentionFeature
 import ch.threema.app.compose.theme.ThreemaThemePreview
 import ch.threema.app.compose.theme.dimens.GridUnit
-import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.preference.service.PreferenceService.EmojiStyle
 import ch.threema.data.datatypes.AvailabilityStatus
 
@@ -45,7 +44,7 @@ fun AvailabilityStatusOwnBanner(
     modifier: Modifier = Modifier,
     status: AvailabilityStatus.Set,
     onClickEdit: () -> Unit,
-    @EmojiStyle emojiStyle: Int,
+    emojiStyle: EmojiStyle,
 ) {
     Row(
         modifier = modifier
@@ -127,7 +126,7 @@ private fun Preview_AvailabilityStatusOwnBanner(
                     modifier = Modifier.fillMaxWidth(),
                     status = availabilityStatus,
                     onClickEdit = {},
-                    emojiStyle = PreferenceService.EMOJI_STYLE_ANDROID,
+                    emojiStyle = EmojiStyle.ANDROID,
                 )
             }
         }

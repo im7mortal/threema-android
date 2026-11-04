@@ -189,7 +189,9 @@ class ProblemSolverActivity : ThreemaToolbarActivity() {
                 val intent = buildSettingsIntent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
                 startActivity(intent)
             }
-            Problem.DEBUG_LOG_FORCE_ENABLED -> Unit
+            Problem.DEBUG_LOG_FORCE_ENABLED,
+            Problem.DEPRECATED_ANDROID_VERSION,
+            -> Unit
         }
         updateViews()
     }

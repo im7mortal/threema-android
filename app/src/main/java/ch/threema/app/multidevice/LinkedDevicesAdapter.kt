@@ -10,9 +10,9 @@ import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView.ViewHolder
+import ch.threema.android.getColorFromAttribute
 import ch.threema.app.R
 import ch.threema.app.multidevice.LinkedDevicesAdapter.ListItem
-import ch.threema.app.utils.ConfigUtils
 import com.google.android.material.card.MaterialCardView
 
 class LinkedDevicesAdapter(
@@ -86,12 +86,8 @@ class LinkedDevicesAdapter(
 
         fun bind(listItem: ListItem.Device, onClickDevice: (LinkedDeviceInfoUiModel) -> Unit) {
             cardView.apply {
-                strokeWidth =
-                    resources.getDimensionPixelSize(listItem.deviceInfo.getListItemStrokeWidth())
-                strokeColor = ConfigUtils.getColorFromAttribute(
-                    context,
-                    listItem.deviceInfo.getListItemStrokeColor(),
-                )
+                strokeWidth = resources.getDimensionPixelSize(listItem.deviceInfo.getListItemStrokeWidth())
+                strokeColor = context.getColorFromAttribute(listItem.deviceInfo.getListItemStrokeColor())
                 setOnClickListener {
                     onClickDevice(listItem.deviceInfo)
                 }
@@ -99,8 +95,7 @@ class LinkedDevicesAdapter(
 
             platformIconIv.setImageResource(listItem.deviceInfo.getPlatformDrawable())
             platformIconIv.imageTintList = ColorStateList.valueOf(
-                ConfigUtils.getColorFromAttribute(
-                    context,
+                context.getColorFromAttribute(
                     listItem.deviceInfo.getListItemStrokeColor(),
                 ),
             )

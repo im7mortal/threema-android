@@ -9,4 +9,6 @@ data class BackupCenterViewState(
     val threemaSafeVisible: Boolean,
     val threemaSafeEnabled: Boolean,
     val lastBackupTime: Instant?,
+    val threemaSafeDisableDialogVisible: Boolean,
+    val disablingThreemaSafeInProgress: Boolean,
 )

@@ -91,7 +91,12 @@ public class ContentCommitComposeEditText extends ComposeEditText {
                     if (!isSticker(uri, mimeType)) {
                         // go through SendMediaActivity if this item does not qualify as a sticker
                         ArrayList<MediaItem> mediaItems = new ArrayList<>();
-                        mediaItems.add(new MediaItem(uri, mimeType, null));
+                        var type = MimeUtil.getMediaTypeFromMimeType(getContext(), mimeType, uri);
+                        var mediaItem = new MediaItem(uri, type, mimeType, null);
+                        if (type == MediaItem.TYPE_FILE) {
+                            mediaItem.setRenderingType(FileData.RENDERING_DEFAULT);
+                        }
+                        mediaItems.add(mediaItem);
 
                         MessageReceiver[] messageReceivers = new MessageReceiver[1];
                         messageReceivers[0] = messageReceiver;

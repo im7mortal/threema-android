@@ -3,13 +3,19 @@ package ch.threema.app.framework
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 
 @Composable
 inline fun <ViewEvent : Any> EventHandler(viewModel: BaseViewModel<*, ViewEvent>, crossinline handler: suspend (ViewEvent) -> Unit) {
-    LaunchedEffect(viewModel) {
-        viewModel.events.collect { event ->
-            handler(event)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(viewModel, lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.events.collect { event ->
+                handler(event)
+            }
         }
     }
 }

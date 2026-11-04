@@ -15,6 +15,7 @@ import android.widget.CompoundButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
 import androidx.annotation.AnyThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -38,6 +39,7 @@ import org.slf4j.Logger;
 import java.util.ArrayList;
 import java.util.List;
 
+import ch.threema.android.permissions.CameraPermissionContract;
 import ch.threema.app.BuildConfig;
 import ch.threema.app.R;
 import ch.threema.app.activities.DisableBatteryOptimizationsActivity;
@@ -109,13 +111,10 @@ public class SessionsActivity extends ThreemaToolbarActivity implements
 
     private static final int REQUEST_ID_INTRO_WIZARD = 338;
     private static final int REQUEST_ID_DISABLE_BATTERY_OPTIMIZATIONS = 339;
-    private static final int REQUEST_CODE_QR_SCANNER = 26657;
 
     private static final int MENU_POS_RENAME = 0;
     private static final int MENU_POS_START_STOP = 1;
     private static final int MENU_POS_REMOVE = 2;
-
-    private static final int PERMISSION_REQUEST_CAMERA = 1;
 
     @NonNull
     private static final String DIALOG_TAG_MDM_CONSTRAINTS = "webConstrainedByAdmin";
@@ -260,16 +259,33 @@ public class SessionsActivity extends ThreemaToolbarActivity implements
         }
     };
 
+    private final ActivityResultLauncher<String> scanQrCodeLauncher = registerForActivityResult(new QRScannerActivity.Contract(), scannedContent -> {
+        if (scannedContent != null) {
+            handleScannedQrCode(scannedContent);
+        }
+    });
+    private final ActivityResultLauncher<Unit> cameraPermissionLauncher = registerForActivityResult(new CameraPermissionContract(), isGranted -> {
+        if (isGranted) {
+            scanQR();
+        } else if (!shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
+            // TODO(ANDR-5211): Use rationale as intended
+            ConfigUtils.showPermissionRationale(this, findViewById(R.id.parent_layout), R.string.permission_camera_qr_required);
+            if (dependencies.getSessionService().getAllSessionModels().isEmpty()) {
+                enableSwitch.setCheckedSilent(false);
+            }
+        }
+    });
+
     private boolean activityInitialized = false;
 
     /**
      * Make sure that all open dialogs are closed.
      */
     private void closeAllDialogs() {
-        DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_ITEM_MENU, true);
-        DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_REALLY_DELETE_SESSION, true);
-        DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_REALLY_DELETE_ALL_SESSIONS, true);
-        DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_EDIT_LABEL, true);
+        DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_ITEM_MENU);
+        DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_REALLY_DELETE_SESSION);
+        DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_REALLY_DELETE_ALL_SESSIONS);
+        DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_EDIT_LABEL);
     }
 
     @Override
@@ -384,7 +400,7 @@ public class SessionsActivity extends ThreemaToolbarActivity implements
 
         multiDeviceBannerComposeView = this.findViewById(R.id.multi_device_banner_compose);
         if (ConfigUtils.isMultiDeviceEnabled()) {
-            ComposeJavaBridge.INSTANCE.setMultiDeviceBanner(
+            ComposeJavaBridge.setMultiDeviceBanner(
                 multiDeviceBannerComposeView,
                 () -> {
                     startActivity(new Intent(this, LinkedDevicesActivity.class));
@@ -691,22 +707,20 @@ public class SessionsActivity extends ThreemaToolbarActivity implements
         }
     }
 
-    /**
-     * Initiate a session by starting the QR code scanner.
-     */
     private void initiateSession() {
-        //start the qr scanner
-        if (ConfigUtils.requestCameraPermissions(this, null, PERMISSION_REQUEST_CAMERA)) {
-            this.scanQR();
-        } else if (dependencies.getSessionService().getAllSessionModels().isEmpty()) {
-            enableSwitch.setCheckedSilent(false);
+        if (CameraPermissionContract.isPermissionGranted(this)) {
+            scanQR();
+        } else {
+            cameraPermissionLauncher.launch(Unit.INSTANCE);
+            if (dependencies.getSessionService().getAllSessionModels().isEmpty()) {
+                enableSwitch.setCheckedSilent(false);
+            }
         }
     }
 
     private void scanQR() {
         logger.info("Initiate QR scan");
-        var intent = QRScannerActivity.createIntent(this, getString(R.string.webclient_qr_scan_message));
-        startActivityForResult(intent, REQUEST_CODE_QR_SCANNER);
+        scanQrCodeLauncher.launch(getString(R.string.webclient_qr_scan_message));
     }
 
     @Override
@@ -728,34 +742,30 @@ public class SessionsActivity extends ThreemaToolbarActivity implements
                     this.activityInitialized();
                 }
                 break;
-            case REQUEST_CODE_QR_SCANNER:
-                if (resultCode == RESULT_OK) {
-                    String payload = QRScannerActivity.extractResult(intent);
-                    if (payload != null && !payload.isEmpty()) {
-                        final WebSessionQRCodeParser webSessionQrCodeParser = new WebSessionQRCodeParserImpl();
-                        try {
-                            final byte[] pl = Base64.decode(payload);
-                            final WebSessionQRCodeParser.Result qrResult = webSessionQrCodeParser.parse(pl);
-                            this.startByQrResult(qrResult);
-                        } catch (WebSessionQRCodeParser.InvalidQrCodeException | IllegalArgumentException e) {
-                            logger.error("Could not initiate new web client session", e);
-                            final boolean isMdJoinOfferQrCode = payload.startsWith(MultiDeviceManager.DEVICE_JOIN_OFFER_URI_PREFIX);
-                            GenericAlertDialog.newInstance(
-                                isMdJoinOfferQrCode
-                                    ? R.string.webclient_scanned_md_linking_qr_code_title
-                                    : R.string.webclient_init_session,
-                                isMdJoinOfferQrCode
-                                    ? R.string.webclient_scanned_md_linking_qr_code_message
-                                    : R.string.webclient_invalid_qr_code,
-                                R.string.ok,
-                                0
-                            ).show(getSupportFragmentManager(), DIALOG_TAG_FAILED_INITIATE_SESSION);
-                        }
-                    }
-                }
-
-                this.updateView();
         }
+    }
+
+    private void handleScannedQrCode(@NonNull String payload) {
+        final WebSessionQRCodeParser webSessionQrCodeParser = new WebSessionQRCodeParserImpl();
+        try {
+            final byte[] pl = Base64.decode(payload);
+            final WebSessionQRCodeParser.Result qrResult = webSessionQrCodeParser.parse(pl);
+            this.startByQrResult(qrResult);
+        } catch (WebSessionQRCodeParser.InvalidQrCodeException | IllegalArgumentException e) {
+            logger.error("Could not initiate new web client session", e);
+            final boolean isMdJoinOfferQrCode = payload.startsWith(MultiDeviceManager.DEVICE_JOIN_OFFER_URI_PREFIX);
+            GenericAlertDialog.newInstance(
+                isMdJoinOfferQrCode
+                    ? R.string.webclient_scanned_md_linking_qr_code_title
+                    : R.string.webclient_init_session,
+                isMdJoinOfferQrCode
+                    ? R.string.webclient_scanned_md_linking_qr_code_message
+                    : R.string.webclient_invalid_qr_code,
+                R.string.ok,
+                0
+            ).show(getSupportFragmentManager(), DIALOG_TAG_FAILED_INITIATE_SESSION);
+        }
+        updateView();
     }
 
     private void startByQrResult(@NonNull final WebSessionQRCodeParser.Result qrCodeResult) {
@@ -1000,21 +1010,6 @@ public class SessionsActivity extends ThreemaToolbarActivity implements
 
             if (remove) {
                 dependencies.getWebClientSessionModelFactory().delete(model);
-            }
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == PERMISSION_REQUEST_CAMERA) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                this.scanQR();
-            } else if (!this.shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
-                ConfigUtils.showPermissionRationale(this, findViewById(R.id.parent_layout), R.string.permission_camera_qr_required);
-                if (dependencies.getSessionService().getAllSessionModels().isEmpty()) {
-                    this.enableSwitch.setCheckedSilent(false);
-                }
             }
         }
     }

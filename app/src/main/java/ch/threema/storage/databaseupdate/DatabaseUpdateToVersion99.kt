@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * fix incoming group sync request constraint
+ */
 class DatabaseUpdateToVersion99(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -28,8 +31,6 @@ class DatabaseUpdateToVersion99(
         // The migration of the content would be somehow risky because the old table could contain
         // data that violates the foreign key constraint.
     }
-
-    override fun getDescription() = "fix incoming group sync request constraint"
 
     override val version = 99
 }

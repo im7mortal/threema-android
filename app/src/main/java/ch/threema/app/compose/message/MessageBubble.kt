@@ -261,7 +261,7 @@ private fun MessageBubble_Preview() {
         isOutbox = true,
         linkifyListener = object : LinkifyUtil.LinkifyListener {
             override fun onLinkNeedsConfirmation(warning: String, uri: Uri) {}
-            override fun showBottomSheetGridDialog(items: ArrayList<BottomSheetItem?>?) {}
+            override fun showBottomSheetGridDialog(items: List<BottomSheetItem>) {}
             override fun shouldHandleLinkClick() = false
         },
         shouldMarkupText = true,

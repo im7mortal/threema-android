@@ -4,11 +4,11 @@ import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.managers.ServiceManager
 import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.app.processors.incomingcspmessage.ReceiveStepsResult
+import ch.threema.app.processors.incomingcspmessage.blocking.IncomingCspMessageBlockingDetector
 import ch.threema.app.processors.incomingcspmessage.getSubTaskFromMessage
 import ch.threema.app.processors.incomingcspmessage.workdelta.IncomingWorkSyncDeltaMessageTask
 import ch.threema.app.processors.push.IncomingWebSessionResumeMessageTask
 import ch.threema.app.protocolsteps.Contact
-import ch.threema.app.protocolsteps.IdentityBlockedSteps
 import ch.threema.app.protocolsteps.Init
 import ch.threema.app.protocolsteps.Invalid
 import ch.threema.app.protocolsteps.SpecialContact
@@ -30,7 +30,6 @@ import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.domain.models.AcquaintanceLevel
 import ch.threema.domain.models.IdentityState
 import ch.threema.domain.models.MessageId
-import ch.threema.domain.protocol.api.APIConnector
 import ch.threema.domain.protocol.connection.data.CspMessage
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.protocol.csp.coders.MessageBox
@@ -54,6 +53,7 @@ import ch.threema.domain.taskmanager.catchAllExceptNetworkException
 import ch.threema.domain.taskmanager.catchExceptNetworkException
 import ch.threema.domain.taskmanager.getEncryptedIncomingMessageEnvelope
 import ch.threema.domain.types.IdentityString
+import java.io.IOException
 import java.time.Instant
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -66,6 +66,7 @@ class IncomingMessageTask(
     private val globalEventBuses: GlobalEventBuses,
     private val typingIndicatorManager: TypingIndicatorManager,
 ) : ActiveComposableTask<Unit>, KoinComponent {
+
     private val contactService: ContactService by inject()
     private val contactModelRepository: ContactModelRepository by inject()
     private val contactStore: ContactStore by inject()
@@ -74,13 +75,9 @@ class IncomingMessageTask(
     private val messageService: MessageService by inject()
     private val multiDeviceManager: MultiDeviceManager by inject()
     private val forwardSecurityMessageProcessor: ForwardSecurityMessageProcessor by inject()
-    private val identityBlockedSteps: IdentityBlockedSteps by inject()
     private val validContactsLookupSteps: ValidContactsLookupSteps by inject()
-    private val incomingForwardSecurityPreProcessor by lazy {
-        IncomingForwardSecurityProcessor(
-            serviceManager,
-        )
-    }
+    private val incomingForwardSecurityPreProcessor by lazy { IncomingForwardSecurityProcessor(serviceManager) }
+    private val incomingCspMessageBlockingDetector: IncomingCspMessageBlockingDetector by inject()
 
     override suspend fun run(handle: ActiveTaskCodec) {
         suspend {
@@ -91,9 +88,9 @@ class IncomingMessageTask(
 
             logger.error("Processing message {} from {} failed", messageId, fromIdentity, e)
 
-            // If we catch a network related exception, we throw a protocol exception to trigger a
+            // If we catch an API or network related exception, we throw a protocol exception to trigger a
             // reconnect by the task manager.
-            if (e is APIConnector.HttpConnectionException || e is APIConnector.NetworkException) {
+            if (e is IOException) {
                 logger.error("Could not process message {} from {}", messageId, fromIdentity, e)
                 throw ProtocolException(e.message ?: "")
             }
@@ -160,29 +157,17 @@ class IncomingMessageTask(
         }
 
         if (message == null) {
-            // Note that if the message is null, it is an fs control message or an invalid message
-            // that does not need any further processing. Therefore we just acknowledge the message.
+            // Note that if the message is null, it is a fs control message or an invalid message
+            // that does not need any further processing. Therefore, we just acknowledge the message.
             // Note that we need to protect fs control message against replay.
             acknowledgeMessage(messageBox, true, peerRatchetIdentifier, handle)
             return
         }
 
         suspend {
-            if (!message.exemptFromBlocking()) {
-                val blockState = identityBlockedSteps.run(
-                    identity = message.fromIdentity,
-                )
-                if (blockState.isBlocked()) {
-                    logger.info(
-                        "Message {} from {} will be discarded: Contact is implicitly or explicitly blocked.",
-                        message.messageId,
-                        message.fromIdentity,
-                    )
-                    throw DiscardMessageException(
-                        message,
-                        peerRatchetIdentifier,
-                    )
-                }
+            if (incomingCspMessageBlockingDetector.shouldBlockMessage(message)) {
+                logger.info("Message {} from {} will be discarded: Implicitly or explicitly blocked", message.messageId, message.fromIdentity)
+                throw DiscardMessageException(message, peerRatchetIdentifier)
             }
 
             if (message.fromIdentity == SPECIAL_CONTACT_3MAPUSH_IDENTITY) {

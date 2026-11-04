@@ -83,41 +83,4 @@ public class JSONUtilTest {
             // OK
         }
     }
-
-    @Test
-    public void testGetStringArraySuccess() throws JSONException {
-        final JSONArray jsonArray = new JSONArray();
-        jsonArray.put("hello");
-        jsonArray.put("world");
-        final String[] stringArray = JSONUtil.getStringArray(jsonArray);
-        Assert.assertArrayEquals(stringArray, new String[]{"hello", "world"});
-    }
-
-    @Test
-    public void testGetStringArrayWrongType() {
-        final JSONArray jsonArray = new JSONArray();
-        jsonArray.put("hello");
-        jsonArray.put(123);
-        try {
-            JSONUtil.getStringArray(jsonArray);
-            Assert.fail("Expected JSONException, but none thrown");
-        } catch (JSONException e) {
-            Assert.assertEquals("Value at 1 is not a string.", e.getMessage());
-        }
-    }
-
-    @Test
-    public void testGetStringArrayNullValue() {
-        final JSONArray jsonArray = new JSONArray();
-        jsonArray.put("hello");
-        jsonArray.put("world");
-        jsonArray.put(null);
-        try {
-            JSONUtil.getStringArray(jsonArray);
-            Assert.fail("Expected JSONException, but none thrown");
-        } catch (JSONException e) {
-            Assert.assertEquals("Value at 2 is null.", e.getMessage());
-        }
-    }
-
 }

@@ -3,8 +3,15 @@ package ch.threema.app.services
 import kotlinx.coroutines.flow.StateFlow
 
 interface LockAppService {
+
+    /**
+     * Whether the app is protected with a lock mechanism. It may be that the app is currently unlocked.
+     */
     val isLockingEnabled: Boolean
 
+    /**
+     * Whether the app is currently locked, i.e., a lock mechanism is set up and the app has not been recently unlocked.
+     */
     val isLocked: Boolean
 
     fun watchLockState(): StateFlow<LockState>

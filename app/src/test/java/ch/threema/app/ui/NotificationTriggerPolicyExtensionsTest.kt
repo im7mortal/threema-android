@@ -1,12 +1,12 @@
 package ch.threema.app.ui
 
-import ch.threema.app.services.ContactService
 import ch.threema.common.minus
 import ch.threema.common.plus
 import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverride
 import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverridePolicy
 import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverride
 import ch.threema.data.datatypes.GroupNotificationTriggerPolicyOverridePolicy
+import ch.threema.domain.types.Mention
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -15,10 +15,10 @@ import kotlin.time.Duration.Companion.seconds
 import testdata.TestData
 
 class NotificationTriggerPolicyExtensionsTest {
-    private val myIdentity = TestData.Identities.ME.value
+    private val myIdentity = TestData.Identities.ME
     private val messageWithoutMention = "This is a simple message."
-    private val messageWithAllMention = "This is a message for @[${ContactService.ALL_USERS_PLACEHOLDER_ID}]."
-    private val messageWithMention = "This is a message for @[$myIdentity]."
+    private val messageWithAllMention = "This is a message for ${Mention.AllUsers}."
+    private val messageWithMention = "This is a message for ${Mention.Identity(myIdentity)}."
 
     @Test
     fun `contact notification trigger policy mute until applies at`() {

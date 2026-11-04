@@ -1,9 +1,9 @@
 package ch.threema.app.poll
 
-import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.single
 
 val pollFeatureModule = module {
-    singleOf(::PollGroupStatusMonitor)
-    singleOf(::PollVoteRemovalMonitor)
+    single<PollGroupStatusMonitor>()
+    single<PollVoteRemovalMonitor>()
 }

@@ -4,11 +4,12 @@ import android.content.Context
 import androidx.work.*
 import ch.threema.android.buildOneTimeWorkRequest
 import ch.threema.android.setInputData
+import ch.threema.app.GlobalAppState
 import ch.threema.app.di.awaitAppFullyReadyWithTimeout
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.DeviceService
 import ch.threema.app.services.LifetimeService
-import ch.threema.app.services.releaseConnectionLinger
+import ch.threema.app.services.withConnection
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.taskmanager.TaskManager
 import kotlin.time.Duration.Companion.seconds
@@ -26,14 +27,17 @@ class ConnectivityChangeWorker(
     private val deviceService: DeviceService by inject()
     private val taskManager: TaskManager by inject()
     private val lifetimeService: LifetimeService by inject()
+    private val globalAppState: GlobalAppState by inject()
 
     override suspend fun doWork(): Result {
+        if (globalAppState.specialMode != null) {
+            return Result.retry()
+        }
+        awaitAppFullyReadyWithTimeout(timeout = 20.seconds)
+            ?: return Result.retry()
+
         val networkState = inputData.getString(EXTRA_NETWORK_STATE)
 
-        awaitAppFullyReadyWithTimeout(timeout = 20.seconds)
-            ?: return Result.success()
-
-        val preferenceService = preferenceService
         val isOnline = deviceService.isOnline
         val wasOnline = preferenceService.getLastOnlineStatus()
         preferenceService.setLastOnlineStatus(isOnline)
@@ -49,8 +53,7 @@ class ConnectivityChangeWorker(
         try {
             if (isOnline && taskManager.hasPendingTasks()) {
                 logger.info("Messages in queue; acquiring connection")
-                lifetimeService.acquireConnection(SOURCE_TAG)
-                lifetimeService.releaseConnectionLinger(SOURCE_TAG, MESSAGE_SEND_TIME)
+                lifetimeService.withConnection(SOURCE_TAG, linger = MESSAGE_SEND_TIME)
             }
         } catch (e: Exception) {
             logger.error("Failed to process pending tasks", e)

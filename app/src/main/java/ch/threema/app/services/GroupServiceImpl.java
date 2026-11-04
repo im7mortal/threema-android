@@ -9,6 +9,7 @@ import com.bumptech.glide.RequestManager;
 
 import org.slf4j.Logger;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,6 +42,7 @@ import ch.threema.app.services.poll.PollService;
 import ch.threema.app.tasks.OutgoingGroupSyncRequestTask;
 import ch.threema.app.utils.GroupFeatureSupport;
 import ch.threema.app.utils.GroupUtil;
+import ch.threema.app.wallpapers.WallpaperService;
 import ch.threema.data.datatypes.ContactNameFormat;
 import ch.threema.data.datatypes.ConversationVisibility;
 import ch.threema.data.datatypes.GroupConversationId;
@@ -69,7 +71,7 @@ import ch.threema.storage.factories.GroupMessageModelFactory;
 import ch.threema.storage.factories.RejectedGroupMessageFactory;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.group.GroupMemberModel;
-import ch.threema.storage.models.group.GroupMessageModel;
+import ch.threema.storage.models.GroupMessageModel;
 import ch.threema.storage.models.group.GroupModelOld;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.access.Access;
@@ -91,7 +93,6 @@ public class GroupServiceImpl implements GroupService {
     private final @NonNull AvatarCacheService avatarCacheService;
     private final @NonNull FileService fileService;
     private final @NonNull WallpaperService wallpaperService;
-    private final @NonNull ConversationCategoryService conversationCategoryService;
     private final @NonNull RingtoneService ringtoneService;
     private final @NonNull ConversationTagService conversationTagService;
     private final @NonNull PreferenceService preferenceService;
@@ -118,7 +119,6 @@ public class GroupServiceImpl implements GroupService {
         @NonNull AvatarCacheService avatarCacheService,
         @NonNull FileService fileService,
         @NonNull WallpaperService wallpaperService,
-        @NonNull ConversationCategoryService conversationCategoryService,
         @NonNull RingtoneService ringtoneService,
         @NonNull ConversationTagService conversationTagService,
         @NonNull PreferenceService preferenceService,
@@ -135,7 +135,6 @@ public class GroupServiceImpl implements GroupService {
         this.avatarCacheService = avatarCacheService;
         this.fileService = fileService;
         this.wallpaperService = wallpaperService;
-        this.conversationCategoryService = conversationCategoryService;
         this.ringtoneService = ringtoneService;
         this.preferenceService = preferenceService;
         this.conversationTagService = conversationTagService;
@@ -197,10 +196,7 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    public void removeGroupBelongings(
-        @NonNull GroupModel groupModel,
-        @NonNull TriggerSource triggerSource
-    ) {
+    public void removeGroupBelongings(@NonNull GroupModel groupModel) {
         // Obtain some services through service manager
         //
         // Note: We cannot put these services in the constructor due to circular dependencies.
@@ -234,13 +230,16 @@ public class GroupServiceImpl implements GroupService {
 
         // Remove conversation settings (e.g. wallpaper or custom ringtones)
         final @NonNull GroupConversationId groupConversationId = new GroupConversationId(groupModel.getDatabaseId());
-        this.wallpaperService.removeWallpaper(groupConversationId);
+        try {
+            this.wallpaperService.setConversationWallpaperSync(groupConversationId, WallpaperService.Wallpaper.Default.INSTANCE);
+        } catch (IOException e) {
+            logger.error("Failed to delete group wallpaper", e);
+        }
         this.ringtoneService.removeCustomRingtone(groupConversationId);
-        this.conversationCategoryService.persistRemovePrivateMark(groupConversationId);
         ShortcutUtil.deleteShareTargetShortcut(groupConversationId);
         ShortcutUtil.deletePinnedShortcut(groupConversationId);
-        this.conversationTagService.removeAll(groupConversationId, triggerSource);
-        serviceManager.getNotificationService().cancel(groupConversationId);
+        this.conversationTagService.removeAll(groupConversationId);
+        serviceManager.getNotificationService().cancelAllConversationNotifications(groupConversationId);
 
         // Remove conversation
         GroupModelOld oldGroupModel = getById((int) groupModel.getDatabaseId());
@@ -291,12 +290,15 @@ public class GroupServiceImpl implements GroupService {
 
         // Remove conversation settings (e.g. wallpaper or custom ringtones)
         final @NonNull GroupConversationId groupConversationId = new GroupConversationId(groupModel.getId());
-        this.wallpaperService.removeWallpaper(groupConversationId);
+        try {
+            this.wallpaperService.setConversationWallpaperSync(groupConversationId, WallpaperService.Wallpaper.Default.INSTANCE);
+        } catch (IOException e) {
+            logger.error("Failed to delete group wallpaper", e);
+        }
         this.ringtoneService.removeCustomRingtone(groupConversationId);
-        this.conversationCategoryService.persistRemovePrivateMark(groupConversationId);
         ShortcutUtil.deleteShareTargetShortcut(groupConversationId);
         ShortcutUtil.deletePinnedShortcut(groupConversationId);
-        this.conversationTagService.removeAll(groupConversationId, TriggerSource.LOCAL);
+        this.conversationTagService.removeAll(groupConversationId);
 
         // Remove conversation
         conversationService.removeFromCache(groupModel);
@@ -849,7 +851,7 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @NonNull
-    public List<GroupModelOld> getGroupsByIdentity(@Nullable String identity) {
+    public List<GroupModelOld> getGroupsContainingIdentity(@Nullable String identity) {
         final @NonNull List<GroupModelOld> results = new ArrayList<>();
         if (identity == null || identity.isEmpty() || groupModelCache == null) {
             return results;

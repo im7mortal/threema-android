@@ -37,7 +37,7 @@
     <!-- Title of section on "Settings" screen, for advanced settings -->
     <string name="prefs_advanced">Розширені налаштування</string>
     <!-- Title of section on "Settings" screen, for information and other options about the app -->
-    <string name="prefs_about">Про додаток</string>
+    <string name="prefs_about">Інформація</string>
     <string name="prefs_privacy">Конфіденційність</string>
     <string name="prefs_notifications">Звуки та сповіщення</string>
     <string name="prefs_chatdisplay">Чат</string>
@@ -173,11 +173,11 @@
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="backup_sum">Експортувати ID ${app_name_short}</string>
     <string name="backup_and_delete">Рез. копіювання й видалення</string>
-    <string name="delete_id_title">Видалити ID</string>
+    <string name="delete_id_menu_title">Видалити ID та дані</string>
     <string name="delete_id_message">Створіть резервну копію цього ID або експортуйте його, щоб і надалі надсилати й отримувати
 		повідомлення.\n\nЯкщо ви більше не хочете використовувати цей ID, радимо встановити пароль для відкликання та відкликати ID на сторінці myid.threema.ch/revoke, перш ніж видаляти його.</string>
     <string name="delete_id_message2">Останнє попередження: справді видалити ID із цього пристрою?</string>
-    <string name="delete_id_sum">Остаточно видалити ID ${app_name_short} й усі дані із цього пристрою</string>
+    <string name="delete_id_summary">Видалити ID ${app_name_short} й усі дані із цього пристрою</string>
     <string name="delete_all_data_prompt">Видалити всі дані додатка?</string>
     <string name="backup_password_summary">Ваш експортований ID буде зашифровано за допомогою пароля. Використовуйте комбінацію з букв, цифр і спеціальних знаків. Запам\'ятайте цей пароль!</string>
     <string name="backup_password_again_summary">Введіть пароль ще раз</string>
@@ -306,8 +306,8 @@
 		загальне сповіщення</string>
     <string name="chat_history_attached">Історія чатів додається.</string>
     <string name="backup_data_title">Резервне копіювання</string>
-    <string name="backup_data_password_msg">Ваші дані буде збережено у вигляді ZIP-файлу у внутрішній пам\'яті пристрою.
-		Ви зможете відновити їх на будь-якому пристрої Android. Введіть пароль, щоб захистити резервну копію своїх даних.</string>
+    <string name="backup_data_password_msg">Ваші дані буде збережено як ZIP-файл у внутрішній пам\'яті пристрою.
+		Ви зможете відновити їх на будь-якому пристрої Android. Введіть пароль, щоб захистити резервну копію даних.</string>
     <string name="restore_data_password_msg">Введіть пароль, який ви вказали під час створення цієї резервної копії.</string>
     <string name="backup_data_media">Додати великі медіафайли (відео, документи, оригінали зображень)</string>
     <string name="backup_data_new">Створити резервну копію</string>
@@ -456,12 +456,6 @@
     <string name="media_gallery_pictures">Зображення</string>
     <string name="media_gallery_videos">Відео</string>
     <string name="group_membership_title">Є учасником таких груп:</string>
-    <string name="group_description">Опис групи</string>
-    <string name="change_group_description">Змінити опис групи</string>
-    <string name="add_group_description">Додати опис групи</string>
-    <string name="read_more">розгорнути</string>
-    <string name="read_less">згорнути</string>
-    <string name="changed_group_desc_date">Дата останньої зміни:\u0020</string>
     <string name="num_items_sected">Вибрано %s</string>
     <string name="really_delete_media">Справді видалити повідомлення з медіафайлами (%d)?</string>
     <string name="check_updates">Шукати оновлення</string>
@@ -476,7 +470,7 @@
     <string name="contact_now_unblocked">Контакт розблоковано</string>
     <string name="share_conversation_body">Щоб відкрити цей файл, скористайтеся сучасною програмою для роботи з ZIP-файлами, яка підтримує стандарт шифрування AES, наприклад
 		http://www.7-zip.org або https://itunes.apple.com/us/app/the-unarchiver/id425424353</string>
-    <string name="enter_zip_password_body">Цей чат буде надіслано у вигляді зашифрованого ZIP-файлу. Установіть для нього пароль:</string>
+    <string name="enter_zip_password_body">Цей чат буде надіслано як зашифрований ZIP-файл. Установіть для нього пароль:</string>
     <string name="ballot_create">Створити опитування</string>
     <string name="ballot_choice_add">Додайте варіант</string>
     <string name="ballot_state_closed">Завершено</string>
@@ -826,6 +820,8 @@
     <string name="text">Текст</string>
     <string name="undo">Скасувати</string>
     <string name="android_backup_date">Останнє рез. копіювання</string>
+    <string name="threema_safe_configuration_title">Конфігурація</string>
+    <string name="threema_safe_last_backup_date_and_time">Час</string>
     <string name="discard">Відхилити</string>
     <string name="android_backup_restart_threema">Зачекайте. Додаток перезапуститься через кілька секунд.</string>
     <string name="battery_optimizations_title">Вимкнути оптимізацію використання акумулятора</string>
@@ -1006,7 +1002,8 @@
     <string name="safe_no_backup_found">Резервну копію не знайдено на сервері. Перевірте ID та пароль.</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="safe_select_id">Знайдено кілька ID ${app_name_short}. Виберіть потрібний:</string>
-    <string name="safe_backup_now">Створити резервну копію</string>
+    <!-- Button label on "Threema Safe" feature, to allow the user to trigger the backup process -->
+    <string name="safe_backup_now">Створити рез. копію</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="safe_enable_explain_short">Увімкніть ${app_name_short} Safe, щоб автоматично створювати безпечні й анонімні резервні копії ваших найважливіших даних.</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
@@ -1030,7 +1027,7 @@
     <string name="safe_upload_size_exceeded">Перевищено ліміт сервера на передавання</string>
     <string name="safe_connection_error">Помилка з\'єднання</string>
     <string name="safe_server_name">Назва сервера</string>
-    <string name="safe_max_backup_size">Максимальний розмір рез. копії</string>
+    <string name="safe_max_backup_size">Макс. розмір рез. копії</string>
     <string name="safe_retention">Термін зберігання рез. копії</string>
     <string name="safe_result">Результат рез. копіювання</string>
     <string name="number_of_days">%d дн.</string>
@@ -1122,7 +1119,7 @@
     <string name="lp_or_select_nearby">Або виберіть місце поблизу</string>
     <string name="lp_use_this_location">Надіслати це розташування?</string>
     <string name="lp_search_place">Введіть місто</string>
-    <string name="data_backup_headline">Створіть резервну копію даних, щоб зберегти всю свою інформацію, включно із чатами й медіафайлами.</string>
+    <string name="data_backup_headline">Створіть резервну копію, щоб зберегти всі дані, зокрема чати й медіафайли.</string>
     <string name="data_backup_save_path">Шлях до рез. копії</string>
     <string name="change">Змінити</string>
     <string name="data_backup_last_date">Дата створення останньої рез. копії</string>
@@ -1325,6 +1322,7 @@
     <string name="prefs_header_receipts">Статуси</string>
     <string name="prefs_title_reset_receipts">Скинути індивідуальні налаштування</string>
     <string name="prefs_sum_reset_receipts">Скинути індивідуальні налаштування статусу прочитання та індикатора вводу для контактів до параметрів за умовчанням</string>
+    <string name="confirm_sum_reset_receipts">Скинути індивідуальні налаштування статусу прочитання та індикатора вводу для контактів до параметрів за умовчанням?</string>
     <string name="reset_successful">Скинуто до налаштувань за умовчанням</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="qr_scanner_id_hint">Підтвердьте дані контакта, відсканувавши його QR-код. Щоб відобразити код, контакт має натиснути своє фото профілю ліворуч вгорі головного екрана ${app_name_short}.</string>
@@ -1588,6 +1586,10 @@
     <string name="problemsolver_title_app_battery_usgae_optimized">\"Використання акумулятора додатком\" – \"Оптимізовано\"</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="problemsolver_explain_app_battery_usgae_optimized">Цьому додатку заборонено підтримувати постійне з\'єднання із серверами, що необхідно для роботи ${app_name_short} Push. Ви не отримуватимете сповіщення про нові повідомлення, коли додаток працює у фоновому режимі. Щоб виправити це, натисніть \"Використання акумулятора додатком\" і виберіть \"Необмежено\".</string>
+    <!-- Title of warning message that informs the user that the version of Android they are using will soon no longer be supported. -->
+    <string name="problemsolver_title_android_version_deprecated">Незабаром ми припинимо підтримку цієї версії Android</string>
+    <!-- Details of warning message that informs the user that the version of Android they are using will soon no longer be supported. ${app_name} is a placeholder that should be kept as-is and not translated. -->
+    <string name="problemsolver_explain_android_version_deprecated">Ви користуєтеся пристроєм Android, який більше не отримує оновлень системи. З міркувань безпеки ${app_name} незабаром припинить підтримку цієї версії Android.</string>
     <string name="problemsolver_to_settings">Відкрити налаштування</string>
     <!-- Label on button to dismiss/hide a warning -->
     <string name="problemsolver_dismiss">Закрити</string>
@@ -1598,9 +1600,9 @@
     <string name="unsupported_image_type">Непідтримуваний тип зображення: %s</string>
     <string name="application_setup_steps_failed">Щоб перевірити стан ваших контактів, потрібно активне з\'єднання з Інтернетом. Переконайтеся, що ваш пристрій підключено до Інтернету, і повторіть спробу.</string>
     <string name="add_contact_failed">Не вдалося додати контакт</string>
-    <string name="edit_message_not_supported_for_contact">Неможливо редагувати повідомлення, оскільки в отримувача встановлено версію додатка, яка не підтримує цю функцію.</string>
+    <string name="edit_message_not_supported_for_contact">Не вдалося відредагувати повідомлення: отримувач використовує застарілу версію додатка.</string>
     <string name="edit_message_not_supported_for_all_group_members">Ваші зміни не бачитимуть такі учасники групи: %1$s</string>
-    <string name="edit_message_not_supported_for_any_group_members">Неможливо редагувати повідомлення, оскільки в жодного з учасників групи не встановлено версію додатка, яка підтримує цю функцію.</string>
+    <string name="edit_message_not_supported_for_any_group_members">Не вдалося відредагувати повідомлення: усі учасники групи використовують застарілу версію додатка.</string>
     <string name="prefs_notification_settings_summary">Змінити звук і вібрацію в налаштуваннях системи</string>
     <string name="new_messages">Нові повідомлення</string>
     <string name="new_group_messages">Нові групові повідомлення</string>
@@ -1611,14 +1613,14 @@
     <string name="group_chats">Групові чати</string>
     <string name="edit_history_file_no_caption">Без підпису</string>
     <string name="prefs_title_error_reporting">Повідомлення про помилки</string>
-    <string name="prefs_send_error_reports">Надсилати анонімні повідомлення</string>
+    <string name="prefs_send_error_reports">Анонімно повідомляти</string>
     <string name="error_reporting_option_never_send">Ніколи</string>
     <string name="error_reporting_option_always_send">Завжди</string>
     <string name="error_reporting_option_always_ask">Запитувати щоразу</string>
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="error_reporting_summary_never_send">Ніколи не надсилати ${company_name} повідомлення про помилки</string>
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
-    <string name="error_reporting_summary_always_send">Автоматично надсилати ${company_name} повідомлення про помилки, якщо виявлено критичну помилку</string>
+    <string name="error_reporting_summary_always_send">Автоматично надсилати ${company_name} повідомлення про критичні помилки</string>
     <!-- ${company_name} is a placeholder for the name of the company that operates the app, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="error_reporting_summary_always_ask">Запитувати щоразу, чи надсилати ${company_name} повідомлення про помилку</string>
     <string name="error_detected_dialog_title">Надіслати анонімне повідомлення</string>
@@ -1811,6 +1813,90 @@
     <!-- A hint text that will be played by the android screen reader in accessibility mode. It explains the effect of a click action. -->
     <!-- Clicking will open a new modal view that displays the full length of a contact's availability status description. -->
     <string name="accessibility_view_full_availability_status">Натисніть, щоб переглянути повний статус доступності</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a 1 to 1 conversation.
+    Placeholder %1$s will be replaced with the emojis.
+    Placeholder %2$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_contact">Реагує %1$s на повідомлення: %2$s</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a 1 to 1 conversation with many emojis.
+    Placeholder %1$s will be replaced with the emojis until a defined count.
+    Placeholder %2$d will be replaced with the remaining emoji count that is not displayed in %1$s.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_contact_more">Реагує %1$s +%2$d на повідомлення: %3$s</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation and a single reactor person.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the emojis.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_group_one_person">%1$s реагує %2$s на повідомлення: %3$s</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation and a single reactor person with many emojis.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the emojis until a defined count.
+    Placeholder %3$d will be replaced with the remaining emoji count that is not displayed in %2$s.
+    Placeholder %4$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_group_one_person_more">%1$s реагує %2$s +%3$d на повідомлення: %4$s</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation with 2 reacting persons.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the name of the other reacting person.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_group_two_persons">%1$s та %2$s реагують на повідомлення: %3$s</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation with more than 2 reacting persons.
+    Placeholder %1$s will be replaced with the name of the most recent reacting person.
+    Placeholder %2$d will be replaced with the remaining person count that also reacted.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_group_more_persons">%1$s та ще %2$d реагують на повідомлення: %3$s</string>
+    <!-- Placeholder %1$s will be replaced with the message body of the text message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_text">\"%1$s\"</string>
+    <string name="emoji_reaction_notification_preview_image">Зображення</string>
+    <!-- Placeholder %1$s will be replaced with the caption text of the image message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_image_caption">\"%1$s\"</string>
+    <string name="emoji_reaction_notification_preview_video">Відео</string>
+    <!-- Placeholder %1$s will be replaced with the caption text of the video message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_video_caption">\"%1$s\"</string>
+    <!-- Placeholder %1$s will be replaced with the duration of the audio message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_audio">Аудіо (%1$s)</string>
+    <!-- Placeholder %1$s will be replaced with the caption text of the audio message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_audio_caption">Аудіо \"%1$s\"</string>
+    <!-- Placeholder %1$s will be replaced with the duration of the voice message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_voice_message">Голосове повідомлення (%1$s)</string>
+    <!-- Placeholder %1$s will be replaced with the caption or filename of the file message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_file">Файл \"%1$s\"</string>
+    <string name="emoji_reaction_notification_preview_poll">Опитування</string>
+    <!-- Placeholder %1$s will be replaced with the poll's name of the poll message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_poll_named">Опитування \"%1$s\"</string>
+    <string name="emoji_reaction_notification_preview_location">Розташування</string>
+    <!-- Placeholder %1$s will be replaced with the POI name of the location message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_location_named">Розташування \"%1$s\"</string>
+    <string name="emoji_reaction_notification_preview_contact">Контакт</string>
+    <!-- Placeholder %1$s will be replaced with the contact name of the contact message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_contact_named">Контакт \"%1$s\"</string>
+    <string name="prefs_title_emoji_reaction_notifications">Сповіщення про емодзі-реакції</string>
+    <string name="prefs_title_emoji_reaction_contact_notifications">У чатах</string>
+    <string name="prefs_description_emoji_reaction_contact_notifications">Отримувати сповіщення про емодзі-реакції на ваші повідомлення в особистих чатах</string>
+    <string name="prefs_title_emoji_reaction_group_notifications">У групових чатах</string>
+    <string name="prefs_description_emoji_reaction_group_notifications">Отримувати сповіщення про емодзі-реакції на ваші повідомлення в групових чатах</string>
+    <string name="group_spam_banner_message">Ця група належить невідомому користувачу</string>
+    <string name="group_spam_banner_button_not_spam">Не спам</string>
+    <string name="group_spam_banner_button_report_spam">Поскаржитися на спам</string>
+    <!-- Placeholder 1 holds the display name of a group conversation -->
+    <string name="group_spam_report_dialog_title_named">Поскаржитися на \"%1$s\"</string>
+    <string name="group_spam_report_dialog_title">Поскаржитися на групу</string>
+    <string name="group_spam_report_dialog_message">Ідентифікатор цієї групи, кількість її учасників, а також ідентифікатор і псевдонім її засновника буде надіслано Threema разом із вашим ідентифікатором. Зміст повідомлень та особиста інформація не передаватимуться, а учасники групи не отримають сповіщення про вашу скаргу.</string>
+    <string name="group_spam_report_dialog_also_block_and_delete">Також заблокувати засновника групи та видалити чат</string>
+    <string name="group_spam_report_dialog_cancel">Скасувати</string>
+    <string name="group_spam_report_dialog_report">Поскаржитися</string>
+    <!-- This is shown in a loading indicator dialog while a spam group is being reported -->
+    <string name="reporting_group_in_progress">Надсилання скарги на групу</string>
     <plurals name="contacts_counter_label">
         <item quantity="one">%d контакт</item>
         <item quantity="few">%d контакти</item>
@@ -1846,6 +1932,12 @@
         <item quantity="few">%d нові повідомлення</item>
         <item quantity="many">%d нових повідомлень</item>
         <item quantity="other">%d нового повідомлення</item>
+    </plurals>
+    <plurals name="new_emoji_reactions">
+        <item quantity="one">%d нова реакція</item>
+        <item quantity="few">%d нові реакції</item>
+        <item quantity="many">%d нових реакцій</item>
+        <item quantity="other">%d нової реакції</item>
     </plurals>
     <plurals name="unread_messages">
         <item quantity="one">%d непрочитане повідомлення</item>

@@ -161,3 +161,21 @@ When this parameter is unset:
 
 1. Ensure that entrypoints for enabling multi-device and adding new devices are
    enabled.
+
+### th_disable_ios_system_backups_id_key_inclusion (boolean)
+
+Note: This only applies to Threema for iOS.
+
+When this parameter is set:
+
+1. If `false`, the permanent client key associated to the Threema ID must be
+   included in system-backed¹ backups created in the future.
+2. If `true`, the permanent client key associated to the Threema ID must be
+   excluded from system-backed¹ backups created in the future.
+
+When this parameter is unset:
+
+1. The permanent client key associated to the Threema ID must be included in
+   system-backed¹ backups created in the future.
+
+¹: System-backed backups include encrypted _iTunes_ backups and _Quick Start_.

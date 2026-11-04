@@ -2,10 +2,9 @@ package ch.threema.app.tasks
 
 import ch.threema.app.BuildConfig
 import ch.threema.app.services.ContactService.ProfilePictureUploadData
-import ch.threema.app.services.ConversationCategoryService
 import ch.threema.data.datatypes.AvailabilityStatus
-import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverridePolicy
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.models.ContactModelData
 import ch.threema.domain.models.AcquaintanceLevel
@@ -27,7 +26,7 @@ import ch.threema.protobuf.d2d.TransactionScope
 import ch.threema.protobuf.d2d.sync.Contact
 import ch.threema.protobuf.d2d.sync.ContactKt
 import ch.threema.protobuf.d2d.sync.ContactKt.deprecatedNotificationSoundPolicyOverride
-import ch.threema.protobuf.d2d.sync.ConversationCategory
+import ch.threema.protobuf.d2d.sync.ConversationCategory as ProtocolsConversationCategory
 import ch.threema.protobuf.d2d.sync.ConversationVisibility as ProtocolsConversationVisibility
 import ch.threema.protobuf.d2d.sync.contact
 import com.google.protobuf.kotlin.toByteString
@@ -41,7 +40,6 @@ abstract class ReflectContactSyncTask<TransactionResult, TaskResult>() : Reflect
 }
 
 fun ContactModelData.toFullSyncContact(
-    conversationCategoryService: ConversationCategoryService? = null,
     contactDefinedProfilePictureUpload: ProfilePictureUploadData? = null,
     userDefinedProfilePictureUpload: ProfilePictureUploadData? = null,
 ): Contact {
@@ -68,7 +66,7 @@ fun ContactModelData.toFullSyncContact(
         }
         contactDefinedProfilePicture = contactDefinedProfilePictureUpload.toDeltaImage()
         userDefinedProfilePicture = userDefinedProfilePictureUpload.toDeltaImage()
-        conversationCategory = data.getSyncConversationCategory(conversationCategoryService)
+        conversationCategory = data.getProtocolsConversationCategory()
         conversationVisibility = data.getProtocolsConversationVisibility()
 
         if (BuildConfig.AVAILABILITY_STATUS_ENABLED && data.availabilityStatus != AvailabilityStatus.None) {
@@ -155,20 +153,9 @@ private fun ContactModelData.getSyncNotificationTriggerPolicyOverride(): Contact
     }
 }
 
-// TODO(ANDR-3034): Use conversation category from the new contact model
-private fun ContactModelData.getSyncConversationCategory(
-    conversationCategoryService: ConversationCategoryService?,
-): ConversationCategory {
-    val isMarkedAsPrivate = conversationCategoryService?.isMarkedAsPrivate(
-        conversationId = ContactConversationId(
-            identity = identity,
-        ),
-    )
-    return if (isMarkedAsPrivate == true) {
-        ConversationCategory.PROTECTED
-    } else {
-        ConversationCategory.DEFAULT
-    }
+private fun ContactModelData.getProtocolsConversationCategory(): ProtocolsConversationCategory = when (conversationCategory) {
+    ConversationCategory.DEFAULT -> ProtocolsConversationCategory.DEFAULT
+    ConversationCategory.PROTECTED -> ProtocolsConversationCategory.PROTECTED
 }
 
 private fun ContactModelData.getProtocolsConversationVisibility(): ProtocolsConversationVisibility = when (conversationVisibility) {

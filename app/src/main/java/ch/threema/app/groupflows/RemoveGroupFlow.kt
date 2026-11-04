@@ -13,7 +13,6 @@ import ch.threema.data.repositories.GroupModelRepository
 import ch.threema.domain.protocol.connection.ConnectionState
 import ch.threema.domain.protocol.connection.ServerConnection
 import ch.threema.domain.taskmanager.TaskManager
-import ch.threema.domain.taskmanager.TriggerSource
 import kotlinx.coroutines.runBlocking
 
 private val logger = getThreemaLogger("RemoveGroupFlow")
@@ -88,7 +87,7 @@ class RemoveGroupFlow(
     }
 
     private fun persist() {
-        groupService.removeGroupBelongings(groupModel, TriggerSource.LOCAL)
+        groupService.removeGroupBelongings(groupModel)
         groupModelRepository.persistRemovedGroup(groupModel.groupIdentity)
     }
 }

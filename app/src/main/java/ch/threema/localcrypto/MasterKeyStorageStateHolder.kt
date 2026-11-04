@@ -8,9 +8,12 @@ import ch.threema.localcrypto.models.MasterKeyData
 import ch.threema.localcrypto.models.MasterKeyState
 import ch.threema.localcrypto.models.RemoteSecret
 import ch.threema.localcrypto.models.RemoteSecretParameters
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 
 private val logger = getThreemaLogger("MasterKeyStorageStateHolder")
 
@@ -38,7 +41,17 @@ class MasterKeyStorageStateHolder(
         storageStateFlow.awaitNonNull() !is MasterKeyState.Plain
 
     fun getStorageState(): MasterKeyState =
-        storageStateFlow.value ?: error("master key data not yet loaded or generated")
+        storageStateFlow.value
+            ?: runBlocking {
+                // The storageStateFlow will only hold a null value initially, until the master key
+                // is loaded from storage or newly generated. We assume that both of these operations
+                // complete quickly, and as such consider it acceptable here to briefly block the
+                // caller's thread in the rare case that it takes longer.
+                withTimeoutOrNull(5.seconds) {
+                    storageStateFlow.awaitNonNull()
+                }
+                    ?: error("Master key was not loaded in time")
+            }
 
     fun watchStorageState(): StateFlow<MasterKeyState?> =
         storageStateFlow

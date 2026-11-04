@@ -29,12 +29,13 @@ import ch.threema.domain.taskmanager.TaskManager
 import ch.threema.domain.taskmanager.TaskManagerConfiguration
 import ch.threema.domain.taskmanager.TaskManagerProvider
 import io.mockk.mockk
+import kotlin.time.Duration
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 
 internal class CspConnectionTest : ServerConnectionTest() {
     private val connectionLockProvider = object : ConnectionLockProvider {
-        override fun acquire(timeoutMillis: Long, tag: ConnectionLockProvider.ConnectionLogTag): ConnectionLock {
+        override fun acquire(timeout: Duration, tag: ConnectionLockProvider.ConnectionLogTag): ConnectionLock {
             return object : ConnectionLock {
                 override fun release() {
                     // Nothing to do in tests

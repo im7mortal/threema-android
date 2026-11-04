@@ -15,10 +15,10 @@ import ch.threema.domain.models.MessageId
 import ch.threema.domain.protocol.csp.messages.AbstractMessage
 import ch.threema.protobuf.common.CspE2eMessageType
 import ch.threema.protobuf.d2d.OutgoingMessage
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.ContactMessageModel
+import ch.threema.storage.models.GroupMessageModel
 import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.MessageState
-import ch.threema.storage.models.group.GroupMessageModel
 import java.time.Instant
 
 private val logger = getThreemaLogger("ReflectedOutgoingMessageTask")
@@ -28,7 +28,7 @@ interface ReflectedOutgoingMessageTask {
 }
 
 internal sealed class ReflectedOutgoingBaseMessageTask<
-    ModelType : AbstractMessageModel,
+    ModelType : MessageModel,
     ReceiverType : MessageReceiver<ModelType>,
     MessageType : AbstractMessage,
     >(
@@ -112,7 +112,12 @@ internal abstract class ReflectedOutgoingContactMessageTask<MessageType : Abstra
     message: MessageType,
     type: CspE2eMessageType,
     serviceManager: ServiceManager,
-) : ReflectedOutgoingBaseMessageTask<MessageModel, ContactMessageReceiver, MessageType>(outgoingMessage, message, type, serviceManager.nonceFactory) {
+) : ReflectedOutgoingBaseMessageTask<ContactMessageModel, ContactMessageReceiver, MessageType>(
+    outgoingMessage = outgoingMessage,
+    message = message,
+    type = type,
+    nonceFactory = serviceManager.nonceFactory,
+) {
     protected val contactService by lazy { serviceManager.contactService }
     protected val contactModelRepository by lazy { serviceManager.modelRepositories.contacts }
 

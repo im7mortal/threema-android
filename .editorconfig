@@ -26,3 +26,6 @@ ktlint_standard_function-expression-body = disabled
 [*.{yml,yaml}]
 indent_size = 2
 ij_any_spaces_within_brackets = false
+
+[devcontainer-lock.json]
+insert_final_newline = false

@@ -4,6 +4,8 @@ import ch.threema.app.eventbus.EventBus
 import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.eventbus.events.GroupEvent
 import ch.threema.app.multidevice.MultiDeviceManager
+import ch.threema.data.datatypes.ConversationCategory
+import ch.threema.data.datatypes.ConversationSpamReportingState
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.datatypes.GroupIdentity
 import ch.threema.data.datatypes.GroupState
@@ -83,12 +85,14 @@ class GroupModelTest {
                 synchronizedAt = now,
                 lastUpdate = null,
                 conversationVisibility = ConversationVisibility.NORMAL,
+                conversationCategory = ConversationCategory.DEFAULT,
                 precomputedIdColor = IdColor(0),
                 groupDescription = "Description",
                 groupDescriptionChangedAt = now,
                 otherMembers = members,
                 userState = UserState.MEMBER,
                 notificationTriggerPolicyOverride = null,
+                spamReportingState = ConversationSpamReportingState.DEFAULT,
             ),
             databaseBackendMock,
             identityProvider,
@@ -101,15 +105,15 @@ class GroupModelTest {
     @Test
     fun testGroupIdentityToHexString() {
         val identity = "TESTTEST"
-        assertEquals("d6ffffffffffffff", GroupIdentity(identity, -42).groupIdHexString)
-        assertEquals("ffffffffffffffff", GroupIdentity(identity, -1).groupIdHexString)
-        assertEquals("0000000000000000", GroupIdentity(identity, 0).groupIdHexString)
-        assertEquals("0100000000000000", GroupIdentity(identity, 1).groupIdHexString)
-        assertEquals("2a00000000000000", GroupIdentity(identity, 42).groupIdHexString)
-        assertEquals("0000000000000080", GroupIdentity(identity, Long.MIN_VALUE).groupIdHexString)
-        assertEquals("ffffffffffffff7f", GroupIdentity(identity, Long.MAX_VALUE).groupIdHexString)
-        assertEquals("4ea878fdffffffff", GroupIdentity(identity, -42424242).groupIdHexString)
-        assertEquals("b257870200000000", GroupIdentity(identity, 42424242).groupIdHexString)
+        assertEquals("d6ffffffffffffff", GroupIdentity(identity, -42).apiGroupIdHexString)
+        assertEquals("ffffffffffffffff", GroupIdentity(identity, -1).apiGroupIdHexString)
+        assertEquals("0000000000000000", GroupIdentity(identity, 0).apiGroupIdHexString)
+        assertEquals("0100000000000000", GroupIdentity(identity, 1).apiGroupIdHexString)
+        assertEquals("2a00000000000000", GroupIdentity(identity, 42).apiGroupIdHexString)
+        assertEquals("0000000000000080", GroupIdentity(identity, Long.MIN_VALUE).apiGroupIdHexString)
+        assertEquals("ffffffffffffff7f", GroupIdentity(identity, Long.MAX_VALUE).apiGroupIdHexString)
+        assertEquals("4ea878fdffffffff", GroupIdentity(identity, -42424242).apiGroupIdHexString)
+        assertEquals("b257870200000000", GroupIdentity(identity, 42424242).apiGroupIdHexString)
     }
 
     @Test
@@ -117,39 +121,39 @@ class GroupModelTest {
         val identity = "TESTTEST"
         assertContentEquals(
             byteArrayOf(-42, -1, -1, -1, -1, -1, -1, -1),
-            GroupIdentity(identity, -42).groupIdByteArray,
+            GroupIdentity(identity, -42).apiGroupIdByteArray,
         )
         assertContentEquals(
             byteArrayOf(-1, -1, -1, -1, -1, -1, -1, -1),
-            GroupIdentity(identity, -1).groupIdByteArray,
+            GroupIdentity(identity, -1).apiGroupIdByteArray,
         )
         assertContentEquals(
             byteArrayOf(0, 0, 0, 0, 0, 0, 0, 0),
-            GroupIdentity(identity, 0).groupIdByteArray,
+            GroupIdentity(identity, 0).apiGroupIdByteArray,
         )
         assertContentEquals(
             byteArrayOf(1, 0, 0, 0, 0, 0, 0, 0),
-            GroupIdentity(identity, 1).groupIdByteArray,
+            GroupIdentity(identity, 1).apiGroupIdByteArray,
         )
         assertContentEquals(
             byteArrayOf(42, 0, 0, 0, 0, 0, 0, 0),
-            GroupIdentity(identity, 42).groupIdByteArray,
+            GroupIdentity(identity, 42).apiGroupIdByteArray,
         )
         assertContentEquals(
             byteArrayOf(0, 0, 0, 0, 0, 0, 0, -128),
-            GroupIdentity(identity, Long.MIN_VALUE).groupIdByteArray,
+            GroupIdentity(identity, Long.MIN_VALUE).apiGroupIdByteArray,
         )
         assertContentEquals(
             byteArrayOf(-1, -1, -1, -1, -1, -1, -1, 127),
-            GroupIdentity(identity, Long.MAX_VALUE).groupIdByteArray,
+            GroupIdentity(identity, Long.MAX_VALUE).apiGroupIdByteArray,
         )
         assertContentEquals(
             byteArrayOf(78, -88, 120, -3, -1, -1, -1, -1),
-            GroupIdentity(identity, -42424242).groupIdByteArray,
+            GroupIdentity(identity, -42424242).apiGroupIdByteArray,
         )
         assertContentEquals(
             byteArrayOf(-78, 87, -121, 2, 0, 0, 0, 0),
-            GroupIdentity(identity, 42424242).groupIdByteArray,
+            GroupIdentity(identity, 42424242).apiGroupIdByteArray,
         )
     }
 
@@ -165,6 +169,7 @@ class GroupModelTest {
         val name = "Group"
         val lastUpdate = null
         val conversationVisibility = ConversationVisibility.NORMAL
+        val conversationCategory = ConversationCategory.DEFAULT
         val idColor = IdColor(0)
         val groupDesc = "Description"
         val members = setOf("AAAAAAAA", "BBBBBBBB")
@@ -177,12 +182,14 @@ class GroupModelTest {
                 synchronizedAt = now,
                 lastUpdate = lastUpdate,
                 conversationVisibility = conversationVisibility,
+                conversationCategory = conversationCategory,
                 precomputedIdColor = IdColor(idColor.colorIndex),
                 groupDescription = groupDesc,
                 groupDescriptionChangedAt = now,
                 otherMembers = members,
                 userState = UserState.MEMBER,
                 notificationTriggerPolicyOverride = null,
+                spamReportingState = ConversationSpamReportingState.DEFAULT,
             ),
             databaseBackendMock,
             identityProvider = identityProvider,
@@ -198,10 +205,12 @@ class GroupModelTest {
         assertEquals(now, value.synchronizedAt)
         assertEquals(lastUpdate, value.lastUpdate)
         assertEquals(conversationVisibility, value.conversationVisibility)
+        assertEquals(conversationCategory, value.conversationCategory)
         assertEquals(idColor, value.idColor)
         assertEquals(groupDesc, value.groupDescription)
         assertEquals(now, value.groupDescriptionChangedAt)
         assertEquals(members, value.otherMembers)
+        assertEquals(ConversationSpamReportingState.DEFAULT, value.spamReportingState)
     }
 
     @Test
@@ -316,5 +325,21 @@ class GroupModelTest {
         )
 
         verify(exactly = 0) { groupEventBusMock.emit(match { it is GroupEvent.GroupStateChanged }) }
+    }
+
+    @Test
+    fun `updating the spam reporting state triggers a group updated event`() {
+        val group = createTestGroup(
+            members = setOf("AAAAAAAA", "BBBBBBBB"),
+        )
+
+        // By default, the spam state is OPEN. So this is an effective change
+        group.persistSpamReportingState(
+            spamReportingState = ConversationSpamReportingState.NOT_SPAM,
+        )
+
+        verify(exactly = 1) {
+            groupEventBusMock.emit(match { it is GroupEvent.GroupUpdated })
+        }
     }
 }

@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * add editedAt field for distribution messages
+ */
 internal class DatabaseUpdateToVersion95(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -11,8 +14,6 @@ internal class DatabaseUpdateToVersion95(
             sqLiteDatabase.rawExecSQL("ALTER TABLE `$table` ADD COLUMN `editedAtUtc` DATETIME")
         }
     }
-
-    override fun getDescription() = "add editedAt field for distribution messages"
 
     override val version = 95
 }

@@ -38,8 +38,12 @@ class APIConnectorTest {
         connector = APIConnector(
             /* serverAddressProvider = */
             mockk {
-                every { getDirectoryServerUrl() } returns "https://server.url/"
+                every { getDirectoryServerUrl(any()) } answers { "https://server.url/${firstArg<String>()}" }
                 every { getWorkServerUrlLegacy() } returns "https://api-work.threema.ch/"
+            },
+            /* challengeResponseHelper */
+            mockk {
+                every { calculateResponse(any(), any()) } answers { byteArrayOf(1, 2, 3, 4) }
             },
             /* isWork = */
             false,

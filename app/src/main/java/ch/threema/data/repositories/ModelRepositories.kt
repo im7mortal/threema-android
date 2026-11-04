@@ -5,6 +5,7 @@ import ch.threema.app.eventbus.GlobalEventFlows
 import ch.threema.app.multidevice.MultiDeviceManager
 import ch.threema.base.crypto.NonceFactory
 import ch.threema.common.DispatcherProvider
+import ch.threema.common.TimeProvider
 import ch.threema.data.IdentityProvider
 import ch.threema.data.ModelCache
 import ch.threema.data.storage.EditHistoryDaoImpl
@@ -22,6 +23,7 @@ class ModelRepositories(
     globalEventBuses: GlobalEventBuses,
     globalEventFlows: GlobalEventFlows,
     dispatcherProvider: DispatcherProvider,
+    timeProvider: TimeProvider,
 ) {
     private val cache = ModelCache()
     private val databaseBackend = SqliteDatabaseBackend(
@@ -64,5 +66,6 @@ class ModelRepositories(
         identityProvider = identityProvider,
         multiDeviceManager = multiDeviceManager,
         taskManager = taskManager,
+        timeProvider = timeProvider,
     )
 }

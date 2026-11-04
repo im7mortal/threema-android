@@ -23,7 +23,7 @@ class IdentityBackupTest {
             password = IDENTITY_BACKUP_PASSWORD,
             encryptedBackup = backup,
         )
-        assertEquals(IDENTITY, backupData.threemaId)
+        assertEquals(IDENTITY, backupData.identity)
         assertContentEquals(PRIVATE_KEY, backupData.clientKey)
     }
 
@@ -33,7 +33,7 @@ class IdentityBackupTest {
             password = IDENTITY_BACKUP_PASSWORD,
             encryptedBackup = IdentityBackup.EncryptedIdentityBackup(IDENTITY_BACKUP_V1),
         )
-        assertEquals(IDENTITY, backupData.threemaId)
+        assertEquals(IDENTITY, backupData.identity)
         assertContentEquals(PRIVATE_KEY, backupData.clientKey)
     }
 
@@ -43,7 +43,7 @@ class IdentityBackupTest {
             password = IDENTITY_BACKUP_PASSWORD,
             encryptedBackup = IdentityBackup.EncryptedIdentityBackup(IDENTITY_BACKUP_V2),
         )
-        assertEquals(IDENTITY, backupData.threemaId)
+        assertEquals(IDENTITY, backupData.identity)
         assertContentEquals(PRIVATE_KEY, backupData.clientKey)
     }
 

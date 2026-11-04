@@ -14,7 +14,7 @@ class NotificationPreferenceServiceImpl(
     private val preferenceStore: PreferenceStore,
 ) : NotificationPreferenceService {
     override fun isMasterKeyNewMessageNotifications(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__masterkey_notification_newmsg))
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__masterkey_notification_newmsg), defaultValue = true)
 
     override fun setWizardRunning(running: Boolean) =
         preferenceStore.save(getKeyName(R.string.preferences__wizard_running), running)
@@ -47,22 +47,22 @@ class NotificationPreferenceServiceImpl(
         preferenceStore.getRingtoneUri(R.string.preferences__group_calls_ringtone)
 
     override fun isLegacyNotificationVibrate(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__vibrate))
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__vibrate), defaultValue = true)
 
     override fun isLegacyGroupVibrate(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__group_vibrate))
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__group_vibrate), defaultValue = true)
 
     override fun isLegacyVoipCallVibrate(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__voip_vibration))
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__voip_vibration), defaultValue = true)
 
     override fun isLegacyGroupCallVibrate(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__group_calls_vibration))
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__group_calls_vibration), defaultValue = true)
 
     override fun isLegacyNotificationLightEnabled(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__notification_light_single), true)
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__notification_light_single), defaultValue = true)
 
     override fun isLegacyGroupNotificationLightEnabled(): Boolean =
-        preferenceStore.getBoolean(getKeyName(R.string.preferences__notification_light_group), true)
+        preferenceStore.getBoolean(getKeyName(R.string.preferences__notification_light_group), defaultValue = true)
 
     override fun isShowMessagePreview(): Boolean =
         preferenceStore.getBoolean(getKeyName(R.string.preferences__notification_preview))

@@ -26,8 +26,6 @@ import java.util.function.Consumer;
 @SessionScoped
 public interface ContactService extends AvatarService<String> {
 
-    String ALL_USERS_PLACEHOLDER_ID = "@@@@@@@@";
-
     class ProfilePictureUploadData {
         public ProfilePicture profilePicture;
         public byte[] blobId;
@@ -468,8 +466,6 @@ public interface ContactService extends AvatarService<String> {
     boolean showIdentityTypeBadge(@Nullable ContactModel contactModel);
 
     boolean showIdentityTypeBadge(@NonNull ContactModelData contactModelData);
-
-    String getAndroidContactLookupUriString(ContactModel contactModel);
 
     /**
      * Remove the specified contact from the contact cache.

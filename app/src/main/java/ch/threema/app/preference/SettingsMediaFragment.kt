@@ -1,5 +1,6 @@
 package ch.threema.app.preference
 
+import android.icu.text.ListFormatter
 import android.os.Build
 import android.text.format.Formatter
 import androidx.preference.MultiSelectListPreference
@@ -10,6 +11,7 @@ import ch.threema.app.restrictions.AppRestrictions
 import ch.threema.app.services.MessageServiceImpl
 import ch.threema.app.storagemanagement.StorageManagementActivity
 import ch.threema.app.utils.ConfigUtils
+import ch.threema.app.utils.LocaleProvider
 import ch.threema.app.utils.logScreenVisibility
 import ch.threema.base.utils.getThreemaLogger
 import org.koin.android.ext.android.inject
@@ -25,6 +27,7 @@ class SettingsMediaFragment : ThreemaPreferenceFragment() {
 
     private val preferenceService: PreferenceService by inject()
     private val appRestrictions: AppRestrictions by inject()
+    private val localeProvider: LocaleProvider by inject()
 
     override fun initializePreferences() {
         initAutoDownloadPref()
@@ -80,32 +83,52 @@ class SettingsMediaFragment : ThreemaPreferenceFragment() {
     }
 
     private fun initDownloadPref() {
+        val autoDownloadOptionsMap = listOf(
+            PreferenceService.AutoDownloadType.IMAGE to getString(R.string.media_gallery_pictures),
+            PreferenceService.AutoDownloadType.VOICE_MESSAGE to getString(R.string.media_gallery_audio),
+            PreferenceService.AutoDownloadType.VIDEO to getString(R.string.media_gallery_videos),
+            PreferenceService.AutoDownloadType.FILE to getString(R.string.media_files),
+        )
+
         val wifiDownloadPreference: MultiSelectListPreference = getPref(R.string.preferences__auto_download_wifi)
-        wifiDownloadPreference.onChange<Set<*>> { selectedOptions ->
-            wifiDownloadPreference.summary = getAutoDownloadSummary(selectedOptions)
+        wifiDownloadPreference.init(
+            options = autoDownloadOptionsMap,
+            selectedOptions = preferenceService.getWifiAutoDownload(),
+            keyToString = PreferenceService.AutoDownloadType::serialized,
+        )
+        wifiDownloadPreference.onChange<Set<String>> { selectedSerializedOptions ->
+            val selectedOptions = selectedSerializedOptions.mapNotNull(PreferenceService.AutoDownloadType::deserialize).toSet()
+            preferenceService.setWifiAutoDownload(selectedOptions)
+            wifiDownloadPreference.summary = getAutoDownloadSummary(selectedOptions, autoDownloadOptionsMap)
         }
-        wifiDownloadPreference.summary = getAutoDownloadSummary(preferenceService.getWifiAutoDownload())
+        wifiDownloadPreference.summary = getAutoDownloadSummary(preferenceService.getWifiAutoDownload(), autoDownloadOptionsMap)
 
         val mobileDownloadPreference: MultiSelectListPreference = getPref(R.string.preferences__auto_download_mobile)
-        mobileDownloadPreference.onChange<Set<*>> { selectedOptions ->
-            mobileDownloadPreference.summary = getAutoDownloadSummary(selectedOptions)
+        mobileDownloadPreference.init(
+            options = autoDownloadOptionsMap,
+            selectedOptions = preferenceService.getMobileAutoDownload(),
+            keyToString = PreferenceService.AutoDownloadType::serialized,
+        )
+        mobileDownloadPreference.onChange<Set<String>> { selectedSerializedOptions ->
+            val selectedOptions = selectedSerializedOptions.mapNotNull(PreferenceService.AutoDownloadType::deserialize).toSet()
+            preferenceService.setMobileAutoDownload(selectedOptions)
+            mobileDownloadPreference.summary = getAutoDownloadSummary(selectedOptions, autoDownloadOptionsMap)
         }
-        mobileDownloadPreference.summary =
-            getAutoDownloadSummary(preferenceService.getMobileAutoDownload())
+        mobileDownloadPreference.summary = getAutoDownloadSummary(preferenceService.getMobileAutoDownload(), autoDownloadOptionsMap)
     }
 
-    private fun getAutoDownloadSummary(selectedOptions: Set<*>): CharSequence? {
-        val values = resources.getStringArray(R.array.list_auto_download_values)
-        val result: MutableList<String?> = ArrayList(selectedOptions.size)
-        for (i in values.indices) {
-            if (selectedOptions.contains(values[i])) {
-                result.add(resources.getStringArray(R.array.list_auto_download)[i])
-            }
+    private fun getAutoDownloadSummary(
+        selectedOptions: Set<PreferenceService.AutoDownloadType>,
+        options: List<Pair<PreferenceService.AutoDownloadType, String>>,
+    ): String {
+        if (selectedOptions.isEmpty()) {
+            return resources.getString(R.string.never)
         }
-        return if (result.isEmpty()) {
-            resources.getString(R.string.never)
+        val labels = options.filter { (key, _) -> key in selectedOptions }.map { (_, label) -> label }
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ListFormatter.getInstance(localeProvider.getCurrentLocale()).format(labels)
         } else {
-            result.joinToString(separator = ", ")
+            labels.joinToString(separator = ", ")
         }
     }
 

@@ -79,9 +79,10 @@ import ch.threema.base.ThreemaException;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.data.datatypes.ConversationCategory;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.DistributionListMessageModel;
-import ch.threema.storage.models.group.GroupMessageModel;
+import ch.threema.storage.models.GroupMessageModel;
 import ch.threema.storage.models.MessageType;
 import ch.threema.storage.models.data.MessageContentsType;
 
@@ -114,7 +115,7 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
     private ActionBar actionBar;
     private AppBarLayout appBarLayout;
 
-    private AbstractMessageModel currentMessageModel;
+    private MessageModel currentMessageModel;
     private MessageReceiver currentReceiver;
 
     @NonNull
@@ -122,7 +123,7 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
 
     private EmojiMarkupUtil emojiMarkupUtil;
 
-    private List<AbstractMessageModel> messageModels;
+    private List<MessageModel> messageModels;
     private int currentPosition = -1;
     private MediaViewFragment[] fragments;
     private File[] decryptedFileCache;
@@ -165,8 +166,8 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
 
         Intent intent = getIntent();
 
-        final @Nullable String messageType = IntentDataUtil.getAbstractMessageType(intent);
-        final int messageId = IntentDataUtil.getAbstractMessageId(intent);
+        final @Nullable String messageType = IntentDataUtil.getMessageType(intent);
+        final int messageId = IntentDataUtil.getMessageId(intent);
         if (isNullOrEmpty(messageType) || messageId <= 0) {
             finish();
             return false;
@@ -187,7 +188,7 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
         this.captionContainer = findViewById(R.id.caption_container);
         this.caption = findViewById(R.id.caption);
 
-        this.currentMessageModel = IntentDataUtil.getAbstractMessageModel(intent, dependencies.getMessageService());
+        this.currentMessageModel = IntentDataUtil.getMessageModel(intent, dependencies.getMessageService());
         try {
             this.currentReceiver = dependencies.getMessageService().getMessageReceiver(this.currentMessageModel);
         } catch (ThreemaException e) {
@@ -201,9 +202,7 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
             return false;
         }
 
-        this.isPrivateChat = dependencies.getConversationCategoryService().isMarkedAsPrivate(
-            this.currentReceiver.getConversationId()
-        );
+        this.isPrivateChat = currentReceiver.getConversationCategory() == ConversationCategory.PROTECTED;
 
         final @MessageContentsType int[] filter = intent.hasExtra(EXTRA_FILTER)
             ? intent.getIntArrayExtra(EXTRA_FILTER)
@@ -322,9 +321,8 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
         return R.layout.activity_media_viewer;
     }
 
-    private void updateActionBarTitle(@Nullable AbstractMessageModel messageModel) {
+    private void updateActionBarTitle(@Nullable MessageModel messageModel) {
         String title = NameUtil.getContactDisplayNameOrNickname(
-            this,
             messageModel,
             dependencies.getContactService(),
             dependencies.getUserService(),
@@ -352,8 +350,8 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
         }
     }
 
-    private void updateCaption(@Nullable AbstractMessageModel messageModel) {
-        String captionText = MessageUtil.getCaptionText(messageModel);
+    private void updateCaption(@Nullable MessageModel messageModel) {
+        String captionText = messageModel != null ? messageModel.getCaption() : null;
         if (!isNullOrEmpty(captionText)) {
             this.caption.setText(emojiMarkupUtil.addMarkup(this, captionText));
         } else {
@@ -477,7 +475,7 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
     }
 
     private void saveMedia() {
-        AbstractMessageModel messageModel = this.getCurrentMessageModel();
+        MessageModel messageModel = this.getCurrentMessageModel();
         if (messageModel != null) {
             if (currentMediaFile == null) {
                 logger.warn("Failed to save media, current file was null");
@@ -489,7 +487,7 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
     }
 
     private void shareMedia() {
-        final AbstractMessageModel messageModel = this.getCurrentMessageModel();
+        final MessageModel messageModel = this.getCurrentMessageModel();
         if (messageModel != null) {
             final ExpandableTextEntryDialog alertDialog = ExpandableTextEntryDialog.newInstance(
                 getString(R.string.share_media),
@@ -504,7 +502,7 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
 
     @Override
     public void onYes(String tag, Object data, String text) {
-        AbstractMessageModel messageModel = (AbstractMessageModel) data;
+        MessageModel messageModel = (MessageModel) data;
         if (messageModel == null) {
             logger.error("Failed to share media file, message was null");
             return;
@@ -524,7 +522,7 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
     }
 
     public void viewMediaInGallery() {
-        AbstractMessageModel messageModel = this.getCurrentMessageModel();
+        MessageModel messageModel = this.getCurrentMessageModel();
         if (messageModel == null) {
             logger.error("Failed to view media message, message was null");
             return;
@@ -538,7 +536,7 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
     }
 
     private void showGallery() {
-        AbstractMessageModel messageModel = this.getCurrentMessageModel();
+        MessageModel messageModel = this.getCurrentMessageModel();
         if (messageModel != null) {
             Intent mediaGalleryIntent = new Intent(this, MediaGalleryActivity.class);
             mediaGalleryIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -559,7 +557,7 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
         }
     }
 
-    private void showInChat(@Nullable AbstractMessageModel messageModel) {
+    private void showInChat(@Nullable MessageModel messageModel) {
         if (messageModel == null) {
             return;
         }
@@ -630,7 +628,7 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
         }
     }
 
-    private AbstractMessageModel getCurrentMessageModel() {
+    private MessageModel getCurrentMessageModel() {
         if (this.messageModels != null && this.currentPosition >= 0 && this.currentPosition < this.messageModels.size()) {
             return this.messageModels.get(this.currentPosition);
         }
@@ -683,7 +681,7 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
     }
 
     @Nullable
-    public AbstractMessageModel getMessageModel(int position) {
+    public MessageModel getMessageModel(int position) {
         try {
             return messageModels.get(position);
         } catch (IndexOutOfBoundsException e) {
@@ -778,7 +776,7 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
             logger.debug("getItem {}", position);
 
             if (mediaViewerActivity.fragments[position] == null) {
-                final AbstractMessageModel messageModel = mediaViewerActivity.messageModels.get(position);
+                final MessageModel messageModel = mediaViewerActivity.messageModels.get(position);
                 MediaViewFragment mediaViewFragment;
                 Bundle args = new Bundle();
 
@@ -810,11 +808,6 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
                 mediaViewFragment.setArguments(args);
 
                 mediaViewFragment.setOnImageLoaded(new MediaViewFragment.OnMediaLoadListener() {
-                    @Override
-                    public void decrypting() {
-                        mediaViewerActivity.currentMediaFile = null;
-                    }
-
                     @Override
                     public void decrypted(boolean success) {
                         if (!success) {
@@ -895,6 +888,7 @@ public class MediaViewerActivity extends ThreemaToolbarActivity implements Expan
                 saveMedia();
             } else {
                 if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.READ_EXTERNAL_STORAGE)) {
+                    // TODO(ANDR-5211): Use rationale as intended
                     ConfigUtils.showPermissionRationale(this, findViewById(R.id.pager), R.string.permission_storage_required);
                 }
             }

@@ -1,10 +1,10 @@
 package ch.threema.app.servermessage
 
-import org.koin.core.module.dsl.factoryOf
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
+import org.koin.plugin.module.dsl.viewModel
 
 val serverMessageFeatureModule = module {
-    viewModelOf(::ServerMessageViewModel)
-    factoryOf(::ServerMessageMonitor)
+    viewModel<ServerMessageViewModel>()
+    factory<ServerMessageMonitor>()
 }

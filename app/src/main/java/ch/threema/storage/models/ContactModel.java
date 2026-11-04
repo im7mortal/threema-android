@@ -16,6 +16,7 @@ import ch.threema.app.utils.TextUtil;
 import ch.threema.data.datatypes.AvailabilityStatus;
 import ch.threema.data.datatypes.ContactNameFormat;
 import ch.threema.data.datatypes.ContactNotificationTriggerPolicyOverride;
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.data.datatypes.ConversationVisibility;
 import ch.threema.data.datatypes.IdColor;
 import ch.threema.base.crypto.NaCl;
@@ -29,7 +30,7 @@ import ch.threema.domain.models.IdentityState;
 import ch.threema.domain.models.IdentityType;
 import ch.threema.domain.models.VerificationLevel;
 import ch.threema.domain.models.WorkVerificationLevel;
-import ch.threema.domain.protocol.csp.ProtocolDefines;
+import ch.threema.domain.types.Identity;
 
 import static ch.threema.app.utils.TextUtil.SPACE;
 import static ch.threema.app.utils.TextUtil.TILDE;
@@ -59,6 +60,7 @@ public class ContactModel extends Contact implements ReceiverModel {
     public static final String COLUMN_ACQUAINTANCE_LEVEL = "acquaintanceLevel";
     public static final String COLUMN_IS_RESTORED = "isRestored"; /* whether this contact has been restored from a backup and not yet been contacted */
     public static final String COLUMN_CONVERSATION_VISIBILITY = "conversationVisibility";
+    public static final String COLUMN_CONVERSATION_CATEGORY = "conversationCategory";
     public static final String COLUMN_READ_RECEIPTS = "readReceipts"; /* whether read receipts should be sent to this contact */
     public static final String COLUMN_TYPING_INDICATORS = "typingIndicators"; /* whether typing indicators should be sent to this contact */
     public static final String COLUMN_FORWARD_SECURITY_STATE = "forwardSecurityState"; /* current state of forward security with this contact */
@@ -106,6 +108,8 @@ public class ContactModel extends Contact implements ReceiverModel {
     private boolean isWork, isRestored;
     @NonNull
     private ConversationVisibility conversationVisibility = ConversationVisibility.NORMAL;
+    @NonNull
+    private ConversationCategory conversationCategory = ConversationCategory.DEFAULT;
     private AcquaintanceLevel acquaintanceLevel = AcquaintanceLevel.DIRECT;
     private Instant localAvatarExpires, dateCreated;
     private @Nullable Instant lastUpdate;
@@ -132,7 +136,7 @@ public class ContactModel extends Contact implements ReceiverModel {
      */
     @NonNull
     public static ContactModel createUnchecked(@NonNull String identity, @NonNull byte[] publicKey) {
-        if (identity.length() != ProtocolDefines.IDENTITY_LEN) {
+        if (!Identity.isValidIdentity(identity)) {
             logger.warn("Creating contact with invalid identity: {}", identity);
         }
         if (publicKey.length != NaCl.PUBLIC_KEY_BYTES) {
@@ -148,7 +152,7 @@ public class ContactModel extends Contact implements ReceiverModel {
      */
     @NonNull
     public static ContactModel create(@NonNull String identity, @NonNull byte[] publicKey) {
-        if (identity.length() != ProtocolDefines.IDENTITY_LEN) {
+        if (!Identity.isValidIdentity(identity)) {
             throw new IllegalArgumentException("Invalid identity: " + identity);
         }
         if (publicKey.length != NaCl.PUBLIC_KEY_BYTES) {
@@ -394,6 +398,17 @@ public class ContactModel extends Contact implements ReceiverModel {
 
     public ContactModel setConversationVisibility(@NonNull ConversationVisibility conversationVisibility) {
         this.conversationVisibility = conversationVisibility;
+        return this;
+    }
+
+    @NonNull
+    public ConversationCategory getConversationCategory() {
+        return this.conversationCategory;
+    }
+
+    @NonNull
+    public ContactModel setConversationCategory(@NonNull ConversationCategory conversationCategory) {
+        this.conversationCategory = conversationCategory;
         return this;
     }
 

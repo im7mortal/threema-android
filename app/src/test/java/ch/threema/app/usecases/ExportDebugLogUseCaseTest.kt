@@ -1,5 +1,6 @@
 package ch.threema.app.usecases
 
+import ch.threema.app.BuildConfig
 import ch.threema.testhelpers.createTempDirectory
 import ch.threema.testhelpers.testDispatcherProvider
 import io.mockk.every
@@ -11,19 +12,23 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.test.runTest
+import org.junit.Assume.assumeTrue
 
 class ExportDebugLogUseCaseTest {
 
-    private lateinit var directory: File
+    private lateinit var shareDirectory: File
+    private lateinit var tombstoneDirectory: File
 
     @BeforeTest
     fun setUp() {
-        directory = createTempDirectory()
+        shareDirectory = createTempDirectory()
+        tombstoneDirectory = createTempDirectory()
     }
 
     @AfterTest
     fun tearDown() {
-        directory.deleteRecursively()
+        shareDirectory.deleteRecursively()
+        tombstoneDirectory.deleteRecursively()
     }
 
     @Test
@@ -41,7 +46,8 @@ class ExportDebugLogUseCaseTest {
                 every { getLogFiles() } returns listOf(logFile1, logFile2)
             },
             appDirectoryProvider = mockk {
-                every { shareDirectory } returns directory
+                every { this@mockk.shareDirectory } returns this@ExportDebugLogUseCaseTest.shareDirectory
+                every { this@mockk.tombstonesDirectory } returns this@ExportDebugLogUseCaseTest.tombstoneDirectory
             },
             dispatcherProvider = testDispatcherProvider(),
         )
@@ -79,7 +85,8 @@ class ExportDebugLogUseCaseTest {
                 every { getFallbackLogFiles() } returns listOf(logFile1, logFile2)
             },
             appDirectoryProvider = mockk {
-                every { shareDirectory } returns directory
+                every { this@mockk.shareDirectory } returns this@ExportDebugLogUseCaseTest.shareDirectory
+                every { this@mockk.tombstonesDirectory } returns this@ExportDebugLogUseCaseTest.tombstoneDirectory
             },
             dispatcherProvider = testDispatcherProvider(),
         )
@@ -102,8 +109,50 @@ class ExportDebugLogUseCaseTest {
     }
 
     @Test
+    fun `created zip file includes tombstones`() = runTest {
+        assumeTrue(BuildConfig.LOG_TOMBSTONES_FOR_NATIVE_CRASHES)
+
+        val logFile = File.createTempFile("logfile", "1")
+        logFile.writeText("Hello\nWorld\n")
+        val tombstoneFile1 = File(tombstoneDirectory, "tombstone1")
+        val tombstoneFile2 = File(tombstoneDirectory, "tombstone2")
+        tombstoneFile1.writeText("Tombstone 1")
+        tombstoneFile2.writeText("Tombstone 2")
+
+        val useCase = ExportDebugLogUseCase(
+            getDebugMetaDataUseCase = mockk {
+                every { call() } returns "my meta data"
+            },
+            debugLogFileManager = mockk {
+                every { getLogFiles() } returns listOf(logFile)
+            },
+            appDirectoryProvider = mockk {
+                every { this@mockk.shareDirectory } returns this@ExportDebugLogUseCaseTest.shareDirectory
+                every { this@mockk.tombstonesDirectory } returns this@ExportDebugLogUseCaseTest.tombstoneDirectory
+            },
+            dispatcherProvider = testDispatcherProvider(),
+        )
+
+        val exportedFile = useCase.call()
+
+        val zipFile = ZipFile(exportedFile)
+        assertEquals(
+            setOf("debug_log.txt", "meta_data.txt", "tombstone1", "tombstone2"),
+            zipFile.getFileNames(),
+        )
+        assertEquals(
+            "Tombstone 1",
+            zipFile.getFileContents("tombstone1"),
+        )
+        assertEquals(
+            "Tombstone 2",
+            zipFile.getFileContents("tombstone2"),
+        )
+    }
+
+    @Test
     fun `previous file is deleted`() = runTest {
-        val expectedFile = File(directory, "debug_log.zip")
+        val expectedFile = File(shareDirectory, "debug_log.zip")
         val logFile = File.createTempFile("logfile", "test")
 
         val useCase = ExportDebugLogUseCase(
@@ -114,7 +163,8 @@ class ExportDebugLogUseCaseTest {
                 every { getLogFiles() } returns listOf(logFile)
             },
             appDirectoryProvider = mockk {
-                every { shareDirectory } returns directory
+                every { this@mockk.shareDirectory } returns this@ExportDebugLogUseCaseTest.shareDirectory
+                every { this@mockk.tombstonesDirectory } returns this@ExportDebugLogUseCaseTest.tombstoneDirectory
             },
             dispatcherProvider = testDispatcherProvider(),
         )

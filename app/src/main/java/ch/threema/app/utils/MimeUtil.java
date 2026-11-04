@@ -15,7 +15,7 @@ import androidx.annotation.StringRes;
 import ch.threema.app.R;
 import ch.threema.app.exceptions.MalformedMimeTypeException;
 import ch.threema.app.ui.MediaItem;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.data.MessageContentsType;
 import ch.threema.storage.models.data.media.FileDataModel;
 
@@ -384,8 +384,12 @@ public class MimeUtil {
         return mimeType != null && (mimeType.startsWith(MIME_TYPE_VCARD) || mimeType.startsWith(MIME_TYPE_VCARD_ALT));
     }
 
-    public static boolean isSVGFile(String mimeType) {
+    public static boolean isSVGFile(@Nullable String mimeType) {
         return mimeType != null && mimeType.startsWith(MIME_TYPE_IMAGE_SVG);
+    }
+
+    public static boolean isZipFile(@Nullable String mimeType) {
+        return mimeType != null && mimeType.startsWith(MIME_TYPE_ZIP);
     }
 
     @NonNull
@@ -456,7 +460,7 @@ public class MimeUtil {
     }
 
     @NonNull
-    public static String getMimeTypeFromMessageModel(AbstractMessageModel messageModel) {
+    public static String getMimeTypeFromMessageModel(MessageModel messageModel) {
         String mimeType;
 
         switch (messageModel.getType()) {
@@ -473,9 +477,9 @@ public class MimeUtil {
         return mimeType;
     }
 
-    public static @MediaItem.MediaType int getMediaTypeFromMimeType(String mimeType, Uri uri) {
+    public static @MediaItem.MediaType int getMediaTypeFromMimeType(@NonNull Context context, @Nullable String mimeType, @Nullable Uri uri) {
         if (MimeUtil.isSupportedImageFile(mimeType)) {
-            if (FileUtil.isAnimatedImageFile(uri, mimeType)) {
+            if (FileUtil.isAnimatedImageFile(context, uri, mimeType)) {
                 return MediaItem.TYPE_IMAGE_ANIMATED;
             }
             return TYPE_IMAGE;

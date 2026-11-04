@@ -59,7 +59,7 @@ class NameUtilTest {
 
     @Test
     fun testGetQuoteNameMeNullNickname() {
-        every { userServiceMock.publicNickname } returns null
+        every { userServiceMock.publicNickname } returns ""
 
         val contactModel = ContactModel.create(ME_IDENTITY, ByteArray(32))
         contactModel.firstName = "Moi"

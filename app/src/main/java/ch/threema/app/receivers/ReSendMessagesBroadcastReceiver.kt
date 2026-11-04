@@ -9,6 +9,7 @@ import ch.threema.android.ToastDuration
 import ch.threema.android.buildBroadcastReceiverIntent
 import ch.threema.android.goAsync
 import ch.threema.android.showToast
+import ch.threema.app.GlobalAppState
 import ch.threema.app.R
 import ch.threema.app.di.awaitAppFullyReadyWithTimeout
 import ch.threema.app.messagereceiver.MessageReceiver
@@ -25,10 +26,10 @@ import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.models.MessageId
 import ch.threema.domain.taskmanager.TriggerSource
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.ContactMessageModel
 import ch.threema.storage.models.DistributionListMessageModel
+import ch.threema.storage.models.GroupMessageModel
 import ch.threema.storage.models.MessageModel
-import ch.threema.storage.models.group.GroupMessageModel
 import kotlin.time.Duration.Companion.seconds
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -43,8 +44,13 @@ class ReSendMessagesBroadcastReceiver : BroadcastReceiver(), KoinComponent {
     private val groupService: GroupService by inject()
     private val distributionListService: DistributionListService by inject()
     private val notificationService: NotificationService by inject()
+    private val globalAppState: GlobalAppState by inject()
 
     override fun onReceive(context: Context, intent: Intent?) = goAsync {
+        if (globalAppState.specialMode != null) {
+            return@goAsync
+        }
+
         // We can't wait for long, as the broadcast receiver needs to complete within a few seconds
         awaitAppFullyReadyWithTimeout(timeout = 5.seconds)
             ?: run {
@@ -54,7 +60,7 @@ class ReSendMessagesBroadcastReceiver : BroadcastReceiver(), KoinComponent {
 
         cancelFailedMessagesNotification(context)
 
-        val failedMessages = IntentDataUtil.getAbstractMessageModels(intent, messageService)
+        val failedMessages = IntentDataUtil.getMessageModels(intent, messageService)
         if (failedMessages.isEmpty()) {
             return@goAsync
         }
@@ -70,7 +76,7 @@ class ReSendMessagesBroadcastReceiver : BroadcastReceiver(), KoinComponent {
         notificationManager.cancel(NotificationIDs.UNSENT_MESSAGE_NOTIFICATION_ID)
     }
 
-    private fun processFailedMessages(context: Context, failedMessages: List<AbstractMessageModel>) {
+    private fun processFailedMessages(context: Context, failedMessages: List<MessageModel>) {
         for (failedMessage in failedMessages) {
             val messageReceiver = getMessageReceiverFromMessageModel(failedMessage)
             if (messageReceiver == null) {
@@ -85,7 +91,7 @@ class ReSendMessagesBroadcastReceiver : BroadcastReceiver(), KoinComponent {
 
             try {
                 resendMessage(failedMessage, messageReceiver, receiverIdentities)
-                notificationService.cancel(messageReceiver.conversationId)
+                notificationService.cancelAllConversationNotifications(messageReceiver.conversationId)
             } catch (e: Exception) {
                 context.showToast(R.string.original_file_no_longer_avilable, ToastDuration.LONG)
                 logger.error("Failed to resend message", e)
@@ -94,9 +100,9 @@ class ReSendMessagesBroadcastReceiver : BroadcastReceiver(), KoinComponent {
     }
 
     @WorkerThread
-    private fun getMessageReceiverFromMessageModel(messageModel: AbstractMessageModel?): MessageReceiver<out AbstractMessageModel>? =
+    private fun getMessageReceiverFromMessageModel(messageModel: MessageModel?): MessageReceiver<out MessageModel>? =
         when (messageModel) {
-            is MessageModel -> {
+            is ContactMessageModel -> {
                 contactService.createReceiver(contactService.getByIdentity(messageModel.identity))
             }
             is GroupMessageModel -> {
@@ -105,11 +111,11 @@ class ReSendMessagesBroadcastReceiver : BroadcastReceiver(), KoinComponent {
             is DistributionListMessageModel -> {
                 distributionListService.createReceiver(distributionListService.getById(messageModel.distributionListId)!!)
             }
-            else -> null
+            null -> null
         }
 
     @WorkerThread
-    private fun AbstractMessageModel.getReceiverIdentities() = buildList<IdentityString> {
+    private fun MessageModel.getReceiverIdentities() = buildList<IdentityString> {
         if (this is GroupMessageModel) {
             val group = groupService.getById(groupId)
             if (group == null) {
@@ -124,13 +130,13 @@ class ReSendMessagesBroadcastReceiver : BroadcastReceiver(), KoinComponent {
 
     @WorkerThread
     private fun resendMessage(
-        message: AbstractMessageModel,
-        messageReceiver: MessageReceiver<out AbstractMessageModel>,
+        message: MessageModel,
+        messageReceiver: MessageReceiver<out MessageModel>,
         receiverIdentities: List<IdentityString>,
     ) {
         messageService.resendMessage(
             message,
-            messageReceiver as MessageReceiver<AbstractMessageModel>,
+            messageReceiver as MessageReceiver<MessageModel>,
             null,
             receiverIdentities,
             MessageId.random(),
@@ -141,7 +147,7 @@ class ReSendMessagesBroadcastReceiver : BroadcastReceiver(), KoinComponent {
     companion object {
         fun createIntent(
             context: Context,
-            failedMessages: List<AbstractMessageModel>,
+            failedMessages: List<MessageModel>,
         ) = buildBroadcastReceiverIntent<ReSendMessagesBroadcastReceiver>(context) {
             IntentDataUtil.appendMultipleMessageTypes(failedMessages, this)
         }

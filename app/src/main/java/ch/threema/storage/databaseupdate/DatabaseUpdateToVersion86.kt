@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * create task archive table
+ */
 internal class DatabaseUpdateToVersion86(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -12,8 +15,6 @@ internal class DatabaseUpdateToVersion86(
                 "`task` STRING NOT NULL)",
         )
     }
-
-    override fun getDescription() = "create task archive table"
 
     override val version = 86
 }

@@ -9,11 +9,12 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import ch.threema.android.buildPeriodicWorkRequest
 import ch.threema.android.setConstraints
-import ch.threema.app.di.awaitAppFullyReady
+import ch.threema.app.BuildFlavor
+import ch.threema.app.GlobalAppState
+import ch.threema.app.di.awaitAppFullyReadyWithTimeout
 import ch.threema.app.services.ApiService
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.FileService
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.Http
 import ch.threema.common.HttpResponseException
@@ -33,7 +34,6 @@ import kotlin.jvm.Throws
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -55,14 +55,16 @@ class GatewayProfilePicturesWorker(
     private val contactModelRepository: ContactModelRepository by inject()
     private val fileService: FileService by inject()
     private val apiService: ApiService by inject()
+    private val globalAppState: GlobalAppState by inject()
 
     override suspend fun doWork(): Result {
-        logger.info("Running gateway profile picture worker")
-
-        withTimeoutOrNull(timeout = 20.seconds) {
-            awaitAppFullyReady()
+        if (globalAppState.specialMode != null) {
+            return Result.retry()
         }
+        awaitAppFullyReadyWithTimeout(20.seconds)
             ?: return Result.retry()
+
+        logger.info("Running gateway profile picture worker")
 
         val gatewayContacts = contactModelRepository
             .getAll()
@@ -150,7 +152,7 @@ class GatewayProfilePicturesWorker(
                     logger.warn("Unauthorized access to avatar server")
 
                     // TODO(ANDR-4201): Remove this explicit check and handle it centrally instead
-                    if (ConfigUtils.isOnPremBuild()) {
+                    if (BuildFlavor.IS_ON_PREM) {
                         logger.info("Invalidating auth token")
                         apiService.invalidateAuthToken()
                     }

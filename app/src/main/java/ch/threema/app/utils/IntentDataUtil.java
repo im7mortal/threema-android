@@ -31,12 +31,15 @@ import ch.threema.common.models.Coordinates;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
+import ch.threema.data.datatypes.ContactConversationId;
+import ch.threema.data.datatypes.ConversationId;
+import ch.threema.data.datatypes.DistributionListConversationId;
+import ch.threema.data.datatypes.GroupConversationId;
 import ch.threema.data.models.GroupModel;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.group.GroupModelOld;
 import ch.threema.storage.models.WebClientSessionModel;
-import ch.threema.storage.models.poll.PollChoiceModel;
 import ch.threema.storage.models.poll.PollModel;
 
 import static android.app.PendingIntent.FLAG_MUTABLE;
@@ -63,10 +66,10 @@ public class IntentDataUtil {
     private static final String INTENT_DATA_MESSAGE = "message";
     private static final String INTENT_DATA_URL = "url";
     private static final String INTENT_DATA_CONTACTS = "contacts";
-    private static final String INTENT_DATA_ABSTRACT_MESSAGE_ID = "abstract_message_id";
-    private static final String INTENT_DATA_ABSTRACT_MESSAGE_IDS = "abstract_message_ids";
-    private static final String INTENT_DATA_ABSTRACT_MESSAGE_TYPE = "abstract_message_type";
-    private static final String INTENT_DATA_ABSTRACT_MESSAGE_TYPES = "abstract_message_types";
+    private static final String INTENT_DATA_MESSAGE_ID = "message_id";
+    private static final String INTENT_DATA_MESSAGE_IDS = "message_ids";
+    private static final String INTENT_DATA_MESSAGE_TYPE = "message_type";
+    private static final String INTENT_DATA_MESSAGE_TYPES = "message_types";
     public static final String INTENT_DATA_WEB_CLIENT_SESSION_MODEL_ID = "session_model_id";
     public static final String INTENT_DATA_PAYLOAD = "payload";
 
@@ -108,40 +111,40 @@ public class IntentDataUtil {
         }
     }
 
-    public static void append(AbstractMessageModel abstractMessageModel, Intent intent) {
-        intent.putExtra(INTENT_DATA_ABSTRACT_MESSAGE_ID, abstractMessageModel.getId());
-        intent.putExtra(INTENT_DATA_ABSTRACT_MESSAGE_TYPE, abstractMessageModel.getClass().toString());
+    public static void append(MessageModel messageModel, Intent intent) {
+        intent.putExtra(INTENT_DATA_MESSAGE_ID, messageModel.getId());
+        intent.putExtra(INTENT_DATA_MESSAGE_TYPE, messageModel.getClass().toString());
     }
 
     public static void append(WebClientSessionModel model, Intent intent) {
         intent.putExtra(INTENT_DATA_WEB_CLIENT_SESSION_MODEL_ID, model.getId());
     }
 
-    public static void appendMultiple(List<AbstractMessageModel> models, Intent intent) {
+    public static void appendMultiple(List<MessageModel> models, Intent intent) {
         ArrayList<Integer> messageIDs = new ArrayList<>(models.size());
 
-        for (AbstractMessageModel model : models) {
+        for (MessageModel model : models) {
             messageIDs.add(model.getId());
         }
-        intent.putExtra(INTENT_DATA_ABSTRACT_MESSAGE_IDS, messageIDs);
-        intent.putExtra(INTENT_DATA_ABSTRACT_MESSAGE_TYPE, models.get(0).getClass().toString());
+        intent.putExtra(INTENT_DATA_MESSAGE_IDS, messageIDs);
+        intent.putExtra(INTENT_DATA_MESSAGE_TYPE, models.get(0).getClass().toString());
     }
 
-    public static void appendMultipleMessageTypes(List<AbstractMessageModel> models, Intent intent) {
+    public static void appendMultipleMessageTypes(List<MessageModel> models, Intent intent) {
         ArrayList<Integer> messageIDs = new ArrayList<>(models.size());
         ArrayList<String> messageTypes = new ArrayList<>();
 
-        for (AbstractMessageModel failedMessage : models) {
+        for (MessageModel failedMessage : models) {
             messageIDs.add(failedMessage.getId());
             messageTypes.add(failedMessage.getClass().toString());
         }
-        intent.putExtra(INTENT_DATA_ABSTRACT_MESSAGE_IDS, messageIDs);
-        intent.putExtra(INTENT_DATA_ABSTRACT_MESSAGE_TYPES, messageTypes);
+        intent.putExtra(INTENT_DATA_MESSAGE_IDS, messageIDs);
+        intent.putExtra(INTENT_DATA_MESSAGE_TYPES, messageTypes);
     }
 
     public static void append(int id, String classname, Intent intent) {
-        intent.putExtra(INTENT_DATA_ABSTRACT_MESSAGE_ID, id);
-        intent.putExtra(INTENT_DATA_ABSTRACT_MESSAGE_TYPE, classname);
+        intent.putExtra(INTENT_DATA_MESSAGE_ID, id);
+        intent.putExtra(INTENT_DATA_MESSAGE_TYPE, classname);
     }
 
     public static void append(List<ContactModel> contacts, Intent intent) {
@@ -245,44 +248,42 @@ public class IntentDataUtil {
     }
 
     @Nullable
-    public static String getAbstractMessageType(Intent intent) {
-        return intent.getStringExtra(INTENT_DATA_ABSTRACT_MESSAGE_TYPE);
+    public static String getMessageType(@NonNull Intent intent) {
+        return intent.getStringExtra(INTENT_DATA_MESSAGE_TYPE);
     }
 
-    public static int getAbstractMessageId(Intent intent) {
-        return intent.getIntExtra(INTENT_DATA_ABSTRACT_MESSAGE_ID, 0);
-    }
-
-    @Nullable
-    public static ArrayList<Integer> getAbstractMessageIds(Intent intent) {
-        return intent.getIntegerArrayListExtra(INTENT_DATA_ABSTRACT_MESSAGE_IDS);
+    public static int getMessageId(@NonNull Intent intent) {
+        return intent.getIntExtra(INTENT_DATA_MESSAGE_ID, 0);
     }
 
     @Nullable
-    public static ArrayList<String> getAbstractMessageTypes(Intent intent) {
-        return intent.getStringArrayListExtra(INTENT_DATA_ABSTRACT_MESSAGE_TYPES);
+    public static ArrayList<Integer> getMessageIds(Intent intent) {
+        return intent.getIntegerArrayListExtra(INTENT_DATA_MESSAGE_IDS);
     }
 
     @Nullable
-    public static AbstractMessageModel getAbstractMessageModel(@Nullable Intent intent, @Nullable MessageService messageService) {
+    public static ArrayList<String> getMessageTypes(Intent intent) {
+        return intent.getStringArrayListExtra(INTENT_DATA_MESSAGE_TYPES);
+    }
+
+    @Nullable
+    public static MessageModel getMessageModel(@Nullable Intent intent, @Nullable MessageService messageService) {
         if (intent != null && messageService != null) {
-
-            int id = getAbstractMessageId(intent);
-            String type = getAbstractMessageType(intent);
-
+            final int id = getMessageId(intent);
+            final @Nullable String type = getMessageType(intent);
             return messageService.getMessageModelFromId(id, type);
         }
         return null;
     }
 
     @NonNull
-    public static ArrayList<AbstractMessageModel> getAbstractMessageModels(Intent intent, MessageService messageService) {
-        ArrayList<Integer> messageIDs = getAbstractMessageIds(intent);
-        ArrayList<String> messageTypes = getAbstractMessageTypes(intent);
+    public static ArrayList<MessageModel> getMessageModels(Intent intent, MessageService messageService) {
+        ArrayList<Integer> messageIDs = getMessageIds(intent);
+        ArrayList<String> messageTypes = getMessageTypes(intent);
         if (messageIDs == null || messageTypes == null) {
             return new ArrayList<>();
         }
-        ArrayList<AbstractMessageModel> messageModels = new ArrayList<>(messageIDs.size());
+        ArrayList<MessageModel> messageModels = new ArrayList<>(messageIDs.size());
 
         Iterator<Integer> ids = messageIDs.iterator();
         Iterator<String> types = messageTypes.iterator();
@@ -311,8 +312,8 @@ public class IntentDataUtil {
             return null;
         }
 
-        String identity = ContactUtil.getIdentityFromViewIntent(context, intent);
-        if (!isNullOrEmpty(identity)) {
+        String identity = ContactLookupUtil.getIdentityFromContactViewIntent(context, intent);
+        if (identity != null) {
             return contactService.createReceiver(contactService.getByIdentity(identity));
         }
 
@@ -430,10 +431,29 @@ public class IntentDataUtil {
         }
     }
 
+    public static void addConversationIdToIntent(@NonNull Intent intent, @NonNull ConversationId conversationId) {
+        if (conversationId instanceof ContactConversationId) {
+            intent.putExtra(
+                AppConstants.INTENT_DATA_CONTACT,
+                ((ContactConversationId) conversationId).identity
+            );
+        } else if (conversationId instanceof GroupConversationId) {
+            intent.putExtra(
+                AppConstants.INTENT_DATA_GROUP_DATABASE_ID,
+                ((GroupConversationId) conversationId).groupDatabaseId
+            );
+        } else if (conversationId instanceof DistributionListConversationId) {
+            intent.putExtra(
+                AppConstants.INTENT_DATA_DISTRIBUTION_LIST_ID,
+                ((DistributionListConversationId) conversationId).distributionListId
+            );
+        }
+    }
+
     /**
      * Add extras to an existing intent representing a list of MessageReceivers
      */
-    public static Intent addMessageReceiversToIntent(Intent intent, MessageReceiver[] messageReceivers) {
+    public static Intent addMessageReceiversToIntent(Intent intent, @NonNull MessageReceiver[] messageReceivers) {
         ArrayList<String> contactIds = new ArrayList<>();
         ArrayList<Integer> groupIds = new ArrayList<>();
         ArrayList<Long> distributionListIds = new ArrayList<>();
@@ -467,7 +487,7 @@ public class IntentDataUtil {
         return intent;
     }
 
-    public static AbstractMessageModel getMessageModelFromReceiver(Intent intent, MessageReceiver messageReceiver) {
+    public static MessageModel getMessageModelFromReceiver(Intent intent, MessageReceiver messageReceiver) {
         ServiceManager serviceManager = ServiceManager.get();
         MessageService messageService;
         try {

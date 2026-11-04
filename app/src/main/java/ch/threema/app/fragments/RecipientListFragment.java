@@ -50,10 +50,11 @@ import ch.threema.app.ui.DebouncedOnClickListener;
 import ch.threema.app.ui.EmptyView;
 import ch.threema.app.ui.InsetSides;
 import ch.threema.app.ui.ViewExtensionsKt;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.app.utils.SnackbarUtil;
 import ch.threema.base.ThreemaException;
+
+import static ch.threema.android.StyleAttributeExtensionsKt.getColorFromAttribute;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import static org.koin.java.KoinJavaComponent.inject;
 
@@ -411,12 +412,12 @@ public abstract class RecipientListFragment extends ListFragment implements List
                     location[1] + (itemHeight * 2)
                 );
 
-                final @ColorInt int textColor = ConfigUtils.getColorFromAttribute(requireContext(), R.attr.colorOnPrimary);
+                final @ColorInt int textColor = getColorFromAttribute(requireContext(), R.attr.colorOnPrimary);
 
                 TapTargetView.showFor(
                     requireActivity(),
                     TapTarget.forBounds(rect, getString(R.string.tooltip_multiple_recipients_title), getString(R.string.tooltip_multiple_recipients_text))
-                        .outerCircleColorInt(ConfigUtils.getColorFromAttribute(requireContext(), R.attr.colorPrimary))
+                        .outerCircleColorInt(getColorFromAttribute(requireContext(), R.attr.colorPrimary))
                         .outerCircleAlpha(0.96f)
                         .targetCircleColor(android.R.color.transparent)
                         .titleTextSize(24)

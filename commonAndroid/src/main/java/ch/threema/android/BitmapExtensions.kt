@@ -5,8 +5,40 @@ import android.graphics.Color
 import androidx.annotation.IntRange
 import java.io.ByteArrayOutputStream
 
+/**
+ * Runs [block] with [Bitmap] as the argument and then recycles the [Bitmap] afterward.
+ */
+inline fun <T> Bitmap.use(block: (Bitmap) -> T): T =
+    try {
+        block(this)
+    } finally {
+        recycle()
+    }
+
+/**
+ * Runs [block] with [Bitmap] as the argument and returns the result from [block].
+ *
+ * If the returned [Bitmap] is different from the original [Bitmap], the original will
+ * be recycled. Similarly, if an exception occurs, [Bitmap] is recycled and the exception
+ * is re-thrown.
+ */
+inline fun <T : Bitmap?> Bitmap.transform(block: (Bitmap) -> T): T =
+    try {
+        val transformed = block(this)
+        if (transformed != this) {
+            recycle()
+        }
+        transformed
+    } catch (e: Throwable) {
+        recycle()
+        throw e
+    }
+
 fun Bitmap.toJpegByteArray(quality: Int = 80): ByteArray? =
     toByteArray(format = Bitmap.CompressFormat.JPEG, quality = quality)
+
+fun Bitmap.toPngByteArray(quality: Int = 100): ByteArray? =
+    toByteArray(format = Bitmap.CompressFormat.PNG, quality = quality)
 
 private fun Bitmap.toByteArray(format: Bitmap.CompressFormat, quality: Int): ByteArray? {
     val stream = ByteArrayOutputStream()

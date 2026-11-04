@@ -1,17 +1,17 @@
 package ch.threema.app.processors.reflectedd2dsync
 
 import ch.threema.app.BuildConfig
+import ch.threema.app.di.Qualifiers
 import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.eventbus.events.ContactEvent
 import ch.threema.app.managers.ServiceManager
-import ch.threema.app.utils.AppVersionProvider
 import ch.threema.app.utils.ExifInterface
 import ch.threema.base.ThreemaException
 import ch.threema.base.crypto.SymmetricEncryptionService
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.contentEquals
 import ch.threema.data.datatypes.AvailabilityStatus
-import ch.threema.data.datatypes.ContactConversationId
+import ch.threema.data.datatypes.ConversationCategory
 import ch.threema.data.datatypes.ConversationVisibility
 import ch.threema.data.models.ContactModel
 import ch.threema.data.models.ContactModelData
@@ -34,7 +34,7 @@ import ch.threema.protobuf.common.Blob
 import ch.threema.protobuf.common.DeltaImage
 import ch.threema.protobuf.d2d.ContactSync
 import ch.threema.protobuf.d2d.sync.Contact
-import ch.threema.protobuf.d2d.sync.ConversationCategory
+import ch.threema.protobuf.d2d.sync.ConversationCategory as ProtocolsConversationCategory
 import ch.threema.protobuf.d2d.sync.ConversationVisibility as ProtocolsConversationVisibility
 import ch.threema.protobuf.d2d.sync.contactDefinedProfilePictureOrNull
 import ch.threema.protobuf.d2d.sync.userDefinedProfilePictureOrNull
@@ -42,6 +42,7 @@ import ch.threema.protobuf.d2d.sync.workAvailabilityStatusOrNull
 import ch.threema.protobuf.toDataType
 import java.time.Instant
 import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
 import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("ReflectedContactSyncTask")
@@ -52,7 +53,6 @@ class ReflectedContactSyncTask(
     private val serviceManager: ServiceManager,
     private val globalEventBuses: GlobalEventBuses,
 ) : KoinComponent {
-    private val conversationCategoryService by lazy { serviceManager.conversationCategoryService }
     private val fileService by lazy { serviceManager.fileService }
     private val symmetricEncryptionService: SymmetricEncryptionService by inject()
 
@@ -143,7 +143,7 @@ class ReflectedContactSyncTask(
 
         applyProfilePictures(contact)
 
-        applyConversationCategory(contact)
+        applyConversationCategory(contactModel, contact)
 
         applyConversationVisibility(contactModel, contact)
 
@@ -226,23 +226,11 @@ class ReflectedContactSyncTask(
         }
     }
 
-    private fun applyConversationCategory(contact: Contact) {
-        if (!contact.hasConversationCategory()) {
-            return
-        }
-        when (contact.conversationCategory) {
-            ConversationCategory.DEFAULT -> false
-            ConversationCategory.PROTECTED -> true
-            ConversationCategory.UNRECOGNIZED -> unrecognizedValue("conversation category")
-            null -> nullValue("conversation category")
-        }?.let { isPrivateChat ->
-            val contactConversationId = ContactConversationId(contact.identity)
-            if (isPrivateChat) {
-                conversationCategoryService.persistAddPrivateMark(contactConversationId)
-            } else {
-                conversationCategoryService.persistRemovePrivateMark(contactConversationId)
-            }
-        }
+    private fun applyConversationCategory(contactModel: ContactModel, contact: Contact) {
+        val conversationCategory = contact.getConversationCategoryOrNull()
+            ?: return
+
+        contactModel.setConversationCategoryFromSync(conversationCategory)
     }
 
     private fun applyNotificationTriggerPolicy(contactModel: ContactModel, contact: Contact) {
@@ -319,8 +307,7 @@ class ReflectedContactSyncTask(
 
     private fun Blob.loadAndMarkAsDone(persistBlob: (blob: ByteArray) -> Unit) {
         val blobLoadingResult = loadAndMarkAsDone(
-            okHttpClient = serviceManager.okHttpClient,
-            version = AppVersionProvider.appVersion,
+            blobDownloadOkHttpClient = get(qualifier = Qualifiers.okHttpBlobDownload),
             serverAddressProvider = serviceManager.serverAddressProviderService.serverAddressProvider,
             multiDevicePropertyProvider = serviceManager.multiDeviceManager.propertiesProvider,
             symmetricEncryptionService = symmetricEncryptionService,
@@ -554,6 +541,19 @@ class ReflectedContactSyncTask(
         }
     }
 
+    private fun Contact.getConversationCategoryOrNull(): ConversationCategory? {
+        if (!hasConversationVisibility()) {
+            return null
+        }
+
+        return when (conversationCategory) {
+            ProtocolsConversationCategory.DEFAULT -> ConversationCategory.DEFAULT
+            ProtocolsConversationCategory.PROTECTED -> ConversationCategory.PROTECTED
+            ProtocolsConversationCategory.UNRECOGNIZED -> unrecognizedValue("conversation category")
+            null -> nullValue("conversation category")
+        }
+    }
+
     private fun Contact.getAvailabilityStatusOrNone(): AvailabilityStatus {
         return if (hasWorkAvailabilityStatus()) {
             AvailabilityStatus.fromProtocolModel(workAvailabilityStatus) ?: AvailabilityStatus.None
@@ -610,6 +610,7 @@ class ReflectedContactSyncTask(
             readReceiptPolicy = getReadReceiptPolicyOrNull() ?: ReadReceiptPolicy.DEFAULT,
             typingIndicatorPolicy = getTypingIndicatorPolicyOrNull() ?: TypingIndicatorPolicy.DEFAULT,
             conversationVisibility = getConversationVisibilityOrNull() ?: ConversationVisibility.NORMAL,
+            conversationCategory = getConversationCategoryOrNull() ?: ConversationCategory.DEFAULT,
             androidContactLookupInfo = null,
             localAvatarExpires = null,
             isRestored = false,

@@ -4,7 +4,6 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.TextUtils;
@@ -20,6 +19,7 @@ import com.google.i18n.phonenumbers.Phonenumber;
 import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
+import androidx.activity.result.ActivityResultLauncher;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.Px;
@@ -33,7 +33,10 @@ import androidx.lifecycle.LifecycleOwner;
 import androidx.viewpager.widget.PagerAdapter;
 import androidx.viewpager.widget.ViewPager;
 import ch.threema.android.LifecycleAwareAsyncTask;
+import ch.threema.android.permissions.ContactPermissionsContract;
+import ch.threema.app.BuildFlavor;
 import ch.threema.app.R;
+import ch.threema.app.activities.BackPressHandler;
 import ch.threema.app.activities.ThreemaAppCompatActivity;
 import ch.threema.app.androidcontactsync.usecases.SynchronizeAndroidContactsUseCase;
 import ch.threema.app.di.DependencyContainer;
@@ -63,12 +66,14 @@ import ch.threema.app.utils.executor.BackgroundExecutor;
 import ch.threema.app.utils.executor.BackgroundTask;
 import ch.threema.app.workers.WorkSyncWorker;
 
+import static ch.threema.android.PermissionExtensionsKt.checkGrantedPermission;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.domain.protocol.api.LinkEmailException;
 import ch.threema.domain.protocol.api.LinkMobileNoException;
 import ch.threema.domain.taskmanager.TriggerSource;
 import kotlin.Lazy;
+import kotlin.Unit;
 
 import static ch.threema.app.AppConstants.PHONE_LINKED_PLACEHOLDER;
 import static ch.threema.app.di.DIJavaCompat.isSessionScopeReady;
@@ -84,7 +89,8 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
     WizardFragment2.OnSettingsChangedListener,
     WizardFragment3.OnSettingsChangedListener,
     WizardFragment4.SettingsInterface,
-    WizardDialog.WizardDialogCallback {
+    WizardDialog.WizardDialogCallback,
+    BackPressHandler {
 
     private static final Logger logger = getThreemaLogger("WizardBaseActivity");
 
@@ -100,7 +106,6 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
     private static final String DIALOG_TAG_SYNC_CONTACTS_MDM_ENABLE_RATIONALE = "scmer";
     private static final String DIALOG_TAG_APPLICATION_SETUP_RETRY = "app-setup-retry";
 
-    private static final int PERMISSION_REQUEST_READ_CONTACTS = 2;
     private static final int NUM_PAGES = 5;
     private static final long FINISH_DELAY = 3 * 1000;
     private static final long DIALOG_DELAY = 200;
@@ -141,6 +146,20 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
             }
         );
 
+    private final ActivityResultLauncher<Unit> contactPermissionLauncher = registerForActivityResult(new ContactPermissionsContract(), isGranted -> {
+        if (isGranted) {
+            isSyncContacts = true;
+            dependencies.getSynchronizedSettingsService().getContactSyncPolicySetting().setFromLocal(this.isSyncContacts);
+            linkPhone();
+        } else if (userCannotChangeContactSync) {
+            ConfigUtils.showPermissionRationale(this, (View) viewPager.getParent(), R.string.permission_contacts_sync_required);
+            resetUi();
+        } else {
+            isSyncContacts = false;
+            linkPhone();
+        }
+    });
+
     private Runnable showDialogDelayedTask(final int current, final int previous) {
         return () -> RuntimeUtil.runOnUiThread(() -> {
             if (current == WizardFragment2.PAGE_ID && previous == WizardFragment1.PAGE_ID && isNullOrEmpty(getSafePassword())) {
@@ -156,7 +175,7 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
                 if (!isReadOnlyProfile()) {
                     if ((!isNullOrEmpty(number) && isNullOrEmpty(presetMobile) && !dependencies.getLocaleService().validatePhoneNumber(getPhone())) ||
                         ((!isNullOrEmpty(email) && isNullOrEmpty(presetEmail) && !Patterns.EMAIL_ADDRESS.matcher(email).matches()))) {
-                        WizardDialog wizardDialog = WizardDialog.newInstance(ConfigUtils.isWorkBuild() ?
+                        WizardDialog wizardDialog = WizardDialog.newInstance(BuildFlavor.IS_WORK ?
                                 R.string.new_wizard_phone_email_invalid :
                                 R.string.new_wizard_phone_invalid,
                             R.string.ok);
@@ -168,10 +187,10 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
             if (current == WizardFragment4.PAGE_ID && previous == WizardFragment3.PAGE_ID) {
                 if (!isReadOnlyProfile()) {
                     boolean needConfirm;
-                    if (ConfigUtils.isWorkBuild()) {
+                    if (BuildFlavor.IS_WORK) {
                         needConfirm = isNullOrEmpty(number) && isNullOrEmpty(email) && isNullOrEmpty(getPresetEmail()) && isNullOrEmpty(getPresetPhone());
                     } else {
-                        if (ConfigUtils.isOnPremBuild()) {
+                        if (BuildFlavor.IS_ON_PREM) {
                             needConfirm = false;
                         } else {
                             needConfirm = isNullOrEmpty(number) && isNullOrEmpty(getPresetPhone());
@@ -179,7 +198,7 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
                     }
                     if (needConfirm) {
                         WizardDialog wizardDialog = WizardDialog.newInstance(
-                            ConfigUtils.isWorkBuild() ?
+                            BuildFlavor.IS_WORK ?
                                 R.string.new_wizard_anonymous_confirm :
                                 R.string.new_wizard_anonymous_confirm_phone_only,
                             R.string.yes,
@@ -229,7 +248,7 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
             isNewIdentity = intent.getBooleanExtra(EXTRA_NEW_IDENTITY_CREATED, false);
         }
 
-        if (ConfigUtils.isWorkBuild() && !workSyncPerformed) {
+        if (BuildFlavor.IS_WORK && !workSyncPerformed) {
             performWorkSync();
         } else {
             setupConfig();
@@ -352,13 +371,13 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
             this,
             () -> {
                 // On success
-                DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_WORK_SYNC, true);
+                DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_WORK_SYNC);
                 workSyncPerformed = true;
                 setupConfig();
             },
             () -> {
                 // On fail
-                DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_WORK_SYNC, true);
+                DialogUtil.dismissDialog(getSupportFragmentManager(), DIALOG_TAG_WORK_SYNC);
                 RuntimeUtil.runOnUiThread(() -> Toast.makeText(WizardBaseActivity.this, R.string.unable_to_fetch_configuration, Toast.LENGTH_LONG).show());
                 logger.info("Unable to post work request for fetch2");
                 try {
@@ -391,7 +410,6 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
         if (viewPager != null) {
             viewPager.removeOnPageChangeListener(this);
         }
-
         super.onDestroy();
     }
 
@@ -511,11 +529,11 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
 
     private void askUserForContactSync() {
         /* trigger a connection now - as application lifecycle was set to resumed state when there was no identity yet */
-        dependencies.getLifetimeService().ensureConnection();
+        dependencies.getLifetimeService().startConnectionIfNeeded();
 
         if (this.userCannotChangeContactSync) {
             if (this.isSyncContacts) {
-                if (ConfigUtils.isPermissionGranted(this, Manifest.permission.READ_CONTACTS)) {
+                if (checkGrantedPermission(this, Manifest.permission.READ_CONTACTS)) {
                     // Permission already granted, therefore continue by linking the phone
                     linkPhone();
                 } else {
@@ -541,16 +559,6 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
                 wizardDialog.show(getSupportFragmentManager(), DIALOG_TAG_SYNC_CONTACTS_ENABLE);
             }
         }
-    }
-
-    private void requestContactSyncPermission() {
-        if (ConfigUtils.requestContactPermissions(this, null, PERMISSION_REQUEST_READ_CONTACTS)) {
-            // permission is already granted
-            this.isSyncContacts = true;
-            dependencies.getSynchronizedSettingsService().getContactSyncPolicySetting().setFromLocal(this.isSyncContacts);
-            linkPhone();
-        }
-        // continue to onRequestPermissionsResult
     }
 
     @Override
@@ -706,7 +714,7 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
                 break;
             case DIALOG_TAG_SYNC_CONTACTS_ENABLE:
             case DIALOG_TAG_SYNC_CONTACTS_MDM_ENABLE_RATIONALE:
-                requestContactSyncPermission();
+                contactPermissionLauncher.launch(Unit.INSTANCE);
                 break;
             case DIALOG_TAG_APPLICATION_SETUP_RETRY:
                 runApplicationSetupStepsAndRestart();
@@ -742,12 +750,7 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
     }
 
     @Override
-    protected boolean enableOnBackPressedCallback() {
-        return true;
-    }
-
-    @Override
-    protected void handleOnBackPressed() {
+    public void handleOnBackPressed() {
         if (prevButton != null && prevButton.getVisibility() == View.VISIBLE) {
             prevPage();
         }
@@ -928,7 +931,7 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
 
             @Override
             public Boolean runInBackground() {
-                return dependencies.getApplicationSetupSteps().run();
+                return dependencies.getApplicationSetupSteps().runSynchronously();
             }
 
             @Override
@@ -1105,7 +1108,7 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
 
     private void syncContactsAndFinish() {
         /* trigger a connection now - as application lifecycle was set to resumed state when there was no identity yet */
-        dependencies.getLifetimeService().ensureConnection();
+        dependencies.getLifetimeService().startConnectionIfNeeded();
 
         dependencies.getSynchronizedSettingsService().getContactSyncPolicySetting().setFromLocal(this.isSyncContacts);
 
@@ -1113,23 +1116,6 @@ public class WizardBaseActivity extends ThreemaAppCompatActivity implements
             reallySyncContactsAndFinish();
         } else {
             prepareThreemaSafe();
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == PERMISSION_REQUEST_READ_CONTACTS) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                this.isSyncContacts = true;
-                linkPhone();
-            } else if (userCannotChangeContactSync) {
-                ConfigUtils.showPermissionRationale(this, (View) viewPager.getParent(), R.string.permission_contacts_sync_required);
-                resetUi();
-            } else {
-                this.isSyncContacts = false;
-                linkPhone();
-            }
         }
     }
 

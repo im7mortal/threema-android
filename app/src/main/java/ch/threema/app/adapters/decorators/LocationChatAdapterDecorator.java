@@ -14,7 +14,7 @@ import ch.threema.app.ui.listitemholder.ComposeMessageHolder;
 import ch.threema.app.utils.GeoLocationUtil;
 import ch.threema.app.utils.LinkifyUtil;
 import ch.threema.app.utils.RuntimeUtil;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 import ch.threema.storage.models.MessageState;
 import ch.threema.storage.models.data.LocationDataModel;
 
@@ -23,10 +23,10 @@ import static android.view.View.GONE;
 public class LocationChatAdapterDecorator extends ChatAdapterDecorator {
 
     public LocationChatAdapterDecorator(
-        AbstractMessageModel messageModel,
-        @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
-        @NonNull LinkifyUtil.LinkifyListener linkifyListener,
-        Helper helper
+            MessageModel messageModel,
+            @NonNull ChatAdapterDecoratorListener chatAdapterDecoratorListener,
+            @NonNull LinkifyUtil.LinkifyListener linkifyListener,
+            Helper helper
     ) {
         super(messageModel, chatAdapterDecoratorListener, linkifyListener, helper);
     }
@@ -92,7 +92,7 @@ public class LocationChatAdapterDecorator extends ChatAdapterDecorator {
         RuntimeUtil.runOnUiThread(() -> setupResendStatus(holder));
     }
 
-    private void viewLocation(Context context, AbstractMessageModel messageModel) {
+    private void viewLocation(Context context, MessageModel messageModel) {
         if (messageModel == null) {
             return;
         }

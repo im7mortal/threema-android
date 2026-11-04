@@ -33,4 +33,7 @@ class IdentityProviderImpl(
     }
 
     override fun getIdentityString(): IdentityString? = myIdentity?.value
+
+    override fun requireIdentityString(): IdentityString =
+        myIdentity?.value ?: error("Identity does not exist")
 }

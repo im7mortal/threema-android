@@ -39,7 +39,7 @@ import ch.threema.app.ui.InsetSides;
 import ch.threema.app.ui.ViewExtensionsKt;
 import ch.threema.app.utils.IconUtil;
 import ch.threema.app.utils.MimeUtil;
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.storage.models.MessageModel;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
@@ -202,7 +202,7 @@ public class AudioViewFragment extends MediaViewFragment implements Player.Liste
 
     @NonNull
     private MediaItem createAudioMediaItem(final @NonNull File file) throws IllegalStateException {
-        final @Nullable AbstractMessageModel messageModel = super.getMessageModel();
+        final @Nullable MessageModel messageModel = super.getMessageModel();
         if (messageModel == null || messageModel.getUid() == null) {
             throw new IllegalStateException("Can not determine message uid");
         }

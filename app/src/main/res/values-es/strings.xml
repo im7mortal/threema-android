@@ -170,11 +170,11 @@
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="backup_sum">Exportar tu ID de ${app_name_short}</string>
     <string name="backup_and_delete">Copia de seguridad y eliminación</string>
-    <string name="delete_id_title">Eliminar ID</string>
+    <string name="delete_id_menu_title">Eliminar ID y datos</string>
     <string name="delete_id_message">A menos que haya creado una copia de seguridad o exportado y guardado una copia de este ID, no podrá volver a enviar ni recibir
 		mensajes con esta ID.\n\nSi no quiere volver a usar esta ID, le recomendamos que establezca una contraseña de anulación y anule la ID en myid.threema.ch/revoke antes de eliminarla.</string>
     <string name="delete_id_message2">Último aviso: ¿está seguro de que desea eliminar su ID?</string>
-    <string name="delete_id_sum">Eliminar permanentemente tu ID de ${app_name_short} y todos los datos de este dispositivo</string>
+    <string name="delete_id_summary">Eliminar su ID de ${app_name_short} y todos los datos de este dispositivo</string>
     <string name="delete_all_data_prompt">¿Quieres eliminar todos los datos de la ap?</string>
     <string name="backup_password_summary">Tu ID exportada se encriptará con una contraseña. Usa una combinación de letras, números y símbolos. ¡No olvides lo que has elegido!</string>
     <string name="backup_password_again_summary">Vuelva a introducir la misma contraseña.</string>
@@ -441,12 +441,6 @@
     <string name="media_gallery_pictures">Fotos</string>
     <string name="media_gallery_videos">Vídeos</string>
     <string name="group_membership_title">Miembro de estos grupos</string>
-    <string name="group_description">Descripción del grupo</string>
-    <string name="change_group_description">Cambiar descripción del grupo</string>
-    <string name="add_group_description">Añadir una descripción del grupo</string>
-    <string name="read_more">leer más</string>
-    <string name="read_less">leer menos</string>
-    <string name="changed_group_desc_date">\u00daltima modificaci\u00f3n: </string>
     <string name="num_items_sected">Seleccionados: %s</string>
     <string name="really_delete_media">¿Está seguro de que quiere borrar %d mensajes multimedia?</string>
     <string name="check_updates">Comprobar si hay actualizaciones</string>
@@ -801,6 +795,8 @@ almacenado.</string>
     <string name="text">Texto</string>
     <string name="undo">Deshacer</string>
     <string name="android_backup_date">Última copia de seguridad</string>
+    <string name="threema_safe_configuration_title">Configuración</string>
+    <string name="threema_safe_last_backup_date_and_time">Hora</string>
     <string name="discard">Descartar</string>
     <string name="android_backup_restart_threema">Espere, en unos segundos se va a reiniciar la aplicación.</string>
     <string name="battery_optimizations_title">Desactivar ahorro de energía</string>
@@ -981,6 +977,7 @@ almacenado.</string>
     <string name="safe_no_backup_found">No se encontró ninguna copia de seguridad en el servidor. Comprueba la ID y la contraseña.</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="safe_select_id">Se han encontrado múltiples ID de ${app_name_short}. Selecciona la ID que quieres usar:</string>
+    <!-- Button label on "Threema Safe" feature, to allow the user to trigger the backup process -->
     <string name="safe_backup_now">Hacer copia de seguridad ahora</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="safe_enable_explain_short">Habilita ${app_name_short} Safe para crear copias de seguridad automáticas, seguras y anónimas de todos tus datos importantes.</string>
@@ -1300,6 +1297,7 @@ almacenado.</string>
     <string name="prefs_header_receipts">Confirmaciones</string>
     <string name="prefs_title_reset_receipts">Borrar ajustes individuales</string>
     <string name="prefs_sum_reset_receipts">Restablecer ajustes específicos de contactos para confirmaciones de lectura e indicador de escritura a los predeterminados.</string>
+    <string name="confirm_sum_reset_receipts">¿Restablecer ajustes específicos de contactos para confirmaciones de lectura e indicador de escritura a los predeterminados?</string>
     <string name="reset_successful">Predeterminados restablecidos correctamente</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="qr_scanner_id_hint">Escanee el código QR de un contacto para verificar su identidad. Para mostrar el código, pida a su contacto que toque la imagen de perfil en la esquina superior izquierda de la pantalla de inicio de ${app_name_short}.</string>
@@ -1563,6 +1561,10 @@ almacenado.</string>
     <string name="problemsolver_title_app_battery_usgae_optimized">Uso de la batería de la app establecido como \"optimizado\".</string>
     <!-- ${app_name_short} is a placeholder for the app's name, e.g. "Threema". It must be left as-is and not translated. -->
     <string name="problemsolver_explain_app_battery_usgae_optimized">La app no tiene permiso para mantener una conexión permanente con los servidores, necesaria para que funcione ${app_name_short} Push. No se le informará de nuevos mensajes cuando la app esté en segundo plano. Para solucionarlo, pulse \"Uso de la batería de la app\" y seleccione \"Sin restricciones\".</string>
+    <!-- Title of warning message that informs the user that the version of Android they are using will soon no longer be supported. -->
+    <string name="problemsolver_title_android_version_deprecated">Esta versión de Android pronto dejará de ser compatible</string>
+    <!-- Details of warning message that informs the user that the version of Android they are using will soon no longer be supported. ${app_name} is a placeholder that should be kept as-is and not translated. -->
+    <string name="problemsolver_explain_android_version_deprecated">Utiliza un dispositivo Android que ya no recibe actualizaciones de software. Por motivos de seguridad, ${app_name} pronto dejará de ser compatible con esta versión de Android.</string>
     <string name="problemsolver_to_settings">A la configuración</string>
     <!-- Label on button to dismiss/hide a warning -->
     <string name="problemsolver_dismiss">Descartar</string>
@@ -1784,6 +1786,90 @@ almacenado.</string>
     <!-- A hint text that will be played by the android screen reader in accessibility mode. It explains the effect of a click action. -->
     <!-- Clicking will open a new modal view that displays the full length of a contact's availability status description. -->
     <string name="accessibility_view_full_availability_status">Toque para ver el estado de disponibilidad completo</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a 1 to 1 conversation.
+    Placeholder %1$s will be replaced with the emojis.
+    Placeholder %2$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_contact">Ha reaccionado con %1$s a: %2$s</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a 1 to 1 conversation with many emojis.
+    Placeholder %1$s will be replaced with the emojis until a defined count.
+    Placeholder %2$d will be replaced with the remaining emoji count that is not displayed in %1$s.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_contact_more">Ha reaccionado con %1$s +%2$d a: %3$s</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation and a single reactor person.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the emojis.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_group_one_person">%1$s ha reaccionado con %2$s a: %3$s</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation and a single reactor person with many emojis.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the emojis until a defined count.
+    Placeholder %3$d will be replaced with the remaining emoji count that is not displayed in %2$s.
+    Placeholder %4$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_group_one_person_more">%1$s ha reaccionado con %2$s +%3$d a: %4$s</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation with 2 reacting persons.
+    Placeholder %1$s will be replaced with the name of the reacting person.
+    Placeholder %2$s will be replaced with the name of the other reacting person.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_group_two_persons">%1$s y %2$s han reaccionado a: %3$s</string>
+    <!--
+    Text that is displayed in an emoji reaction system notification for a group conversation with more than 2 reacting persons.
+    Placeholder %1$s will be replaced with the name of the most recent reacting person.
+    Placeholder %2$d will be replaced with the remaining person count that also reacted.
+    Placeholder %3$s will be replaced with a preview of the message that was reacted on.
+    -->
+    <string name="emoji_reaction_notification_body_group_more_persons">%1$s y %2$d más han reaccionado a: %3$s</string>
+    <!-- Placeholder %1$s will be replaced with the message body of the text message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_text">«%1$s»</string>
+    <string name="emoji_reaction_notification_preview_image">Imagen</string>
+    <!-- Placeholder %1$s will be replaced with the caption text of the image message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_image_caption">«%1$s»</string>
+    <string name="emoji_reaction_notification_preview_video">Vídeo</string>
+    <!-- Placeholder %1$s will be replaced with the caption text of the video message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_video_caption">«%1$s»</string>
+    <!-- Placeholder %1$s will be replaced with the duration of the audio message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_audio">Audio (%1$s)</string>
+    <!-- Placeholder %1$s will be replaced with the caption text of the audio message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_audio_caption">Audio «%1$s»</string>
+    <!-- Placeholder %1$s will be replaced with the duration of the voice message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_voice_message">Mensaje de voz (%1$s)</string>
+    <!-- Placeholder %1$s will be replaced with the caption or filename of the file message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_file">Archivo «%1$s»</string>
+    <string name="emoji_reaction_notification_preview_poll">Sondeo</string>
+    <!-- Placeholder %1$s will be replaced with the poll's name of the poll message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_poll_named">Sondeo «%1$s»</string>
+    <string name="emoji_reaction_notification_preview_location">Ubicación</string>
+    <!-- Placeholder %1$s will be replaced with the POI name of the location message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_location_named">Ubicación «%1$s»</string>
+    <string name="emoji_reaction_notification_preview_contact">Contacto</string>
+    <!-- Placeholder %1$s will be replaced with the contact name of the contact message that was reacted on. -->
+    <string name="emoji_reaction_notification_preview_contact_named">Contacto «%1$s»</string>
+    <string name="prefs_title_emoji_reaction_notifications">Notificaciones de reacciones con emoji</string>
+    <string name="prefs_title_emoji_reaction_contact_notifications">En chats</string>
+    <string name="prefs_description_emoji_reaction_contact_notifications">Reciba notificaciones de reacciones con emoji a sus mensajes en chats individuales</string>
+    <string name="prefs_title_emoji_reaction_group_notifications">En chats grupales</string>
+    <string name="prefs_description_emoji_reaction_group_notifications">Reciba notificaciones de reacciones con emoji a sus mensajes en chats grupales</string>
+    <string name="group_spam_banner_message">Este grupo pertenece a un usuario desconocido</string>
+    <string name="group_spam_banner_button_not_spam">No es spam</string>
+    <string name="group_spam_banner_button_report_spam">Denunciar spam</string>
+    <!-- Placeholder 1 holds the display name of a group conversation -->
+    <string name="group_spam_report_dialog_title_named">Denunciar a %1$s</string>
+    <string name="group_spam_report_dialog_title">Denunciar al grupo</string>
+    <string name="group_spam_report_dialog_message">El identificador de este grupo, el número de miembros, así como el identificador y el apodo del creador del grupo, se comunicarán a Threema junto con el identificador de usted. No se compartirá el contenido de los mensajes ni otra información personal, y no se notificará a ningún miembro del grupo.</string>
+    <string name="group_spam_report_dialog_also_block_and_delete">Bloquear también al creador y eliminar el chat</string>
+    <string name="group_spam_report_dialog_cancel">Cancelar</string>
+    <string name="group_spam_report_dialog_report">Denunciar</string>
+    <!-- This is shown in a loading indicator dialog while a spam group is being reported -->
+    <string name="reporting_group_in_progress">Denunciando al grupo</string>
     <plurals name="contacts_counter_label">
         <item quantity="one">%d contacto</item>
         <item quantity="other">%d contactos</item>
@@ -1807,6 +1893,10 @@ almacenado.</string>
     <plurals name="new_messages">
         <item quantity="one">%d mensaje nuevo</item>
         <item quantity="other">%d mensajes nuevos</item>
+    </plurals>
+    <plurals name="new_emoji_reactions">
+        <item quantity="one">%d nueva reacción</item>
+        <item quantity="other">%d nuevas reacciones</item>
     </plurals>
     <plurals name="unread_messages">
         <item quantity="one">%d mensaje sin leer</item>

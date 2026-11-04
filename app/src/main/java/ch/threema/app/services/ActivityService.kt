@@ -3,6 +3,7 @@ package ch.threema.app.services
 import android.app.Activity
 import android.content.Context
 import ch.threema.android.disableEnterTransition
+import ch.threema.app.activities.AppLockExempt
 import ch.threema.app.applock.AppLockActivity
 import ch.threema.app.pinlock.PinLockActivity
 import ch.threema.app.preference.service.PreferenceService
@@ -47,8 +48,8 @@ class ActivityService(
 
     private suspend fun askUserToUnlockIfPossible(): Unit = withContext(dispatcherProvider.main.immediate) {
         val currentActivity = currentActivityReference.get()
-        if (masterKeyProvider.isLocked() || currentActivity == null || currentActivity is PinLockActivity || currentActivity is AppLockActivity) {
-            // Don't ask the user to unlock when the app is not in the foreground or is already showing the unlock activity
+        if (masterKeyProvider.isLocked() || currentActivity == null || currentActivity is AppLockExempt) {
+            // Don't ask the user to unlock when the app is not in the foreground, or is showing a screen that handles locking itself
             return@withContext
         }
 

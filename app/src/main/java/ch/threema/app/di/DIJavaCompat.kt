@@ -1,6 +1,5 @@
 package ch.threema.app.di
 
-import android.content.Context
 import ch.threema.localcrypto.MasterKeyManager
 import org.koin.mp.KoinPlatformTools
 
@@ -8,10 +7,6 @@ import org.koin.mp.KoinPlatformTools
  * Provides convenient access to dependencies in the singletons scope from Java.
  */
 object DIJavaCompat {
-    @JvmStatic
-    fun getAppContext(): Context =
-        getKoin().get()
-
     @JvmStatic
     fun getMasterKeyManager(): MasterKeyManager =
         getKoin().get()

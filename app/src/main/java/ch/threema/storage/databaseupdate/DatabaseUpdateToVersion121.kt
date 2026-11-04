@@ -4,6 +4,9 @@ import ch.threema.storage.buildContentValues
 import ch.threema.storage.runUpdate
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * convert deprecated CONTACT messages to TEXT messages
+ */
 class DatabaseUpdateToVersion121(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -25,8 +28,6 @@ class DatabaseUpdateToVersion121(
     }
 
     override val version = 121
-
-    override fun getDescription() = "convert deprecated CONTACT messages to TEXT messages"
 
     companion object {
         private const val MESSAGE_TYPE_TEXT = 0

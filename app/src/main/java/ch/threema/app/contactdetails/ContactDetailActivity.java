@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import androidx.activity.result.ActivityResultLauncher;
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -51,7 +52,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import ch.threema.android.FlowJavaCompat;
 import ch.threema.android.ToastDuration;
+import ch.threema.android.permissions.CameraPermissionContract;
 import ch.threema.app.AppConstants;
+import ch.threema.app.BuildFlavor;
 import ch.threema.app.R;
 import ch.threema.app.activities.ComposeMessageActivity;
 import ch.threema.app.activities.GroupDetailActivity;
@@ -107,6 +110,7 @@ import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 import ch.threema.data.datatypes.ContactConversationId;
 import ch.threema.data.datatypes.ContactNameFormat;
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.data.models.ContactModelData;
 import ch.threema.domain.models.AcquaintanceLevel;
 import ch.threema.domain.models.VerificationLevel;
@@ -132,13 +136,10 @@ public class ContactDetailActivity extends ThreemaToolbarActivity
     private static final String DIALOG_TAG_ADD_CONTACT = "dac";
     private static final String DIALOG_TAG_CONFIRM_BLOCK = "block";
 
-    private static final int PERMISSION_REQUEST_CAMERA = 2;
-
     private static final String RUN_ON_ACTIVE_RELOAD = "reload";
     private static final String RUN_ON_ACTIVE_RELOAD_GROUP = "reload_group";
 
     private static final int REQUEST_CODE_CONTACT_EDITOR = 39255;
-    private static final int REQUEST_CODE_QR_SCANNER = 26657;
 
     @NonNull
     private final DependencyContainer dependencies = KoinJavaComponent.get(DependencyContainer.class);
@@ -180,6 +181,31 @@ public class ContactDetailActivity extends ThreemaToolbarActivity
     private TextView contactTitle;
     private View workIcon;
 
+    private final ActivityResultLauncher<String> scanQrCodeLauncher = registerForActivityResult(new QRScannerActivity.Contract(), qrCodeText -> {
+            if (qrCodeText == null) {
+                return;
+            }
+            ContactUrlUtil contactUrlUtil = KoinJavaComponent.get(ContactUrlUtil.class);
+            var result = contactUrlUtil.parse(qrCodeText);
+            if (result != null) {
+                applyQRCodeResult(result);
+            } else {
+                SimpleStringAlertDialog.newInstance(R.string.scan_id, R.string.invalid_threema_qr_code).show(getSupportFragmentManager(), "");
+            }
+    });
+    private final ActivityResultLauncher<Unit> cameraPermissionLauncher = registerForActivityResult(new CameraPermissionContract(), isGranted -> {
+        if (isGranted) {
+            scanQR();
+        } else if (!shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
+            // TODO(ANDR-5211): Use rationale as intended
+            ConfigUtils.showPermissionRationale(
+                this,
+                findViewById(R.id.main_content),
+                R.string.permission_camera_qr_required
+            );
+        }
+    });
+
     @NonNull
     public static Intent createIntent(@NonNull Context context, @NonNull String identity) {
         final @NonNull Intent intent = new Intent(context, ContactDetailActivity.class);
@@ -211,14 +237,14 @@ public class ContactDetailActivity extends ThreemaToolbarActivity
     private final ResumePauseHandler.RunIfActive runIfActiveUpdate = new ResumePauseHandler.RunIfActive() {
         @Override
         public void runOnUiThread() {
-            groupList = dependencies.getGroupService().getGroupsByIdentity(identity);
+            groupList = dependencies.getGroupService().getGroupsContainingIdentity(identity);
             refreshAdapter();
         }
     };
     private final ResumePauseHandler.RunIfActive runIfActiveGroupUpdate = new ResumePauseHandler.RunIfActive() {
         @Override
         public void runOnUiThread() {
-            groupList = dependencies.getGroupService().getGroupsByIdentity(identity);
+            groupList = dependencies.getGroupService().getGroupsContainingIdentity(identity);
             refreshAdapter();
         }
     };
@@ -317,7 +343,7 @@ public class ContactDetailActivity extends ThreemaToolbarActivity
             this.finish();
             return;
         }
-        this.groupList = dependencies.getGroupService().getGroupsByIdentity(this.identity);
+        this.groupList = dependencies.getGroupService().getGroupsContainingIdentity(this.identity);
 
         // Look up viewmodel
         this.viewModel = ViewModelCompat.getViewModel(
@@ -399,7 +425,7 @@ public class ContactDetailActivity extends ThreemaToolbarActivity
 
         // Set description for badge
         this.workIcon.setContentDescription(
-            getString(ConfigUtils.isWorkBuild() ? R.string.private_contact : R.string.threema_work_contact)
+            getString(BuildFlavor.IS_WORK ? R.string.private_contact : R.string.threema_work_contact)
         );
 
         // Note: This logic should probably be changed to be more reactive, instead of using
@@ -417,7 +443,7 @@ public class ContactDetailActivity extends ThreemaToolbarActivity
             onCreateLocal();
 
             if (savedInstanceState == null) {
-                if (!ConfigUtils.isWorkBuild() && dependencies.getContactService().showIdentityTypeBadge(contactModelDataSnapshot)) {
+                if (!BuildFlavor.IS_WORK && dependencies.getContactService().showIdentityTypeBadge(contactModelDataSnapshot)) {
                     if (!dependencies.getPreferenceService().getIsWorkHintTooltipShown()) {
                         showWorkTooltip();
                     }
@@ -651,7 +677,6 @@ public class ContactDetailActivity extends ThreemaToolbarActivity
                     dependencies.getContactService(),
                     dependencies.getConversationService(),
                     dependencies.getRingtoneService(),
-                    dependencies.getConversationCategoryService(),
                     dependencies.getProfilePictureRecipientsService(),
                     dependencies.getWallpaperService(),
                     dependencies.getFileService(),
@@ -713,9 +738,10 @@ public class ContactDetailActivity extends ThreemaToolbarActivity
         if (isFinishing()) {
             return false;
         }
+        ContactModelData contactModelData = contactModel.getData();
 
         // display verification level in action bar
-        if (contact != null && contact.verificationLevel != VerificationLevel.FULLY_VERIFIED) {
+        if (contactModelData != null && contactModelData.verificationLevel != VerificationLevel.FULLY_VERIFIED) {
             MenuItem menuItem = menu.findItem(R.id.action_scan_id);
             menuItem.setVisible(true);
         }
@@ -735,9 +761,7 @@ public class ContactDetailActivity extends ThreemaToolbarActivity
 
         MenuItem galleryMenuItem = menu.findItem(R.id.menu_gallery);
         galleryMenuItem.setVisible(
-            !dependencies.getConversationCategoryService().isMarkedAsPrivate(
-                new ContactConversationId(identity)
-            )
+            contactModelData != null && contactModelData.conversationCategory == ConversationCategory.DEFAULT
         );
 
         return super.onPrepareOptionsMenu(menu);
@@ -776,9 +800,7 @@ public class ContactDetailActivity extends ThreemaToolbarActivity
         } else if (id == R.id.action_remove_contact) {
             removeContact();
         } else if (id == R.id.action_scan_id) {
-            if (ConfigUtils.requestCameraPermissions(this, null, PERMISSION_REQUEST_CAMERA)) {
-                scanQR();
-            }
+            cameraPermissionLauncher.launch(Unit.INSTANCE);
         } else if (id == R.id.menu_threema_call) {
             VoipUtil.initiateCall(this, contact, false, null);
         } else if (id == R.id.action_block_contact) {
@@ -790,7 +812,8 @@ public class ContactDetailActivity extends ThreemaToolbarActivity
         } else if (id == R.id.action_share_contact) {
             shareContact();
         } else if (id == R.id.menu_gallery) {
-            if (!dependencies.getConversationCategoryService().isMarkedAsPrivate(new ContactConversationId(identity))) {
+            ContactModelData contactModelData = contactModel.getData();
+            if (contactModelData != null && contactModelData.conversationCategory == ConversationCategory.DEFAULT) {
                 Intent mediaGalleryIntent = new Intent(this, MediaGalleryActivity.class);
                 mediaGalleryIntent.putExtra(AppConstants.INTENT_DATA_CONTACT, identity);
                 startActivity(mediaGalleryIntent);
@@ -882,8 +905,7 @@ public class ContactDetailActivity extends ThreemaToolbarActivity
     }
 
     private void scanQR() {
-        var intent = QRScannerActivity.createIntent(this);
-        startActivityForResult(intent, REQUEST_CODE_QR_SCANNER);
+        scanQrCodeLauncher.launch(null);
     }
 
     @Override
@@ -902,22 +924,8 @@ public class ContactDetailActivity extends ThreemaToolbarActivity
         switch (requestCode) {
             case ACTIVITY_ID_GROUP_DETAIL:
                 // contacts may have been edited
-                this.groupList = dependencies.getGroupService().getGroupsByIdentity(this.identity);
+                this.groupList = dependencies.getGroupService().getGroupsContainingIdentity(this.identity);
                 this.refreshAdapter();
-                break;
-            case REQUEST_CODE_QR_SCANNER:
-                if (resultCode == Activity.RESULT_OK) {
-                    var qrCodeText = QRScannerActivity.extractResult(intent);
-                    if (qrCodeText != null) {
-                        ContactUrlUtil contactUrlUtil = KoinJavaComponent.get(ContactUrlUtil.class);
-                        var result = contactUrlUtil.parse(qrCodeText);
-                        if (result != null) {
-                            applyQRCodeResult(result);
-                            break;
-                        }
-                    }
-                    SimpleStringAlertDialog.newInstance(R.string.scan_id, R.string.invalid_threema_qr_code).show(getSupportFragmentManager(), "");
-                }
                 break;
             case REQUEST_CODE_CONTACT_EDITOR:
                 try {
@@ -1072,26 +1080,6 @@ public class ContactDetailActivity extends ThreemaToolbarActivity
 
     @Override
     public void onNo(String tag) {
-    }
-
-    @Override
-    public void onRequestPermissionsResult(
-        int requestCode,
-        @NonNull String[] permissions,
-        @NonNull int[] grantResults
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == PERMISSION_REQUEST_CAMERA) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                scanQR();
-            } else if (!shouldShowRequestPermissionRationale(Manifest.permission.CAMERA)) {
-                ConfigUtils.showPermissionRationale(
-                    this,
-                    findViewById(R.id.main_content),
-                    R.string.permission_camera_qr_required
-                );
-            }
-        }
     }
 
     private void finishAndGoHome() {

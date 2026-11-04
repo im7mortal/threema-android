@@ -4,6 +4,9 @@ import ch.threema.app.BuildFlavor
 import ch.threema.domain.types.IdentityString
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * update verification level of predefined contacts
+ */
 internal class DatabaseUpdateToVersion122(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -21,10 +24,10 @@ internal class DatabaseUpdateToVersion122(
     }
 
     private fun getPredefinedContacts(): List<Pair<IdentityString, ByteArray>> =
-        when (BuildFlavor.current.buildEnvironment) {
+        when (BuildFlavor.buildEnvironment) {
             BuildFlavor.BuildEnvironment.LIVE -> getPredefinedContactsProduction()
             BuildFlavor.BuildEnvironment.SANDBOX -> getPredefinedContactsSandbox()
-            BuildFlavor.BuildEnvironment.ONPREM -> emptyList()
+            BuildFlavor.BuildEnvironment.ON_PREM -> emptyList()
         }
 
     private fun getPredefinedContactsProduction(): List<Pair<IdentityString, ByteArray>> = listOf(
@@ -46,8 +49,6 @@ internal class DatabaseUpdateToVersion122(
         "*SUPPORT" to "0f944d18324b2132c61d8e40afce60a0ebd701bb11e89be94972d4229e94722a".hexToByteArray(),
         "*THREEMA" to "3a38650c681435bd1fb8498e213a2919b09388f5803aa44640e0f706326a865c".hexToByteArray(),
     )
-
-    override fun getDescription() = "update verification level of predefined contacts"
 
     override val version = 122
 }

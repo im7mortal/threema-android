@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * add field workLastFullSyncAt to contact
+ */
 internal class DatabaseUpdateToVersion119(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -13,8 +16,6 @@ internal class DatabaseUpdateToVersion119(
             """.trimIndent(),
         )
     }
-
-    override fun getDescription() = "add field workLastFullSyncAt to contact"
 
     override val version = 119
 }

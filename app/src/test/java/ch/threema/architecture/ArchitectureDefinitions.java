@@ -25,7 +25,8 @@ public class ArchitectureDefinitions {
         LOCALCRYPTO = "localcrypto",
         LOGGING = "logging",
         STORAGE = "storage",
-        PROTOBUF = "protobuf";
+        PROTOBUF = "protobuf",
+        LIBTHREEMA = "libthreema";
 
     // Layer packages
     public static final String
@@ -39,7 +40,8 @@ public class ArchitectureDefinitions {
         PACKAGE_LOCALCRYPTO = THREEMA_ROOT_PACKAGE_DOT + LOCALCRYPTO,
         PACKAGE_LOGGING = THREEMA_ROOT_PACKAGE_DOT + LOGGING,
         PACKAGE_STORAGE = THREEMA_ROOT_PACKAGE_DOT + STORAGE,
-        PACKAGE_PROTOBUF = THREEMA_ROOT_PACKAGE_DOT + PROTOBUF;
+        PACKAGE_PROTOBUF = THREEMA_ROOT_PACKAGE_DOT + PROTOBUF,
+        PACKAGE_LIBTHREEMA = THREEMA_ROOT_PACKAGE_DOT + LIBTHREEMA;
 
 
     public static @NonNull Architectures.LayeredArchitecture getLayeredArchitecture() {
@@ -55,6 +57,7 @@ public class ArchitectureDefinitions {
             .layer(BASE).definedBy(PACKAGE_BASE + "..")
             .layer(LOGGING).definedBy(PACKAGE_LOGGING + "..")
             .layer(ANNOTATION).definedBy(PACKAGE_ANNOTATION + "..")
-            .layer(PROTOBUF).definedBy(PACKAGE_PROTOBUF + "..");
+            .layer(PROTOBUF).definedBy(PACKAGE_PROTOBUF + "..")
+            .layer(LIBTHREEMA).definedBy(PACKAGE_LIBTHREEMA + "..");
     }
 }

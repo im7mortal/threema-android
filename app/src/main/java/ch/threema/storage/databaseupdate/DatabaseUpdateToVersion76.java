@@ -28,11 +28,6 @@ public class DatabaseUpdateToVersion76 implements DatabaseUpdate {
     }
 
     @Override
-    public String getDescription() {
-        return "groupMessageStates";
-    }
-
-    @Override
     public int getVersion() {
         return 76;
     }

@@ -9,13 +9,13 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.Person
 import androidx.core.content.LocusIdCompat
+import ch.threema.android.DeviceInfo
 import ch.threema.android.buildNotification
 import ch.threema.app.R
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.ContactService
 import ch.threema.app.services.NotificationPreferenceService
 import ch.threema.app.usecases.contacts.GetPersonUseCase
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.models.ContactModelData
@@ -87,7 +87,7 @@ class CallNotificationManagerImpl(
         setGroup(NotificationGroups.CALLS)
         setGroupSummary(false)
 
-        if (!ConfigUtils.supportsNotificationChannels()) {
+        if (!DeviceInfo.supportsNotificationChannels()) {
             // If notification channels are not supported, we fall back to explicitly setting sound and vibration on the notification.
             // On devices that do support notification channels, this would have no effect, so we can skip it there.
             setSound(notificationPreferenceService.getLegacyVoipCallRingtone(), AudioManager.STREAM_RING)
@@ -146,7 +146,7 @@ class CallNotificationManagerImpl(
             return false
         }
 
-        if (!ConfigUtils.supportsNotificationChannels()) {
+        if (!DeviceInfo.supportsNotificationChannels()) {
             return true
         }
 

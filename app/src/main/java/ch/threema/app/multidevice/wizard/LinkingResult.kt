@@ -10,10 +10,10 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextDecoration
+import ch.threema.android.getColorFromAttribute
 import ch.threema.app.BuildFlavor
 import ch.threema.app.R
 import ch.threema.app.compose.common.text.linkifyWeb
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.domain.types.IdentityString
 
 /**
@@ -68,10 +68,10 @@ sealed class LinkingResult(
         ) {
             override fun resolveBodyText(context: Context): AnnotatedString = context.getString(bodyTextRes)
                 .linkifyWeb(
-                    url = context.getString(BuildFlavor.current.desktopClientFlavor.downloadLink),
+                    url = context.getString(BuildFlavor.desktopClientFlavor.downloadLink),
                     linkStyle = SpanStyle(
                         textDecoration = TextDecoration.Underline,
-                        color = Color(ConfigUtils.getColorFromAttribute(context, R.attr.colorPrimary)),
+                        color = Color(context.getColorFromAttribute(R.attr.colorPrimary)),
                     ),
                 )
         }
@@ -82,10 +82,10 @@ sealed class LinkingResult(
         ) {
             override fun resolveBodyText(context: Context): AnnotatedString = context.getString(bodyTextRes)
                 .linkifyWeb(
-                    url = context.getString(BuildFlavor.current.desktopClientFlavor.downloadLink),
+                    url = context.getString(BuildFlavor.desktopClientFlavor.downloadLink),
                     linkStyle = SpanStyle(
                         textDecoration = TextDecoration.Underline,
-                        color = Color(ConfigUtils.getColorFromAttribute(context, R.attr.colorPrimary)),
+                        color = Color(context.getColorFromAttribute(R.attr.colorPrimary)),
                     ),
                 )
         }

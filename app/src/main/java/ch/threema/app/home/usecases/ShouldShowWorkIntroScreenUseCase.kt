@@ -2,6 +2,7 @@ package ch.threema.app.home.usecases
 
 import android.content.Context
 import ch.threema.android.isInstalledFromStore
+import ch.threema.app.BuildFlavor
 import ch.threema.app.services.UserService
 import ch.threema.app.utils.ConfigUtils
 
@@ -24,7 +25,7 @@ class ShouldShowWorkIntroScreenUseCase(
         }
 
         // If it is no work (including onprem) build, we should not show the screen.
-        if (!ConfigUtils.isWorkBuild()) {
+        if (!BuildFlavor.IS_WORK) {
             return false
         }
 

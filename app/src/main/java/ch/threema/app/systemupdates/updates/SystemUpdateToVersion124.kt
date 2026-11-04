@@ -9,6 +9,8 @@ import org.koin.core.component.inject
 private val logger = getThreemaLogger("SystemUpdateToVersion124")
 
 /**
+ * Update icons of all pinned shortcuts.
+ *
  * Note: this exact update used to be SystemUpdateToVersion116, but since we need to rerun it,
  * it was renamed and its version number adjusted.
  */
@@ -31,6 +33,4 @@ class SystemUpdateToVersion124 : SystemUpdate {
     }
 
     override val version = 124
-
-    override fun getDescription() = "update icons of all pinned shortcuts"
 }

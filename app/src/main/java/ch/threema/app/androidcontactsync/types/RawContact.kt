@@ -26,18 +26,19 @@ data class RawContact(
         /**
          * Add a contact data row to the raw contact builder.
          *
-         * @throws [RawContactBuildException] in case the raw contact id does not match or the raw contact is associated with different lookup info
+         * @throws [RawContactBuildException.WrongRawContactId] in case the raw contact id does not match
+         * @throws [RawContactBuildException.MismatchedLookupInfo] in case the [contactDataRow] has a different lookup info
          */
         @Throws(RawContactBuildException::class)
         fun addContactDataRow(contactDataRow: ContactDataRow) {
             if (contactDataRow.rawContactId != rawContactId) {
                 logger.error("Trying to add row that does not belong to this raw contact")
-                throw RawContactBuildException("Wrong raw contact data")
+                throw RawContactBuildException.WrongRawContactId()
             }
 
             if (contactDataRow.lookupInfo != lookupInfo) {
                 logger.warn("Trying to add row that does not match regarding the lookup info")
-                throw RawContactBuildException("Contact data corrupt. Lookup info does not match for the same raw contact.")
+                throw RawContactBuildException.MismatchedLookupInfo()
             }
 
             when (contactDataRow) {
@@ -55,6 +56,11 @@ data class RawContact(
             structuredNames = structuredNames,
         )
 
-        class RawContactBuildException(override val message: String?) : Exception()
+        sealed class RawContactBuildException(message: String?) : Exception(message) {
+            class WrongRawContactId : RawContactBuildException("Wrong raw contact data")
+
+            class MismatchedLookupInfo :
+                RawContactBuildException("Contact data corrupt. Lookup info does not match for the same raw contact.")
+        }
     }
 }

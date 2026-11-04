@@ -1,6 +1,7 @@
 package ch.threema.app.location;
 
 import static org.koin.java.KoinJavaComponent.inject;
+import static ch.threema.android.PermissionExtensionsKt.checkGrantedPermission;
 import static ch.threema.app.location.LocationExtensionsKt.toCoordinates;
 import static ch.threema.app.location.LocationExtensionsKt.toLatLng;
 import static ch.threema.app.utils.IntentDataUtil.INTENT_DATA_LOCATION_LAT;
@@ -11,7 +12,6 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.location.Location;
 import android.location.LocationManager;
@@ -33,7 +33,6 @@ import androidx.annotation.Px;
 import androidx.appcompat.app.ActionBar;
 import androidx.coordinatorlayout.widget.CoordinatorLayout;
 import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -131,8 +130,8 @@ public class LocationPickerActivity extends ThreemaActivity implements
             zoomToCurrentLocationWithPermission();
         } else {
             if (!ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
-                ConfigUtils.showPermissionRationale(this, root, R.string.permission_location_required, new BaseTransientBottomBar.BaseCallback<>() {
-                });
+                // TODO(ANDR-5211): Use rationale as intended
+                ConfigUtils.showPermissionRationale(this, root, R.string.permission_location_required);
             }
         }
         firstLocationZoom = false;
@@ -787,8 +786,8 @@ public class LocationPickerActivity extends ThreemaActivity implements
     }
 
     private boolean hasLocationPermission() {
-        return ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        return checkGrantedPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ||
+            checkGrantedPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION);
     }
 
     private boolean isLocationEnabled() {

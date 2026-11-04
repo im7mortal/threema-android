@@ -1,18 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/checkbox_container"
-    android:layout_width="wrap_content"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:paddingLeft="24dp"
-    android:paddingRight="24dp">
+    android:background="@android:color/transparent">
 
-    <com.google.android.material.materialswitch.MaterialSwitch
-        android:id="@+id/checkbox"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:checked="false"
-        android:enabled="true"
-        android:text=""
-        android:textAppearance="@style/Threema.TextAppearance.Dialog.Body" />
+        android:orientation="vertical"
+        android:paddingHorizontal="@dimen/grid_unit_x3"
+        android:paddingTop="@dimen/grid_unit_x2">
 
-</FrameLayout>
+        <TextView
+            android:id="@+id/message"
+            style="@style/Threema.MaterialAlertDialog.Body.Style"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="@dimen/grid_unit_x2"
+            tools:text="Message text" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/checkbox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:checked="false"
+            android:enabled="true"
+            android:text=""
+            android:textAppearance="@style/Threema.TextAppearance.Dialog.Body"
+            tools:text="Checkbox text" />
+
+    </LinearLayout>
+
+</ScrollView>

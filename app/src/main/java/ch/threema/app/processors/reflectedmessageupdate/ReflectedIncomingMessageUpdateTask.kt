@@ -4,17 +4,17 @@ import ch.threema.app.eventbus.GlobalEventBuses
 import ch.threema.app.eventbus.events.MessageEvent
 import ch.threema.app.managers.ServiceManager
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.data.datatypes.ContactConversationId
-import ch.threema.data.datatypes.GroupConversationId
 import ch.threema.domain.models.GroupId
 import ch.threema.domain.models.MessageId
 import ch.threema.domain.types.IdentityString
 import ch.threema.protobuf.common.GroupIdentity
 import ch.threema.protobuf.d2d.ConversationId
 import ch.threema.protobuf.d2d.IncomingMessageUpdate
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.ContactMessageModel
+import ch.threema.storage.models.DistributionListMessageModel
+import ch.threema.storage.models.GroupMessageModel
 import ch.threema.storage.models.MessageModel
-import ch.threema.storage.models.group.GroupMessageModel
+import ch.threema.storage.models.getConversationId
 import java.time.Instant
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
@@ -64,13 +64,13 @@ class ReflectedIncomingMessageUpdateTask(
         senderIdentity: IdentityString,
         readAt: Long,
     ) {
-        val abstractMessageModel = messageService.getContactMessageModel(messageId, senderIdentity)
-        if (abstractMessageModel == null) {
+        val messageModel = messageService.getContactMessageModel(messageId, senderIdentity)
+        if (messageModel == null) {
             logger.warn("Message model for message {} of {} not found", messageId, senderIdentity)
             return
         }
 
-        markMessageModelAsRead(abstractMessageModel, readAt)
+        markMessageModelAsRead(messageModel, readAt)
     }
 
     private fun applyGroupMessageReadUpdate(
@@ -78,51 +78,47 @@ class ReflectedIncomingMessageUpdateTask(
         groupIdentity: GroupIdentity,
         readAt: Long,
     ) {
-        val abstractMessageModel = messageService.getGroupMessageModel(
+        val messageModel = messageService.getGroupMessageModel(
             messageId,
             groupIdentity.creatorIdentity,
             GroupId(groupIdentity.groupId),
         )
 
-        if (abstractMessageModel == null) {
+        if (messageModel == null) {
             logger.warn("Group message model for message {} not found", messageId)
             return
         }
 
-        markMessageModelAsRead(abstractMessageModel, readAt)
+        markMessageModelAsRead(messageModel, readAt)
     }
 
-    private fun markMessageModelAsRead(abstractMessageModel: AbstractMessageModel, readAt: Long) {
-        abstractMessageModel.isRead = true
+    private fun markMessageModelAsRead(messageModel: MessageModel, readAt: Long) {
+        messageModel.isRead = true
         Instant.ofEpochMilli(readAt).let { readAtDate ->
-            abstractMessageModel.readAt = readAtDate
-            abstractMessageModel.modifiedAt = readAtDate
+            messageModel.readAt = readAtDate
+            messageModel.modifiedAt = readAtDate
         }
-        messageService.save(abstractMessageModel)
-        globalEventBuses.messages.emit(MessageEvent.MessagesUpdated(abstractMessageModel))
-        cancelNotification(abstractMessageModel)
+        messageService.save(messageModel)
+        globalEventBuses.messages.emit(MessageEvent.MessagesUpdated(messageModel))
+        cancelNotification(messageModel)
     }
 
-    private fun cancelNotification(abstractMessageModel: AbstractMessageModel) {
+    private fun cancelNotification(messageModel: MessageModel) {
         val conversationId: ch.threema.data.datatypes.ConversationId? =
-            when (abstractMessageModel) {
-                is MessageModel ->
-                    abstractMessageModel.identity?.let { identity ->
-                        ContactConversationId(identity)
-                    }
-                is GroupMessageModel ->
-                    GroupConversationId(
-                        groupDatabaseId = abstractMessageModel.groupId.toLong(),
-                    )
-                else -> {
+            when (messageModel) {
+                is ContactMessageModel,
+                is GroupMessageModel,
+                ->
+                    messageModel.getConversationId()
+                is DistributionListMessageModel -> {
                     // Distribution list messages are not supported here
                     null
                 }
             }
         if (conversationId != null) {
-            notificationService.cancel(conversationId)
+            notificationService.cancelAllConversationNotifications(conversationId)
         } else {
-            logger.error("Failed to determine message receiver for message with id {}", abstractMessageModel.apiMessageId)
+            logger.error("Failed to determine message receiver for message with id {}", messageModel.apiMessageId)
         }
     }
 }

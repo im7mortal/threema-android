@@ -5,6 +5,9 @@ import ch.threema.storage.buildContentValues
 import java.security.MessageDigest
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * remove isActive from group member table
+ */
 class DatabaseUpdateToVersion96(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -58,8 +61,6 @@ class DatabaseUpdateToVersion96(
             )
         }
     }
-
-    override fun getDescription() = "remove isActive from group member table"
 
     override val version = 96
 

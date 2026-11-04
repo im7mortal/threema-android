@@ -6,6 +6,7 @@ import ch.threema.common.awaitAtLeastOneSubscriber
 import ch.threema.common.awaitNonNull
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
+import kotlin.math.max
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapLatest
@@ -51,23 +53,24 @@ abstract class BaseViewModel<ViewState : Any, ViewEvent : Any> : ViewModel() {
     @JvmField
     val events = _events.asSharedFlow()
 
-    private val isActive = _viewState.subscriptionCount
-        .mapLatest { count ->
-            if (count > 0) {
-                true
-            } else {
-                // When the last subscriber disappears, we wait a few seconds in case they come back, to avoid unnecessarily deactivating
-                // and reactivating the view model. This would primarily happen when an activity is recreated due to a configuration change.
-                delay(5.seconds)
-                false
+    private val isActive =
+        combine(_viewState.subscriptionCount, _events.subscriptionCount, ::max)
+            .mapLatest { count ->
+                if (count > 0) {
+                    true
+                } else {
+                    // When the last subscriber disappears, we wait a few seconds in case they come back, to avoid unnecessarily deactivating
+                    // and reactivating the view model. This would primarily happen when an activity is recreated due to a configuration change.
+                    delay(5.seconds)
+                    false
+                }
             }
-        }
-        .distinctUntilChanged()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Eagerly,
-            initialValue = false,
-        )
+            .distinctUntilChanged()
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.Eagerly,
+                initialValue = false,
+            )
 
     init {
         viewModelScope.launch {

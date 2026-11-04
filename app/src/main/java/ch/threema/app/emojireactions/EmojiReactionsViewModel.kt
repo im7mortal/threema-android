@@ -6,12 +6,13 @@ import ch.threema.data.models.EmojiReactionsModel
 import ch.threema.data.repositories.EmojiReactionsRepository
 import ch.threema.data.repositories.EmojiReactionsRepository.ReactionMessageIdentifier
 import ch.threema.data.repositories.EmojiReactionsRepository.ReactionMessageIdentifier.TargetMessageType
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
+import org.koin.core.annotation.InjectedParam
 
 class EmojiReactionsViewModel(
     private val emojiReactionsRepository: EmojiReactionsRepository,
     private val messageService: MessageService,
-    private val reactionMessageIdentifier: ReactionMessageIdentifier,
+    @InjectedParam private val reactionMessageIdentifier: ReactionMessageIdentifier,
 ) : BaseViewModel<EmojiReactionsViewState, Unit>() {
     private var emojiReactionsModel: EmojiReactionsModel? = null
 
@@ -34,7 +35,7 @@ class EmojiReactionsViewModel(
         )
     }
 
-    private fun getMessageModel(): AbstractMessageModel? =
+    private fun getMessageModel(): MessageModel? =
         when (reactionMessageIdentifier.messageType) {
             TargetMessageType.ONE_TO_ONE -> messageService.getContactMessageModel(
                 reactionMessageIdentifier.messageId,

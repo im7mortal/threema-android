@@ -8,7 +8,7 @@ import androidx.annotation.NonNull;
 import ch.threema.app.services.GroupService;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.app.webclient.exceptions.ConversionException;
-import ch.threema.data.datatypes.GroupConversationId;
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.storage.models.ContactModel;
 import ch.threema.storage.models.group.GroupModelOld;
 
@@ -42,9 +42,7 @@ public class Group extends Converter {
         MsgpackObjectBuilder builder = new MsgpackObjectBuilder();
         try {
             final boolean isDisabled = !getGroupService().isGroupMember(group);
-            final boolean isPrivateChat = getConversationCategoryService().isMarkedAsPrivate(
-                new GroupConversationId(group.getId())
-            );
+            final boolean isPrivateChat = group.getConversationCategory() == ConversationCategory.PROTECTED;
             final boolean isVisible = !isPrivateChat || !getPreferenceService().arePrivateChatsHidden();
 
             builder.put(Receiver.ID, String.valueOf(group.getId()));

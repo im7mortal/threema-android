@@ -17,7 +17,6 @@ import ch.threema.domain.models.UserState
 import ch.threema.domain.protocol.connection.ConnectionState
 import ch.threema.domain.protocol.connection.ServerConnection
 import ch.threema.domain.taskmanager.TaskManager
-import ch.threema.domain.taskmanager.TriggerSource
 import kotlinx.coroutines.runBlocking
 
 private val logger = getThreemaLogger("LeaveGroupFlow")
@@ -143,7 +142,7 @@ class LeaveGroupFlow(
             }
 
             GroupLeaveIntent.LEAVE_AND_REMOVE -> {
-                groupService.removeGroupBelongings(groupModel, TriggerSource.LOCAL)
+                groupService.removeGroupBelongings(groupModel)
                 groupModelRepository.persistRemovedGroup(groupModel.groupIdentity)
             }
         }

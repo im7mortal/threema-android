@@ -3,6 +3,9 @@ package ch.threema.app.notifications
 import ch.threema.data.datatypes.ContactConversationId
 import ch.threema.data.datatypes.DistributionListConversationId
 import ch.threema.data.datatypes.GroupConversationId
+import kotlin.reflect.KVisibility
+import kotlin.reflect.full.memberProperties
+import kotlin.reflect.jvm.javaField
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -10,6 +13,11 @@ import kotlin.test.assertTrue
 import testdata.TestData
 
 class NotificationIDsTest {
+
+    @Test
+    fun `static notification ids sanity check`() {
+        assertTrue(STATIC_IDS.isNotEmpty())
+    }
 
     @Test
     fun `static notification ids are valid`() {
@@ -70,31 +78,8 @@ class NotificationIDsTest {
     }
 
     companion object {
-        private val STATIC_IDS = listOf(
-            NotificationIDs.APP_RESTART_NOTIFICATION_ID,
-            NotificationIDs.BACKUP_COMPLETION_NOTIFICATION_ID,
-            NotificationIDs.BACKUP_NOTIFICATION_ID,
-            NotificationIDs.INCOMING_CALL_NOTIFICATION_ID,
-            NotificationIDs.INCOMING_GROUP_CALL_NOTIFICATION_ID,
-            NotificationIDs.IN_CALL_NOTIFICATION_ID,
-            NotificationIDs.MASTER_KEY_LOCKED_NOTIFICATION_ID,
-            NotificationIDs.NEW_MESSAGE_LOCKED_NOTIFICATION_ID,
-            NotificationIDs.NEW_MESSAGE_PIN_LOCKED_NOTIFICATION_ID,
-            NotificationIDs.NEW_SYNCED_CONTACTS_NOTIFICATION_ID,
-            NotificationIDs.ONGOING_GROUP_CALL_NOTIFICATION_ID,
-            NotificationIDs.PASSPHRASE_SERVICE_NOTIFICATION_ID,
-            NotificationIDs.REMOTE_SECRET_ACTIVE_NOTIFICATION_ID,
-            NotificationIDs.RESTORE_COMPLETION_NOTIFICATION_ID,
-            NotificationIDs.RESTORE_NOTIFICATION_ID,
-            NotificationIDs.SAFE_FAILED_NOTIFICATION_ID,
-            NotificationIDs.SERVER_MESSAGE_NOTIFICATION_ID,
-            NotificationIDs.THREEMA_PUSH_ACTIVE_NOTIFICATION_ID,
-            NotificationIDs.UNSENT_MESSAGE_NOTIFICATION_ID,
-            NotificationIDs.VOICE_ACTION_NOTIFICATION_ID,
-            NotificationIDs.VOICE_MESSAGE_PLAYER_NOTIFICATION_ID,
-            NotificationIDs.WEBCLIENT_ACTIVE_NOTIFICATION_ID,
-            NotificationIDs.WEB_RESUME_FAILED_NOTIFICATION_ID,
-            NotificationIDs.WORK_SYNC_NOTIFICATION_ID,
-        )
+        private val STATIC_IDS = NotificationIDs::class.objectInstance!!::class.memberProperties
+            .filter { it.isConst && it.visibility == KVisibility.PUBLIC }
+            .map { it.javaField!!.getInt(NotificationIDs) }
     }
 }

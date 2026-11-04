@@ -23,7 +23,6 @@ import ch.threema.app.R;
 import ch.threema.app.messagereceiver.ContactMessageReceiver;
 import ch.threema.app.services.BlockedIdentitiesService;
 import ch.threema.app.services.ContactService;
-import ch.threema.app.services.ConversationCategoryService;
 import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.ui.AvatarListItemUtil;
 import ch.threema.app.ui.AvatarView;
@@ -36,11 +35,10 @@ import ch.threema.app.utils.ContactUtil;
 import ch.threema.app.utils.MessageUtil;
 import ch.threema.app.utils.NameUtil;
 import ch.threema.app.utils.ViewUtil;
-import ch.threema.data.datatypes.ContactConversationId;
-import ch.threema.data.datatypes.ConversationId;
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.domain.models.Contact;
 import ch.threema.storage.models.ContactModel;
-import ch.threema.storage.models.MessageModel;
+import ch.threema.storage.models.ContactMessageModel;
 
 import java.util.stream.Collectors;
 
@@ -64,7 +62,6 @@ public class UserListAdapter extends FilterableListAdapter {
     private final ContactService contactService;
     private final BlockedIdentitiesService blockedIdentitiesService;
 
-    private final @Nullable ConversationCategoryService conversationCategoryService;
     private final @Nullable FilterResultsListener filterResultsListener;
     private final @NonNull PreferenceService preferenceService;
     private final @NonNull RequestManager requestManager;
@@ -80,7 +77,6 @@ public class UserListAdapter extends FilterableListAdapter {
         @Nullable final List<Integer> checkedItemPositions,
         @NonNull ContactService contactService,
         @NonNull BlockedIdentitiesService blockedIdentitiesService,
-        @Nullable ConversationCategoryService conversationCategoryService,
         @NonNull PreferenceService preferenceService,
         @Nullable FilterResultsListener filterResultsListener,
         @NonNull RequestManager requestManager,
@@ -90,7 +86,6 @@ public class UserListAdapter extends FilterableListAdapter {
 
         this.context = context;
         this.contactService = contactService;
-        this.conversationCategoryService = conversationCategoryService;
         this.blockedIdentitiesService = blockedIdentitiesService;
         this.preferenceService = preferenceService;
         this.filterResultsListener = filterResultsListener;
@@ -106,7 +101,7 @@ public class UserListAdapter extends FilterableListAdapter {
         );
         Collections.sort(
             this.contactModels,
-            ContactUtil.getContactComparator(preferenceService.isContactListSortingFirstName())
+            ContactUtil.getContactComparator(preferenceService.getContactSortOrder())
         );
         this.originalContactModels = new ArrayList<>(this.contactModels);
 
@@ -190,9 +185,8 @@ public class UserListAdapter extends FilterableListAdapter {
         String lastMessageDateString = null;
         ContactMessageReceiver messageReceiver = this.contactService.createReceiver(contactModel);
 
-        final @NonNull ConversationId conversationId = new ContactConversationId(contactModel.getIdentity());
-        if (conversationCategoryService != null && !conversationCategoryService.isMarkedAsPrivate(conversationId)) {
-            final @Nullable MessageModel messageModel = messageReceiver.getLastMessage();
+        if (contactModel.getConversationCategory() == ConversationCategory.DEFAULT) {
+            final @Nullable ContactMessageModel messageModel = messageReceiver.getLastMessage();
             if (messageModel != null) {
                 lastMessageDateString = MessageUtil.getDisplayDate(
                     this.context,

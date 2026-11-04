@@ -3,6 +3,7 @@ package ch.threema.app.profilepicture
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import ch.threema.android.toJpegByteArray
+import ch.threema.android.use
 import ch.threema.app.utils.BitmapUtil
 import ch.threema.app.utils.ExifInterface
 import ch.threema.domain.protocol.csp.ProtocolDefines
@@ -93,9 +94,9 @@ class CheckedProfilePicture private constructor(override val bytes: ByteArray) :
                 ProtocolDefines.PROFILE_PICTURE_WIDTH_PX,
                 ProtocolDefines.PROFILE_PICTURE_HEIGHT_PX,
             )
-            return resizedBitmap
-                ?.toJpegByteArray(quality = QUALITY)
-                .also { resizedBitmap?.recycle() }
+            return resizedBitmap?.use { bitmap ->
+                bitmap.toJpegByteArray(quality = QUALITY)
+            }
                 ?.let(::CheckedProfilePicture)
         }
 

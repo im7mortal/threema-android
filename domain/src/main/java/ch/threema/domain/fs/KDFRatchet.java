@@ -2,7 +2,6 @@ package ch.threema.domain.fs;
 
 import org.slf4j.Logger;
 
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.Objects;
@@ -10,6 +9,9 @@ import java.util.Objects;
 import androidx.annotation.NonNull;
 import ch.threema.base.ThreemaException;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
+import static ch.threema.common.ByteBufferExtensionsKt.emptyDirectByteBuffer;
+import static ch.threema.common.ByteBufferExtensionsKt.toDirectByteBuffer;
+
 import ch.threema.libthreema.CryptoException;
 import ch.threema.libthreema.LibthreemaKt;
 
@@ -44,9 +46,9 @@ public class KDFRatchet {
         try {
             this.currentChainKey = LibthreemaKt.blake2bMac256(
                 currentChainKey,
-                DHSession.KDF_PERSONAL.getBytes(StandardCharsets.UTF_8),
-                KDF_SALT_CK.getBytes(StandardCharsets.UTF_8),
-                new byte[0]
+                toDirectByteBuffer(DHSession.KDF_PERSONAL),
+                toDirectByteBuffer(KDF_SALT_CK),
+                emptyDirectByteBuffer()
             );
             this.counter++;
         } catch (CryptoException cryptoException) {
@@ -94,9 +96,9 @@ public class KDFRatchet {
         try {
             return LibthreemaKt.blake2bMac256(
                 currentChainKey,
-                DHSession.KDF_PERSONAL.getBytes(StandardCharsets.UTF_8),
-                KDF_SALT_AEK.getBytes(StandardCharsets.UTF_8),
-                new byte[0]
+                toDirectByteBuffer(DHSession.KDF_PERSONAL),
+                toDirectByteBuffer(KDF_SALT_AEK),
+                emptyDirectByteBuffer()
             );
         } catch (CryptoException cryptoException) {
             logger.error("Failed to compute blake2b hash", cryptoException);

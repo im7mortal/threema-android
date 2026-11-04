@@ -2,6 +2,9 @@ package ch.threema.storage.databaseupdate
 
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
+/**
+ * create edit message history entries tables
+ */
 internal class DatabaseUpdateToVersion100(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -30,8 +33,6 @@ internal class DatabaseUpdateToVersion100(
                 ")",
         )
     }
-
-    override fun getDescription() = "create edit message history entries tables"
 
     override val version = 100
 }

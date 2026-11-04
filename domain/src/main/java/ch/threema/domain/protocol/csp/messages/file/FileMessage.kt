@@ -4,6 +4,7 @@ import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import ch.threema.domain.protocol.csp.messages.AbstractMessage
 import ch.threema.domain.protocol.csp.messages.BadMessageException
+import ch.threema.domain.protocol.csp.messages.ExemptFromBlocking
 import ch.threema.domain.protocol.csp.messages.file.FileMessage.Companion.fromByteArray
 import ch.threema.domain.protocol.csp.messages.file.FileMessage.Companion.fromReflected
 import ch.threema.protobuf.csp.e2e.fs.Version
@@ -23,7 +24,7 @@ class FileMessage : AbstractMessage(), FileMessageInterface {
 
     override fun allowUserProfileDistribution(): Boolean = true
 
-    override fun exemptFromBlocking(): Boolean = false
+    override fun exemptFromBlocking(): ExemptFromBlocking = ExemptFromBlocking.NO
 
     override fun createImplicitlyDirectContact(): Boolean = true
 

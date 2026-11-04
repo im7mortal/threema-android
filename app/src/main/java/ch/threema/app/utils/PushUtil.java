@@ -8,7 +8,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.text.format.DateUtils;
 
-import org.jetbrains.annotations.NotNull;
 import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
@@ -28,30 +27,18 @@ import androidx.work.WorkRequest;
 import ch.threema.app.AppConstants;
 import ch.threema.app.R;
 import ch.threema.app.ThreemaApplication;
+import ch.threema.app.connection.LoggedInConnectionRequester;
 import ch.threema.app.jobs.ReConnectJobService;
 import ch.threema.app.managers.ServiceManager;
-import ch.threema.app.preference.service.PreferenceService;
 import ch.threema.app.push.PushRegistrationWorker;
-import ch.threema.app.receivers.AlarmManagerBroadcastReceiver;
-import ch.threema.app.services.ConversationCategoryService;
-import ch.threema.app.services.LockAppService;
 import ch.threema.app.services.NotificationPreferenceService;
-import ch.threema.app.services.notification.BadgeUpdater;
-import ch.threema.app.services.notification.NotificationService;
-import ch.threema.app.services.notification.NotificationServiceImpl;
+import ch.threema.app.services.notification.PassphraseNotificationService;
 import ch.threema.app.services.PollingHelper;
-import ch.threema.app.services.RingtoneService;
-import ch.threema.app.widget.WidgetUpdater;
-import ch.threema.common.TimeProvider;
-import ch.threema.data.IdentityProvider;
 import ch.threema.app.webclient.services.SessionWakeUpService;
 import ch.threema.base.ThreemaException;
+import ch.threema.localcrypto.MasterKeyManager;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
-
-import ch.threema.data.datatypes.ConversationId;
-
-import static ch.threema.app.di.DIJavaCompat.getMasterKeyManager;
 
 public class PushUtil {
     private static final Logger logger = getThreemaLogger("PushUtil");
@@ -168,84 +155,29 @@ public class PushUtil {
             return;
         }
 
-        //recheck after one minute
-        AlarmManagerBroadcastReceiver.requireLoggedInConnection(
-            appContext,
-            (int) DateUtils.MINUTE_IN_MILLIS
-        );
+        // recheck after 2 minutes
+        LoggedInConnectionRequester loggedInConnectionRequester = KoinJavaComponent.get(LoggedInConnectionRequester.class);
+        loggedInConnectionRequester.requireLoggedInConnection((int) DateUtils.MINUTE_IN_MILLIS * 2);
 
         NotificationPreferenceService notificationPreferenceService = KoinJavaComponent.get(NotificationPreferenceService.class);
-        if (getMasterKeyManager().isLocked() && notificationPreferenceService.isMasterKeyNewMessageNotifications()) {
-            displayAdHocNotification();
+        MasterKeyManager masterKeyManager = KoinJavaComponent.get(MasterKeyManager.class);
+        var isMasterKeyProtected = PushUtilHelper.isProtected(masterKeyManager);
+        if (isMasterKeyProtected) {
+            if (masterKeyManager.isLockedWithPassphrase() && notificationPreferenceService.isMasterKeyNewMessageNotifications()) {
+                displayNewMessagesPassphraseNotification();
+            }
+        } else {
+            PushUtilHelper.awaitSessionScope();
         }
-
         if (!pollingHelper.poll(true)) {
             logger.warn("Unable to establish connection");
         }
     }
 
-    private static void displayAdHocNotification() {
-        logger.info("displayAdHocNotification");
-        final Context appContext = ThreemaApplication.getAppContext();
-        final ServiceManager serviceManager = ServiceManager.get();
-
-        // TODO(ANDR-4363): Always use real NotificationService here, once it is no longer attached to the session scope
-        NotificationService notificationService;
-        if (serviceManager != null) {
-            notificationService = serviceManager.getNotificationService();
-        } else {
-            notificationService = new NotificationServiceImpl(
-                appContext,
-                KoinJavaComponent.get(LockAppService.class),
-                new ConversationCategoryService() {
-
-                    @Override
-                    public void persistRemovePrivateMark(@NotNull ConversationId conversationId) {
-                        // Nothing to do
-                    }
-
-                    @Override
-                    public void persistAddPrivateMark(@NotNull ConversationId conversationId) {
-                        // Nothing to do
-                    }
-
-                    @Override
-                    public boolean isMarkedAsPrivate(@NotNull ConversationId conversationId) {
-                        return false;
-                    }
-
-                    @Override
-                    public boolean removePrivateMark(@NotNull ConversationId conversationId) {
-                        return false;
-                    }
-
-                    @Override
-                    public boolean setPrivateMark(@NotNull ConversationId conversationId) {
-                        return false;
-                    }
-
-                    @Override
-                    public boolean hasAnyPrivateMarks() {
-                        return false;
-                    }
-
-                    @Override
-                    public void invalidateCache() {
-                        // Nothing to do
-                    }
-                },
-                KoinJavaComponent.get(NotificationPreferenceService.class),
-                KoinJavaComponent.get(RingtoneService.class),
-                KoinJavaComponent.get(PreferenceService.class),
-                KoinJavaComponent.get(IdentityProvider.class),
-                KoinJavaComponent.get(BadgeUpdater.class),
-                KoinJavaComponent.get(DoNotDisturbUtil.class),
-                KoinJavaComponent.get(TimeProvider.class),
-                KoinJavaComponent.get(WidgetUpdater.class)
-            );
-        }
-
-        notificationService.showMasterKeyLockedNewMessageNotification();
+    private static void displayNewMessagesPassphraseNotification() {
+        logger.info("displaying 'new messages' notification due to passphrase-locked master key");
+        PassphraseNotificationService passphraseNotificationService = KoinJavaComponent.get(PassphraseNotificationService.class);
+        passphraseNotificationService.showNewMessagesPassphraseNotification();
     }
 
     private static void sendWebclientNotification(Map<String, String> data) {
@@ -281,8 +213,6 @@ public class PushUtil {
 
     /**
      * Clear the "token last updated" setting in shared preferences
-     *
-     * @param context Context
      */
     public static void clearPushTokenSentDate(Context context) {
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
@@ -297,7 +227,6 @@ public class PushUtil {
     /**
      * Check if the token needs to be uploaded to the server i.e. no more than once a day.
      *
-     * @param context Context
      * @return true if more than a day has passed since the token has been last sent to the server, false otherwise
      */
     public static boolean pushTokenNeedsRefresh(Context context) {
@@ -314,7 +243,6 @@ public class PushUtil {
     /**
      * Check if push services are enabled and polling is not used.
      *
-     * @param context Context
      * @return true if polling is disabled or shared preferences are not available, false otherwise
      */
     public static boolean isPushEnabled(Context context) {

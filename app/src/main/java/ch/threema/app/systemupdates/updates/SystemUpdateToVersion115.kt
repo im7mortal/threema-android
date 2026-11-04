@@ -7,6 +7,9 @@ import org.koin.core.component.inject
 
 private val logger = getThreemaLogger("SystemUpdateToVersion115")
 
+/**
+ * delete obsolete external tmp directory
+ */
 class SystemUpdateToVersion115 : SystemUpdate {
     private val appContext: Context by inject()
 
@@ -21,6 +24,4 @@ class SystemUpdateToVersion115 : SystemUpdate {
     }
 
     override val version = 115
-
-    override fun getDescription() = "delete obsolete external tmp directory"
 }

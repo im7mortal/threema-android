@@ -3,12 +3,15 @@ package ch.threema.app.backupcenter
 import android.content.Context
 import android.os.Bundle
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.launch
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +34,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.text.TextAutoSizeDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -38,12 +42,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ShapeDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -67,12 +75,17 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewWrapper
 import androidx.compose.ui.unit.dp
+import ch.threema.android.PickDirectoryContract
 import ch.threema.android.buildActivityIntent
+import ch.threema.android.showToast
 import ch.threema.app.BuildConfig
+import ch.threema.app.BuildFlavor
 import ch.threema.app.R
+import ch.threema.app.activities.AppLockExempt
+import ch.threema.app.activities.DisableBatteryOptimizationsActivity
 import ch.threema.app.activities.ThreemaComposeActivity
 import ch.threema.app.backupcenter.CreateLocalDataBackupViewState.Step3InProgress.Status
-import ch.threema.app.backupcenter.models.BackupPassword
+import ch.threema.app.backupcenter.models.LocalDataBackupPassword
 import ch.threema.app.compose.common.BlockScreenCapture
 import ch.threema.app.compose.common.ScreenContentContainer
 import ch.threema.app.compose.common.appbars.AppBar
@@ -81,7 +94,7 @@ import ch.threema.app.compose.common.banner.InfoBanner
 import ch.threema.app.compose.common.buttons.ButtonIconInfo
 import ch.threema.app.compose.common.buttons.ButtonOutlined
 import ch.threema.app.compose.common.buttons.TextButtonPrimary
-import ch.threema.app.compose.common.buttons.primary.ButtonPrimaryRounded
+import ch.threema.app.compose.common.buttons.primary.ButtonPrimary
 import ch.threema.app.compose.common.loading.FullScreenLoadingIndicator
 import ch.threema.app.compose.common.settings.ThemedSwitch
 import ch.threema.app.compose.common.spacer.SpacerRemainingVertical
@@ -91,15 +104,24 @@ import ch.threema.app.compose.common.text.SectionLabel
 import ch.threema.app.compose.common.text.ThemedText
 import ch.threema.app.compose.theme.ThreemaPreviewWrapper
 import ch.threema.app.compose.theme.ThreemaTheme
+import ch.threema.app.compose.theme.color.BrandGreyColors
 import ch.threema.app.compose.theme.dimens.GridUnit
 import ch.threema.app.framework.EventHandler
 import ch.threema.app.framework.WithViewState
 import ch.threema.app.restrictions.AppRestrictions
+import ch.threema.app.support.ContactSupportActivity
+import ch.threema.app.utils.logScreenVisibility
+import ch.threema.base.utils.getThreemaLogger
 import kotlin.getValue
 import org.koin.android.ext.android.inject
 import org.koin.androidx.compose.koinViewModel
 
-class CreateLocalDataBackupActivity : ThreemaComposeActivity() {
+private val logger = getThreemaLogger("CreateLocalDataBackupActivity")
+
+class CreateLocalDataBackupActivity : ThreemaComposeActivity(), AppLockExempt {
+    init {
+        logScreenVisibility(logger)
+    }
 
     private val appRestrictions: AppRestrictions by inject()
 
@@ -114,23 +136,50 @@ class CreateLocalDataBackupActivity : ThreemaComposeActivity() {
 
         setContent {
             val viewModel = koinViewModel<CreateLocalDataBackupViewModel>()
-            EventHandler(viewModel, ::handleViewModelEvent)
+            val disableBatteryOptimizationsLauncher = rememberLauncherForActivityResult(
+                DisableBatteryOptimizationsActivity.Contract(),
+            ) { proceed ->
+                if (proceed) {
+                    viewModel.onBatteryOptimizationsDisabledOrDismissed()
+                }
+            }
+            val pickDirectoryLauncher = rememberLauncherForActivityResult(PickDirectoryContract(contentResolver)) { documentUri ->
+                if (documentUri != null) {
+                    viewModel.onDirectorySelected(documentUri)
+                }
+            }
+            val contactSupportLauncher = rememberLauncherForActivityResult(ContactSupportActivity.Contract()) { errorMessage ->
+                if (errorMessage != null) {
+                    showToast(errorMessage)
+                }
+            }
+            EventHandler(viewModel) { event ->
+                when (event) {
+                    CreateLocalDataBackupViewModelEvent.PromptForBatteryOptimizationsDisabling -> {
+                        disableBatteryOptimizationsLauncher.launch(getString(R.string.backup_data))
+                    }
+                    is CreateLocalDataBackupViewModelEvent.PickDirectory -> {
+                        pickDirectoryLauncher.launch(event.previousUri)
+                    }
+                    CreateLocalDataBackupViewModelEvent.Finish -> {
+                        finish()
+                    }
+                }
+            }
 
             ThreemaTheme {
                 CreateLocalDataBackupScreen(
-                    viewModel,
+                    viewModel = viewModel,
+                    onClickContactSupport = {
+                        contactSupportLauncher.launch()
+                    },
                 )
             }
         }
     }
 
-    private fun handleViewModelEvent(event: CreateLocalDataBackupViewModelEvent) {
-        when (event) {
-            CreateLocalDataBackupViewModelEvent.Finish -> finish()
-        }
-    }
-
     companion object {
+        @JvmStatic
         fun createIntent(context: Context) = buildActivityIntent<CreateLocalDataBackupActivity>(context)
     }
 }
@@ -138,6 +187,7 @@ class CreateLocalDataBackupActivity : ThreemaComposeActivity() {
 @Composable
 private fun CreateLocalDataBackupScreen(
     viewModel: CreateLocalDataBackupViewModel,
+    onClickContactSupport: () -> Unit,
 ) {
     BackHandler(onBack = viewModel::onClickBack)
     WithViewState(viewModel) { state ->
@@ -149,6 +199,12 @@ private fun CreateLocalDataBackupScreen(
             onChangeKeyConfirmationInput = viewModel::onChangeKeyConfirmationInput,
             onChangeIncludeMedia = viewModel::onChangeIncludeMedia,
             onClickProceed = viewModel::onClickProceed,
+            onDismissAbortDialog = viewModel::onDismissAbortDialog,
+            onConfirmAbortDialog = viewModel::onConfirmAbortDialog,
+            onClickTryAgain = viewModel::onClickTryAgain,
+            onClickSelectDirectory = viewModel::onClickSelectDirectory,
+            onRequestNewPassword = viewModel::onRequestNewPassword,
+            onClickContactSupport = onClickContactSupport,
         )
     }
 }
@@ -162,6 +218,12 @@ private fun CreateLocalDataBackupScreenContent(
     onChangeKeyConfirmationInput: (String) -> Unit,
     onChangeIncludeMedia: (Boolean) -> Unit,
     onClickProceed: () -> Unit,
+    onDismissAbortDialog: () -> Unit,
+    onConfirmAbortDialog: () -> Unit,
+    onClickTryAgain: () -> Unit,
+    onClickContactSupport: () -> Unit,
+    onClickSelectDirectory: () -> Unit,
+    onRequestNewPassword: () -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
 
@@ -179,11 +241,19 @@ private fun CreateLocalDataBackupScreenContent(
                     containerColor = Color.Transparent,
                     scrolledContainerColor = Color.Transparent,
                 ),
-                navigationIcon = NavigationIcon.back(
-                    containerColor = colors.containerColor,
-                    onClick = onClickBack,
-                ),
+                navigationIcon = if (state?.step?.isAbortable == true) {
+                    NavigationIcon.close(
+                        containerColor = colors.containerColor,
+                        onClick = onClickBack,
+                    )
+                } else {
+                    NavigationIcon.back(
+                        containerColor = colors.containerColor,
+                        onClick = onClickBack,
+                    )
+                },
                 scrollBehavior = scrollBehavior,
+                showConnectionIndicator = false,
             )
         },
     ) { contentPadding ->
@@ -217,15 +287,20 @@ private fun CreateLocalDataBackupScreenContent(
                 is CreateLocalDataBackupViewState.Step3InProgress -> {
                     StepHeader(
                         iconRes = R.drawable.ic_download_for_offline,
-                        backgroundColor = colorResource(R.color.status_foreground_info),
                         stepNumber = 3,
                         title = stringResource(R.string.local_data_backup_creating_backup_title),
+                    )
+                }
+                is CreateLocalDataBackupViewState.Step3Error -> {
+                    StepHeader(
+                        iconRes = R.drawable.ic_error_rounded,
+                        stepNumber = 3,
+                        title = stringResource(R.string.local_data_backup_backup_failed_title),
                     )
                 }
                 is CreateLocalDataBackupViewState.Step3Done -> {
                     StepHeader(
                         iconRes = R.drawable.ic_check_circle,
-                        backgroundColor = colorResource(R.color.status_foreground_success),
                         stepNumber = 3,
                         title = stringResource(R.string.local_data_backup_backup_complete_title),
                     )
@@ -249,10 +324,24 @@ private fun CreateLocalDataBackupScreenContent(
                     state = step,
                     onChangeIncludeMedia = onChangeIncludeMedia,
                     onClickProceed = onClickProceed,
+                    onClickSelectDirectory = onClickSelectDirectory,
+                    onRequestNewPassword = onRequestNewPassword,
                 )
-                is CreateLocalDataBackupViewState.Step3InProgress -> Step3InProgressContent(
-                    state = step,
-                    onClickCancel = onClickBack,
+                is CreateLocalDataBackupViewState.Step3InProgress -> {
+                    if (step.showAbortDialog) {
+                        AbortDialog(
+                            onDismiss = onDismissAbortDialog,
+                            onConfirm = onConfirmAbortDialog,
+                        )
+                    }
+                    Step3InProgressContent(
+                        state = step,
+                        onClickCancel = onClickBack,
+                    )
+                }
+                is CreateLocalDataBackupViewState.Step3Error -> Step3ErrorContent(
+                    onClickTryAgain = onClickTryAgain,
+                    onClickContactSupport = onClickContactSupport,
                 )
                 is CreateLocalDataBackupViewState.Step3Done -> Step3DoneContent(
                     state = step,
@@ -269,6 +358,7 @@ private fun rememberStateSpecificScrollState(state: CreateLocalDataBackupViewSta
         is CreateLocalDataBackupViewState.Step1ConfirmKey -> 1
         is CreateLocalDataBackupViewState.Step1RecoveryKey -> 2
         is CreateLocalDataBackupViewState.Step2 -> 3
+        is CreateLocalDataBackupViewState.Step3Error,
         is CreateLocalDataBackupViewState.Step3Done,
         is CreateLocalDataBackupViewState.Step3InProgress,
         -> 4
@@ -307,6 +397,7 @@ private fun ColumnScope.Step1RecoveryKeyContent(
         leadingIcon = ButtonIconInfo(
             iconRes = R.drawable.ic_content_copy_outline,
         ),
+        shape = ShapeDefaults.Medium,
         onClick = onClickCopy,
     )
 
@@ -318,7 +409,7 @@ private fun ColumnScope.Step1RecoveryKeyContent(
 
     SpacerVertical(GridUnit.x3)
 
-    ButtonPrimaryRounded(
+    ButtonPrimary(
         modifier = horizontalPaddingModifier
             .fillMaxWidth(),
         onClick = onClickProceed,
@@ -345,7 +436,6 @@ private fun Headline(
 private fun StepHeader(
     @DrawableRes iconRes: Int,
     iconModifier: Modifier = Modifier,
-    backgroundColor: Color = colorResource(R.color.status_foreground_info),
     stepNumber: Int,
     title: String,
 ) {
@@ -357,13 +447,13 @@ private fun StepHeader(
     ) {
         Icon(
             modifier = Modifier
-                .background(color = backgroundColor, shape = CircleShape)
+                .background(color = MaterialTheme.colorScheme.primary, shape = CircleShape)
                 .padding(12.dp)
                 .size(24.dp)
                 .then(iconModifier),
             painter = painterResource(iconRes),
             contentDescription = null,
-            tint = colorResource(R.color.on_status_foreground),
+            tint = MaterialTheme.colorScheme.onPrimary,
         )
 
         SpacerVertical(GridUnit.x1_5)
@@ -372,7 +462,7 @@ private fun StepHeader(
             text = stringResource(R.string.local_data_backup_step_title, stepNumber, 3).uppercase(),
             style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center,
-            color = colorResource(R.color.brand_grey_500),
+            color = BrandGreyColors.dynamicGrey700,
         )
 
         SpacerVertical(GridUnit.x1_5)
@@ -388,7 +478,7 @@ private fun StepHeader(
 @Composable
 private fun PasswordBox(
     modifier: Modifier,
-    password: BackupPassword,
+    password: LocalDataBackupPassword,
 ) {
     val windowWidth = LocalWindowInfo.current.containerDpSize.width
     RoundedCornerSurface(
@@ -464,7 +554,6 @@ private fun PasswordNotice(modifier: Modifier) {
             )
         },
     ) {
-        // TODO(ANDR-4877): Part of this text needs to be in bold. We don't have a mechanism yet to handle formatted resource strings in Compose
         Text(
             text = stringResource(R.string.local_data_backup_password_info_banner),
         )
@@ -500,7 +589,7 @@ private fun ColumnScope.Step1ConfirmKeyContent(
 
     SpacerRemainingVertical(minHeight = GridUnit.x3)
 
-    ButtonPrimaryRounded(
+    ButtonPrimary(
         modifier = horizontalPaddingModifier
             .fillMaxWidth(),
         onClick = onClickProceed,
@@ -526,7 +615,7 @@ private fun KeyConfirmationBox(
             ThemedText(
                 text = stringResource(R.string.local_data_backup_recovery_key_confirm_label),
                 style = MaterialTheme.typography.bodyLarge,
-                color = colorResource(R.color.brand_grey_500),
+                color = BrandGreyColors.dynamicGrey700,
             )
 
             SpacerVertical(GridUnit.x1_5)
@@ -536,7 +625,7 @@ private fun KeyConfirmationBox(
                     Text(
                         text = stringResource(R.string.local_data_backup_confirm_password_placeholder),
                         style = TextStyle.Default.copy(
-                            color = colorResource(R.color.brand_grey_400),
+                            color = BrandGreyColors.dynamicGrey400,
                         ),
                     )
                 }
@@ -545,7 +634,7 @@ private fun KeyConfirmationBox(
                     value = text,
                     onValueChange = { value ->
                         value.uppercase()
-                            .filter(BackupPassword::isValidPasswordCharacter)
+                            .filter(LocalDataBackupPassword::isValidPasswordCharacter)
                             .let(onChangeText)
                     },
                     keyboardOptions = KeyboardOptions(
@@ -605,13 +694,62 @@ private fun ColumnScope.Step2Content(
     state: CreateLocalDataBackupViewState.Step2,
     onChangeIncludeMedia: (Boolean) -> Unit,
     onClickProceed: () -> Unit,
+    onClickSelectDirectory: () -> Unit,
+    onRequestNewPassword: () -> Unit,
 ) {
+    var showNewPasswordDialog by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    if (showNewPasswordDialog) {
+        NewPasswordDialog(
+            onConfirm = {
+                showNewPasswordDialog = false
+                onRequestNewPassword()
+            },
+            onDismiss = {
+                showNewPasswordDialog = false
+            },
+        )
+    }
+
     val horizontalPaddingModifier = Modifier.padding(horizontal = GridUnit.x3)
 
     Headline(
         modifier = horizontalPaddingModifier,
-        headline = stringResource(R.string.local_data_backup_backup_settings_headline),
+        headline = if (state.isFirstBackup) {
+            stringResource(R.string.local_data_backup_backup_settings_first_time_headline)
+        } else {
+            stringResource(R.string.local_data_backup_backup_settings_headline)
+        },
     )
+
+    if (!state.isFirstBackup) {
+        SpacerVertical(GridUnit.x4)
+
+        SectionLabel(
+            modifier = horizontalPaddingModifier,
+            label = stringResource(R.string.local_data_backup_encryption_with_label),
+        )
+
+        SpacerVertical(GridUnit.x2)
+
+        RoundedCornerSurface(
+            modifier = horizontalPaddingModifier.fillMaxWidth(),
+        ) {
+            ClickableRowWithChevron(
+                modifier = Modifier.padding(
+                    horizontal = GridUnit.x2,
+                    vertical = GridUnit.x1,
+                ),
+                title = stringResource(R.string.local_data_backup_recovery_key),
+                subtitle = state.passwordSnippet,
+                onClick = {
+                    showNewPasswordDialog = true
+                },
+            )
+        }
+    }
 
     SpacerVertical(GridUnit.x4)
 
@@ -640,6 +778,29 @@ private fun ColumnScope.Step2Content(
 
     SectionLabel(
         modifier = horizontalPaddingModifier,
+        label = stringResource(R.string.local_data_backup_save_to_label),
+    )
+
+    SpacerVertical(GridUnit.x2)
+
+    RoundedCornerSurface(
+        modifier = horizontalPaddingModifier.fillMaxWidth(),
+    ) {
+        ClickableRowWithChevron(
+            modifier = Modifier.padding(
+                horizontal = GridUnit.x2,
+                vertical = GridUnit.x1,
+            ),
+            title = stringResource(R.string.local_data_backup_target_folder),
+            subtitle = state.backupLocationName,
+            onClick = onClickSelectDirectory,
+        )
+    }
+
+    SpacerVertical(GridUnit.x4)
+
+    SectionLabel(
+        modifier = horizontalPaddingModifier,
         label = stringResource(R.string.local_data_backup_media_label),
     )
 
@@ -661,7 +822,7 @@ private fun ColumnScope.Step2Content(
 
             HorizontalDivider(
                 modifier = innerPaddingModifier.alpha(0.1f),
-                color = colorResource(R.color.brand_grey_500),
+                color = BrandGreyColors.dynamicGrey700,
             )
 
             SpacerVertical(GridUnit.x0_5)
@@ -710,12 +871,79 @@ private fun ColumnScope.Step2Content(
 
     SpacerRemainingVertical(minHeight = GridUnit.x3)
 
-    ButtonPrimaryRounded(
+    ButtonPrimary(
         modifier = horizontalPaddingModifier
             .fillMaxWidth(),
         onClick = onClickProceed,
         text = stringResource(R.string.local_data_backup_start_backup_button),
     )
+}
+
+@Composable
+private fun NewPasswordDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+            ) {
+                Text(text = stringResource(R.string.local_data_backup_new_password_dialog_confirm_button))
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+            ) {
+                Text(text = stringResource(R.string.cancel))
+            }
+        },
+        title = {
+            Text(stringResource(R.string.local_data_backup_new_password_dialog_title))
+        },
+        text = {
+            Text(stringResource(R.string.local_data_backup_new_password_dialog_message))
+        },
+    )
+}
+
+@Composable
+private fun ClickableRowWithChevron(
+    modifier: Modifier,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .clickable(
+                onClick = onClick,
+                role = Role.Button,
+            )
+            .then(modifier),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+        ) {
+            ThemedText(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            ThemedText(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = BrandGreyColors.dynamicGrey700,
+            )
+        }
+        Icon(
+            painter = painterResource(R.drawable.ic_keyboard_arrow_right),
+            contentDescription = null,
+            tint = BrandGreyColors.dynamicGrey400,
+        )
+    }
 }
 
 @Composable
@@ -746,7 +974,7 @@ private fun LabeledSwitch(
             ThemedText(
                 text = subtitle,
                 style = MaterialTheme.typography.bodyMedium,
-                color = colorResource(R.color.brand_grey_500),
+                color = BrandGreyColors.dynamicGrey700,
             )
         }
         ThemedSwitch(
@@ -793,7 +1021,7 @@ private fun DataTypeRow(
             Modifier.padding(start = iconSize + GridUnit.x1),
             text = subtitle,
             style = MaterialTheme.typography.bodyMedium,
-            color = colorResource(R.color.brand_grey_500),
+            color = BrandGreyColors.dynamicGrey700,
         )
     }
 }
@@ -814,10 +1042,10 @@ private fun ColumnScope.Step3InProgressContent(
 
     ProgressBox(
         modifier = horizontalPaddingModifier,
-        messagesStatus = state.messagesStatus,
-        mediaFilesStatus = state.mediaFilesStatus,
-        encryptionStatus = state.encryptionStatus,
-        finalizingStatus = state.finalizingStatus,
+        preparingStatus = state.progress.preparingStatus,
+        chatsStatus = state.progress.chatsStatus,
+        mediaFilesStatus = state.progress.mediaFilesStatus,
+        finalizingStatus = state.progress.finalizingStatus,
     )
 
     SpacerVertical(GridUnit.x1)
@@ -842,9 +1070,9 @@ private fun ColumnScope.Step3InProgressContent(
 @Composable
 private fun ProgressBox(
     modifier: Modifier,
-    messagesStatus: Status,
+    preparingStatus: Status,
+    chatsStatus: Status,
     mediaFilesStatus: Status?,
-    encryptionStatus: Status,
     finalizingStatus: Status,
 ) {
     RoundedCornerSurface(
@@ -855,19 +1083,19 @@ private fun ProgressBox(
             verticalArrangement = Arrangement.spacedBy(GridUnit.x1),
         ) {
             ProgressRow(
-                title = stringResource(R.string.local_data_backup_exporting_messages_status),
-                status = messagesStatus,
+                title = stringResource(R.string.local_data_backup_preparing_status),
+                status = preparingStatus,
+            )
+            ProgressRow(
+                title = stringResource(R.string.local_data_backup_chats_status),
+                status = chatsStatus,
             )
             if (mediaFilesStatus != null) {
                 ProgressRow(
-                    title = stringResource(R.string.local_data_backup_preparing_media_files_status),
+                    title = stringResource(R.string.local_data_backup_media_files_status),
                     status = mediaFilesStatus,
                 )
             }
-            ProgressRow(
-                title = stringResource(R.string.local_data_backup_encrypting_files_status),
-                status = encryptionStatus,
-            )
             ProgressRow(
                 title = stringResource(R.string.local_data_backup_finalizing_backup_status),
                 status = finalizingStatus,
@@ -881,34 +1109,30 @@ private fun ProgressRow(
     title: String,
     status: Status,
 ) {
-    val backgroundColor = when (status) {
+    val iconBackgroundColor = when (status) {
         Status.WAITING -> colorResource(R.color.brand_grey_300)
         Status.IN_PROGRESS -> colorResource(R.color.status_foreground_info)
         Status.DONE -> colorResource(R.color.status_foreground_success)
-        Status.FAILED -> colorResource(R.color.status_foreground_destructive)
     }
     val statusText = when (status) {
         Status.WAITING -> stringResource(R.string.local_data_backup_status_waiting)
         Status.IN_PROGRESS -> stringResource(R.string.local_data_backup_status_in_progress)
         Status.DONE -> stringResource(R.string.local_data_backup_status_done)
-        Status.FAILED -> stringResource(R.string.local_data_backup_status_failed)
     }
     val statusTextColor = when (status) {
         Status.WAITING,
         Status.IN_PROGRESS,
-        -> colorResource(R.color.brand_grey_400)
+        -> BrandGreyColors.dynamicGrey400
         Status.DONE -> MaterialTheme.colorScheme.onSurface
-        Status.FAILED -> colorResource(R.color.status_foreground_destructive)
     }
     val iconRes = when (status) {
         Status.WAITING,
         Status.IN_PROGRESS,
         -> null
         Status.DONE -> R.drawable.ic_check
-        Status.FAILED -> R.drawable.ic_close
     }
     val iconModifier = Modifier
-        .background(color = backgroundColor, shape = CircleShape)
+        .background(color = iconBackgroundColor, shape = CircleShape)
         .padding(6.dp)
         .size(22.dp)
     Row(
@@ -945,6 +1169,60 @@ private fun ProgressRow(
 }
 
 @Composable
+private fun AbortDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+            ) {
+                Text(text = stringResource(R.string.ok))
+            }
+        },
+        text = {
+            Text(stringResource(R.string.local_data_backup_abort_dialog_message))
+        },
+    )
+}
+
+@Composable
+private fun ColumnScope.Step3ErrorContent(
+    onClickTryAgain: () -> Unit,
+    onClickContactSupport: () -> Unit,
+) {
+    val horizontalPaddingModifier = Modifier.padding(horizontal = GridUnit.x3)
+
+    Headline(
+        modifier = horizontalPaddingModifier,
+        headline = stringResource(R.string.local_data_backup_backup_failed_message),
+    )
+
+    SpacerRemainingVertical(minHeight = GridUnit.x1)
+
+    ButtonPrimary(
+        modifier = horizontalPaddingModifier
+            .fillMaxWidth(),
+        onClick = onClickTryAgain,
+        text = stringResource(R.string.try_again),
+    )
+
+    if (!BuildFlavor.IS_ON_PREM) {
+        SpacerVertical(GridUnit.x2)
+
+        ButtonOutlined(
+            shape = ShapeDefaults.Medium,
+            modifier = horizontalPaddingModifier
+                .fillMaxWidth(),
+            onClick = onClickContactSupport,
+            text = stringResource(R.string.contact_support),
+        )
+    }
+}
+
+@Composable
 private fun ColumnScope.Step3DoneContent(
     state: CreateLocalDataBackupViewState.Step3Done,
     onClickProceed: () -> Unit,
@@ -964,15 +1242,15 @@ private fun ColumnScope.Step3DoneContent(
 
     ProgressBox(
         modifier = horizontalPaddingModifier,
-        messagesStatus = Status.DONE,
+        preparingStatus = Status.DONE,
+        chatsStatus = Status.DONE,
         mediaFilesStatus = if (state.includeMedia) Status.DONE else null,
-        encryptionStatus = Status.DONE,
         finalizingStatus = Status.DONE,
     )
 
     SpacerRemainingVertical(minHeight = GridUnit.x1)
 
-    ButtonPrimaryRounded(
+    ButtonPrimary(
         modifier = horizontalPaddingModifier
             .fillMaxWidth(),
         onClick = onClickProceed,
@@ -985,16 +1263,29 @@ private fun ColumnScope.Step3DoneContent(
 @PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 private fun BackupCenterScreenContent_Step1RecoveryKey_Screen() {
     CreateLocalDataBackupScreenContent(
+        step = CreateLocalDataBackupViewState.Step1RecoveryKey(
+            password = LocalDataBackupPassword("ABC1DEF2G4H5I67JKLMN890OPQRSTUVW".repeat(2)),
+        ),
+    )
+}
+
+@Composable
+private fun CreateLocalDataBackupScreenContent(step: CreateLocalDataBackupViewState.Step) {
+    CreateLocalDataBackupScreenContent(
         state = CreateLocalDataBackupViewState(
-            step = CreateLocalDataBackupViewState.Step1RecoveryKey(
-                password = BackupPassword("ABC1DEF2G4H5I67JKLMN890OPQRSTUVW".repeat(2)),
-            ),
+            step = step,
         ),
         onClickBack = {},
         onClickCopy = {},
         onChangeKeyConfirmationInput = {},
         onChangeIncludeMedia = {},
         onClickProceed = {},
+        onDismissAbortDialog = {},
+        onConfirmAbortDialog = {},
+        onClickTryAgain = {},
+        onClickContactSupport = {},
+        onClickSelectDirectory = {},
+        onRequestNewPassword = {},
     )
 }
 
@@ -1003,16 +1294,9 @@ private fun BackupCenterScreenContent_Step1RecoveryKey_Screen() {
 @PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 private fun BackupCenterScreenContent_Step1ConfirmKey_Screen() {
     CreateLocalDataBackupScreenContent(
-        state = CreateLocalDataBackupViewState(
-            step = CreateLocalDataBackupViewState.Step1ConfirmKey(
-                expectedInput = "A1B2",
-            ),
+        step = CreateLocalDataBackupViewState.Step1ConfirmKey(
+            expectedInput = "A1B2",
         ),
-        onClickBack = {},
-        onClickCopy = {},
-        onChangeKeyConfirmationInput = {},
-        onChangeIncludeMedia = {},
-        onClickProceed = {},
     )
 }
 
@@ -1021,16 +1305,12 @@ private fun BackupCenterScreenContent_Step1ConfirmKey_Screen() {
 @PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 private fun BackupCenterScreenContent_Step2IncludeMediaOn_Screen() {
     CreateLocalDataBackupScreenContent(
-        state = CreateLocalDataBackupViewState(
-            step = CreateLocalDataBackupViewState.Step2(
-                includeMedia = true,
-            ),
+        step = CreateLocalDataBackupViewState.Step2(
+            isFirstBackup = true,
+            includeMedia = true,
+            backupLocationName = "Documents",
+            passwordSnippet = "ABCD…1234",
         ),
-        onClickBack = {},
-        onClickCopy = {},
-        onChangeKeyConfirmationInput = {},
-        onChangeIncludeMedia = {},
-        onClickProceed = {},
     )
 }
 
@@ -1039,16 +1319,12 @@ private fun BackupCenterScreenContent_Step2IncludeMediaOn_Screen() {
 @PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 private fun BackupCenterScreenContent_Step2IncludeMediaOff_Screen() {
     CreateLocalDataBackupScreenContent(
-        state = CreateLocalDataBackupViewState(
-            step = CreateLocalDataBackupViewState.Step2(
-                includeMedia = false,
-            ),
+        step = CreateLocalDataBackupViewState.Step2(
+            isFirstBackup = true,
+            includeMedia = false,
+            backupLocationName = "Documents",
+            passwordSnippet = "ABCD…1234",
         ),
-        onClickBack = {},
-        onClickCopy = {},
-        onChangeKeyConfirmationInput = {},
-        onChangeIncludeMedia = {},
-        onClickProceed = {},
     )
 }
 
@@ -1057,19 +1333,41 @@ private fun BackupCenterScreenContent_Step2IncludeMediaOff_Screen() {
 @PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 private fun BackupCenterScreenContent_Step3InProgress_Screen() {
     CreateLocalDataBackupScreenContent(
-        state = CreateLocalDataBackupViewState(
-            step = CreateLocalDataBackupViewState.Step3InProgress(
-                messagesStatus = Status.DONE,
+        step = CreateLocalDataBackupViewState.Step3InProgress(
+            progress = CreateLocalDataBackupViewState.Step3InProgress.Progress(
+                preparingStatus = Status.DONE,
                 mediaFilesStatus = Status.IN_PROGRESS,
-                encryptionStatus = Status.WAITING,
-                finalizingStatus = Status.FAILED,
+                chatsStatus = Status.WAITING,
+                finalizingStatus = Status.WAITING,
             ),
+            showAbortDialog = false,
         ),
-        onClickBack = {},
-        onClickCopy = {},
-        onChangeKeyConfirmationInput = {},
-        onChangeIncludeMedia = {},
-        onClickProceed = {},
+    )
+}
+
+@PreviewLightDark
+@Composable
+@PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
+private fun BackupCenterScreenContent_Step3InProgressWithAbortDialog_Screen() {
+    CreateLocalDataBackupScreenContent(
+        step = CreateLocalDataBackupViewState.Step3InProgress(
+            progress = CreateLocalDataBackupViewState.Step3InProgress.Progress(
+                preparingStatus = Status.DONE,
+                mediaFilesStatus = Status.IN_PROGRESS,
+                chatsStatus = Status.WAITING,
+                finalizingStatus = Status.WAITING,
+            ),
+            showAbortDialog = true,
+        ),
+    )
+}
+
+@PreviewLightDark
+@Composable
+@PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
+private fun BackupCenterScreenContent_Step3Error_Screen() {
+    CreateLocalDataBackupScreenContent(
+        step = CreateLocalDataBackupViewState.Step3Error,
     )
 }
 
@@ -1078,15 +1376,8 @@ private fun BackupCenterScreenContent_Step3InProgress_Screen() {
 @PreviewWrapper(wrapper = ThreemaPreviewWrapper::class)
 private fun BackupCenterScreenContent_Step3Done_Screen() {
     CreateLocalDataBackupScreenContent(
-        state = CreateLocalDataBackupViewState(
-            step = CreateLocalDataBackupViewState.Step3Done(
-                includeMedia = true,
-            ),
+        step = CreateLocalDataBackupViewState.Step3Done(
+            includeMedia = true,
         ),
-        onClickBack = {},
-        onClickCopy = {},
-        onChangeKeyConfirmationInput = {},
-        onChangeIncludeMedia = {},
-        onClickProceed = {},
     )
 }

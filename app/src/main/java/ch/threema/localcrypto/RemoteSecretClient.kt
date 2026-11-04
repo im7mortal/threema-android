@@ -83,8 +83,9 @@ class RemoteSecretClient(
         throw when (e) {
             is RemoteSecretSetupException.InvalidCredentials ->
                 InvalidCredentialsException(e)
-            is RemoteSecretSetupException.InvalidParameter,
-            is RemoteSecretSetupException.InvalidState,
+            is RemoteSecretSetupException.ConversionException,
+            is RemoteSecretSetupException.InternalException,
+            is RemoteSecretSetupException.ContractViolation,
             -> RemoteSecretClientException(e)
             is RemoteSecretSetupException.NetworkException,
             is RemoteSecretSetupException.RateLimitExceeded,
@@ -154,8 +155,9 @@ class RemoteSecretClient(
                         is LibthreemaRemoteSecretMonitorException.Mismatch,
                         ->
                             BlockedByAdminException()
-                        is LibthreemaRemoteSecretMonitorException.InvalidParameter,
-                        is LibthreemaRemoteSecretMonitorException.InvalidState,
+                        is LibthreemaRemoteSecretMonitorException.ConversionException,
+                        is LibthreemaRemoteSecretMonitorException.InternalException,
+                        is LibthreemaRemoteSecretMonitorException.ContractViolation,
                         is LibthreemaRemoteSecretMonitorException.ServerException,
                         is LibthreemaRemoteSecretMonitorException.Timeout,
                         ->

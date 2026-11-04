@@ -8,11 +8,11 @@ import ch.threema.android.ToastDuration
 import ch.threema.android.buildActivityIntent
 import ch.threema.android.disableExitTransition
 import ch.threema.android.getSerializableExtraCompat
-import ch.threema.android.navigateToLauncher
 import ch.threema.android.showToast
 import ch.threema.app.R
+import ch.threema.app.activities.CloseAppActivity
 import ch.threema.app.activities.ThreemaAppCompatActivity
-import ch.threema.app.di.DIJavaCompat.isSessionScopeReady
+import ch.threema.app.di.isSessionScopeReady
 import ch.threema.app.preference.service.PreferenceService
 import ch.threema.app.services.LockAppService
 import ch.threema.app.utils.logScreenVisibility
@@ -123,19 +123,18 @@ class AppLockActivity : ThreemaAppCompatActivity() {
         )
 
     private fun finishWithSuccess() {
-        if (!isCheckOnly) {
-            lockAppService.unlock()
-        }
+        lockAppService.unlock()
         setResult(RESULT_OK)
         finish()
     }
 
     private fun finishWithoutSuccess() {
-        if (!isCheckOnly) {
-            navigateToLauncher()
-        }
         setResult(RESULT_CANCELED)
-        finish()
+        if (isCheckOnly) {
+            finish()
+        } else {
+            CloseAppActivity.closeApp(this)
+        }
     }
 
     override fun finish() {

@@ -10,7 +10,7 @@ import ch.threema.data.datatypes.LocalGroupId
 import ch.threema.data.models.ContactModel
 import ch.threema.data.models.ContactModelData
 import ch.threema.domain.types.MessageUid
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.group.GroupModelOld
 
 @SessionScoped
@@ -30,9 +30,7 @@ interface NotificationService {
 
     fun showGroupCallNotification(group: GroupModelOld, contactModelData: ContactModelData)
 
-    fun showConversationNotification(conversationNotification: ConversationNotification, updateExisting: Boolean)
-
-    fun showMasterKeyLockedNewMessageNotification()
+    fun showConversationNotification(messageNotification: ConversationMessageNotification, updateExisting: Boolean)
 
     fun showServerMessageNotification()
 
@@ -42,7 +40,7 @@ interface NotificationService {
      *
      * @param failedMessages the failed message models
      */
-    fun showUnsentMessageNotification(failedMessages: List<AbstractMessageModel>)
+    fun showUnsentMessageNotification(failedMessages: List<MessageModel>)
 
     /**
      * Show a forward security message rejected notification for the given receiver. Note that for
@@ -60,15 +58,30 @@ interface NotificationService {
      */
     fun showSafeBackupFailed(fullDaysSinceLastBackup: Int)
 
-    fun cancel(conversationId: ConversationId)
+    /**
+     * Cancels *all* message- and reaction-notifications of the given [conversationId].
+     */
+    fun cancelAllConversationNotifications(conversationId: ConversationId)
+
+    /**
+     * Cancels *all* message- and reaction-notifications of the given [conversationIds].
+     */
+    fun cancelAllConversationNotifications(conversationIds: Set<ConversationId>)
+
+    /**
+     * Cancels *all* message-notifications of the given [conversationId].
+     */
+    fun cancelConversationMessageNotifications(conversationId: ConversationId)
 
     fun showNewSyncedContactsNotification(contactModels: List<ContactModel>)
 
     fun showWebclientResumeFailed(message: String)
 
-    fun cancelGroupCallNotification(groupId: LocalGroupId)
+    fun showEmojiReactionNotification(reactionNotification: ConversationReactionNotification)
 
-    fun cancelConversationNotification(vararg messageUids: MessageUid)
+    fun cancelEmojiReactionNotification(conversationId: ConversationId, messageUid: MessageUid)
+
+    fun cancelGroupCallNotification(groupId: LocalGroupId)
 
     fun cancelConversationNotificationsOnLockApp()
 
@@ -85,4 +98,6 @@ interface NotificationService {
     fun cancelRestoreCompletionNotification()
 
     fun cancelBackupCompletionNotification()
+
+    fun onConversationNotificationDismissed()
 }

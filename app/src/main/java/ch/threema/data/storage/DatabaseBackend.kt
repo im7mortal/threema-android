@@ -3,6 +3,8 @@ package ch.threema.data.storage
 import android.database.sqlite.SQLiteException
 import ch.threema.data.datatypes.AvailabilityStatus
 import ch.threema.data.datatypes.GroupIdentity
+import ch.threema.domain.models.AcquaintanceLevel
+import ch.threema.domain.models.UserState
 import ch.threema.domain.types.GroupDatabaseId
 import ch.threema.domain.types.Identity
 import ch.threema.domain.types.IdentityString
@@ -18,14 +20,29 @@ interface DatabaseBackend {
     fun getAllContacts(): List<DbContact>
 
     /**
-     * Insert a new contact.
+     * Get all contact's identities.
+     */
+    fun getAllContactIdentities(): Set<IdentityString>
+
+    /**
+     * Checks whether a contact with the given [identity] exists
+     */
+    fun contactExists(identity: IdentityString): Boolean
+
+    /**
+     * Count all existing contacts whose identities are provided.
+     */
+    fun countExistingContacts(identities: Set<IdentityString>): UInt
+
+    /**
+     * Insert new contacts.
      *
      * @throws SQLiteException if insertion fails due to a conflict
      * @throws IllegalArgumentException if the length of the identity or public key is invalid
-     * @throws DatabaseException if the contact could not be added due to a failing precondition,
+     * @throws DatabaseException if the contacts could not be added due to a failing precondition,
      * e.g. because a contact with the same public key already exists
      */
-    fun createContact(dbContact: DbContact)
+    fun createContact(vararg dbContacts: DbContact)
 
     /**
      * Return the contact with the specified [identity].
@@ -33,6 +50,11 @@ interface DatabaseBackend {
     fun getContactByIdentity(identity: IdentityString): DbContact?
 
     fun getContactsByIdentities(identities: Set<IdentityString>): List<DbContact>
+
+    /**
+     * Returns `true` if all given contacts exist and all match the [acquaintanceLevel].
+     */
+    fun allContactsExistWithAcquaintanceLevel(identities: Set<IdentityString>, acquaintanceLevel: AcquaintanceLevel): Boolean
 
     /**
      * Update the specified contact (using the identity as lookup key).
@@ -83,6 +105,11 @@ interface DatabaseBackend {
     fun createGroup(group: DbGroup)
 
     /**
+     * Insert new groups.
+     */
+    fun createGroups(groups: Set<DbGroup>): Set<GroupIdentity>
+
+    /**
      * Remove all associated data in the database of the given group identity.
      */
     fun removeGroup(localDbId: Long)
@@ -91,6 +118,11 @@ interface DatabaseBackend {
      * Get all groups.
      */
     fun getAllGroups(): Collection<DbGroup>
+
+    /**
+     * Get all archived groups.
+     */
+    fun getAllArchivedGroups(): Collection<DbGroup>
 
     /**
      * Get all groups of a given creator.
@@ -108,9 +140,24 @@ interface DatabaseBackend {
     fun getGroupByGroupIdentity(groupIdentity: GroupIdentity): DbGroup?
 
     /**
+     * Return the groups with the specified [groupIdentities].
+     */
+    fun getGroupsByGroupIdentities(groupIdentities: Set<GroupIdentity>): Set<DbGroup>
+
+    /**
+     * Returns `true` if all the given [groupIdentities] exist.
+     */
+    fun allGroupsExist(groupIdentities: Set<GroupIdentity>): Boolean
+
+    /**
      * Return the row id of the group with the specified [groupIdentity].
      */
     fun getGroupDatabaseId(groupIdentity: GroupIdentity): Long?
+
+    /**
+     * Return the database row ids for the given [groupIdentities]. The returned map might be empty of a subset of [groupIdentities].
+     */
+    fun getGroupDatabaseIdsByGroupIdentities(groupIdentities: Set<GroupIdentity>): Map<GroupIdentity, GroupDatabaseId>
 
     /**
      * Update the specified group (using the creator identity and group id as lookup key).
@@ -122,4 +169,36 @@ interface DatabaseBackend {
      * - The createdAt timestamp
      */
     fun updateGroup(group: DbGroup)
+
+    /**
+     *  Returns `true` if the group exists
+     */
+    fun groupExists(groupIdentity: GroupIdentity): Boolean
+
+    /**
+     * Checks if *any* of the given [groupIdentities] exist.
+     */
+    fun anyGroupExists(groupIdentities: Set<GroupIdentity>): Boolean
+
+    /**
+     *  Returns whether the [contactIdentity] is part of **any** group.
+     *  Being part of a group means both being a member, **or** being the creator.
+     *
+     *  @param contactIdentity A contact's identity
+     */
+    fun isPartOfAnyGroup(contactIdentity: IdentityString): Boolean
+
+    /**
+     *  Returns whether the [contactIdentity] is part of **any** group that has the given [userState].
+     *  Being part of a group means both being a member, **or** being the creator.
+     *
+     *  @param contactIdentity A contact's identity
+     *  @param userState The state of the **user**
+     */
+    fun isPartOfAnyGroupWithUserState(contactIdentity: IdentityString, userState: UserState): Boolean
+
+    /**
+     *  Returns a set of all group identities
+     */
+    fun getAllGroupIdentities(): Set<GroupIdentity>
 }

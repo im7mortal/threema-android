@@ -9,9 +9,9 @@ data class VoiceRecorderScreenState(
     val scoAudioState: Int,
 ) {
     companion object {
-        fun initial() = VoiceRecorderScreenState(
+        fun initial(file: File) = VoiceRecorderScreenState(
             mediaState = MediaState.Record(
-                file = null,
+                file = file,
                 isRecording = false,
                 duration = Duration.ZERO,
             ),
@@ -22,24 +22,26 @@ data class VoiceRecorderScreenState(
 
 sealed interface MediaState {
 
-    val file: File?
+    val file: File
+    val duration: Duration
 
     /**
      *  @param duration The current duration of the recorder (only accurate to one full second)
      */
     data class Record(
-        override val file: File?,
+        override val file: File,
+        override val duration: Duration,
         val isRecording: Boolean,
-        val duration: Duration,
     ) : MediaState
 
     data class FinishedRecording(
         override val file: File,
+        override val duration: Duration,
     ) : MediaState
 
     data class Playback(
         override val file: File,
+        override val duration: Duration,
         val isPlaying: Boolean,
-        val duration: Duration,
     ) : MediaState
 }

@@ -9,7 +9,7 @@ import ch.threema.app.managers.ServiceManager
 import ch.threema.app.video.transcoder.MediaComponent
 import ch.threema.app.video.transcoder.VideoTranscoder
 import ch.threema.base.utils.getThreemaLogger
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -19,11 +19,11 @@ private val logger = getThreemaLogger("AudioWaveformGeneratorTask")
 /**
  * Waveform generator for voice messages. Accepts 16bit sampled audio data only
  *
- * @param messageModel The AbstractMessageModel of a voice message
+ * @param messageModel The [MessageModel] of a voice message
  * @param requestedSamplesCount How many points to expect to be drawn in the end
  */
 class AudioWaveformGeneratorTask(
-    private val messageModel: AbstractMessageModel,
+    private val messageModel: MessageModel,
     private val requestedSamplesCount: Int,
     private val listener: AudioWaveformGeneratorListener,
 ) : Runnable {
@@ -33,9 +33,9 @@ class AudioWaveformGeneratorTask(
     var canceled: AtomicBoolean = AtomicBoolean(false)
 
     interface AudioWaveformGeneratorListener {
-        fun onDataReady(newMessageModel: AbstractMessageModel, sampleData: List<Float>)
-        fun onError(errorMessageModel: AbstractMessageModel, errorMessage: String?)
-        fun onCanceled(cancelMessageModel: AbstractMessageModel)
+        fun onDataReady(newMessageModel: MessageModel, sampleData: List<Float>)
+        fun onError(errorMessageModel: MessageModel, errorMessage: String?)
+        fun onCanceled(cancelMessageModel: MessageModel)
     }
 
     override fun run() {

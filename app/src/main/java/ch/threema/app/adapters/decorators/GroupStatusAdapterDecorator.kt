@@ -8,7 +8,7 @@ import ch.threema.data.IdentityProvider
 import ch.threema.data.datatypes.ContactNameFormat
 import ch.threema.data.repositories.ContactModelRepository
 import ch.threema.domain.types.IdentityString
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 import ch.threema.storage.models.data.status.GroupStatusDataModel
 import ch.threema.storage.models.data.status.GroupStatusDataModel.GroupStatusType.CREATED
 import ch.threema.storage.models.data.status.GroupStatusDataModel.GroupStatusType.FIRST_VOTE
@@ -28,7 +28,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
 class GroupStatusAdapterDecorator(
-    messageModel: AbstractMessageModel,
+    messageModel: MessageModel,
     chatAdapterDecoratorListener: ChatAdapterDecoratorListener,
     linkifyListener: LinkifyUtil.LinkifyListener,
     helper: Helper?,
@@ -101,7 +101,7 @@ class GroupStatusAdapterDecorator(
                     pollName,
                 )
                 VOTES_COMPLETE -> context.getString(R.string.status_ballot_all_votes, pollName)
-                GROUP_DESCRIPTION_CHANGED -> "" // TODO(ANDR-2386)
+                GROUP_DESCRIPTION_CHANGED -> "" // TODO(ANDR-3351)
                 ORPHANED -> context.getString(R.string.status_orphaned_group)
             }
         }

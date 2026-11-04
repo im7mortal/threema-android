@@ -14,6 +14,7 @@ import ch.threema.app.webrtc.SaneDataChannelObserver
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.domain.protocol.csp.ProtocolDefines
 import com.google.protobuf.InvalidProtocolBufferException
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.cancellable
 import kotlinx.coroutines.sync.Mutex
@@ -155,7 +156,7 @@ class Connected internal constructor(
             launch {
                 try {
                     call.callLeftSignal.await()
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     // noop
                 }
                 logger.debug("Cancel dislodged participants observer job")
@@ -459,7 +460,7 @@ class Connected internal constructor(
 
             // Replace in 2s
             CoroutineScope(GroupCallThreadUtil.dispatcher).launch {
-                delay(2_000)
+                delay(2.seconds)
                 pendingPcmkJob = null
 
                 // Apply it
@@ -506,12 +507,12 @@ class Connected internal constructor(
     private fun cancelPendingPcmkReplacement() {
         GroupCallThreadUtil.assertDispatcherThread()
 
-        pendingPcmkJob = pendingPcmkJob?.let {
+        pendingPcmkJob?.let {
             val message = "Cancelling PCMK replacement due to teardown"
             logger.debug(message)
             it.cancel(message)
-            null
         }
+        pendingPcmkJob = null
     }
 
     @WorkerThread
@@ -530,12 +531,12 @@ class Connected internal constructor(
     private fun stopCallStateUpdateInterval() {
         GroupCallThreadUtil.assertDispatcherThread()
 
-        callStateUpdateJob = callStateUpdateJob?.let {
+        callStateUpdateJob?.let {
             val message = "Cancelling call state update interval"
             logger.debug(message)
             it.cancel(message)
-            null
         }
+        callStateUpdateJob = null
     }
 
     @WorkerThread
@@ -547,7 +548,7 @@ class Connected internal constructor(
         callStateUpdateJob = CoroutineScope(GroupCallThreadUtil.dispatcher).launch {
             while (true) {
                 sendCallStateUpdate()
-                delay(ProtocolDefines.GC_GROUP_CALL_UPDATE_PERIOD_SECONDS * 1_000)
+                delay(ProtocolDefines.GC_GROUP_CALL_UPDATE_PERIOD)
             }
         }
     }

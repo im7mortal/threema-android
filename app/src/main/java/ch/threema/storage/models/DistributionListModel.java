@@ -8,6 +8,7 @@ import androidx.annotation.Nullable;
 import java.time.Instant;
 import java.util.Objects;
 
+import ch.threema.data.datatypes.ConversationCategory;
 import ch.threema.data.datatypes.ConversationVisibility;
 import ch.threema.data.datatypes.IdColor;
 
@@ -20,6 +21,7 @@ public class DistributionListModel implements ReceiverModel {
     public static final String COLUMN_CREATED_AT = "createdAt";
     public static final String COLUMN_LAST_UPDATE = "lastUpdateAt"; /* date when the conversation was last updated */
     public static final String COLUMN_CONVERSATION_VISIBILITY = "conversationVisibility";
+    public static final String COLUMN_CONVERSATION_CATEGORY = "conversationCategory";
     public static final String COLUMN_IS_ADHOC_DISTRIBUTION_LIST = "isHidden"; /* whether this is an ad-hoc distribution list */
 
     private long id;
@@ -29,6 +31,8 @@ public class DistributionListModel implements ReceiverModel {
     private Instant lastUpdate;
     @NonNull
     private ConversationVisibility conversationVisibility = ConversationVisibility.NORMAL;
+    @NonNull
+    private ConversationCategory conversationCategory = ConversationCategory.DEFAULT;
     private boolean isAdHocDistributionList;
     private IdColor idColor = IdColor.invalid();
 
@@ -72,7 +76,8 @@ public class DistributionListModel implements ReceiverModel {
     }
 
     @Override
-    public @Nullable Instant getLastUpdate() {
+    @NonNull
+    public Instant getLastUpdate() {
         // Note: Never return null for distribution lists, they should always be visible
         return this.lastUpdate == null ? Instant.EPOCH : this.lastUpdate;
     }
@@ -90,6 +95,17 @@ public class DistributionListModel implements ReceiverModel {
     @NonNull
     public DistributionListModel setConversationVisibility(@NonNull ConversationVisibility conversationVisibility) {
         this.conversationVisibility = conversationVisibility;
+        return this;
+    }
+
+    @NonNull
+    public ConversationCategory getConversationCategory() {
+        return conversationCategory;
+    }
+
+    @NonNull
+    public DistributionListModel setConversationCategory(@NonNull ConversationCategory conversationCategory) {
+        this.conversationCategory = conversationCategory;
         return this;
     }
 

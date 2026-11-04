@@ -15,8 +15,7 @@ import org.koin.java.KoinJavaComponent;
 import androidx.annotation.ColorInt;
 
 import java.util.ArrayList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Iterator;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -29,8 +28,8 @@ import ch.threema.app.services.ContactService;
 import ch.threema.app.services.UserService;
 import ch.threema.app.ui.MentionClickableSpan;
 import ch.threema.app.ui.MentionSpan;
-import ch.threema.app.utils.ConfigUtils;
 import ch.threema.app.utils.NameUtil;
+import ch.threema.domain.types.Mention;
 import kotlin.Lazy;
 
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
@@ -40,23 +39,15 @@ public class EmojiMarkupUtil {
 
     private static final int LARGE_EMOJI_SCALE_FACTOR = 2;
     private static final int LARGE_EMOJI_THRESHOLD = 3;
-    public static final String MENTION_INDICATOR = "@";
-    protected static final String MENTION_REGEX = MENTION_INDICATOR + "\\[[0-9A-Z*@]{8}\\]";
-    private final Pattern mention;
 
     @NonNull
     private static final Lazy<EmojiMarkupUtil> instance = lazy(EmojiMarkupUtil::new);
+    @NonNull
+    private static final Lazy<PreferenceService> preferenceService = KoinJavaComponent.inject(PreferenceService.class);
 
     @NonNull
     public static EmojiMarkupUtil getInstance() {
         return instance.getValue();
-    }
-
-    private EmojiMarkupUtil() {
-        this.mention = Pattern.compile(MENTION_REGEX);
-
-        // set emoji style based on preferences
-        ConfigUtils.setEmojiStyle(ThreemaApplication.getAppContext(), -1);
     }
 
     // the ContactService may not yet exist when the instance is created (e.g. when masterkey is locked)
@@ -83,7 +74,7 @@ public class EmojiMarkupUtil {
 
     @NonNull
     private PreferenceService getPreferenceService() {
-        return KoinJavaComponent.get(PreferenceService.class);
+        return preferenceService.getValue();
     }
 
     @NonNull
@@ -138,7 +129,9 @@ public class EmojiMarkupUtil {
             return builder;
         }
 
-        if (context != null && textView != null && (ConfigUtils.isDefaultEmojiStyle() || overrideEmojiStyleSetting || length <= 5)) {
+        var preferenceService = getPreferenceService();
+
+        if (context != null && textView != null && (preferenceService.useDefaultEmojiStyle() || overrideEmojiStyleSetting || length <= 5)) {
             ArrayList<Pair<EmojiParser.ParseResult, Integer>> results = new ArrayList<>();
             boolean containsRegularText = false;
 
@@ -160,17 +153,15 @@ public class EmojiMarkupUtil {
             }
 
             if (!results.isEmpty()) {
-                int scaleFactor = singleScale && ConfigUtils.isBiggerSingleEmojis(context) && !containsRegularText && results.size() <= LARGE_EMOJI_THRESHOLD ? LARGE_EMOJI_SCALE_FACTOR : 1;
+                int scaleFactor = singleScale && preferenceService.isBiggerSingleEmojis() && !containsRegularText && results.size() <= LARGE_EMOJI_THRESHOLD ? LARGE_EMOJI_SCALE_FACTOR : 1;
 
-                if (ConfigUtils.isDefaultEmojiStyle() || overrideEmojiStyleSetting) {
+                if (preferenceService.useDefaultEmojiStyle() || overrideEmojiStyleSetting) {
                     for (Pair<EmojiParser.ParseResult, Integer> result : results) {
                         EmojiDrawable emojiDrawable = EmojiManager.getInstance(context).getEmojiDrawableAsync(result.first.coords);
 
-                        if (emojiDrawable != null) {
-                            builder.setSpan(new EmojiImageSpan(emojiDrawable, textView, scaleFactor),
-                                result.second, result.second + result.first.length,
-                                Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                        }
+                        builder.setSpan(new EmojiImageSpan(emojiDrawable, textView, scaleFactor),
+                            result.second, result.second + result.first.length,
+                            Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
                     }
                 } else if (scaleFactor != 1) {
                     for (Pair<EmojiParser.ParseResult, Integer> result : results) {
@@ -202,23 +193,24 @@ public class EmojiMarkupUtil {
     }
 
     private SpannableStringBuilder applyMentionMarkup(Context context, SpannableStringBuilder inputText, boolean isStrikeThrough) {
-        int start, end;
+        Iterator<Mention.Match> iterator = Mention.findMatches(inputText.toString()).iterator();
 
-        ArrayList<Pair<Integer, Integer>> matches = new ArrayList<>();
-
-        Matcher matcher = this.mention.matcher(inputText);
-        while (matcher.find()) {
-            matches.add(new Pair<>(matcher.start(), matcher.end()));
+        if (!iterator.hasNext()) {
+            return inputText;
         }
 
-        if (matches.isEmpty()) {
-            return inputText;
+        var matches = new ArrayList<Mention.Match>();
+        while (iterator.hasNext()) {
+            var match = iterator.next();
+            matches.add(match);
         }
 
         @ColorInt int mentionColor = ContextCompat.getColor(context, R.color.mention_background);
         @ColorInt int invertedMentionColor = ContextCompat.getColor(context, R.color.mention_background_inverted);
         @ColorInt int mentionTextColor = ContextCompat.getColor(context, R.color.mention_text_color);
         @ColorInt int invertedMentionTextColor = ContextCompat.getColor(context, R.color.mention_text_color_inverted);
+        int padding = context.getResources().getDimensionPixelSize(R.dimen.mention_padding);
+        int radius = context.getResources().getDimensionPixelSize(R.dimen.mention_radius);
 
         SpannableStringBuilder s = new SpannableStringBuilder(inputText);
 
@@ -226,8 +218,9 @@ public class EmojiMarkupUtil {
         final MentionSpan[] mentionSpans = s.getSpans(0, s.length(), MentionSpan.class);
 
         for (int i = matches.size() - 1; i >= 0; i--) {
-            start = matches.get(i).first;
-            end = matches.get(i).second;
+            var match = matches.get(i);
+            int start = match.getStartIndex();
+            int end = match.getEndIndex();
 
             // Check if there is a strike through span surrounding this mention. If there is one,
             // then the line must be drawn explicitly as the mention draws over the text.
@@ -249,52 +242,74 @@ public class EmojiMarkupUtil {
 
             // Create a new mention span if already available, otherwise update the existing span
             if (mentionSpan == null) {
-                s.setSpan(new MentionSpan(mentionColor, invertedMentionColor, mentionTextColor, invertedMentionTextColor, inStrikethroughSpan), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                s.setSpan(
+                    new MentionSpan(
+                        context.getApplicationContext(),
+                        match.getMention(),
+                        mentionColor,
+                        invertedMentionColor,
+                        mentionTextColor,
+                        invertedMentionTextColor,
+                        padding,
+                        radius,
+                        inStrikethroughSpan
+                    ),
+                    start,
+                    end,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                );
             } else {
-                mentionSpan.setStrikeThrough(inStrikethroughSpan);
+                mentionSpan.setStrikeThroughText(inStrikethroughSpan);
             }
             // hack: https://stackoverflow.com/questions/20069537/replacementspans-draw-method-isnt-called
             if (inputText.length() == end - start) {
                 s.append(" ");
             }
-            s.setSpan(new MentionClickableSpan(inputText.subSequence(start + 2, end - 1).toString()), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+            final MentionClickableSpan[] mentionClickableSpans = s.getSpans(start, end, MentionClickableSpan.class);
+            if (mentionClickableSpans.length == 0) {
+                s.setSpan(new MentionClickableSpan(match.getMention()), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
         }
         return s;
     }
 
     /**
-     * Replace mentions by text instead of spans (used where spans cannot be displayed, i.e. in notifications)
+     * Replace mentions by text instead of spans (used where spans cannot be displayed, e.g. in notifications)
      *
-     * @return ChatSequence where all mentions have been replaced by contact names or ids
+     * @return CharSequence where all mentions have been replaced by contact names or ids
      */
     private CharSequence applyTextMentionMarkup(CharSequence inputText) {
-        String match, identity;
         CharSequence outputText = inputText;
 
-        Matcher matcher = this.mention.matcher(inputText);
-        while (matcher.find()) {
-            match = matcher.group();
-            identity = match.substring(2, match.length() - 1);
+        Iterator<Mention.Match> iterator = Mention.findMatches(inputText.toString()).iterator();
+        while (iterator.hasNext()) {
+            var match = iterator.next();
+            var mention = match.getMention();
 
-            final @Nullable String quoteName;
-            final @Nullable ContactService contactService = getContactService();
-            final @Nullable UserService userService = getUserService();
-            final @NonNull PreferenceService preferenceService = getPreferenceService();
-            if (contactService != null && userService != null) {
-                quoteName = NameUtil.getQuoteName(identity, contactService, userService, preferenceService.getContactNameFormat());
-            } else {
-                quoteName = null;
+            String prettyMention = "";
+
+            if (mention instanceof Mention.Identity) {
+                String identity = ((Mention.Identity) mention).getIdentityString();
+
+                final @Nullable String quoteName;
+                final @Nullable ContactService contactService = getContactService();
+                final @Nullable UserService userService = getUserService();
+                final @NonNull PreferenceService preferenceService = getPreferenceService();
+                if (contactService != null && userService != null) {
+                    quoteName = NameUtil.getQuoteName(identity, contactService, userService, preferenceService.getContactNameFormat());
+                } else {
+                    quoteName = null;
+                }
+
+                if (!isNullOrEmpty(quoteName)) {
+                    prettyMention = MentionSpan.MENTION_INDICATOR + quoteName;
+                }
+            } else if (mention instanceof Mention.AllUsers) {
+                prettyMention = MentionSpan.MENTION_INDICATOR + ThreemaApplication.getAppContext().getString(R.string.all);
             }
 
-            if (isNullOrEmpty(quoteName)) {
-                // Note that the quote name is only empty if there went something wrong while
-                // accessing the contact. If the contact is unknown, the quote name consists of its
-                // threema id.
-                outputText = TextUtils.replace(outputText, new String[]{match}, new CharSequence[]{""});
-            } else {
-                outputText = TextUtils.replace(outputText, new String[]{match}, new CharSequence[]{MENTION_INDICATOR + quoteName});
-            }
-            matcher = this.mention.matcher(outputText);
+            outputText = TextUtils.replace(outputText, new String[]{mention.toString()}, new CharSequence[]{prettyMention});
         }
 
         return outputText;
@@ -309,8 +324,8 @@ public class EmojiMarkupUtil {
         return builder;
     }
 
-    public CharSequence addMentionMarkup(Context context, CharSequence text) {
-        return addMentionMarkup(context, text, false);
+    public void addMentionMarkup(Context context, CharSequence text) {
+        addMentionMarkup(context, text, false);
     }
 
     public CharSequence addMentionMarkup(Context context, CharSequence text, boolean isStrikeThrough) {
@@ -319,10 +334,6 @@ public class EmojiMarkupUtil {
         builder = applyMentionMarkup(context, builder, isStrikeThrough);
 
         return builder;
-    }
-
-    public String stripMentions(@NonNull String inputText) {
-        return inputText.replaceAll(MENTION_REGEX, "");
     }
 }
 

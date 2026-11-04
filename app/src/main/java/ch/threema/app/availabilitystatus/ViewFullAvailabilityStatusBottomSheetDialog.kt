@@ -23,7 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
-import androidx.core.os.bundleOf
+import ch.threema.android.buildBundle
 import ch.threema.app.BuildConfig
 import ch.threema.app.R
 import ch.threema.app.compose.common.extensions.get
@@ -82,9 +82,9 @@ class ViewFullAvailabilityStatusBottomSheetDialog : BottomSheetDialogFragment() 
         @JvmStatic
         fun newInstance(availabilityStatus: AvailabilityStatus): ViewFullAvailabilityStatusBottomSheetDialog =
             ViewFullAvailabilityStatusBottomSheetDialog().apply {
-                arguments = bundleOf(
-                    ARGUMENT_AVAILABILITY_STATUS to availabilityStatus.toJson(),
-                )
+                arguments = buildBundle {
+                    putString(ARGUMENT_AVAILABILITY_STATUS, availabilityStatus.toJson())
+                }
             }
     }
 }

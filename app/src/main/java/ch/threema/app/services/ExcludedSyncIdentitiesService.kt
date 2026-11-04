@@ -5,7 +5,7 @@ import ch.threema.domain.types.IdentityString
 
 /**
  * This service manages the identity exclusion list for the address book synchronization. Identities that are excluded won't be added when the address
- * book synchronisation is run.
+ * book synchronization is run.
  */
 interface ExcludedSyncIdentitiesService {
 
@@ -22,12 +22,17 @@ interface ExcludedSyncIdentitiesService {
     /**
      * Replace all existing excluded identities with the [identities].
      */
-    fun setExcludedIdentities(identities: Set<IdentityString>, triggerSource: TriggerSource)
+    fun replaceExcludedIdentities(identities: Set<IdentityString>, triggerSource: TriggerSource)
+
+    /**
+     * Replaces the excluded identities with the given [identities]. Note that this change does *not* reflect anything.
+     */
+    fun replaceExcludedIdentitiesWithoutReflection(identities: Set<IdentityString>)
 
     /**
      * Get all excluded identities.
      */
-    fun getExcludedIdentities(): Set<IdentityString>
+    fun getAllExcludedIdentities(): Set<IdentityString>
 
     /**
      * Check whether the [identity] is excluded from sync or not.

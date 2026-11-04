@@ -5,7 +5,6 @@ import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.os.Build;
 import android.telecom.TelecomManager;
 import android.telephony.TelephonyManager;
@@ -14,9 +13,10 @@ import org.slf4j.Logger;
 
 import java.lang.reflect.Method;
 
-import androidx.core.content.ContextCompat;
 import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.voip.services.VoipStateService;
+
+import static ch.threema.android.PermissionExtensionsKt.checkGrantedPermission;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
 /**
@@ -43,7 +43,7 @@ public class IncomingMobileCallReceiver extends BroadcastReceiver {
 
         if (!voipStateService.getCallState().isIdle()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                if (ContextCompat.checkSelfPermission(context, Manifest.permission.ANSWER_PHONE_CALLS) == PackageManager.PERMISSION_GRANTED) {
+                if (checkGrantedPermission(context, Manifest.permission.ANSWER_PHONE_CALLS)) {
                     TelecomManager telecomManager = (TelecomManager) context.getSystemService(Context.TELECOM_SERVICE);
                     if (telecomManager != null) {
                         logger.info("Trying to end call via TelecomManager");
@@ -52,7 +52,7 @@ public class IncomingMobileCallReceiver extends BroadcastReceiver {
                     }
                 }
             } else {
-                if (ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED) {
+                if (checkGrantedPermission(context, Manifest.permission.CALL_PHONE)) {
                     TelephonyManager telephonyManager = (TelephonyManager) context.getSystemService(Context.TELEPHONY_SERVICE);
                     // Hacky, hacky
                     try {

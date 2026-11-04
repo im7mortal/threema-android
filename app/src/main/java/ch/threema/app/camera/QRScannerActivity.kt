@@ -8,6 +8,7 @@ import android.util.Size
 import android.view.MotionEvent
 import android.view.View
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContract
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.CameraUnavailableException
@@ -258,21 +259,22 @@ class QRScannerActivity : ThreemaActivity() {
         finish()
     }
 
-    companion object {
-        @JvmStatic
-        @JvmOverloads
-        fun createIntent(context: Context, hint: String? = null) = buildActivityIntent<QRScannerActivity>(context) {
-            if (!hint.isNullOrEmpty()) {
-                putExtra(EXTRA_HINT_TEXT, hint)
+    class Contract : ActivityResultContract<String?, String?>() {
+
+        override fun createIntent(context: Context, input: String?) = buildActivityIntent<QRScannerActivity>(context) {
+            if (!input.isNullOrEmpty()) {
+                putExtra(EXTRA_HINT_TEXT, input)
             }
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             addFlags(Intent.FLAG_ACTIVITY_NEW_DOCUMENT)
         }
 
-        @JvmStatic
-        fun extractResult(intent: Intent?): String? =
-            intent?.getStringExtra(RESULT_CONTENT)
+        override fun parseResult(resultCode: Int, intent: Intent?): String? =
+            intent?.takeIf { resultCode == RESULT_OK }
+                ?.getStringExtra(RESULT_CONTENT)
+    }
 
+    companion object {
         private const val EXTRA_HINT_TEXT = "hint"
         private const val RESULT_CONTENT = "content"
     }

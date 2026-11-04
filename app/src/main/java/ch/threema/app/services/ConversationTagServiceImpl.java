@@ -5,7 +5,6 @@ import androidx.annotation.NonNull;
 import java.util.List;
 
 import ch.threema.data.datatypes.ConversationId;
-import ch.threema.domain.taskmanager.TriggerSource;
 import ch.threema.storage.factories.ConversationTagFactory;
 import ch.threema.storage.models.ConversationTagModel;
 import ch.threema.storage.models.ConversationTag;
@@ -19,7 +18,7 @@ public class ConversationTagServiceImpl implements ConversationTagService {
     }
 
     @Override
-    public boolean removeTag(@NonNull ConversationId conversationId, @NonNull ConversationTag tag, @NonNull TriggerSource triggerSource) {
+    public boolean removeTag(@NonNull ConversationId conversationId, @NonNull ConversationTag tag) {
         if (!isTaggedWith(conversationId, tag)) {
             return false;
         }
@@ -28,7 +27,7 @@ public class ConversationTagServiceImpl implements ConversationTagService {
     }
 
     @Override
-    public boolean addTag(@NonNull ConversationId conversationId, @NonNull ConversationTag tag, @NonNull TriggerSource triggerSource) {
+    public boolean addTag(@NonNull ConversationId conversationId, @NonNull ConversationTag tag) {
         if (isTaggedWith(conversationId, tag)) {
             return false;
         }
@@ -39,7 +38,7 @@ public class ConversationTagServiceImpl implements ConversationTagService {
     }
 
     @Override
-    public boolean toggle(@NonNull ConversationId conversationId, @NonNull ConversationTag tag, @NonNull TriggerSource triggerSource) {
+    public boolean toggle(@NonNull ConversationId conversationId, @NonNull ConversationTag tag) {
         if (this.isTaggedWith(conversationId, tag)) {
             // remove
             conversationTagFactory.deleteByConversationIdAndTag(conversationId, tag);
@@ -57,7 +56,7 @@ public class ConversationTagServiceImpl implements ConversationTagService {
     }
 
     @Override
-    public void removeAll(@NonNull ConversationId conversationId, @NonNull TriggerSource triggerSource) {
+    public void removeAll(@NonNull ConversationId conversationId) {
         conversationTagFactory.deleteByConversationId(conversationId);
     }
 

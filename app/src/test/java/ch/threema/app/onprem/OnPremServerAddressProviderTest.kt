@@ -118,8 +118,8 @@ class OnPremServerAddressProviderTest {
     @Test
     fun `test directory server url`() {
         assertEquals(
-            "https://dir.threemaonprem.initrode.com/directory",
-            serverAddressProvider.getDirectoryServerUrl(),
+            "https://dir.threemaonprem.initrode.com/directory/foo",
+            serverAddressProvider.getDirectoryServerUrl("/foo"),
         )
     }
 

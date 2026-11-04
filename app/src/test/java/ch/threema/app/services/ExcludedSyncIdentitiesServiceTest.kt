@@ -54,7 +54,7 @@ class ExcludedSyncIdentitiesServiceTest {
         // Assert
         identitiesToExclude.forEach { identity ->
             assertTrue(excludedSyncIdentitiesService.isExcluded(identity))
-            assertContains(excludedSyncIdentitiesService.getExcludedIdentities(), identity)
+            assertContains(excludedSyncIdentitiesService.getAllExcludedIdentities(), identity)
         }
         verify(exactly = 0) { taskCreatorMock.scheduleReflectExcludeFromSyncIdentitiesTask() }
     }
@@ -78,7 +78,7 @@ class ExcludedSyncIdentitiesServiceTest {
         // Assert
         identitiesToExclude.forEach { identity ->
             assertTrue(excludedSyncIdentitiesService.isExcluded(identity))
-            assertContains(excludedSyncIdentitiesService.getExcludedIdentities(), identity)
+            assertContains(excludedSyncIdentitiesService.getAllExcludedIdentities(), identity)
         }
         verify(exactly = identitiesToExclude.size) { taskCreatorMock.scheduleReflectExcludeFromSyncIdentitiesTask() }
     }
@@ -102,9 +102,9 @@ class ExcludedSyncIdentitiesServiceTest {
 
         // Assert
         assertFalse(excludedSyncIdentitiesService.isExcluded(identityToRemoveFromExcludedIdentities))
-        assertFalse(excludedSyncIdentitiesService.getExcludedIdentities().contains(identityToRemoveFromExcludedIdentities))
-        assertEquals(1, excludedSyncIdentitiesService.getExcludedIdentities().size)
-        assertContains(excludedSyncIdentitiesService.getExcludedIdentities(), initiallyExcludedIdentities.last())
+        assertFalse(excludedSyncIdentitiesService.getAllExcludedIdentities().contains(identityToRemoveFromExcludedIdentities))
+        assertEquals(1, excludedSyncIdentitiesService.getAllExcludedIdentities().size)
+        assertContains(excludedSyncIdentitiesService.getAllExcludedIdentities(), initiallyExcludedIdentities.last())
         verify(exactly = 0) { taskCreatorMock.scheduleReflectExcludeFromSyncIdentitiesTask() }
     }
 
@@ -127,14 +127,14 @@ class ExcludedSyncIdentitiesServiceTest {
 
         // Assert
         assertFalse(excludedSyncIdentitiesService.isExcluded(identityToRemoveFromExcludedIdentities))
-        assertFalse(excludedSyncIdentitiesService.getExcludedIdentities().contains(identityToRemoveFromExcludedIdentities))
-        assertEquals(1, excludedSyncIdentitiesService.getExcludedIdentities().size)
-        assertContains(excludedSyncIdentitiesService.getExcludedIdentities(), initiallyExcludedIdentities.last())
+        assertFalse(excludedSyncIdentitiesService.getAllExcludedIdentities().contains(identityToRemoveFromExcludedIdentities))
+        assertEquals(1, excludedSyncIdentitiesService.getAllExcludedIdentities().size)
+        assertContains(excludedSyncIdentitiesService.getAllExcludedIdentities(), initiallyExcludedIdentities.last())
         verify(exactly = 1) { taskCreatorMock.scheduleReflectExcludeFromSyncIdentitiesTask() }
     }
 
     @Test
-    fun `test setting identity set without multi device`() {
+    fun `test replacing identity set without multi device`() {
         // Arrange
         val excludedSyncIdentitiesService = ExcludedSyncIdentitiesServiceImpl(
             preferenceService = preferenceServiceMock,
@@ -145,18 +145,18 @@ class ExcludedSyncIdentitiesServiceTest {
         val identitiesToAdd = setOf("01234567", "TESTTEST")
 
         // Act
-        excludedSyncIdentitiesService.setExcludedIdentities(identitiesToAdd, TriggerSource.LOCAL)
+        excludedSyncIdentitiesService.replaceExcludedIdentities(identitiesToAdd, TriggerSource.LOCAL)
 
         // Assert
         identitiesToAdd.forEach { identity ->
             assertTrue(excludedSyncIdentitiesService.isExcluded(identity))
         }
-        assertEquals(identitiesToAdd.size, excludedSyncIdentitiesService.getExcludedIdentities().size)
+        assertEquals(identitiesToAdd.size, excludedSyncIdentitiesService.getAllExcludedIdentities().size)
         verify(exactly = 0) { taskCreatorMock.scheduleReflectExcludeFromSyncIdentitiesTask() }
     }
 
     @Test
-    fun `test setting identity set with multi device`() {
+    fun `test replacing identity set with multi device`() {
         // Arrange
         val excludedSyncIdentitiesService = ExcludedSyncIdentitiesServiceImpl(
             preferenceService = preferenceServiceMock,
@@ -167,14 +167,30 @@ class ExcludedSyncIdentitiesServiceTest {
         val identitiesToAdd = setOf("01234567", "TESTTEST")
 
         // Act
-        excludedSyncIdentitiesService.setExcludedIdentities(identitiesToAdd, TriggerSource.LOCAL)
+        excludedSyncIdentitiesService.replaceExcludedIdentities(identitiesToAdd, TriggerSource.LOCAL)
 
         // Assert
         identitiesToAdd.forEach { identity ->
             assertTrue(excludedSyncIdentitiesService.isExcluded(identity))
         }
-        assertEquals(identitiesToAdd.size, excludedSyncIdentitiesService.getExcludedIdentities().size)
+        assertEquals(identitiesToAdd.size, excludedSyncIdentitiesService.getAllExcludedIdentities().size)
         verify(exactly = 1) { taskCreatorMock.scheduleReflectExcludeFromSyncIdentitiesTask() }
+    }
+
+    @Test
+    fun `adding excluded identities without reflection does not reflect anything`() {
+        // Arrange
+        val excludedSyncIdentitiesService = ExcludedSyncIdentitiesServiceImpl(
+            preferenceService = preferenceServiceMock,
+            multiDeviceManager = activeMultiDeviceManagerMock,
+            taskCreator = taskCreatorMock,
+        )
+
+        // Act
+        excludedSyncIdentitiesService.replaceExcludedIdentitiesWithoutReflection(setOf("01234567"))
+
+        // Assert
+        verify(exactly = 0) { taskCreatorMock.scheduleReflectExcludeFromSyncIdentitiesTask() }
     }
 
     @Test
@@ -190,7 +206,7 @@ class ExcludedSyncIdentitiesServiceTest {
         with(excludedSyncIdentitiesService) {
             excludeFromSync("01234567", TriggerSource.SYNC)
             removeExcludedIdentity("01234567", TriggerSource.SYNC)
-            setExcludedIdentities(setOf("01234567"), TriggerSource.SYNC)
+            replaceExcludedIdentities(setOf("01234567"), TriggerSource.SYNC)
         }
 
         // Assert

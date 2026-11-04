@@ -12,4 +12,7 @@ class TestIdentityProvider(
 
     override fun getIdentityString(): IdentityString? =
         identity?.value
+
+    override fun requireIdentityString(): IdentityString =
+        identity?.value ?: error("Identity does not exist")
 }

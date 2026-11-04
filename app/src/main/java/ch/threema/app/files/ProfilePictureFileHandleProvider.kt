@@ -5,6 +5,7 @@ import ch.threema.common.Base32
 import ch.threema.common.clearDirectoryRecursively
 import ch.threema.common.files.FileHandle
 import ch.threema.common.sha256
+import ch.threema.domain.libthreema.LibthreemaAware
 import ch.threema.domain.types.IdentityString
 import ch.threema.localcrypto.MasterKeyProvider
 import java.io.File
@@ -44,6 +45,7 @@ class ProfilePictureFileHandleProvider(
         File(appDirectoryProvider.legacyUserFilesDirectory, LEGACY_PROFILE_PICTURES_DIRECTORY).clearDirectoryRecursively()
     }
 
+    @LibthreemaAware
     companion object {
         private const val PROFILE_PICTURES_DIRECTORY = ".profile-pictures"
         private const val LEGACY_PROFILE_PICTURES_DIRECTORY = ".avatar"

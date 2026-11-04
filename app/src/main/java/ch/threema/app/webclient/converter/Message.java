@@ -1,11 +1,12 @@
 package ch.threema.app.webclient.converter;
 
+import static ch.threema.android.BitmapExtensionsKt.transform;
+import static ch.threema.android.BitmapExtensionsKt.use;
 import static ch.threema.common.JavaCompat.isNullOrEmpty;
 import static ch.threema.storage.models.MessageState.DELIVERED;
 import static ch.threema.storage.models.MessageState.USERACK;
 import static ch.threema.storage.models.MessageState.USERDEC;
 
-import android.content.Context;
 import android.graphics.Bitmap;
 import android.webkit.MimeTypeMap;
 
@@ -14,6 +15,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import org.koin.java.KoinJavaComponent;
 import org.slf4j.Logger;
 
 import java.lang.annotation.Retention;
@@ -24,12 +26,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-import ch.threema.app.ThreemaApplication;
-import ch.threema.app.managers.ServiceManager;
 import ch.threema.app.messagereceiver.MessageReceiver;
-import ch.threema.app.services.FileService;
-import ch.threema.app.services.MessageService;
-import ch.threema.app.services.UserService;
 import ch.threema.app.utils.BitmapUtil;
 import ch.threema.app.utils.FileUtil;
 import ch.threema.app.utils.MessageUtil;
@@ -41,9 +38,9 @@ import ch.threema.app.webclient.utils.ThumbnailUtils;
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 import ch.threema.data.models.EmojiReactionData;
 import ch.threema.domain.protocol.csp.messages.file.FileData;
-import ch.threema.storage.models.AbstractMessageModel;
-import ch.threema.storage.models.FirstUnreadMessageModel;
-import ch.threema.storage.models.group.GroupMessageModel;
+import ch.threema.storage.models.MessageModel;
+import ch.threema.storage.models.GroupMessageModel;
+import ch.threema.storage.models.VirtualMessageUtil;
 import ch.threema.storage.models.data.LocationDataModel;
 import ch.threema.storage.models.data.media.FileDataModel;
 import ch.threema.storage.models.data.status.ForwardSecurityStatusDataModel;
@@ -121,7 +118,7 @@ public class Message extends Converter {
      * Converts multiple message models to MsgpackObjectBuilder instances.
      */
     public static List<MsgpackBuilder> convert(
-        List<AbstractMessageModel> messages,
+        List<MessageModel> messages,
         MessageReceiver messageReceiver,
         boolean sendThumbnail
     ) throws ConversionException {
@@ -129,9 +126,9 @@ public class Message extends Converter {
         // Cloning the list to reverse it is not exactly the most elegant way, but could be
         // replaced by a view based approach later on. As a sidenote, at the point of this writing
         // I'm not sure whether the reversing is necessary at all.
-        ArrayList<AbstractMessageModel> messagesCopy = new ArrayList<>(messages);
+        ArrayList<MessageModel> messagesCopy = new ArrayList<>(messages);
         Collections.reverse(messagesCopy);
-        for (AbstractMessageModel message : messagesCopy) {
+        for (MessageModel message : messagesCopy) {
             builders.add(Message.convert(message, messageReceiver, sendThumbnail, DETAILS_FULL));
         }
         return builders;
@@ -144,28 +141,11 @@ public class Message extends Converter {
      * @param detailLevel     If set to true, then only the most important fields will be serialized.
      */
     public static MsgpackObjectBuilder convert(
-        AbstractMessageModel message,
-        MessageReceiver messageReceiver,
-        boolean sendThumbnail,
-        @DetailLevel int detailLevel
+            @NonNull MessageModel message,
+            MessageReceiver messageReceiver,
+            boolean sendThumbnail,
+            @DetailLevel int detailLevel
     ) throws ConversionException {
-        // Services
-        final ServiceManager serviceManager = ServiceManager.get();
-        if (serviceManager == null) {
-            throw new ConversionException("Could not get service manager");
-        }
-        MessageService messageService;
-        UserService userService;
-        FileService fileService;
-        try {
-            messageService = serviceManager.getMessageService();
-            userService = serviceManager.getUserService();
-            fileService = serviceManager.getFileService();
-        } catch (Exception e) {
-            logger.error("Exception", e);
-            throw new ConversionException("Services not available");
-        }
-
         // Determine message type. Potentially override the mime type if it's a media file message.
         String type = null;
         if (message.getType() == ch.threema.storage.models.MessageType.FILE) {
@@ -218,19 +198,13 @@ public class Message extends Converter {
             builder.put(IS_STATUS, message.isStatusMessage());
 
             if (detailLevel != DETAILS_MINIMAL) {
-                // Extract quote. (Note: We need this even for `DETAILS_NO_QUOTE` because v1 quotes
-                // should be stripped from the body.)
-                final Context context = ThreemaApplication.getAppContext();
-                final QuoteUtil.QuoteContent quoteContent = QuoteUtil.getQuoteContent(
+                // Extract quote
+                QuoteUtil quoteUtil = KoinJavaComponent.get(QuoteUtil.class);
+                final QuoteUtil.QuoteContent quoteContent = quoteUtil.getQuoteContent(
                     message,
                     messageReceiver,
-                    true,
                     null,
-                    context,
-                    messageService,
-                    userService,
-                    fileService,
-                    getPreferenceService().getContactNameFormat()
+                    true
                 );
 
                 if (quoteContent != null) {
@@ -295,7 +269,7 @@ public class Message extends Converter {
     }
 
     @NonNull
-    private static List<ReactionBucket> getReactionBuckets(@NonNull AbstractMessageModel message) throws ConversionException {
+    private static List<ReactionBucket> getReactionBuckets(@NonNull MessageModel message) throws ConversionException {
         try {
             final @NonNull List<EmojiReactionData> reactions = Objects.requireNonNull(getServiceManager())
                 .getModelRepositories()
@@ -379,7 +353,7 @@ public class Message extends Converter {
         return builder;
     }
 
-    private static MsgpackObjectBuilder convertForwardSecurityStatus(AbstractMessageModel message) throws ConversionException {
+    private static MsgpackObjectBuilder convertForwardSecurityStatus(MessageModel message) throws ConversionException {
         final MsgpackObjectBuilder builder = new MsgpackObjectBuilder();
         try {
             ForwardSecurityStatusDataModel forwardSecurityStatusDataModel = message.getForwardSecurityStatusData();
@@ -414,7 +388,7 @@ public class Message extends Converter {
      * Return the body for text, location and status messages. Everything else needs to be
      * requested on demand.
      */
-    private static String getBody(AbstractMessageModel message) {
+    private static String getBody(MessageModel message) {
         switch (message.getType()) {
             case TEXT:
             case STATUS:
@@ -455,7 +429,7 @@ public class Message extends Converter {
         builder.put(EMOJI_REACTIONS, reactionBucketsBuilder);
     }
 
-    private static void maybePutDate(MsgpackObjectBuilder builder, String field, AbstractMessageModel message) {
+    private static void maybePutDate(MsgpackObjectBuilder builder, String field, MessageModel message) {
         Instant date = message.getPostedAt();
 
         // Update time?
@@ -471,7 +445,7 @@ public class Message extends Converter {
         }
     }
 
-    private static void maybePutLastEditedAt(MsgpackObjectBuilder builder, String field, AbstractMessageModel message) {
+    private static void maybePutLastEditedAt(MsgpackObjectBuilder builder, String field, MessageModel message) {
         Instant editedAt = message.getEditedAt();
         if (editedAt != null) {
             builder.put(field, editedAt.getEpochSecond());
@@ -481,7 +455,7 @@ public class Message extends Converter {
     /**
      * If available, add message events to message.
      */
-    private static void maybePutEvents(MsgpackObjectBuilder builder, String field, AbstractMessageModel message) {
+    private static void maybePutEvents(MsgpackObjectBuilder builder, String field, MessageModel message) {
         final Instant createdAt = message.getCreatedAt();
         final Instant sentAt = message.getRawPostedAt();
         final Instant modifiedAt = message.getModifiedAt();
@@ -506,7 +480,7 @@ public class Message extends Converter {
     /**
      * If a caption exists, add it to the MsgpackObjectBuilder.
      */
-    private static void maybePutCaption(MsgpackObjectBuilder builder, String field, AbstractMessageModel message) {
+    private static void maybePutCaption(MsgpackObjectBuilder builder, String field, MessageModel message) {
         String caption = message.getCaption();
         if (isNullOrEmpty(caption) && message.getType() == ch.threema.storage.models.MessageType.FILE) {
             //use description as caption!
@@ -525,9 +499,9 @@ public class Message extends Converter {
     /**
      * If this is a status message, add the status type.
      */
-    private static void maybePutStatusType(MsgpackObjectBuilder builder, String field, AbstractMessageModel message) {
+    private static void maybePutStatusType(MsgpackObjectBuilder builder, String field, MessageModel message) {
         if (message.isStatusMessage()) {
-            if (message instanceof FirstUnreadMessageModel) {
+            if (VirtualMessageUtil.isFirstUnreadMessage(message)) {
                 builder.put(field, "firstUnreadMessage");
             } else {
                 builder.put(field, "text");
@@ -536,11 +510,11 @@ public class Message extends Converter {
     }
 
     private static void maybePutThumbnail(
-        MsgpackObjectBuilder builder,
-        String field,
-        AbstractMessageModel message
+            MsgpackObjectBuilder builder,
+            String field,
+            MessageModel message
     ) {
-        if (MessageUtil.canHaveThumbnailFile(message)) {
+        if (message.getType() == ch.threema.storage.models.MessageType.FILE) {
             try {
                 // Load thumbnail bitmap
                 Bitmap previewBitmap = getServiceManager()
@@ -557,12 +531,14 @@ public class Message extends Converter {
                         );
 
                     // Resize bitmap for preview
-                    previewBitmap = ThumbnailUtils
-                        .resize(previewBitmap, Protocol.SIZE_PREVIEW_MAX_PX);
+                    previewBitmap = transform(previewBitmap, (Bitmap bitmap) ->
+                        ThumbnailUtils.resize(bitmap, Protocol.SIZE_PREVIEW_MAX_PX)
+                    );
 
                     // Convert bitmap to bytes
-                    final byte[] previewBytes = BitmapUtil
-                        .bitmapToByteArray(previewBitmap, Protocol.FORMAT_THUMBNAIL, Protocol.QUALITY_THUMBNAIL);
+                    final byte[] previewBytes = use(previewBitmap, (Bitmap bitmap) ->
+                        BitmapUtil.bitmapToByteArray(bitmap, Protocol.FORMAT_THUMBNAIL, Protocol.QUALITY_THUMBNAIL)
+                    );
 
                     builder.put(field,
                         new MsgpackObjectBuilder()
@@ -571,9 +547,6 @@ public class Message extends Converter {
                             .put(THUMBNAIL_PREVIEW, previewBytes)
                     );
                 }
-
-                // Recycle bitmaps to save memory
-                BitmapUtil.recycle(previewBitmap);
             } catch (Exception x) {
                 logger.error("Exception", x);
             }
@@ -613,7 +586,7 @@ public class Message extends Converter {
 
     static void maybePutFile(
         MsgpackObjectBuilder builder, String field,
-        @NonNull AbstractMessageModel message,
+        @NonNull MessageModel message,
         @Nullable FileDataModel fileData
     ) {
         if (fileData != null) {

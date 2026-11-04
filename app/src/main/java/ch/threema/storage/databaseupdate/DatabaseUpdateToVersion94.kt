@@ -5,6 +5,9 @@ import net.zetetic.database.sqlcipher.SQLiteDatabase
 
 private val logger = getThreemaLogger("DatabaseUpdateToVersion94")
 
+/**
+ * contact table cleanup and changes
+ */
 internal class DatabaseUpdateToVersion94(
     private val sqLiteDatabase: SQLiteDatabase,
 ) : DatabaseUpdate {
@@ -36,8 +39,6 @@ internal class DatabaseUpdateToVersion94(
             sqLiteDatabase.execSQL("ALTER TABLE `$table` DROP COLUMN `$field`")
         }
     }
-
-    override fun getDescription() = "contact table cleanup and changes"
 
     override val version = 94
 }

@@ -8,12 +8,15 @@ import ch.threema.storage.DatabaseState
 import io.mockk.mockk
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 
-class TestDatabaseProvider : DatabaseProvider {
+class TestDatabaseProvider(
+    enforceForeignKeyConstraints: Boolean = true,
+) : DatabaseProvider {
     private val inMemoryDatabaseOpenHelper = DatabaseOpenHelper(
         appContext = ApplicationProvider.getApplicationContext(),
         databaseName = null,
         password = "test-database-key".toByteArray(),
         downgradeHelper = mockk(),
+        enforceForeignKeyConstraints = enforceForeignKeyConstraints,
     )
 
     override val databaseState = stateFlowOf(DatabaseState.READY)

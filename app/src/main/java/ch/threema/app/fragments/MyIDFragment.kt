@@ -21,9 +21,11 @@ import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import ch.threema.android.ToastDuration
+import ch.threema.android.dismissDialog
 import ch.threema.android.showToast
 import ch.threema.app.AppConstants
 import ch.threema.app.BuildConfig
+import ch.threema.app.BuildFlavor
 import ch.threema.app.R
 import ch.threema.app.activities.ExportIDActivity
 import ch.threema.app.activities.ProfilePicRecipientsActivity
@@ -61,8 +63,6 @@ import ch.threema.app.ui.QRCodePopup
 import ch.threema.app.ui.TooltipPopup
 import ch.threema.app.ui.applyDeviceInsetsAsPadding
 import ch.threema.app.usecases.ShareIdentityUseCase
-import ch.threema.app.utils.ConfigUtils
-import ch.threema.app.utils.DialogUtil
 import ch.threema.app.utils.LocaleUtil
 import ch.threema.base.utils.getThreemaLogger
 import ch.threema.common.DispatcherProvider
@@ -268,14 +268,14 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
             }
         }
 
-        if (ConfigUtils.isOnPremBuild()) {
+        if (BuildFlavor.IS_ON_PREM) {
             revocationPasswordLayout.isVisible = false
         }
 
         val myIdentity: IdentityString? = userService.identity
         if (myIdentity != null) {
             myIdView.text = userService.getIdentity()
-            if (ConfigUtils.isOnPremBuild()) {
+            if (BuildFlavor.IS_ON_PREM) {
                 shareIdButton.isVisible = false
             } else {
                 shareIdButton.setOnClickListener {
@@ -435,7 +435,7 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
         updateLinkedEmailTextView(fragmentView)
         updateLinkedMobileTextView(fragmentView)
 
-        if (!ConfigUtils.isOnPremBuild()) {
+        if (!BuildFlavor.IS_ON_PREM) {
             val revocationKeyLastSet = userService.getLastRevocationKeySet()
             fragmentView.findViewById<TextView>(R.id.revocation_key_sum).text = if (revocationKeyLastSet != null) {
                 getString(
@@ -612,11 +612,11 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
     private fun confirmIdDelete() {
         val dialogFragment = GenericAlertDialog.newInstance(
             /* title = */
-            R.string.delete_id_title,
+            R.string.delete_id_menu_title,
             /* message = */
             R.string.delete_id_message,
             /* positive = */
-            R.string.delete_id_title,
+            R.string.delete_id_menu_title,
             /* negative = */
             R.string.cancel,
         )
@@ -667,11 +667,11 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
     private fun showIdDeletionConfirmDialog() {
         val dialogFragment = GenericAlertDialog.newInstance(
             /* title = */
-            R.string.delete_id_title,
+            R.string.delete_id_menu_title,
             /* message = */
             R.string.delete_id_message2,
             /* positive = */
-            R.string.delete_id_title,
+            R.string.delete_id_menu_title,
             /* negative = */
             R.string.cancel,
         )
@@ -680,15 +680,15 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
     }
 
     private fun deleteIdentity() {
-        showProgressDialog(R.string.delete_id_title)
+        showProgressDialog(R.string.delete_id_menu_title)
         lifecycleScope.launch {
             try {
                 resetAppTask.execute()
             } catch (e: Exception) {
                 logger.error("Failed to reset app", e)
                 showToast(R.string.an_error_occurred, ToastDuration.LONG)
-                exitProcess(0)
             }
+            exitProcess(0)
         }
     }
 
@@ -787,7 +787,7 @@ class MyIDFragment : MainFragment(), DialogClickListener, TextEntryDialogClickLi
     }
 
     private fun dismissProgressDialog() {
-        DialogUtil.dismissDialog(parentFragmentManager, DIALOG_TAG_PROGRESS, true)
+        parentFragmentManager.dismissDialog(DIALOG_TAG_PROGRESS)
     }
 
     override fun onYes(tag: String?, text: String, isChecked: Boolean, data: Any?) {

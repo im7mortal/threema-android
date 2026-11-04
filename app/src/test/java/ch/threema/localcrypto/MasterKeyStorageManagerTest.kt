@@ -6,8 +6,11 @@ import ch.threema.localcrypto.models.MasterKeyState
 import ch.threema.localcrypto.models.MasterKeyStorageData
 import ch.threema.localcrypto.models.Version1MasterKeyStorageData
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
 import io.mockk.verify
+import io.mockk.verifyOrder
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
@@ -162,5 +165,27 @@ class MasterKeyStorageManagerTest {
 
         verify(exactly = 0) { version2KeyFileManagerMock.writeKeyFile(storageDataMock) }
         verify(exactly = 0) { version1KeyFileManagerMock.deleteFile() }
+    }
+
+    @Test
+    fun `delete key`() {
+        val version1KeyFileManagerMock = mockk<Version1MasterKeyFileManager> {
+            every { deleteFile() } just runs
+        }
+        val version2KeyFileManagerMock = mockk<Version2MasterKeyFileManager> {
+            every { deleteFile() } just runs
+        }
+        val keyStorageManager = MasterKeyStorageManager(
+            version2KeyFileManager = version2KeyFileManagerMock,
+            version1KeyFileManager = version1KeyFileManagerMock,
+            storageStateConverter = mockk(),
+        )
+
+        keyStorageManager.deleteKey()
+
+        verifyOrder {
+            version1KeyFileManagerMock.deleteFile()
+            version2KeyFileManagerMock.deleteFile()
+        }
     }
 }

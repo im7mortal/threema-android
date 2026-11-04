@@ -4,20 +4,25 @@ import android.content.SharedPreferences
 import androidx.preference.PreferenceManager
 import androidx.work.WorkManager
 import ch.threema.app.utils.AndroidContactUtil
+import ch.threema.app.utils.AppRestarter
 import ch.threema.app.utils.AppVersionProvider
-import ch.threema.app.utils.ConfigUtils
 import ch.threema.app.utils.DeviceIdProvider
-import ch.threema.app.utils.DoNotDisturbUtil
 import ch.threema.app.utils.HibernationUtil
-import ch.threema.app.utils.PrivateDoNotDisturbUtil
+import ch.threema.app.utils.LocaleProvider
+import ch.threema.app.utils.QuoteUtil
 import ch.threema.app.utils.SoundEffectPlayer
-import ch.threema.app.utils.WorkDoNotDisturbUtil
 import ch.threema.app.utils.executor.CoroutineBackgroundExecutor
+import ch.threema.common.DispatcherProvider
+import ch.threema.common.TimeProvider
+import ch.threema.common.UUIDGenerator
+import ch.threema.common.secureRandom
 import ch.threema.domain.models.AppVersion
 import ch.threema.domain.protocol.Version
-import org.koin.core.module.dsl.factoryOf
+import java.security.SecureRandom
+import kotlin.time.TimeSource
 import org.koin.dsl.bind
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.factory
 
 /**
  * Provides access to utility classes.
@@ -26,17 +31,21 @@ import org.koin.dsl.module
  */
 val utilsModule = module {
     factory<AndroidContactUtil> { AndroidContactUtil.getInstance() }
-    factoryOf(::DeviceIdProvider)
+    factory<DeviceIdProvider>()
+    factory<LocaleProvider>()
     factory<SharedPreferences> { PreferenceManager.getDefaultSharedPreferences(get()) }
-    factoryOf(::HibernationUtil)
-    factoryOf(::CoroutineBackgroundExecutor)
+    factory<HibernationUtil>()
+    factory<CoroutineBackgroundExecutor>()
     factory<WorkManager> { WorkManager.getInstance(get()) }
-    factoryOf(::SoundEffectPlayer)
+    factory<SoundEffectPlayer>()
     factory<AppVersion> { AppVersionProvider.appVersion } bind Version::class
+    factory<AppRestarter>()
+    factory<QuoteUtil>()
 
-    if (ConfigUtils.isWorkBuild()) {
-        factoryOf(::WorkDoNotDisturbUtil)
-    } else {
-        factoryOf(::PrivateDoNotDisturbUtil)
-    } bind DoNotDisturbUtil::class
+    // From 'common' Gradle module
+    factory<DispatcherProvider> { DispatcherProvider.default }
+    factory<TimeProvider> { TimeProvider.default }
+    factory<SecureRandom> { secureRandom() }
+    factory<UUIDGenerator> { UUIDGenerator.default }
+    factory<TimeSource.WithComparableMarks> { TimeSource.Monotonic }
 }

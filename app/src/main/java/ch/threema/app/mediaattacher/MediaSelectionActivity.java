@@ -127,7 +127,7 @@ public class MediaSelectionActivity extends MediaSelectionBaseActivity {
     @Override
     public void onItemChecked(int count) {
         if (count > 0) {
-            selectCounterButton.setText(String.format(LocaleUtil.getCurrentLocale(this), "%d", count));
+            selectCounterButton.setText(String.format(LocaleUtil.getCurrentLocale(), "%d", count));
             selectCounterButton.setVisibility(View.VISIBLE);
             controlPanel.setVisibility(View.VISIBLE);
             controlPanel.animate().translationY(0);
@@ -221,6 +221,7 @@ public class MediaSelectionActivity extends MediaSelectionBaseActivity {
                     selectButton.setAlpha(0.3f);
                     selectButton.setOnClickListener(v -> {
                         if (!ActivityCompat.shouldShowRequestPermissionRationale(MediaSelectionActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE)) {
+                            // TODO(ANDR-5211): Use rationale as intended
                             showPermissionRationale(R.string.permission_storage_required);
                         }
 

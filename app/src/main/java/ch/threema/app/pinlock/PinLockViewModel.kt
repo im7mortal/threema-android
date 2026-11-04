@@ -15,6 +15,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
+import org.koin.core.annotation.InjectedParam
 
 private val logger = getThreemaLogger("PinLockViewModel")
 
@@ -22,8 +23,8 @@ class PinLockViewModel(
     private val lockAppService: LockAppService,
     private val preferenceService: PreferenceService,
     private val timeProvider: TimeProvider,
-    private val isCheckOnly: Boolean,
     private val pinLockDeadlineManager: PinLockDeadlineManager,
+    @InjectedParam private val isCheckOnly: Boolean,
 ) : BaseViewModel<PinLockViewState, PinLockScreenEvent>() {
 
     private var failedAttempts: Int
@@ -45,7 +46,8 @@ class PinLockViewModel(
     override suspend fun initialize(): PinLockViewState {
         runWhenActive {
             if (!lockAppService.isLocked && !isCheckOnly) {
-                cancel()
+                emitEvent(PinLockScreenEvent.Cancel)
+                return@runWhenActive
             }
             handleAttemptLockout()
             try {
@@ -146,7 +148,7 @@ class PinLockViewModel(
         if (isCheckOnly) {
             emitEvent(PinLockScreenEvent.Cancel)
         } else {
-            emitEvent(PinLockScreenEvent.NavigateToLauncher)
+            emitEvent(PinLockScreenEvent.CloseApp)
         }
     }
 

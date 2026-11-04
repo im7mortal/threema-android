@@ -10,8 +10,10 @@ class ByteSizeTest {
     fun `orders of magnitude`() {
         assertEquals(1, 1.bytes.bytes)
         assertEquals(1, 1L.bytes.bytes)
-        assertEquals(1000, 1.kiloBytes.bytes)
-        assertEquals(1000, 1L.kiloBytes.bytes)
+        assertEquals(1_000, 1.kiloBytes.bytes)
+        assertEquals(1_000, 1L.kiloBytes.bytes)
+        assertEquals(1_000_000, 1.megaBytes.bytes)
+        assertEquals(1_000_000, 1L.megaBytes.bytes)
     }
 
     @Test
@@ -40,6 +42,12 @@ class ByteSizeTest {
 
     @Test
     fun `string representation`() {
-        assertEquals("1024 bytes", 1024.bytes.toString())
+        assertEquals("0 bytes", 0.bytes.toString())
+        assertEquals("1 bytes", 1.bytes.toString())
+        assertEquals("512 bytes", 512.bytes.toString())
+        assertEquals("1.024 kilobytes", 1024.bytes.toString())
+        assertEquals("2.0 megabytes", 2000.kiloBytes.toString())
+        assertEquals("2.0 megabytes", 2.megaBytes.toString())
+        assertEquals("4000.001 megabytes", 4_000_001.kiloBytes.toString())
     }
 }

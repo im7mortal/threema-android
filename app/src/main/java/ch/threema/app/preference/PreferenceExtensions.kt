@@ -1,6 +1,7 @@
 package ch.threema.app.preference
 
 import androidx.preference.DropDownPreference
+import androidx.preference.MultiSelectListPreference
 import androidx.preference.Preference
 import ch.threema.base.utils.getThreemaLogger
 import kotlin.reflect.KClass
@@ -48,4 +49,10 @@ fun DropDownPreference.refresh() {
         isEnabled = false
         isEnabled = true
     }
+}
+
+fun <T> MultiSelectListPreference.init(options: List<Pair<T, String>>, selectedOptions: Set<T>, keyToString: (T) -> String) {
+    entries = options.map { (_, label) -> label }.toTypedArray()
+    entryValues = options.map { (key, _) -> keyToString(key) }.toTypedArray()
+    values = selectedOptions.map(keyToString).toSet()
 }

@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import ch.threema.android.ToastDuration
+import ch.threema.android.dismissDialog
 import ch.threema.android.showToast
 import ch.threema.app.R
 import ch.threema.app.dialogs.GenericProgressDialog
@@ -134,11 +135,7 @@ object GroupCallUtil {
                     ).run()
                 }
 
-                DialogUtil.dismissDialog(
-                    activity.supportFragmentManager,
-                    dialogTagFetchingFeatureMask,
-                    true,
-                )
+                activity.supportFragmentManager.dismissDialog(dialogTagFetchingFeatureMask)
 
                 launchGroupCallWithSupportedMembers(activity, groupModel, otherMembers)
             }

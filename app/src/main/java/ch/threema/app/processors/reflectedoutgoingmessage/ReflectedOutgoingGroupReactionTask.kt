@@ -6,7 +6,7 @@ import ch.threema.app.tasks.runCommonReactionMessageReceiveSteps
 import ch.threema.domain.protocol.csp.messages.GroupReactionMessage
 import ch.threema.protobuf.common.CspE2eMessageType
 import ch.threema.protobuf.d2d.OutgoingMessage
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 
 internal class ReflectedOutgoingGroupReactionTask(
     outgoingMessage: OutgoingMessage,
@@ -25,7 +25,7 @@ internal class ReflectedOutgoingGroupReactionTask(
             "The message does not have a group identity set"
         }
 
-        val targetMessage: AbstractMessageModel = runCommonReactionMessageReceiveSteps(
+        val targetMessage: MessageModel = runCommonReactionMessageReceiveSteps(
             reactionMessage = message,
             receiver = messageReceiver,
             messageService = messageService,

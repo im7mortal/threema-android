@@ -6,7 +6,7 @@ import ch.threema.app.tasks.runCommonReactionMessageReceiveSteps
 import ch.threema.domain.protocol.csp.messages.ReactionMessage
 import ch.threema.protobuf.common.CspE2eMessageType
 import ch.threema.protobuf.d2d.OutgoingMessage
-import ch.threema.storage.models.AbstractMessageModel
+import ch.threema.storage.models.MessageModel
 
 internal class ReflectedOutgoingReactionTask(
     outgoingMessage: OutgoingMessage,
@@ -21,7 +21,7 @@ internal class ReflectedOutgoingReactionTask(
     private val userService = serviceManager.userService
 
     override fun processOutgoingMessage() {
-        val targetMessage: AbstractMessageModel = runCommonReactionMessageReceiveSteps(
+        val targetMessage: MessageModel = runCommonReactionMessageReceiveSteps(
             reactionMessage = message,
             receiver = messageReceiver,
             messageService = messageService,

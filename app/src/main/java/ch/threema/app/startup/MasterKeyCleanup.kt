@@ -1,6 +1,8 @@
 package ch.threema.app.startup
 
 import android.content.Context
+import androidx.annotation.WorkerThread
+import ch.threema.app.files.AppDirectoryProvider
 import ch.threema.app.stores.EncryptedPreferenceStore
 import ch.threema.app.stores.PreferenceStore
 import ch.threema.storage.DatabaseNonceStore
@@ -13,9 +15,11 @@ import org.koin.mp.KoinPlatform
  * This mainly happens when the setup wizard is aborted and then the app is restarted, as the master key is only persisted
  * at the end of the wizard. Therefore, all data stored prior to that can never be decrypted because the master key will be lost.
  */
+@WorkerThread
 fun deleteOrphanedUserData(context: Context) {
     deleteDatabaseFiles(context)
     deleteAllPreferences()
+    deleteAllUserFiles()
 }
 
 private fun deleteDatabaseFiles(context: Context) {
@@ -41,4 +45,8 @@ private fun deleteDatabaseFiles(context: Context) {
 private fun deleteAllPreferences() {
     KoinPlatform.getKoin().get<PreferenceStore>().clear()
     KoinPlatform.getKoin().get<EncryptedPreferenceStore>().clear()
+}
+
+private fun deleteAllUserFiles() {
+    KoinPlatform.getKoin().get<AppDirectoryProvider>().userFilesDirectory.deleteRecursively()
 }

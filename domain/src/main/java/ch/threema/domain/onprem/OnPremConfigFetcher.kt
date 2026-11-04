@@ -28,6 +28,7 @@ class OnPremConfigFetcher(
     private val onPremConfigStore: OnPremConfigStore,
     private val serverParameters: OnPremServerConfigParameters,
     private val timeProvider: TimeProvider,
+    private val appIdentifier: String?,
 ) {
     private var inMemoryCache: OnPremConfig? = null
 
@@ -125,6 +126,9 @@ class OnPremConfigFetcher(
             if (username != null && password != null) {
                 header(Http.Header.AUTHORIZATION, Credentials.basic(username, password))
             }
+            if (appIdentifier != null) {
+                header(HEADER_APP_IDENTIFIER, appIdentifier)
+            }
         }
 
         val oppfString = try {
@@ -163,6 +167,7 @@ class OnPremConfigFetcher(
         license.expires > timeProvider.get()
 
     companion object {
+        private const val HEADER_APP_IDENTIFIER = "X-App-Identifier"
         private val unauthorizedMinRetryInterval = 3.minutes
         private val fallbackDelay = 10.seconds
     }

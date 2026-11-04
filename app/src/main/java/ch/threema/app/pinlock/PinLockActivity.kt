@@ -42,9 +42,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.lifecycleScope
 import ch.threema.android.ResolvableString
 import ch.threema.android.buildActivityIntent
-import ch.threema.android.navigateToLauncher
 import ch.threema.android.toResolvedString
 import ch.threema.app.R
+import ch.threema.app.activities.CloseAppActivity
 import ch.threema.app.activities.ThreemaAppCompatActivity
 import ch.threema.app.compose.common.BlockScreenCapture
 import ch.threema.app.compose.common.buttons.primary.ButtonPrimary
@@ -123,8 +123,8 @@ class PinLockActivity : ThreemaAppCompatActivity() {
                 setResult(RESULT_CANCELED)
                 finish()
             }
-            PinLockScreenEvent.NavigateToLauncher -> {
-                navigateToLauncher()
+            PinLockScreenEvent.CloseApp -> {
+                CloseAppActivity.closeApp(this)
             }
         }
     }
