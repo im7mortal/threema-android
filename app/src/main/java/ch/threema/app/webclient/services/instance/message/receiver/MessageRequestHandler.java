@@ -8,9 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 import androidx.annotation.AnyThread;
-import androidx.annotation.NonNull;
 import androidx.annotation.WorkerThread;
-import ch.threema.app.services.ConversationCategoryService;
 import ch.threema.app.services.MessageService;
 import ch.threema.app.webclient.Protocol;
 import ch.threema.app.webclient.converter.Message;
@@ -23,7 +21,8 @@ import ch.threema.app.webclient.services.instance.MessageReceiver;
 
 import static ch.threema.base.utils.LoggingKt.getThreemaLogger;
 
-import ch.threema.storage.models.AbstractMessageModel;
+import ch.threema.data.datatypes.ConversationCategory;
+import ch.threema.storage.models.MessageModel;
 
 /**
  * Webclient is requesting messages.
@@ -34,8 +33,6 @@ public class MessageRequestHandler extends MessageReceiver {
 
     private final MessageDispatcher dispatcher;
     private final MessageService messageService;
-    @NonNull
-    private final ConversationCategoryService conversationCategoryService;
     private final Listener listener;
 
     @WorkerThread
@@ -47,14 +44,12 @@ public class MessageRequestHandler extends MessageReceiver {
     public MessageRequestHandler(
         MessageDispatcher dispatcher,
         MessageService messageService,
-        @NonNull ConversationCategoryService conversationCategoryService,
         Listener listener
     ) {
         super(Protocol.SUB_TYPE_MESSAGES);
 
         this.dispatcher = dispatcher;
         this.messageService = messageService;
-        this.conversationCategoryService = conversationCategoryService;
         this.listener = listener;
     }
 
@@ -77,7 +72,7 @@ public class MessageRequestHandler extends MessageReceiver {
         try {
             ch.threema.app.messagereceiver.MessageReceiver<?> receiver = this.getReceiver(args);
 
-            if (this.conversationCategoryService.isMarkedAsPrivate(receiver.getConversationId())) {
+            if (receiver.getConversationCategory() == ConversationCategory.PROTECTED) {
                 //ignore it
                 logger.debug("do not reply with messages on private chat");
                 return;
@@ -102,7 +97,7 @@ public class MessageRequestHandler extends MessageReceiver {
 
         try {
             // Get messages
-            final List<AbstractMessageModel> messages = messageService.getMessagesForReceiver(
+            final List<MessageModel> messages = messageService.getMessagesForReceiver(
                 receiver, messageFilter, false);
 
             // Set additional args
@@ -118,7 +113,7 @@ public class MessageRequestHandler extends MessageReceiver {
             }
 
             if (messages != null) {
-                messages.removeIf(AbstractMessageModel::isDeleted);
+                messages.removeIf(message -> message.isDeleted() && message.getBody() == null && message.getCaption() == null);
             }
 
             // Convert and send messages
