@@ -350,7 +350,7 @@ private fun StarredMessageUiModel.showMediaPreview(): Boolean {
     return messageModel.type == MessageType.FILE || messageModel.type == MessageType.POLL
 }
 
-private fun AbstractMessageModel.shouldShowDeletedPlaceholder(): Boolean =
+private fun MessageModel.shouldShowDeletedPlaceholder(): Boolean =
     isDeleted && body == null && caption == null
 
 @Composable
